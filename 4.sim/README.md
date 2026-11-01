@@ -26,7 +26,7 @@ SPDX-License-Identifier: BSD-3-Clause
 * [Driving the Wireguard Logic Ethernet Ports](#driving-the-wireguard-logic-ethernet-ports)
   * [_udpIpPg_ Software](#udpippg-software)
   + [System-Level Ethernet Simulation](#system-level-ethernet-simulation)
-* [Co-simulation HAL](#co-simulation-hal)
+* [HAL](#hal)
 * [Tool Versions](#tool-versions)
 * [References](#references)
 
@@ -155,7 +155,7 @@ uint32_t ReadRamWord   (const uint64_t addr, const int little_endian, const uint
 
 Note that, as C functions, there are no default parameters and the <tt>little_endian</tt> and <tt>node</tt> arguments must be passed in, even though they are constant. The <tt>little_endian</tt> argument is non-zero for little endian and zero for big endian. The <tt>node</tt> argument is **not** the same as for VProc, but allows multiple separate memory spaces to be modelled, just as for VProc multiple virtual processor instantiations. For Wireguard, this is always 0. All instantiated <tt>mem_model</tt> components in the HDL have (through the DPI) access to the same memory space model as the API, and so data can be exchanged from the simulation and the running code, such as the RISC-V programs over the IMEM write interface.
 
-Compiling co-designed application code, either compiled for the native host machine, or to run on the <tt>rv32</tt> RISC-V ISS will need further layers on top of these APIs, which will be virtualised away by that point ([see the sections below](#co-simulation-hal)). The diagram below summarises the software layers that make up a program running on the VProc HDL component. The "native test code" use case, shown at the top left, is for the case just described above  that use the APIs directly.
+Compiling co-designed application code, either compiled for the native host machine, or to run on the <tt>rv32</tt> RISC-V ISS will need further layers on top of these APIs, which will be virtualised away by that point ([see the sections below](#hal)). The diagram below summarises the software layers that make up a program running on the VProc HDL component. The "native test code" use case, shown at the top left, is for the case just described above  that use the APIs directly.
 
 <p align="center">
 <img src="https://github.com/user-attachments/assets/373676ee-f7e2-4a1a-b9b9-079ccef90c37" width=800>
@@ -165,7 +165,7 @@ Compiling co-designed application code, either compiled for the native host mach
 
 #### Natively Compiled Application
 
-As well as native test code like the above, the Wireguard firmware itself is compiled for the host: that is the default build (`BUILD=DEFAULT`). <tt>MakefileVProc.mk</tt> compiles <tt>2.sw/app</tt> as C++ with <tt>main</tt> renamed <tt>fw_main</tt>, and <tt>usercode/VUserMain0.cpp</tt> calls it. Its register accesses become VProc bus cycles on the <tt>soc_if bus</tt> port of the <tt>soc_cpu</tt> component, with the addresses and byte enables of the RISC-V core ([Co-simulation HAL](#co-simulation-hal)).
+As well as native test code like the above, the Wireguard firmware itself is compiled for the host: that is the default build (`BUILD=DEFAULT`). <tt>MakefileVProc.mk</tt> compiles <tt>2.sw/app</tt> as C++ with <tt>main</tt> renamed <tt>fw_main</tt>, and <tt>usercode/VUserMain0.cpp</tt> calls it. Its register accesses become VProc bus cycles on the <tt>soc_if bus</tt> port of the <tt>soc_cpu</tt> component, with the addresses and byte enables of the RISC-V core ([HAL](#hal)).
 
 #### RISC-V Compiled Application
 
@@ -544,7 +544,9 @@ Payload (64 bytes):
     - `merge_node2.pcap`, `merge_node4.pcap` – TX+RX merged on a single timeline
   - In Wireshark: set Time Display to “Seconds Since Epoch” or “Date and Time of Day”. Start-to-start latency (TX→RX) should match what you measure in `wave.fst` via GTKWave.
 
-## Co-simulation HAL
+## HAL
+
+One HAL, [`csr_regs.h`](../3.build/csr_build/csr_regs.h), serves the firmware everywhere: on the RISC-V core (eduBOS5) and compiled for the host in co-simulation. There is no separate co-simulation HAL: only its back end changes, the lines under `#ifdef VPROC` that turn each access into a _VProc_ bus cycle.
 
 The firmware reaches the CSR through four macros in [`csr_regs.h`](../3.build/csr_build/csr_regs.h), which take every address from the `peakrdl`-generated `csr.h` ([3.build](../3.build/README.md#csr-hal-compilation)):
 

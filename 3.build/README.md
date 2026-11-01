@@ -30,7 +30,7 @@ The firmware includes [`csr_regs.h`](csr_build/csr_regs.h), next to `csr.rdl` an
 | `CSR_SET(member, FLD, v)` | one field that owns its bytes: a byte, half-word or word store | `CSR_SET(cpu_fifo.rx.control, CSR__CPU_FIFO__RX__CONTROL__TKEEP, 0xFFFF);` |
 | `CSR_RMW(member, FLD, v)` | one field that shares a byte: read, then store only its bytes | `CSR_RMW(gpio, CSR__GPIO__LED1, 1);` |
 
-`FLD` is the field prefix `csr.h` defines (`_bm`, `_bp`, `_bw`). On the RISC-V core these are plain loads and stores (`lw`, `sb`, `sh`, `sw`). In co-simulation the same firmware is compiled for the host, and each access becomes one *VProc* bus cycle with the same address and byte enables ([4.sim](../4.sim/README.md#co-simulation-hal)). One header, one source, for both.
+`FLD` is the field prefix `csr.h` defines (`_bm`, `_bp`, `_bw`). On the RISC-V core these are plain loads and stores (`lw`, `sb`, `sh`, `sw`). In co-simulation the same firmware is compiled for the host, and each access becomes one *VProc* bus cycle with the same address and byte enables ([4.sim](../4.sim/README.md#hal)). One header, one source, for both.
 
 ## SW Compilation
 

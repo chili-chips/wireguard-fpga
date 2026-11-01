@@ -223,9 +223,9 @@ The figure below shows an oveview block diagram of the test bench HDL.
 
 More details on the architecture and usage of the Wireguard test bench can be found in the [README.md](4.sim/README.md) in the `4.sim` directory.
 
-## Co-simulation HAL
+## HAL
 
-The control and status register (CSR) RTL and the firmware's register header are [auto-generated](3.build/README.md#csr-hal-compilation) from one SystemRDL file, [`3.build/csr_build/csr.rdl`](3.build/csr_build/csr.rdl), with [`peakrdl`](https://peakrdl-cheader.readthedocs.io/en/latest/). The firmware reaches every register through four macros in `csr_regs.h`: `CSR_REG32`, `CSR_GET`, `CSR_SET`, `CSR_RMW`. They are loads and stores on the RISC-V core, and *VProc* bus cycles when the same firmware is compiled for the host in co-simulation ([4.sim](4.sim/README.md#co-simulation-hal)). One header and one source for both, with no generator beyond `peakrdl`.
+The control and status register (CSR) RTL and the firmware's register header are [auto-generated](3.build/README.md#csr-hal-compilation) from one SystemRDL file, [`3.build/csr_build/csr.rdl`](3.build/csr_build/csr.rdl), with [`peakrdl`](https://peakrdl-cheader.readthedocs.io/en/latest/). The firmware reaches every register through four macros in `csr_regs.h`: `CSR_REG32`, `CSR_GET`, `CSR_SET`, `CSR_RMW`. They are loads and stores on the RISC-V core, and *VProc* bus cycles when the same firmware is compiled for the host in co-simulation ([4.sim](4.sim/README.md#hal)). One header and one source for both, with no generator beyond `peakrdl`.
 
 ### CSR access, step by step
 
@@ -235,7 +235,7 @@ The control and status register (CSR) RTL and the firmware's register header are
 | 2026-10 | `csr_hw.h` (generated): each class laid out like its registers | one load or store | a byte or half-word store when the field fills whole bytes | 23,308 B | 3,112 B |
 | now | `csr_regs.h` macros on the `peakrdl` header | one load or store | the same; a read-modify-write stores only the field's bytes | 24,452 B | 3,108 B |
 
-The last step drops the generated C++ class trees (`csr_hw.h`, `csr_cosim.h` and their generator) for one header that serves both the hardware and the co-simulation, as on [openPCIE](https://github.com/chili-chips-ba/openPCIE/blob/main/5.sim/README.md#co-simulation-hal). It costs 1.1 kB of code.
+The last step drops the generated C++ class trees (`csr_hw.h`, `csr_cosim.h` and their generator) for one header that serves both the hardware and the co-simulation, as on [openPCIE](https://github.com/chili-chips-ba/openPCIE/blob/main/5.sim/README.md#hal). It costs 1.1 kB of code.
 
 ## Build process
 The details of the build process can be found in the [README.md](3.build/README.md) in the `3.build/` directory.
