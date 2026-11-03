@@ -1,8 +1,9 @@
 # Pipelined Poly1305: design and measured checkpoints
 
 The current default is the 256-bit, 80 MHz `inferred_body` design with private
-AUTO_FSM setup/finalization and shared ChaCha20. See the [README's baseline and
-current results](../../README.md#baseline-before-the-throughput-work).
+AUTO_FSM setup/finalization and shared ChaCha20. See the [current
+results](../../README.md#current-results) and the separate
+[baseline appendix](../../README.md#appendix-baseline-results).
 This document retains historical design findings and measurement summaries;
 raw logs, source snapshots and measurement directories are not shipped in Git.
 Run identifiers and local build paths below describe historical experiments,
@@ -474,7 +475,7 @@ These public commands select the measured profiles without investigation scripts
 ```
 
 For the full QoR workload, use the command in the
-[README measurement section](../../README.md#measuring-qor-fmax-area-throughput-latency).
+[README measurement section](../../README.md#measuring-qor).
 It builds the external-port hardware top itself and takes area and timing from
 it. `--continue` retains one output directory;
 `--syn-cache` reuses matching HDL/XDC/device/tool inputs across directories.
@@ -584,7 +585,7 @@ There are no inverse powers, fixed production depths or automatic maximums.
 The following discussion records the inferred arithmetic before the hybrid
 integration. Historical 60/70/80/85 MHz external-port results and the 90 MHz
 capacity stop are documented in [the arithmetic comparison above](#arithmetic-probes-and-candidate-selection).
-The [README](../../README.md#current-results-published-256-bit-paired-poly1305-at-80-mhz)
+The [README](../../README.md#current-results)
 summarizes the current default.
 
 MCP setup cycles exclude the one response handshake cycle: the latest

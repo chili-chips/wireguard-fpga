@@ -1320,15 +1320,68 @@ BLOCKS_BEGIN = "<!-- BLOCK-RESULTS:BEGIN -->"
 BLOCKS_END = "<!-- BLOCK-RESULTS:END -->"
 
 
+def readme_table(results):
+    """Compact publication view; detailed local reports use markdown_table."""
+    timing = results["fmax"]
+    area = results["area"]
+    fmax_label = ("Synthesis fmax lower bound" if timing.get("design_mhz_is_lower_bound")
+                  else "Synthesis fmax")
+    lines = [
+        "| Target clock | " + fmax_label + " | LUT | FF | DSP48 | BRAM tiles |",
+        "| ---: | ---: | ---: | ---: | ---: | ---: |",
+        f"| {_fmt(timing.get('target_mhz'), '.0f')} MHz "
+        f"| {_fmt(timing.get('design_mhz'), '.2f')} MHz "
+        f"| {_fmt(area.get('lut_total'), ',.0f')} | {_fmt(area.get('ff_total'), ',.0f')} "
+        f"| {_fmt(area.get('dsp48'), '.0f')} | {_fmt(area.get('bram_tiles'), '.1f')} |",
+        "",
+    ]
+    config = results["config"]
+    directions = ", ".join(config.get("dirs", DIRECTIONS))
+    lines.extend([
+        f"Native pipelined simulation; directions: {directions}; "
+        f"{config.get('packets_per_size', '-')} packets per size/direction; "
+        f"seed {config.get('seed', '-')}. Throughput uses packet-completion intervals.",
+        "",
+        "| Payload bytes | Direction | Sustained B/cycle | Packet period (cycles) | "
+        f"Gb/s @{_fmt(timing.get('target_mhz'), '.0f')} MHz | Cold first output (cycles) | "
+        "Median total latency (cycles) |",
+        "| ---: | --- | ---: | ---: | ---: | ---: | ---: |",
+    ])
+    for phase in results["phases"]:
+        for direction in DIRECTIONS:
+            measured = phase.get(direction)
+            if not measured:
+                continue
+            latency = measured.get("latency_cycles", {})
+            lines.append(
+                f"| {phase['packet_bytes']} | {direction} "
+                f"| {_fmt(measured.get('throughput_bytes_per_cycle'))} "
+                f"| {_fmt(measured.get('packet_period_cycles'), '.1f')} "
+                f"| {_fmt(measured.get('gbps_at_target'))} "
+                f"| {_fmt(latency.get('cold_head'), '.0f')} "
+                f"| {_fmt(latency.get('total_med'), '.1f')} |"
+            )
+    return "\n".join(lines)
+
+
 def _stamp(results):
     provenance = results["provenance"]
+
+    def revision(value):
+        value = value or "?"
+        base, frozen, snapshot = value.partition("-frozen-")
+        text = f"`{base[:12]}`"
+        if base.endswith("-dirty"):
+            text += " (with local changes)"
+        if frozen:
+            text += f" (frozen source snapshot `{snapshot[:12]}`)"
+        return text
+
     return (
-        f"_Measured on {results['generated_utc']}"
-        f" — wireguard-fpga `{(provenance.get('wireguard_fpga_git') or '?')[:12]}`,"
-        f" PipelineC `{(provenance.get('pipelinec_git') or '?')[:12]}`,"
-        f" Vivado {provenance.get('vivado_version')},"
-        f" {provenance.get('cycles_run')} cycles."
-        " Raw artifacts are local build outputs and are not included in the repository._"
+        f"_Measured sources: wireguard-fpga {revision(provenance.get('wireguard_fpga_git'))}; "
+        f"PypelineC {revision(provenance.get('pipelinec_git'))}; "
+        f"Vivado {provenance.get('vivado_version', '-')}. "
+        "Full provenance and raw artifacts are retained in local measurement outputs._"
     )
 
 
@@ -2985,7 +3038,7 @@ def main():
     run_returncode = results["provenance"].get("build_returncode") or 0
     measurement_ok = not errors
     if args.update_readme and measurement_ok:
-        update_readme(markdown_table(results, include_mac_details=False), results, block_summary)
+        update_readme(readme_table(results), results, block_summary)
     elif args.update_readme:
         print("!! Incomplete or failing measurement; README results not replaced", file=sys.stderr)
 

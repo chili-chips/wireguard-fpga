@@ -156,7 +156,7 @@ per-direction dataflow wiring + both testbench styles' shared support:
 `aead_ref_model.py`, `tb_common.py`, `tb_common_sim.py`) · top-level
 `chacha20poly1305{,_tb,_syn_tb,_perf_tb}.py` (hw / sim-non-synth / sim-synth /
 perf tops, each for `-D DESIGN=encrypt|decrypt|shared`). See `README.md`'s "Source Layout"
-section for the full per-file breakdown.
+section for the concise source map.
 
 ## Testbench Styles (every one of the 3 design variants has both)
 
@@ -220,7 +220,7 @@ generally:
   collect the small-packet curve for the final README QoR table, also using
   only enough packets for a stable measurement on the existing hardware.
 
-See README's [throughput measurement strategy](README.md#throughput-measurement-strategy)
+See README's [throughput measurement](README.md#throughput-measurement)
 for commands and interpretation. Every hardware variant shares the store
 `generated-files/syn_cache`, which keeps latency memory, AUTO_FSM schedules and
 exact synthesis reports; do not substitute an older snapshot or a hints file
@@ -235,7 +235,7 @@ message may be followed by a restored cached report; distinguish that from an
 actual Vivado launch. Investigate unexpected misses in the selected path,
 snapshot contents and synthesis signatures; do not bypass compatibility checks
 or force fixed latencies. See README's
-[cache reuse guidance](README.md#choosing-and-carrying-forward-a-synthesis-cache).
+[build and cache controls](README.md#build-and-simulation-controls).
 
 Known block latencies do not replace whole-design timing/area confirmation after
 a FIFO or connection change. Report whether running synthesis is block
@@ -295,18 +295,24 @@ refuses it) and costs one rebuild; once the probes are in place,
 - a new block needs an entry in `bottleneck.py`'s `BLOCKS` to appear in the
   rollup.
 
-**README.md retains the branch's starting baseline summary and CURRENT QoR.**
-Keep the compact legacy baseline table and measurement conditions for comparison.
+**README.md describes the current default, with baseline results in an appendix.**
+Keep the compact baseline table and its measurement conditions in that appendix;
+present current results independently, without baseline speedup comparisons.
 The current boundary QoR table is between the `MEASURED-RESULTS` markers;
 `./measure.py … --update-readme` replaces that region with the accepted result
-and a provenance stamp that omits local paths. The `BLOCK-RESULTS` region
+using the compact README formatter and a provenance stamp that omits local paths.
+The `BLOCK-RESULTS` region
 explains how to obtain `blocks.md` locally; never publish a broken link to an
 ignored measurement directory. Full per-block/FSM/buffer tables, logs and raw
 JSON/CSV stay under ignored `generated-files/measurements/<label>/`.
-Rewrite the hand-written current interpretation and baseline comparison when
-publishing a new result. Other historical findings belong in component notes.
+Keep default-profile descriptions consistent when publishing a new result.
+Other useful historical findings belong in component notes; stale investigations,
+compiler internals and debugging stories do not belong in the README.
+Use PypelineC for the tool and Pypeline for the language; PipelineC names the
+earlier language or a literal repository path. Non-default configurations belong
+only in the README's options tables, apart from the historical baseline appendix.
 
-See README.md's "Measuring QoR" and "Probing inside the design" sections.
+See README.md's "Measuring QoR" and "Finding a bottleneck" sections.
 
 ## Wiring Style: interface functions, not hand-threaded `Wire`s
 
@@ -372,6 +378,6 @@ enum literals (a port must not be named e.g. `poly_key` if
 `POLY_KEY` is an enum member) — native sim/elaboration won't catch this, only
 real synthesis will.
 
-See `README.md`'s "Wiring Style" section for the full worked
-example (the decrypt dataflow core's body) and the complete conventions list
-vs. the C sources.
+The README's [PipelineC comparison](README.md#comparison-with-the-earlier-pipelinec-design)
+briefly summarizes these conventions; detailed wiring guidance stays here and
+in the source.
