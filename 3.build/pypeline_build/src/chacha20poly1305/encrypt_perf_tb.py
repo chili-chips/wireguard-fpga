@@ -4,9 +4,9 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 """Encrypt-side PERFORMANCE testbench: streams the perf_tb_common.py phase plan
-(N back-to-back packets per packet size, then one long packet) through the
+(N back-to-back packets per packet size, then the long-packet peak) through the
 encrypt datapath with zero source gaps and no output backpressure, while
-perf_probe.py measures duty cycle, per-packet latency and window cycles.
+PipelineC's stream_perf.py measures duty cycle, per-packet latency and window cycles.
 
 This is a measurement rig, not a replacement for encrypt_tb.py / encrypt_syn_tb.py:
 it still checks every packet's ciphertext+tag against the reference model (a perf
@@ -28,15 +28,15 @@ from aead_types import (
     CHACHA20_KEY_SIZE,
     CHACHA20_NONCE_SIZE,
     AAD_MAX_LEN,
-    axis128_intrf,
+    aead_axis_intrf,
 )
-from axi.axis_sim import AxisSimSource, AxisSimSink, Scoreboard
+from axi.axis_sim import AxisSimSink, Scoreboard
 import tb_common_sim as common
 import perf_tb_common as perf
 
 _scoreboard = Scoreboard()
-_src = AxisSimSource(axis128_intrf, perf.BUS_BYTES)
-_snk = AxisSimSink(axis128_intrf, perf.BUS_BYTES, scoreboard=_scoreboard)
+_src = common.ConvergedAxisSource(aead_axis_intrf, perf.BUS_BYTES)
+_snk = AxisSimSink(aead_axis_intrf, perf.BUS_BYTES, scoreboard=_scoreboard)
 _runner = perf.make_runner(
     "encrypt", _src, _snk, _scoreboard, perf.encrypt_frame_builder
 )
@@ -47,22 +47,9 @@ def _keep_count(stream):
 
 
 @sim_input
-def drive_in_word() -> axis128_intrf.stream_t:
+def drive_in_word() -> aead_axis_intrf.stream_t:
     _runner.prepare_input()
-    # axis_in_if.ready is Reg-driven downstream (buffer-occupancy based, not a
-    # same-cycle function of this cycle's valid), so it is stable at the start
-    # of the cycle -- safe to read here to tell an accepted beat from a stall.
-    ready = 1 if chacha20poly1305_encrypt_ports.axis_in_if.ready else 0
-    word = _src.step(ready)
-    stream = word.stream
-    valid = 1 if stream.valid else 0
-    _runner.note_in(
-        valid=valid,
-        ready=ready,
-        keep_count=_keep_count(stream) if valid else 0,
-        eod=1 if stream.data.eod[0] else 0,
-    )
-    return stream
+    return _src.drive().stream
 
 
 @initial(sim=True)
@@ -74,6 +61,13 @@ def announce():
 
 @sim_output
 def measure_out():
+    incoming = chacha20poly1305_encrypt_ports.axis_in_if.stream
+    ready = int(chacha20poly1305_encrypt_ports.axis_in_if.ready)
+    valid = int(incoming.valid)
+    _runner.note_in(valid=valid, ready=ready,
+                    keep_count=_keep_count(incoming) if valid else 0,
+                    eod=int(incoming.data.eod[0]))
+    _src.commit(ready)
     stream = chacha20poly1305_encrypt_ports.axis_out_if.stream
     valid = 1 if stream.valid else 0
     _runner.note_out(
@@ -81,7 +75,7 @@ def measure_out():
         keep_count=_keep_count(stream) if valid else 0,
         eod=1 if stream.data.eod[0] else 0,
     )
-    _snk.step(axis128_intrf.fwd_t(stream))
+    _snk.step(aead_axis_intrf.fwd_t(stream))
     result = _snk.check_nowait()
     if result is not None:
         message = None
@@ -103,9 +97,9 @@ def measure_out():
     _runner.tick()
 
 
-@MAIN
+@MAIN(wireguard_env.TARGET_MHZ)
 @wires
-def encrypt_perf_tb() -> axis128_intrf.fwd_t:
+def encrypt_perf_tb() -> aead_axis_intrf.fwd_t:
     key: uint8_t[CHACHA20_KEY_SIZE] = common.KEY
     nonce: uint8_t[CHACHA20_NONCE_SIZE] = common.NONCE
     aad: uint8_t[AAD_MAX_LEN] = common.AAD
@@ -123,4 +117,4 @@ def encrypt_perf_tb() -> axis128_intrf.fwd_t:
     measure_out()
 
     # dummy return so nothing optimizes away
-    return axis128_intrf.fwd_t(chacha20poly1305_encrypt_ports.axis_out_if.stream)
+    return aead_axis_intrf.fwd_t(chacha20poly1305_encrypt_ports.axis_out_if.stream)

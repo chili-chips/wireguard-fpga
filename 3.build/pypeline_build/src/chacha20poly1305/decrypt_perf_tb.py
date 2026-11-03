@@ -13,14 +13,14 @@ decrypt_syn_tb.py, where it cannot perturb a timing window.
 
 Note the decrypt input frame carries 16 bytes of auth tag on top of the
 plaintext length, so its line bytes exceed the encrypt side's for the same
-goodput -- perf_probe.py records goodput and line bytes separately rather than
+goodput -- stream_perf.py records goodput and line bytes separately rather than
 averaging the asymmetry away.
 
 Only runs under Pypeline's native --sim mode (`./build.py --shared --perf`).
 """
 import wireguard_env  # noqa: F401
 
-from pypeline import MAIN, initial, sim_input, sim_output, sim_print, uint8_t, wires
+from pypeline import MAIN, Output, initial, sim_input, sim_output, sim_print, uint1_t, uint8_t, wires
 
 import chacha20poly1305_decrypt_ports
 
@@ -28,18 +28,22 @@ from aead_types import (
     CHACHA20_KEY_SIZE,
     CHACHA20_NONCE_SIZE,
     AAD_MAX_LEN,
-    axis128_intrf,
+    aead_axis_intrf,
 )
-from axi.axis_sim import AxisSimSource, AxisSimSink, Scoreboard
+from axi.axis_sim import AxisSimSink, Scoreboard
 import tb_common_sim as common
 import perf_tb_common as perf
 
 _scoreboard = Scoreboard()
-_src = AxisSimSource(axis128_intrf, perf.BUS_BYTES)
-_snk = AxisSimSink(axis128_intrf, perf.BUS_BYTES, scoreboard=_scoreboard)
+_src = common.ConvergedAxisSource(aead_axis_intrf, perf.BUS_BYTES)
+_snk = AxisSimSink(aead_axis_intrf, perf.BUS_BYTES, scoreboard=_scoreboard)
 _runner = perf.make_runner(
     "decrypt", _src, _snk, _scoreboard, perf.decrypt_frame_builder
 )
+
+# The native checker is erased from HDL; make verification observable as a
+# real output. Constant native-fixture inputs can still permit optimization.
+decrypt_perf_verified: Output[uint1_t]
 
 def _keep_count(stream):
     keep = stream.data.frag.keep
@@ -47,20 +51,9 @@ def _keep_count(stream):
 
 
 @sim_input
-def drive_in_word() -> axis128_intrf.stream_t:
+def drive_in_word() -> aead_axis_intrf.stream_t:
     _runner.prepare_input()
-    # Reg-driven ready, stable at the start of the cycle -- see encrypt_perf_tb.py.
-    ready = 1 if chacha20poly1305_decrypt_ports.axis_in_if.ready else 0
-    word = _src.step(ready)
-    stream = word.stream
-    valid = 1 if stream.valid else 0
-    _runner.note_in(
-        valid=valid,
-        ready=ready,
-        keep_count=_keep_count(stream) if valid else 0,
-        eod=1 if stream.data.eod[0] else 0,
-    )
-    return stream
+    return _src.drive().stream
 
 
 @initial(sim=True)
@@ -72,6 +65,13 @@ def announce():
 
 @sim_output
 def measure_out():
+    incoming = chacha20poly1305_decrypt_ports.axis_in_if.stream
+    ready = int(chacha20poly1305_decrypt_ports.axis_in_if.ready)
+    valid = int(incoming.valid)
+    _runner.note_in(valid=valid, ready=ready,
+                    keep_count=_keep_count(incoming) if valid else 0,
+                    eod=int(incoming.data.eod[0]))
+    _src.commit(ready)
     stream = chacha20poly1305_decrypt_ports.axis_out_if.stream
     # is_verified_out is constant for the whole output packet, so sampling it
     # when the frame completes is equivalent to checking every beat.
@@ -82,7 +82,7 @@ def measure_out():
         keep_count=_keep_count(stream) if valid else 0,
         eod=1 if stream.data.eod[0] else 0,
     )
-    _snk.step(axis128_intrf.fwd_t(stream))
+    _snk.step(aead_axis_intrf.fwd_t(stream))
     result = _snk.check_nowait()
     if result is not None:
         idx = result.get("idx", "?")
@@ -112,9 +112,9 @@ def measure_out():
     _runner.tick()
 
 
-@MAIN
+@MAIN(wireguard_env.TARGET_MHZ)
 @wires
-def decrypt_perf_tb() -> axis128_intrf.fwd_t:
+def decrypt_perf_tb() -> aead_axis_intrf.fwd_t:
     key: uint8_t[CHACHA20_KEY_SIZE] = common.KEY
     nonce: uint8_t[CHACHA20_NONCE_SIZE] = common.NONCE
     aad: uint8_t[AAD_MAX_LEN] = common.AAD
@@ -128,7 +128,9 @@ def decrypt_perf_tb() -> axis128_intrf.fwd_t:
     # Never backpressure the output -- see encrypt_perf_tb.py.
     chacha20poly1305_decrypt_ports.axis_out_if.ready = 1
 
+    decrypt_perf_verified = chacha20poly1305_decrypt_ports.is_verified_out
+
     measure_out()
 
     # dummy return so nothing optimizes away
-    return axis128_intrf.fwd_t(chacha20poly1305_decrypt_ports.axis_out_if.stream)
+    return aead_axis_intrf.fwd_t(chacha20poly1305_decrypt_ports.axis_out_if.stream)

@@ -1,0 +1,77 @@
+"""Import only the selected MAC (-D POLY1305_IMPL); selection creates no hardware mux."""
+import wireguard_env
+
+IMPLEMENTATION = wireguard_env.POLY1305_IMPL
+_instances = {}
+
+if IMPLEMENTATION == "pipelined":
+    if wireguard_env.POLY1305_BLOCKS_PER_CYCLE == 2:
+        from poly1305_mac_paired import make_poly1305_mac_paired as make_poly1305_mac_pipelined
+    else:
+        from poly1305_mac_pipelined import make_poly1305_mac_pipelined
+else:
+    import poly1305
+
+
+def make_poly1305_mac(direction, share_mcp=False):
+    if direction not in ("encrypt", "decrypt"):
+        raise ValueError("Invalid Poly1305 direction")
+    if share_mcp and IMPLEMENTATION != "pipelined":
+        raise ValueError("Only pipelined Poly1305 has shareable prologue/epilogue MCPs")
+    if direction in _instances and bool(share_mcp) != getattr(_instances[direction], "shared_mcps", False):
+        raise ValueError("Cannot mix private and shared MACs for one direction in a top")
+    if direction not in _instances:
+        if IMPLEMENTATION == "pipelined":
+            _instances[direction] = make_poly1305_mac_pipelined(direction, share_mcp=share_mcp)
+        else:
+            _instances[direction] = poly1305.poly1305_mac_instance
+    return _instances[direction]
+
+
+def implementation_metadata():
+    result = {"implementation": IMPLEMENTATION, "directions": {},
+              "arithmetic": "residue130" if IMPLEMENTATION == "pipelined" else "limb320-corrected"}
+    if IMPLEMENTATION == "pipelined":
+        result["compute_impl"] = wireguard_env.POLY1305_COMPUTE_IMPL
+        result["blocks_per_cycle"] = wireguard_env.POLY1305_BLOCKS_PER_CYCLE
+        result["body_architecture"] = "paired" if wireguard_env.POLY1305_BLOCKS_PER_CYCLE == 2 else "interleaved"
+    # Historical *_mcp_latency/shared_mcps keys also describe FSM services;
+    # counts exclude the wrapper's one result/handshake cycle in both modes.
+    if any(getattr(mac, "shared_mcps", False) for mac in _instances.values()):
+        from poly1305_mcp_shared import CAPACITY, prologue_arbiter, epilogue_arbiter
+        result["shared_mcps"] = {
+            "capacity_lanes": CAPACITY,
+            "prologue_mcp_latency": prologue_arbiter.compute_tag.latency,
+            "epilogue_mcp_latency": epilogue_arbiter.compute_tag.latency,
+        }
+    for direction, mac in _instances.items():
+        if IMPLEMENTATION == "pipelined":
+            result["directions"][direction] = {
+                "body_core_latency": mac.body_auto_pipeline.latency,
+                "body_latency": mac.body_auto_pipeline.latency + 2,
+                "accumulator_count": mac.accumulator_count,
+                "body_ii": 1,
+                "blocks_per_cycle": wireguard_env.POLY1305_BLOCKS_PER_CYCLE,
+                "coefficient_latency": getattr(mac, "coefficient_latency", 0),
+                "coefficient_core_latency": (mac.coefficient_auto_pipeline.latency
+                                             if wireguard_env.POLY1305_BLOCKS_PER_CYCLE == 2 else 0),
+                "axis_beat_bytes": wireguard_env.DATA_BITWIDTH // 8,
+                "total_body_latency": getattr(mac, "total_body_latency", mac.body_auto_pipeline.latency + 2),
+                "shared_mcps": mac.shared_mcps,
+                "packet_architecture": mac.packet_architecture,
+                "packet_buffers": dict(mac.packet_buffers),
+                "prologue_handoff_cycles": mac.prologue_handoff_cycles,
+                "body_commit_cycles": mac.body_commit_cycles,
+                "epilogue_handoff_cycles": mac.epilogue_handoff_cycles,
+                "prologue_mcp_latency": mac.prologue_mcp.compute_tag.latency,
+                "epilogue_mcp_latency": mac.epilogue_mcp.compute_tag.latency,
+                "prologue_response_cycles": mac.prologue_mcp.compute_tag.latency + 1,
+                "epilogue_response_cycles": mac.epilogue_mcp.compute_tag.latency + 1,
+            }
+        else:
+            result["directions"][direction] = {
+                "body_ii": poly1305.compute_mcp.mcp.latency + 1,
+                "body_mcp_latency": poly1305.compute_mcp.mcp.latency,
+                "accumulator_count": 1,
+            }
+    return result

@@ -39,6 +39,7 @@ from pypeline import (
     sim_input,
     sim_output,
     sim_print,
+    uint1_t,
     uint8_t,
     wires,
 )
@@ -49,9 +50,10 @@ from aead_types import (
     CHACHA20_KEY_SIZE,
     CHACHA20_NONCE_SIZE,
     AAD_MAX_LEN,
-    axis128_intrf,
+    aead_axis_intrf,
+    AEAD_BEAT_BYTES,
 )
-from axi.axis_sim import AxisSimSource, AxisSimSink, Scoreboard
+from axi.axis_sim import Scoreboard
 from aead_ref_model import generate_encrypt_vector
 import tb_common_sim as common
 
@@ -66,16 +68,17 @@ _enc_state = {
     "gen_log": [],  # plaintext lengths, in generation order (for reporting only)
     "printed_gen_count": 0,
     "out_packet_idx": 0,  # count of packets checked so far; read externally by
-    # chacha20poly1305_encrypt_tb.py's finish-checker to know when to sim_finish()
+    # chacha20poly1305_tb.py's finish-checker to know when to sim_finish()
+    "cycle": 0,
 }
 
 _scoreboard = Scoreboard()
-_src = AxisSimSource(axis128_intrf, 16)
-_snk = AxisSimSink(axis128_intrf, 16, scoreboard=_scoreboard)
+_src = common.ConvergedAxisSource(aead_axis_intrf, AEAD_BEAT_BYTES)
+_snk = common.ConvergedAxisSink(aead_axis_intrf, AEAD_BEAT_BYTES, scoreboard=_scoreboard)
 
 
 @sim_input
-def drive_in_word() -> axis128_intrf.stream_t:
+def drive_in_word() -> aead_axis_intrf.stream_t:
     if _enc_state["in_packet_idx"] < common.NUM_RANDOM_PACKETS and _src.idle():
         # Starting a new packet: pick its length (stratified corner cases
         # first, then uniform-random), generate random plaintext, and
@@ -92,11 +95,12 @@ def drive_in_word() -> axis128_intrf.stream_t:
         _src.send(plaintext)
         _enc_state["in_packet_idx"] += 1
 
-    # axis_in_ready is Reg-driven downstream (buffer-occupancy-based, not a
-    # same-cycle combinational function of this cycle's axis_in.valid), so
-    # it already holds a stable value at the start of the cycle -- safe to
-    # read directly here to decide whether this word was accepted.
-    return _src.step(chacha20poly1305_encrypt_ports.axis_in_if.ready).stream
+    return _src.drive(common.input_paused("encrypt", _enc_state["cycle"])).stream
+
+
+@sim_input
+def drive_out_ready() -> uint1_t:
+    return common.output_ready("encrypt", _enc_state["cycle"])
 
 
 @initial(sim=True)
@@ -121,7 +125,10 @@ def report_new_packets():
 
 @sim_output
 def check_out():
-    _snk.step(axis128_intrf.fwd_t(chacha20poly1305_encrypt_ports.axis_out_if.stream))
+    _enc_state["cycle"] += 1
+    _src.commit(chacha20poly1305_encrypt_ports.axis_in_if.ready)
+    _snk.step(aead_axis_intrf.fwd_t(chacha20poly1305_encrypt_ports.axis_out_if.stream),
+              ready=chacha20poly1305_encrypt_ports.axis_out_if.ready)
     result = _snk.check_nowait()
     if result is None:
         return
@@ -154,9 +161,9 @@ def finish_checks():
     sim_print(f"Encrypt: all {common.NUM_RANDOM_PACKETS} packets PASSED")
 
 
-@MAIN
+@MAIN(wireguard_env.TARGET_MHZ)
 @wires
-def encrypt_tb() -> axis128_intrf.fwd_t:
+def encrypt_tb() -> aead_axis_intrf.fwd_t:
     key: uint8_t[CHACHA20_KEY_SIZE] = common.KEY
     nonce: uint8_t[CHACHA20_NONCE_SIZE] = common.NONCE
     aad: uint8_t[AAD_MAX_LEN] = common.AAD
@@ -168,9 +175,11 @@ def encrypt_tb() -> axis128_intrf.fwd_t:
 
     chacha20poly1305_encrypt_ports.axis_in_if.stream = drive_in_word()
     chacha20poly1305_encrypt_ports.axis_out_if.ready = 1
+    if common.STRESS:
+        chacha20poly1305_encrypt_ports.axis_out_if.ready = drive_out_ready()
 
     report_new_packets()
     check_out()
 
     # dummy return so nothing optimizes away
-    return axis128_intrf.fwd_t(chacha20poly1305_encrypt_ports.axis_out_if.stream)
+    return aead_axis_intrf.fwd_t(chacha20poly1305_encrypt_ports.axis_out_if.stream)

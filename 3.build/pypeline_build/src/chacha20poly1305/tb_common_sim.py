@@ -1,5 +1,5 @@
 """Shared support for the non-synthesizable @sim_input/@sim_output
-testbenches (plain Python data/helpers, no hardware, no pypeline import).
+testbenches (plain Python data/helpers, no hardware).
 
 KEY/NONCE/AAD match tb_common.py's synthesizable-style vectors (duplicated
 here rather than cross-imported, so the two testbench styles stay fully
@@ -10,6 +10,37 @@ generated packet, during live simulation.
 """
 
 import random
+
+from pypeline import param
+
+
+# Converged-handshake AXIS source/sink (present in @sim_input, commit on the
+# converged ready in @sim_output) live in PipelineC's axi/axis_sim.py; the
+# WireGuard testbenches keep their original names.
+from axi.axis_sim import (
+    ConvergedAxisSimSink as ConvergedAxisSink,
+    ConvergedAxisSimSource as ConvergedAxisSource,
+)
+
+
+# Optional native functional stress (-D TB_STRESS=1). Performance testbenches
+# never use these pauses: their sinks remain always ready and their sources
+# always offer work.
+STRESS = param("TB_STRESS", False, help="random testbenches: 20 directed packets, input gaps and output backpressure")
+
+
+def input_paused(direction, cycle):
+    offset = 0 if direction == "encrypt" else 9
+    return STRESS and (cycle + offset) % 37 < 6
+
+
+def output_ready(direction, cycle):
+    if not STRESS:
+        return 1
+    offset = 0 if direction == "encrypt" else 173
+    slot = (cycle + offset) % 1100
+    return int(not (200 <= slot < 500 or slot % 23 < 5))
+
 
 # Test vectors (same fixed values as tb_common.py)
 KEY = list(range(0x80, 0xA0))  # 0x80, 0x81, ... 0x9f
@@ -22,7 +53,7 @@ AAD_LEN = len(AAD_TEST_STR)  # 29
 AAD = list(AAD_TEST_STR.encode()) + [0] * (AAD_MAX_LEN - AAD_LEN)
 
 # Random packet generation
-NUM_RANDOM_PACKETS = 12
+NUM_RANDOM_PACKETS = 20 if STRESS else 12
 PACKET_LEN_MIN = 1
 PACKET_LEN_MAX = 1024
 
@@ -33,6 +64,9 @@ PACKET_LEN_MAX = 1024
 # is exactly one ChaCha20 block, 128 is the old fixed-vector max. Remaining
 # packets are uniform-random over [PACKET_LEN_MIN, PACKET_LEN_MAX].
 CORNER_CASE_LENS = [15, 16, 17, 31, 64, 128]
+if STRESS:
+    CORNER_CASE_LENS = [1, 15, 16, 17, 31, 32, 33, 63, 64, 65, 128, 511, 512, 513,
+                        1024, 1420, 1920, 2032, 1920, 1920]
 
 # Fixed default seed (nod to RFC 8439) so a failing run's exact vectors are
 # reproducible by re-seeding with the same value; the seed actually used is

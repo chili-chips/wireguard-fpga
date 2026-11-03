@@ -21,7 +21,7 @@ from pypeline import (
     sim_assert,
 )
 
-import perf_taps
+from stream import stream_perf_probe as perf_taps
 
 from aead_types import (
     POLY1305_AUTH_TAG_SIZE,
@@ -60,9 +60,9 @@ def append_auth_tag(
 ) -> append_auth_tag_out_t:
     o: append_auth_tag_out_t
     state: Reg[append_auth_tag_state_t]
-    # Sampled before the FSM reassigns it -- see src/perf_taps.py. MERGED_WORD
-    # and TAG_TAIL cycles are the per-packet wait on the MAC's tag, so this
-    # histogram is how much of the tail cost is Poly1305 latency.
+    # Sampled before the FSM reassigns it (see stream/stream_perf_probe.py).
+    # MERGED_WORD and TAG_TAIL cycles are the per-packet wait on the MAC's tag,
+    # so this histogram is how much of the tail cost is Poly1305 latency.
     perf_taps.state("append.fsm", state, APPEND_AUTH_TAG_STATE_NAMES)
     # The packet's final ciphertext word, and how many of its 16 lanes are
     # really ciphertext (r, in [1, 16])
@@ -94,10 +94,21 @@ def append_auth_tag(
         o.axis_in_if.ready = axis_out_if.ready
         # Except for eod/tlast -- TAG_TAIL emits the true last beat
         o.axis_out_if.stream.data.eod[0] = 0
+        keep_count: axis128_keep_count_t = axis128_keep_count(
+            axis_in_if.stream.data.frag
+        )
+        if axis_in_if.stream.data.eod[0] & (keep_count != POLY1305_AUTH_TAG_SIZE):
+            # A partial ciphertext tail is not itself an output beat: it must
+            # first merge with tag bytes. Suppress it even while the output is
+            # stalled, otherwise valid advertises a partial non-last beat and
+            # then withdraws when ready rises. The holding register is free in
+            # this state, so accept the tail without waiting for output ready.
+            # This ready decision uses data, NOT valid: the ciphertext fork
+            # interlocks valid with ready, and a valid-dependent ready would
+            # form a combinational loop when the authentication branch stalls.
+            o.axis_out_if.stream.valid = 0
+            o.axis_in_if.ready = 1
         if axis_in_if.stream.data.eod[0] & axis_in_if.stream.valid & o.axis_in_if.ready:
-            keep_count: axis128_keep_count_t = axis128_keep_count(
-                axis_in_if.stream.data.frag
-            )
             sim_assert(
                 keep_count != 0,
                 "append_auth_tag: zero-length payload (tlast beat with tkeep all zero)",
@@ -114,7 +125,6 @@ def append_auth_tag(
                 # ready: this copy and poly1305_mac's are two ends of one
                 # axis128_2broadcast, so the MAC cannot see this word until
                 # this copy is taken -- waiting for the tag would deadlock.
-                o.axis_out_if.stream.valid = 0
                 state = append_auth_tag_state_t.MERGED_WORD
     elif state == append_auth_tag_state_t.MERGED_WORD:
         # r ct bytes || tag[0 : 16-r], full keep, not yet eod (r < 16 here)
@@ -136,7 +146,7 @@ def append_auth_tag(
         if o.axis_out_if.stream.valid & axis_out_if.ready:
             state = append_auth_tag_state_t.CIPHERTEXT
 
-    # Perf probes (sim-only, elaborated away -- see src/perf_taps.py), last
+    # Perf probes (sim-only, elaborated away -- see stream/stream_perf_probe.py), last
     # so every o.* field above is final.
     perf_taps.hs(
         "append.axis_in",

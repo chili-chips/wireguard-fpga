@@ -7,7 +7,7 @@ into: one merged MAIN owning the arbitrated pipeline (a genuinely shared
 resource crossing the otherwise-independent encrypt and decrypt dataflow
 graphs, so it stays a separate always-running process rather than being
 inlined into either), plus two plain per-direction functions matching
-chacha20's ordinary chacha20_stream_out_t interface so they can be passed to
+chacha20's ordinary chacha20_instance.return_t interface so they can be passed to
 make_encrypt_dataflow_core/make_decrypt_dataflow_core exactly like
 chacha20.chacha20_instance is for the standalone (non-shared) builds.
 
@@ -30,7 +30,7 @@ from pypeline import (
 from stream.stream import make_stream_interface
 from stream.stream_auto_pipeline import make_stream_auto_pipeline
 
-import perf_taps
+from stream import stream_perf_probe as perf_taps
 
 import chacha20
 from chacha20 import (
@@ -42,7 +42,7 @@ from chacha20 import (
 from aead_types import (
     CHACHA20_KEY_SIZE,
     CHACHA20_NONCE_SIZE,
-    axis128_intrf,
+    aead_axis_intrf,
     axis512_frag_t,
     axis512_intrf,
     axis512_stream_null,
@@ -89,7 +89,9 @@ def chacha_shared_pipeline(
     return outputs
 
 
-pipeline_func, _pipeline_result_t = make_stream_auto_pipeline(chacha_shared_pipeline)
+pipeline_func = make_stream_auto_pipeline(
+    chacha_shared_pipeline, name="chacha20_shared"
+)
 
 
 # Externally-exposed interface: looks like individual per-direction pipelines.
@@ -109,7 +111,7 @@ decrypt_pipeline_out_if: Wire[axis512_intrf]
 # demux, combined into one MAIN (used to be two: chacha20_pipeline +
 # chacha20_sharing_mux, joined by pipeline_in/pipeline_in_ready/pipeline_out/
 # pipeline_out_ready global wires).
-@MAIN
+@MAIN(wireguard_env.TARGET_MHZ)
 def chacha20_pipeline_shared():
     pipeline_in_ready: Feedback[uint1_t]
     pipeline_out: Feedback[chacha_shared_pipeline_out_stream_intrf.stream_t]
@@ -124,28 +126,44 @@ def chacha20_pipeline_shared():
     decrypt_pipeline_out_s: axis512_intrf.stream_t = axis512_stream_null()  # to decrypt
     decrypt_pipeline_in_ready_s: uint1_t = 0  # from decrypt
 
-    # Input side state toggles round robin
-    is_encrypt: Reg[uint1_t]
+    # Decrypt has initial priority. Advance only on an accepted launch, and
+    # hold the selected direction while its valid input is stalled.
+    priority_encrypt: Reg[uint1_t]
+    grant_stalled: Reg[uint1_t]
+    stalled_is_encrypt: Reg[uint1_t]
+    encrypt_valid: uint1_t = encrypt_pipeline_in_if.stream.valid
+    decrypt_valid: uint1_t = decrypt_pipeline_in_if.stream.valid
+    is_encrypt: uint1_t = priority_encrypt
+    if grant_stalled:
+        is_encrypt = stalled_is_encrypt
+        if is_encrypt:
+            encrypt_pipeline_in_ready_s = pipeline_in_ready
+        else:
+            decrypt_pipeline_in_ready_s = pipeline_in_ready
+    else:
+        if encrypt_valid & ~decrypt_valid:
+            is_encrypt = 1
+        elif decrypt_valid & ~encrypt_valid:
+            is_encrypt = 0
+        # Each ready depends on priority and the OTHER requester's valid.
+        # With neither requesting, both see the pipeline's readiness.
+        encrypt_pipeline_in_ready_s = pipeline_in_ready & (
+            priority_encrypt | ~decrypt_valid
+        )
+        decrypt_pipeline_in_ready_s = pipeline_in_ready & (
+            ~priority_encrypt | ~encrypt_valid
+        )
+
     pipeline_in_s.data.is_encrypt = is_encrypt
     if is_encrypt:
         pipeline_in_s.data.data = encrypt_pipeline_in_if.stream.data
-        pipeline_in_s.valid = encrypt_pipeline_in_if.stream.valid
-        encrypt_pipeline_in_ready_s = pipeline_in_ready
+        pipeline_in_s.valid = encrypt_valid
     else:
         pipeline_in_s.data.data = decrypt_pipeline_in_if.stream.data
-        pipeline_in_s.valid = decrypt_pipeline_in_if.stream.valid
-        decrypt_pipeline_in_ready_s = pipeline_in_ready
+        pipeline_in_s.valid = decrypt_valid
 
-    # Perf probes (sim-only, elaborated away -- see src/perf_taps.py). Placed
-    # BEFORE the toggle below, so `is_encrypt` still reads as this cycle's
-    # selection rather than next cycle's.
-    #
-    # The arbitration tap is what quantifies the README's shared-pipeline
-    # caveat: `is_encrypt` flips every cycle unconditionally, so a direction can
-    # only launch on alternate cycles. It splits each direction's lost cycles
-    # into contention (both wanted the slot) and wasted_slot (the selected side
-    # had nothing while the other had work queued) -- the second kind is what a
-    # request-aware arbiter would recover.
+    # Perf probes (sim-only, elaborated away -- see stream/stream_perf_probe.py) sample
+    # this cycle's actual grant, including a lone requester or held grant.
     perf_taps.arb(
         "pipe.arb",
         is_encrypt,
@@ -166,7 +184,12 @@ def chacha20_pipeline_shared():
         decrypt_pipeline_in_ready_s,
     )
 
-    is_encrypt = ~is_encrypt
+    if pipeline_in_s.valid & pipeline_in_ready:
+        priority_encrypt = ~is_encrypt
+        grant_stalled = 0
+    elif pipeline_in_s.valid:
+        grant_stalled = 1
+        stalled_is_encrypt = is_encrypt
 
     # Output side muxing based on id flag out of pipeline
     if pipeline_out.valid:
@@ -204,17 +227,17 @@ def chacha20_pipeline_shared():
 # Per-direction FSM wrappers: same chacha20.chacha20_fsm as
 # chacha20.chacha20_instance uses, but talking to the shared pipeline's
 # exposed wires above instead of owning a private pipeline. Same external
-# signature/struct (chacha20.chacha20_stream_out_t) as chacha20_instance, so
+# signature/struct (chacha20.chacha20_instance.return_t) as chacha20_instance, so
 # either can be passed to make_encrypt_dataflow_core/make_decrypt_dataflow_core.
 @hw_func
 def chacha20_encrypt_shared(
     key: uint8_t[CHACHA20_KEY_SIZE],
     nonce: uint8_t[CHACHA20_NONCE_SIZE],
-    axis_in_if: axis128_intrf.fwd_t,
+    axis_in_if: aead_axis_intrf.fwd_t,
     key_if: poly1305_key_stream_intrf.fb_t,
-    axis_out_if: axis128_intrf.fb_t,
-) -> chacha20.chacha20_stream_out_t:
-    o: chacha20.chacha20_stream_out_t
+    axis_out_if: aead_axis_intrf.fb_t,
+) -> chacha20.chacha20_instance.return_t:
+    o: chacha20.chacha20_instance.return_t
     from_pipe_fwd: axis512_intrf.stream_t = encrypt_pipeline_out_if.stream
     fsm_out = chacha20.chacha20_fsm(
         key=key,
@@ -239,11 +262,11 @@ def chacha20_encrypt_shared(
 def chacha20_decrypt_shared(
     key: uint8_t[CHACHA20_KEY_SIZE],
     nonce: uint8_t[CHACHA20_NONCE_SIZE],
-    axis_in_if: axis128_intrf.fwd_t,
+    axis_in_if: aead_axis_intrf.fwd_t,
     key_if: poly1305_key_stream_intrf.fb_t,
-    axis_out_if: axis128_intrf.fb_t,
-) -> chacha20.chacha20_stream_out_t:
-    o: chacha20.chacha20_stream_out_t
+    axis_out_if: aead_axis_intrf.fb_t,
+) -> chacha20.chacha20_instance.return_t:
+    o: chacha20.chacha20_instance.return_t
     from_pipe_fwd: axis512_intrf.stream_t = decrypt_pipeline_out_if.stream
     fsm_out = chacha20.chacha20_fsm(
         key=key,
@@ -262,3 +285,8 @@ def chacha20_decrypt_shared(
     decrypt_pipeline_in_if.stream = fsm_out.to_pipeline_if.stream
     decrypt_pipeline_out_if.ready = fsm_out.from_pipeline_if.ready
     return o
+
+
+# Plain elaboration metadata: size consumers from this selected shared wrapper.
+chacha20_encrypt_shared.pipeline_func = pipeline_func
+chacha20_decrypt_shared.pipeline_func = pipeline_func

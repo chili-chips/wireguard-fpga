@@ -8,11 +8,14 @@ the design readable). Matches the C #defines in
 """
 import wireguard_env  # noqa: F401
 
+from copy import deepcopy
+
 from pypeline import uint1_t, uint8_t, make_uint_t
 from kept_data_bus import make_kept_data_bus_t
 from ndarray import make_ndarray_fragment_t
 from stream.stream import make_stream_interface
 from axi.axis import make_keep_count, make_count_to_keep, make_axis_broadcast_interlock
+from stream.stream_perf_probe import make_probed_stream_fifo, make_probed_skid_buffer
 
 # ChaCha20 sizes
 CHACHA20_STATE_NWORDS = 16
@@ -28,6 +31,13 @@ POLY1305_AUTH_TAG_SIZE = 16
 # Additional authenticated data
 AAD_MAX_LEN = 32
 
+# Axis beat size used by the fork, FIFO and ChaCha width converters.
+AXIS128_BEAT_BYTES = 16
+
+# Supported plaintext payload limit, independent of verification FIFO rounding.
+# Keep the established 2032-byte measurement envelope when adding headroom.
+AEAD_MAX_PLAINTEXT_BYTES = 2032
+
 # Wide scalar types
 uint96_t = make_uint_t(96)
 uint128_t = make_uint_t(128)
@@ -39,9 +49,21 @@ poly1305_key_uint_t = uint256_t
 poly1305_auth_tag_uint_t = uint128_t
 
 # 128b AXIS bus: 16 byte lanes (C axis128_t / stream(axis128_t))
-axis128_bus_t = make_kept_data_bus_t(uint8_t, 16)
+axis128_bus_t = make_kept_data_bus_t(uint8_t, AXIS128_BEAT_BYTES)
 axis128_frag_t = make_ndarray_fragment_t(axis128_bus_t, 1)  # C axis128_t
 axis128_intrf = make_stream_interface(axis128_frag_t)  # C stream(axis128_t)
+
+# Selected packet width. Explicit axis128_* names stay genuinely 128 bits.
+AEAD_BEAT_BYTES = wireguard_env.DATA_BITWIDTH // 8
+aead_data_uint_t = make_uint_t(8 * AEAD_BEAT_BYTES)
+aead_keep_uint_t = make_uint_t(AEAD_BEAT_BYTES)
+aead_axis_bus_t = make_kept_data_bus_t(uint8_t, AEAD_BEAT_BYTES)
+aead_axis_frag_t = make_ndarray_fragment_t(aead_axis_bus_t, 1)
+aead_axis_intrf = make_stream_interface(aead_axis_frag_t)
+aead_keep_count = make_keep_count(aead_axis_bus_t, AEAD_BEAT_BYTES)
+aead_keep_count_t = make_uint_t(AEAD_BEAT_BYTES.bit_length())
+aead_count_to_keep = make_count_to_keep(AEAD_BEAT_BYTES)
+aead_2broadcast = make_axis_broadcast_interlock(aead_axis_intrf, 2)
 
 # 512b AXIS bus: 64 byte lanes (C axis512_t / stream(axis512_t))
 axis512_bus_t = make_kept_data_bus_t(uint8_t, 64)
@@ -66,7 +88,212 @@ axis128_count_to_keep = make_count_to_keep(16)
 # Combinational 2-way broadcast/fork of an axis128 stream (shared by the
 # encrypt/decrypt dataflows' ciphertext-stream forks). `axis_out` is an array
 # interface port: two independently back-pressured copies of the input.
-axis128_2broadcast, axis128_2broadcast_t = make_axis_broadcast_interlock(axis128_intrf, 2)
+axis128_2broadcast = make_axis_broadcast_interlock(axis128_intrf, 2)
+
+
+# Plain elaboration metadata, populated only for FIFOs actually instantiated.
+_buffering = {}
+_stream_slices = {}
+
+
+def decrypt_auth_fifo_sizing(chacha_func, mac_func):
+    """Conservative authentication-fork storage, in 128-bit beats.
+
+    Until the MAC takes the next key, ChaCha cannot retire that packet's
+    payload. All accepted ciphertext is therefore bounded by its pipeline
+    credits, widening storage, and the fork's one-copy lead. After key
+    acceptance add the bounded prologue/framing interval: ingress accepts at
+    most one beat per cycle. Once ciphertext framing starts, the II=1 MAC
+    keeps pace. Body drain/epilogue waits are behind the next-key barrier.
+
+    This uses the selected instances' resolved metadata, never starting
+    hints. Shared prologues allow one preceding peer transaction; both MACs
+    consume prologue responses promptly. External stalls use backpressure.
+    """
+    if getattr(mac_func, "packet_architecture", None) == "overlapped":
+        return overlap_fifo_sizing("decrypt/auth_fifo", chacha_func, mac_func)
+    pipeline = getattr(chacha_func, "pipeline_func", None)
+    if pipeline is None:
+        raise ValueError("Automatic decrypt FIFO sizing requires chacha_func.pipeline_func")
+    # make_stream_auto_pipeline's documented sizing attributes (PipelineC
+    # pypeline_guide.md, "Passing a bottom-up value to the rest of the design")
+    core_latency = pipeline.auto_pipeline.latency
+    credits = pipeline.max_in_flight
+    prologue_latency = mac_func.prologue_mcp.compute_tag.latency
+    shared_mcps = bool(mac_func.shared_mcps)
+    block_beats = CHACHA20_BLOCK_SIZE // AEAD_BEAT_BYTES
+    aad_beats = (AAD_MAX_LEN + AEAD_BEAT_BYTES - 1) // AEAD_BEAT_BYTES
+    terms = {
+        "pipeline_credits": block_beats * credits,
+        "widening_storage": block_beats + 1,
+        "fork_copy_lead": 1,
+        "fifo_startup": 2,
+        "framing_idle": 1,
+        "prologue_service": (1 + int(shared_mcps)) * (prologue_latency + 1),
+        "mac_transitions": 2,
+        "aad_framing": aad_beats,
+    }
+    required = sum(terms.values())
+    return {
+        "method": "chacha-credit-bound-v1",
+        "chacha20_core_latency": core_latency,
+        "chacha20_max_in_flight_blocks": credits,
+        "chacha20_block_beats": block_beats,
+        "prologue_mcp_latency": prologue_latency,
+        "shared_mcps": shared_mcps,
+        "max_aad_beats": aad_beats,
+        "terms_beats": terms,
+        "required_beats": required,
+        "memory_depth_beats": 1 << (max(2, required) - 1).bit_length(),
+    }
+
+
+def overlap_fifo_sizing(name, chacha_func, mac_func, *, auth_capacity_beats=None):
+    """Bound cut-through fork storage by service clocks, not packet bytes.
+
+    One ingress beat can arrive per clock. Each single-flight shared service can
+    serve one preceding peer request; clients reserve response storage before
+    launching, so a peer's downstream consumer cannot prolong that service.
+    External stalls use ordinary backpressure rather than an unbounded budget.
+
+    The authentication FIFO provides setup lookahead. The append FIFO also
+    covers the entire authentication queue plus setup and completion, allowing
+    both fork copies to advance while the old tag is pending. Decrypt retains
+    the ChaCha credit floor needed to reach a key response without deadlock,
+    adding the two-bank controller's bounded completion interval.
+    """
+    pipeline = getattr(chacha_func, "pipeline_func", None)
+    if pipeline is None:
+        raise ValueError("Overlap FIFO sizing requires chacha_func.pipeline_func")
+    if name not in ("encrypt/auth_fifo", "encrypt/append_fifo", "decrypt/auth_fifo"):
+        raise ValueError("Unknown overlap FIFO")
+    ratio = CHACHA20_BLOCK_SIZE // AEAD_BEAT_BYTES
+    aad_beats = (AAD_MAX_LEN + AEAD_BEAT_BYTES - 1) // AEAD_BEAT_BYTES
+    shared = bool(mac_func.shared_mcps)
+    peer_requests = int(shared)
+    prologue_latency = mac_func.prologue_mcp.compute_tag.latency
+    epilogue_latency = mac_func.epilogue_mcp.compute_tag.latency
+    setup = (1 + peer_requests) * (prologue_latency + 1) + mac_func.prologue_handoff_cycles
+    # The append FSM emits at most ceil((partial ciphertext + tag) / beat)
+    # words after capturing the final ciphertext word.
+    tag_words = (AEAD_BEAT_BYTES - 1 + POLY1305_AUTH_TAG_SIZE
+                 + AEAD_BEAT_BYTES - 1) // AEAD_BEAT_BYTES
+    completion = (getattr(mac_func, "total_body_latency", mac_func.body_auto_pipeline.latency + 2)
+                  + mac_func.body_commit_cycles
+                  + (1 + peer_requests) * (epilogue_latency + 1)
+                  + mac_func.epilogue_handoff_cycles + tag_words)
+    terms = {
+        "setup_service_and_handoffs": setup,
+        "aad_framing": aad_beats,
+        "framing_idle": 1,  # prep_auth_data's registered IDLE transition
+        "length_framing": 1,  # its single 128-bit lengths block
+        "fifo_startup": 2,  # memory read plus FWFT output register
+        "fork_copy_lead": 1,
+    }
+    if name == "encrypt/auth_fifo":
+        terms["narrowing_storage"] = ratio + 1
+    elif name == "encrypt/append_fifo":
+        if type(auth_capacity_beats) is not int or auth_capacity_beats < 1:
+            raise ValueError("Append sizing requires actual authentication FIFO capacity")
+        terms["authentication_queue"] = auth_capacity_beats
+        terms["completion_service_and_handoffs"] = completion
+    else:
+        terms["pipeline_credits"] = ratio * pipeline.max_in_flight
+        terms["widening_storage"] = ratio + 1
+        terms["completion_service_and_handoffs"] = completion
+    if wireguard_env.POLY1305_BLOCKS_PER_CYCLE == 2:
+        terms["formatter_storage"] = 2  # four complete authentication blocks
+    required = sum(terms.values())
+    return {
+        "method": "poly1305-overlap-fork-v2",
+        "axis_beat_bytes": AEAD_BEAT_BYTES,
+        "buffer": name,
+        "chacha20_core_latency": pipeline.auto_pipeline.latency,
+        "chacha20_max_in_flight_blocks": pipeline.max_in_flight,
+        "chacha20_block_beats": ratio,
+        "prologue_mcp_latency": prologue_latency,
+        "epilogue_mcp_latency": epilogue_latency,
+        "body_latency": getattr(mac_func, "total_body_latency", mac_func.body_auto_pipeline.latency + 2),
+        "prologue_handoff_cycles": mac_func.prologue_handoff_cycles,
+        "body_commit_cycles": mac_func.body_commit_cycles,
+        "epilogue_handoff_cycles": mac_func.epilogue_handoff_cycles,
+        "shared_mcps": shared,
+        "preceding_peer_requests": peer_requests,
+        "max_aad_beats": aad_beats,
+        "max_packed_tag_beats": tag_words,
+        "authentication_capacity_beats": auth_capacity_beats,
+        "terms_beats": terms,
+        "required_beats": required,
+        "memory_depth_beats": 1 << (max(2, required) - 1).bit_length(),
+    }
+
+
+def decrypt_verify_fifo_sizing(chacha_func, mac_func, *, verify_handoff_cycles):
+    """Hold a maximum plaintext packet without choking shared ChaCha results.
+
+    Reuse the authentication-fork bound for work admitted ahead of MAC
+    service: selected ChaCha credits, input conversion, framing, setup and
+    completion (including one preceding shared MCP peer). Add the held
+    packet, ChaCha's output converter and the comparator/release handoffs.
+    At most one narrow beat arrives per service clock. This deliberately
+    overcounts overlapping phases and key blocks, rather than depending on
+    the measured packet length or occupancy. External sink stalls still
+    propagate by ordinary ready/valid backpressure.
+    """
+    if type(verify_handoff_cycles) is not int or verify_handoff_cycles < 1:
+        raise ValueError("Verification sizing requires a positive handoff bound")
+    sizing = deepcopy(decrypt_auth_fifo_sizing(chacha_func, mac_func))
+    terms = sizing["terms_beats"]
+    terms["held_maximum_packet"] = (
+        AEAD_MAX_PLAINTEXT_BYTES + AEAD_BEAT_BYTES - 1
+    ) // AEAD_BEAT_BYTES
+    terms["narrowing_storage"] = sizing["chacha20_block_beats"] + 1
+    terms["verification_handoffs"] = verify_handoff_cycles
+    terms["release_handoff"] = 1  # wait-to-verdict -> output-plaintext
+    required = sum(terms.values())
+    sizing.update(
+        method="plaintext-verdict-credit-bound-v1",
+        buffer="decrypt/verify_fifo",
+        authentication_sizing_method=decrypt_auth_fifo_sizing(chacha_func, mac_func)["method"],
+        max_plaintext_bytes=AEAD_MAX_PLAINTEXT_BYTES,
+        axis_beat_bytes=AEAD_BEAT_BYTES,
+        verify_handoff_cycles=verify_handoff_cycles,
+        required_beats=required,
+        memory_depth_beats=1 << (max(2, required) - 1).bit_length(),
+    )
+    return sizing
+
+
+def make_aead_fifo(data_t, depth, tap_name, direction, *, sizing=None):
+    """Stream FIFO with simulation-only handshake/occupancy probes."""
+    fifo = make_probed_stream_fifo(data_t, depth, tap_name)
+    _buffering[direction + "/" + tap_name] = {
+        "requested_memory_depth_beats": depth,
+        "memory_depth_beats": fifo.capacity_beats - 1,
+        "capacity_beats": fifo.capacity_beats,
+        "output_register_beats": 1,
+    }
+    if sizing is not None:
+        _buffering[direction + "/" + tap_name]["sizing"] = deepcopy(sizing)
+    return fifo
+
+
+def buffering_metadata():
+    return deepcopy(_buffering)
+
+
+def make_aead_output_slice(intrf, tap_name, direction):
+    """Two-slot output register slice; II=1 and stable valid under stalls."""
+    skid = make_probed_skid_buffer(intrf, tap_name, mode="full")
+    _stream_slices[direction + "/" + tap_name] = {
+        "mode": skid.mode, "capacity_beats": skid.capacity_beats,
+        "latency_cycles": skid.latency,
+    }
+    return skid
+
+
+def stream_slice_metadata():
+    return {name: dict(values) for name, values in _stream_slices.items()}
 
 
 # Zero-valued compound-init helpers (C `... = {0}` initializers).
@@ -102,3 +329,13 @@ def poly1305_auth_tag_stream_null():
 
 def uint1_stream_null():
     return uint1_stream_intrf.stream_t(data=0, valid=0)
+
+
+def aead_frag_null():
+    return aead_axis_frag_t(
+        frag=aead_axis_bus_t(data=[0] * AEAD_BEAT_BYTES, keep=[0] * AEAD_BEAT_BYTES), eod=[0]
+    )
+
+
+def aead_stream_null():
+    return aead_axis_intrf.stream_t(data=aead_frag_null(), valid=0)
