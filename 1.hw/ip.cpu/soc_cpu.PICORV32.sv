@@ -96,12 +96,12 @@ module soc_cpu #(
     input logic [31:0] imem_wdat
 );
 
-  logic        cpu_valid;  //-\
-  logic        cpu_instr;  // |
-  logic        cpu_ready;  // | CPU
-  logic [31:2] cpu_addr;  // | memory
+  logic        cpu_valid;  //-\ CPU
+  logic        cpu_instr;  // | memory
+  logic        cpu_ready;  // | interface
+  logic [31:2] cpu_addr;  // |
   logic [ 1:0] NC_cpu_addr;  // | (byte offset: wstrb has it)
-  logic [31:0] cpu_wdata;  // | interface
+  logic [31:0] cpu_wdata;  // |
   logic [ 3:0] cpu_wstrb;  // |
   logic [31:0] cpu_rdata;  //-/
 

@@ -572,6 +572,12 @@ module uart
   logic [7:0]
       uart_tx_data, uart_tx_data_next;  // The data that will be sent over TX (from IMEM FSM)
 
+  // TX FIFO input: the IMEM loader's bytes on the bus, else the CSR's
+  logic [7:0] tx_fifo_din;
+  logic       tx_fifo_we;
+  assign tx_fifo_din = bus_vld ? uart_tx_data : from_csr.uart.tx.data.value;
+  assign tx_fifo_we  = bus_vld ? uart_tx_valid : from_csr.uart.tx_trigger.write.value;
+
   sync_fifo_ram #(
       .DWIDTH(8),
       .AWIDTH(4)   // 16 entries
@@ -581,9 +587,9 @@ module uart
       .arst_n(arst_n),
       .clk   (clk),
 
-      .din(bus_vld ? uart_tx_data : from_csr.uart.tx.data.value),
+      .din(tx_fifo_din),
       //.din       (uart_rx_data),  // loopback test
-      .we (bus_vld ? uart_tx_valid : from_csr.uart.tx_trigger.write.value),
+      .we (tx_fifo_we),
       //.we        (uart_rx_valid), // loopback test
       .re (tx_fifo_re),
 

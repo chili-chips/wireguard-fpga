@@ -66,3 +66,7 @@ yosys ^Warning: multiple conflicting drivers for top\.\\u_eth_[1-4]\.eth\.(tx|rx
 # Simulation view (VIEW=sim): the PLL wrappers' SIM_ONLY models are free-running
 # behavioural clocks; the chip view uses clk and rst_n on PLLE2_BASE
 verilator ^%Warning-UNUSEDSIGNAL: 1\.hw/fpgatech_lib/XILINX/fpga_pll_(80M|125M)\.sv:[0-9]+:[0-9]+: Signal is not used: '(clk|rst_n)'$
+
+# eduBOS5: unique case with a default (an illegal opcode halts, an unknown
+# store width writes nothing): unique checks that the items never overlap
+slang ^1\.hw/ip\.cpu/cpu\.EDUBOS5/edubos5\.sv:[0-9]+:[0-9]+: warning: .case. marked .unique. has .default. label

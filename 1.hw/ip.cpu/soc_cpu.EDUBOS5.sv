@@ -144,6 +144,10 @@ module soc_cpu #(
   //----------------------------------------------------
   // Instruction (aka Program) memory for the CPU
   //----------------------------------------------------
+  // IMEM port B address: program reload (CPU in reset), else CPU data loads
+  logic [31:2] imem_b_addr;
+  assign imem_b_addr = imem_we ? imem_waddr : dmem_addr[31:2];
+
   imem #(
       .NUM_WORDS(NUM_WORDS_IMEM)
   ) u_imem (
@@ -158,7 +162,7 @@ module soc_cpu #(
 
       // port B: program reload (CPU in reset), else CPU data loads
       .we   (imem_we),
-      .waddr(imem_we ? imem_waddr : dmem_addr[31:2]),
+      .waddr(imem_b_addr),
       .wdat (imem_wdat),
       .wrdat(imem_load_rdat)
   );

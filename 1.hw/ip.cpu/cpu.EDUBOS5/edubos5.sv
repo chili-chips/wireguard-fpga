@@ -120,7 +120,7 @@ module edubos5
 
     instr_decode = '0;
 
-    case (instr.opcode)
+    unique case (instr.opcode)
       ALUREG:  instr_decode.ALUREG = HI;
       ALUIMM:  instr_decode.ALUIMM = HI;
       BRNCH:   instr_decode.BRNCH = HI;
@@ -220,25 +220,22 @@ module edubos5
 
     imm_store = {
       {20{instr.grp.store.imm11_5[11]}},  //[31:12] upper part is sign-expanded
-      instr.grp.store.imm11_5
-      ,  //-\
+      instr.grp.store.imm11_5,  //-\ [11:0]
       instr.grp.store.imm4_0
-    };  //-/ [11:0]
+    };  //-/
 
     imm_brnch = {
       {20{instr.grp.brnch.imm12}},  //[31:12] sign-expanded
-      instr.grp.brnch.imm11
-      ,  //-\
-      instr.grp.brnch.imm10_5,  // | [11:1]
+      instr.grp.brnch.imm11,  //-\ [11:1]
+      instr.grp.brnch.imm10_5,  // |
       instr.grp.brnch.imm4_1,  //-/
       1'b0
     };  //[0]
 
     imm_jump = {
       {12{instr.grp.jump.imm20}},  //[31:20] sign-expanded
-      instr.grp.jump.imm19_12
-      ,  //-\
-      instr.grp.jump.imm11,  // | [19:1]
+      instr.grp.jump.imm19_12,  //-\ [19:1]
+      instr.grp.jump.imm11,  // |
       instr.grp.jump.imm10_1,  //-/
       1'b0
     };  //[0]
@@ -332,7 +329,7 @@ module edubos5
     dmem_addr_next = cpu_addr_t'(ls_offset_reg + cpu_addr_t'(rs1_reg));
     //differentiating between STORE instructions
     if (instr_decode_reg.STORE) begin
-      case (funct3_store_t'(funct3_imm))
+      unique case (funct3_store_t'(funct3_imm))
         SB: begin
           dmem_wdat_next = {4{rs2_reg[7:0]}};
 
@@ -368,7 +365,7 @@ module edubos5
       endcase
     end
     //differentiating between load instructions
-    case (funct3_imm)
+    unique case (funct3_imm)
       LB: begin
         unique case (dmem_addr[1:0])
           2'b00: load_to_reg = {{24{dmem_rdat_reg[7]}}, dmem_rdat_reg[7:0]};
@@ -407,7 +404,7 @@ module edubos5
   //--------------
   logic take_brnch;
   always_comb begin : _branch
-    case (funct3_brnch)
+    unique case (funct3_brnch)
       BEQ:     take_brnch = eq;
       BNE:     take_brnch = !eq;
       BLT:     take_brnch = lt;
@@ -476,7 +473,7 @@ module edubos5
       imem_vld <= '1;
     end
     else if (!store_stall) begin
-      case (state)
+      unique case (state)
 
         FETCH_INSTR: begin
           // IMEM expected to always output in one cycle
@@ -634,8 +631,8 @@ module edubos5
       dmem_rdat_reg <= dmem_rdat;
     end
     else if (instr_decode.CNT & (state == EXECUTE)) begin
-      // a counter read, written back as a LW (funct3 01x): no new input on
-      // the timing-critical rf_wdat mux
+      // a counter read, written back whole, as a LW (funct3 01x or 11x): no
+      // new input on the timing-critical rf_wdat mux
       dmem_rdat_reg <= cnt_rdat;
     end
 
