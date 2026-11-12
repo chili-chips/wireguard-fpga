@@ -290,7 +290,7 @@ Results with the legacy toolchain (nextpnr-xilinx, 2025-12). With v1.0.0, `BUFGM
 
 In this section, we present a simple test example to illustrate the differences between two FPGA toolchains. First, the design is synthesized and routed using Vivado, serving as a reference implementation. The same example is then processed using the openXC7 toolchain, allowing a direct comparison of synthesis and place-and-route results, as well as highlighting key differences in workflow and outputs.
 
-Note: Complete hardware is synthesised and routed, but [application](https://github.com/chili-chips-ba/wireguard-fpga/blob/main/2.sw/app/main.cpp) running on the processor is simply testing ICMP and ARP.
+Note: Complete hardware is synthesised and routed, but [application](https://github.com/chili-chips/wireguard-fpga/blob/main/2.sw/app/main.cpp) running on the processor is simply testing ICMP and ARP.
 
 #### Vivado
 Build duration (synthesis + PnR): 8 minutes

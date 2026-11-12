@@ -5,7 +5,7 @@
 
 /**
  * based on code from
- * https://github.com/chili-chips-ba/wireguard-fpga/blob/main/2.sw/app/chacha20poly1305/
+ * https://github.com/chili-chips/wireguard-fpga/blob/main/2.sw/app/chacha20poly1305/
 */
 #include "arrays.h"
 // Top level IO port config, named like chacha20poly1305_encrypt_*

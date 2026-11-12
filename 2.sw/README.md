@@ -57,7 +57,7 @@ public key generation and shared secret computation.
   Computes the shared secret using scalar multiplication with a peer’s public key.
 
 ### Testing and Validation
-- The implementation was [**successfully tested**](https://github.com/chili-chips-ba/wireguard-fpga/tree/main/99.warmup/7.curve25519) using known-good key pairs and
+- The implementation was [**successfully tested**](https://github.com/chili-chips/wireguard-fpga/tree/main/99.warmup/7.curve25519) using known-good key pairs and
   shared secret comparisons.
 - The code builds and runs correctly on the target hardware platform.
 - Correctness relies on the well-established TweetNaCl reference implementation.
@@ -105,7 +105,7 @@ accelerations.
 - Designed for bare-metal environments.
 - Portable across architectures.
 - Suitable for Noise / WireGuard usage.
-- [**Successfully tested on real hardware.**](https://github.com/chili-chips-ba/wireguard-fpga/tree/main/99.warmup/6.chacha20poly1305_picoRV32)
+- [**Successfully tested on real hardware.**](https://github.com/chili-chips/wireguard-fpga/tree/main/99.warmup/6.chacha20poly1305_picoRV32)
 
 ## BLAKE2s lib
 This component provides a compact and self-contained reference implementation of the
@@ -131,7 +131,7 @@ implementation for WireGuard, including hashing, key derivation, and HMAC constr
 - No dynamic memory allocation.
 - Suitable for bare-metal and hosted environments.
 - Compatible with x86 and RV32 architectures.
-- [**Successfully tested on real hardware.**](https://github.com/chili-chips-ba/wireguard-fpga/tree/main/99.warmup/8.BLAKE2s)
+- [**Successfully tested on real hardware.**](https://github.com/chili-chips/wireguard-fpga/tree/main/99.warmup/8.BLAKE2s)
 
 ## Random number generator lib
 This component implements a lightweight random number generator suitable for bare-metal
@@ -161,7 +161,7 @@ within the Noise protocol used by WireGuard.
 - Mixes entropy using the BLAKE2s hash function.
 - Designed for bare-metal, single-core RISC-V environments.
 - Blocking implementation.
-- [**Successfully tested on real hardware.**](https://github.com/chili-chips-ba/wireguard-fpga/tree/main/99.warmup/9.rng)
+- [**Successfully tested on real hardware.**](https://github.com/chili-chips/wireguard-fpga/tree/main/99.warmup/9.rng)
 
 ## Timer lib
 This component provides simple delay utilities based on the `csr.cycle` counter.  
@@ -183,7 +183,7 @@ during cryptographic operations and protocol handling.
 - Delay accuracy depends on the configured CPU clock frequency.
 - Designed for bare-metal environments without an operating system.
 - Blocking implementation (busy-wait).
-- [**Successfully tested on the hardware.**](https://github.com/chili-chips-ba/wireguard-fpga/tree/main/99.warmup/10.timer)
+- [**Successfully tested on the hardware.**](https://github.com/chili-chips/wireguard-fpga/tree/main/99.warmup/10.timer)
 
 ## HKDF (Noise KDF) lib
 This component implements the HKDF-style key derivation function used by the
@@ -211,7 +211,7 @@ adapted to use the local BLAKE2s component.
 - Build passes successfully on all target platforms.
 
 ### Testing and Validation
-- This component has [**not been tested in isolation**](https://github.com/chili-chips-ba/wireguard-fpga/tree/main/99.warmup/11.hkdf) using dedicated HKDF test vectors.
+- This component has [**not been tested in isolation**](https://github.com/chili-chips/wireguard-fpga/tree/main/99.warmup/11.hkdf) using dedicated HKDF test vectors.
 - No official Noise KDF test vectors were available at the time of implementation.
 - The firmware has no Noise handshake yet, so it is not validated end-to-end either.
 - The underlying BLAKE2s implementation has been **successfully tested on real hardware**.

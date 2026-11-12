@@ -10,7 +10,7 @@ SPDX-License-Identifier: BSD-3-Clause
 
 ## Found something?
 
-Open an [Issue](https://github.com/chili-chips-ba/wireguard-fpga/issues). For bugs, include how to reproduce it: a modified [co-sim](4.sim), a waveform, or logs.
+Open an [Issue](https://github.com/chili-chips/wireguard-fpga/issues). For bugs, include how to reproduce it: a modified [co-sim](4.sim), a waveform, or logs.
 
 ## Want to change something?
 

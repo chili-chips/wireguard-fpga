@@ -64,7 +64,7 @@ RUN git config --global http.postBuffer 1048576000 && \
     git config --global core.compression 0 && \
     git config --global http.lowSpeedLimit 0 && \
     git config --global http.lowSpeedTime 999 && \
-    git clone https://github.com/chili-chips-ba/wireguard-fpga.git /wireguard-fpga && \
+    git clone https://github.com/chili-chips/wireguard-fpga.git /wireguard-fpga && \
     git clone https://github.com/wyvernSemi/vproc.git /vproc && \
     git clone https://github.com/wyvernSemi/mem_model.git /mem_model && \
     git clone https://github.com/wyvernSemi/tcpIpPg.git /tcpIpPg

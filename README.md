@@ -5,15 +5,15 @@ SPDX-License-Identifier: BSD-3-Clause
 -->
 
 [![NLnet:Funded](https://badgen.net/badge/NLnet/Funded/08C)](https://nlnet.nl/)
-[![Stars](https://badgen.net/github/stars/chili-chips-ba/wireguard-fpga?label=Stars)](https://github.com/chili-chips-ba/wireguard-fpga/stargazers)
+[![Stars](https://badgen.net/github/stars/chili-chips/wireguard-fpga?label=Stars)](https://github.com/chili-chips/wireguard-fpga/stargazers)
 [![License:BSD-3](https://badgen.net/badge/License/BSD-3/blue)](LICENSES)
 [![PipelineC:YES](https://badgen.net/badge/PipelineC/YES/green)](3.build/pipelinec_build)
 [![PypelineHDL+Sim:YES](https://badgen.net/badge/PypelineHDL%2BSim/YES/green)](3.build/pypeline_build)
 [![PeakRDL:YES](https://badgen.net/badge/PeakRDL/YES/green)](3.build/csr_build)
 [![eduBOS5:WIP](https://badgen.net/badge/eduBOS5/WIP/orange)](https://github.com/chili-chips-ba/openPCIE/blob/main/2.rtl/0.common.opensource/src/CPU.eduBOS5/README.md)
 [![VProc:YES](https://badgen.net/badge/VProc/YES/green)](4.sim/README.md)
-[![Lint](https://badgen.net/github/checks/chili-chips-ba/wireguard-fpga/main/run-lint?label=Lint)](https://github.com/chili-chips-ba/wireguard-fpga/actions/workflows/lint.yml)
-[![Verible](https://badgen.net/github/checks/chili-chips-ba/wireguard-fpga/main/verible?label=Verible)](https://github.com/chili-chips-ba/wireguard-fpga/actions/workflows/verible.yml)
+[![Lint](https://badgen.net/github/checks/chili-chips/wireguard-fpga/main/run-lint?label=Lint)](https://github.com/chili-chips/wireguard-fpga/actions/workflows/lint.yml)
+[![Verible](https://badgen.net/github/checks/chili-chips/wireguard-fpga/main/verible?label=Verible)](https://github.com/chili-chips/wireguard-fpga/actions/workflows/verible.yml)
 [![openXC7:Pass](https://badgen.net/badge/openXC7/Pass/green)](3.build/hw_build.openXC7)
 
 # Wireguard FPGA
@@ -421,7 +421,7 @@ If it was not for **Julian Kemmerer's** unreserved support helping us move our t
 
 Feel like helping opensource VPN community grow better and larger?! See [Contributions](CONTRIBUTING.md).
 
-Don't feel shy to reach out and ask for help ===> [![issues](https://badgen.net/github/open-issues/chili-chips-ba/wireguard-fpga?label=issues)](https://github.com/chili-chips-ba/wireguard-fpga/issues).
+Don't feel shy to reach out and ask for help ===> [![issues](https://badgen.net/github/open-issues/chili-chips/wireguard-fpga?label=issues)](https://github.com/chili-chips/wireguard-fpga/issues).
 
 --------------------
 
