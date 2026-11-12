@@ -591,7 +591,7 @@ Linux/WSL only. [`tools/vip-upgrade.sh`](tools/vip-upgrade.sh) refreshes VProc, 
 | `models/soc_cpu.VPROC.sv` | CPU reset (`bus.arst_n & imem_cpu_rstn`, as the RTL cores) on VProc interrupt bit 3 | for the ISS reset handling |
 | `models/rv32/usercode/rv32_timing_config.h` | none yet: wireguard's original tables | openPCIE's tables were measured on a different bus |
 
-The patch and the `VUserMain0.cpp` changes come from [openPCIE](https://github.com/chili-chips-ba/openpcie). Bus credit: a load or store to the simulation takes real clocks on the VProc bus. In `soc_cpu.VPROC.sv` VProc samples the ack at a rising edge, and the ack is `bus.rdy` sampled on the falling edge before it. Measured in `wave.fst`: a write takes 1 clock (DMEM and CSR), a CSR read 1, a DMEM read 2. With credit on, the ISS takes them off its next synchronisation.
+The patch and the `VUserMain0.cpp` changes come from [openPCIE](https://github.com/chili-chips/openpcie). Bus credit: a load or store to the simulation takes real clocks on the VProc bus. In `soc_cpu.VPROC.sv` VProc samples the ack at a rising edge, and the ack is `bus.rdy` sampled on the falling edge before it. Measured in `wave.fst`: a write takes 1 clock (DMEM and CSR), a CSR read 1, a DMEM read 2. With credit on, the ISS takes them off its next synchronisation.
 
 Two other fixes: `vusermain.cfg` halted the ISS at `0x6c`, the `jal main` in `2.sw/boot_crt.s`, so `main()` never ran (now `0x70`, `loop_forever`). And the file was CRLF, so `parseArgs()` (`vuserutils.cpp`) kept a CR on the last option and could not open `main.bin`. The file is LF now, and `parseArgs()` strips both.
 

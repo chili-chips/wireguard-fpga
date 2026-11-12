@@ -107,7 +107,7 @@ The instructions below are for the earlier flow (2025-12): the nextpnr-xilinx to
 #### openXC7 Installation
 
 Complete installation instructions for the openXC7 toolchain are available here:
-https://github.com/chili-chips-ba/openeye-CamSI/blob/main/3.build/openXC7/README.md
+https://github.com/chili-chips/openeye-CamSI/blob/main/3.build/openXC7/README.md
 
 The openXC7 toolchain provides open-source FPGA synthesis and place-and-route tools for Xilinx 7-series FPGAs, including:
 - **Yosys** - RTL synthesis
@@ -236,7 +236,7 @@ ERROR: imem.INIT.vh not found
 
 ```bash
 # 1. Install openXC7 toolchain
-# (See: https://github.com/chili-chips-ba/openeye-CamSI/blob/main/3.build/openXC7/README.md)
+# (See: https://github.com/chili-chips/openeye-CamSI/blob/main/3.build/openXC7/README.md)
 
 # 2. Install sv2v
 cd wireguard-fpga/3.build/hw_build.openXC7
@@ -268,7 +268,7 @@ make all
 ---
 
 For openXC7 toolchain issues, refer to the main installation guide:
-https://github.com/chili-chips-ba/openeye-CamSI/blob/main/3.build/openXC7/README.md
+https://github.com/chili-chips/openeye-CamSI/blob/main/3.build/openXC7/README.md
 
 ### openXC7 issues
 

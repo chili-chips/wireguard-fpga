@@ -10,7 +10,7 @@ SPDX-License-Identifier: BSD-3-Clause
 [![PipelineC:YES](https://badgen.net/badge/PipelineC/YES/green)](3.build/pipelinec_build)
 [![PypelineHDL+Sim:YES](https://badgen.net/badge/PypelineHDL%2BSim/YES/green)](3.build/pypeline_build)
 [![PeakRDL:YES](https://badgen.net/badge/PeakRDL/YES/green)](3.build/csr_build)
-[![eduBOS5:WIP](https://badgen.net/badge/eduBOS5/WIP/orange)](https://github.com/chili-chips-ba/openPCIE/blob/main/2.rtl/0.common.opensource/src/CPU.eduBOS5/README.md)
+[![eduBOS5:WIP](https://badgen.net/badge/eduBOS5/WIP/orange)](https://github.com/chili-chips/openPCIE/blob/main/2.rtl/0.common.opensource/src/CPU.eduBOS5/README.md)
 [![VProc:YES](https://badgen.net/badge/VProc/YES/green)](4.sim/README.md)
 [![Lint](https://badgen.net/github/checks/chili-chips/wireguard-fpga/main/run-lint?label=Lint)](https://github.com/chili-chips/wireguard-fpga/actions/workflows/lint.yml)
 [![Verible](https://badgen.net/github/checks/chili-chips/wireguard-fpga/main/verible?label=Verible)](https://github.com/chili-chips/wireguard-fpga/actions/workflows/verible.yml)
@@ -74,7 +74,7 @@ To make the hardware Wireguard truly accessible in the genuine spirit of open-so
   
 **[Ref4]** [ChaCha20-Poly1305](https://github.com/mrdcvlsc/ChaCha20-Poly1305) open-source Crypto RTL 
   
-**[Ref5]** Cookie Cutter [SOC](https://github.com/chili-chips-ba/openXC7-TetriSaraj)
+**[Ref5]** Cookie Cutter [SOC](https://github.com/chili-chips/openXC7-TetriSaraj)
 
 **[Ref6]** [RISC-V ISS](https://github.com/wyvernSemi/riscV/tree/main/iss)
 
@@ -235,7 +235,7 @@ The control and status register (CSR) RTL and the firmware's register header are
 | 2026-10 | `csr_hw.h` (generated): each class laid out like its registers | one load or store | a byte or half-word store when the field fills whole bytes | 23,308 B | 3,112 B |
 | now | `csr_regs.h` macros on the `peakrdl` header | one load or store | the same; a read-modify-write stores only the field's bytes | 24,452 B | 3,108 B |
 
-The last step drops the generated C++ class trees (`csr_hw.h`, `csr_cosim.h` and their generator) for one header that serves both the hardware and the co-simulation, as on [openPCIE](https://github.com/chili-chips-ba/openPCIE/blob/main/5.sim/README.md#hal). It costs 1.1 kB of code.
+The last step drops the generated C++ class trees (`csr_hw.h`, `csr_cosim.h` and their generator) for one header that serves both the hardware and the co-simulation, as on [openPCIE](https://github.com/chili-chips/openPCIE/blob/main/5.sim/README.md#hal). It costs 1.1 kB of code.
 
 ## Build process
 The details of the build process can be found in the [README.md](3.build/README.md) in the `3.build/` directory.
@@ -427,7 +427,7 @@ Don't feel shy to reach out and ask for help ===> [![issues](https://badgen.net/
 
 ### RTL Coding Rules
 
-New RTL follows our [RTL coding rules](1.hw/README.md#rtl-coding-rules), as in [openPCIE](https://github.com/chili-chips-ba/openPCIE/blob/main/2.rtl/README.md#rtl-coding-rules) and [openCologne](https://github.com/chili-chips-ba/openCologne/blob/main/7.SerDes/3.iclink-sv/1.hw/README.md#rtl-coding-rules). [Contributions](CONTRIBUTING.md) lists the QA steps every change goes through: lint, format, simulation, build.
+New RTL follows our [RTL coding rules](1.hw/README.md#rtl-coding-rules), as in [openPCIE](https://github.com/chili-chips/openPCIE/blob/main/2.rtl/README.md#rtl-coding-rules) and [openCologne](https://github.com/chili-chips/openCologne/blob/main/7.SerDes/3.iclink-sv/1.hw/README.md#rtl-coding-rules). [Contributions](CONTRIBUTING.md) lists the QA steps every change goes through: lint, format, simulation, build.
 
 --------------------
 

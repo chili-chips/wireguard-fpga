@@ -10,7 +10,7 @@ SPDX-License-Identifier: BSD-3-Clause
   <a href="https://github.com/tarik-ibrahimovic/eduBOS5"><img alt="eduBOS5 logo" width="25%" src="../../../0.doc/artwork/eduBOS5.logo.png"></a>
 </p>
 
-[eduBOS5](https://github.com/tarik-ibrahimovic/eduBOS5) is Chili.CHIPS' compact RV32I RISC-V core, open source under BSD-3-Clause. The master is on [openPCIE](https://github.com/chili-chips-ba/openPCIE/tree/main/2.rtl/0.common.opensource/src/CPU.eduBOS5), with its validation (riscv-formal, the multicycle proof, timing). The RTL here is a copy of it as of 2026-10-31, lint-clean and Verible-formatted.
+[eduBOS5](https://github.com/tarik-ibrahimovic/eduBOS5) is Chili.CHIPS' compact RV32I RISC-V core, open source under BSD-3-Clause. The master is on [openPCIE](https://github.com/chili-chips/openPCIE/tree/main/2.rtl/0.common.opensource/src/CPU.eduBOS5), with its validation (riscv-formal, the multicycle proof, timing). The RTL here is a copy of it as of 2026-10-31, lint-clean and Verible-formatted.
 
 Before major work here, check the master for a newer eduBOS5: copy the four files below and note the date or commit. Fixes go to openPCIE first.
 

@@ -11,7 +11,7 @@ The hardware architecture essentially follows the HW/SW partitioning and consist
 
 The soft CPU is equipped with a on-chip instruction memory (IMEM) and data memory (DMEM). The connection between the control and data planes is established through a CSR-based HAL.
 
-The soft CPU is [eduBOS5](ip.cpu/cpu.EDUBOS5/README.md) (default) or PicoRV32. More on eduBOS5, such as the CPU comparison, formal proofs and WaveCrux views, is in [openPCIE](https://github.com/chili-chips-ba/openPCIE/blob/main/2.rtl/0.common.opensource/src/CPU.eduBOS5/README.md).
+The soft CPU is [eduBOS5](ip.cpu/cpu.EDUBOS5/README.md) (default) or PicoRV32. More on eduBOS5, such as the CPU comparison, formal proofs and WaveCrux views, is in [openPCIE](https://github.com/chili-chips/openPCIE/blob/main/2.rtl/0.common.opensource/src/CPU.eduBOS5/README.md).
 
 The data plane consists of several IP cores, including data plane engine (DPE) and supporting components, which are listed and explained in the direction of network traffic propagation:
 - _PHY Controller_ - initial configuration of Realtek PHYs and monitoring link activity (link up/down events)
@@ -193,7 +193,7 @@ To illustrate the operation of the system as a whole, we will follow the step-by
 
 ### RTL coding rules
 
-IEEE 1800-2009 SystemVerilog, the same rules as on [openPCIE](https://github.com/chili-chips-ba/openPCIE/blob/main/2.rtl/README.md#rtl-coding-rules). For our RTL in `1.hw` (the files [`top.filelist`](top.filelist) builds) and the models that stand in for it. Known exceptions: `wire` in `fpga_pll_80M.sv`, `fpga_pll_125M.sv` and `clk_rst_gen.sv` (which also has untyped ports); `` `timescale `` and plain `always` inside `SIM_ONLY` blocks; the unbuilt `dpe_*` stages (untyped parameters, `` `timescale ``). Third-party code (`external_lib`: Alex Forencich's verilog-ethernet and verilog-axis; PicoRV32) and the PeakRDL-generated CSR keep their own style. [`run-lint`](../3.build/hw_build.openXC7/run-lint.sh), [`run-format`](../3.build/hw_build.openXC7/run-format.sh) and [`run-leq`](../3.build/hw_build.openXC7/run-leq.sh) are in `3.build/hw_build.openXC7`.
+IEEE 1800-2009 SystemVerilog, the same rules as on [openPCIE](https://github.com/chili-chips/openPCIE/blob/main/2.rtl/README.md#rtl-coding-rules). For our RTL in `1.hw` (the files [`top.filelist`](top.filelist) builds) and the models that stand in for it. Known exceptions: `wire` in `fpga_pll_80M.sv`, `fpga_pll_125M.sv` and `clk_rst_gen.sv` (which also has untyped ports); `` `timescale `` and plain `always` inside `SIM_ONLY` blocks; the unbuilt `dpe_*` stages (untyped parameters, `` `timescale ``). Third-party code (`external_lib`: Alex Forencich's verilog-ethernet and verilog-axis; PicoRV32) and the PeakRDL-generated CSR keep their own style. [`run-lint`](../3.build/hw_build.openXC7/run-lint.sh), [`run-format`](../3.build/hw_build.openXC7/run-format.sh) and [`run-leq`](../3.build/hw_build.openXC7/run-leq.sh) are in `3.build/hw_build.openXC7`.
 
 - **Declare and size once:** widths, constants and types live in a `_pkg` (`soc_pkg.sv`, `dpe_pkg.sv`, the generated `csr_pkg.sv`); no module redeclares them. Every parameter has a type (`int`, `logic [N:0]`).
 - **Fewer, richer ports:** interfaces (`soc_if`, `dpe_if`, `gmii_if`) and struct-typed ports, not many scalars. Each CSR client drives only its own sub-struct of `csr__in_t`, never the whole struct.
