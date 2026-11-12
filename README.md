@@ -406,6 +406,8 @@ If it was not for **Julian Kemmerer's** unreserved support helping us move our t
 </p>
 
 ### Community Outreach
+- [2026-11-12](https://www.linkedin.com/posts/jkemmerer_excited-that-a-paper-featuring-pipelinec-share-7526696968883093504-4t7m/?utm_source=share&utm_medium=member_desktop&rcm=ACoAAAJv-TcBSi_5ff0VNMrInrT-xg44YF3jnyU)
+- [IEEE Xplore paper](https://ieeexplore.ieee.org/document/11773138)
 - [2025-12-11](https://www.linkedin.com/posts/chili-chips_wireguard-fpga-opensource-activity-7404799997201833985-Hh-j?utm_source=share&utm_medium=member_desktop&rcm=ACoAAAJv-TcBSi_5ff0VNMrInrT-xg44YF3jnyU)
 - [2025-10-12, daily.dev](https://daily.dev/posts/chili-chips-ba-wireguard-fpga-full-throttle-wire-speed-hardware-implementation-of-wireguard-vpn-u-wsf6uxyf1) (from Hacker News)
 - [2025-10-12](https://www.linkedin.com/pulse/wireguard-fpga-advanced-co-simulation-verification-case-southwell-z64ce)
