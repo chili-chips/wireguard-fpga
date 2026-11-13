@@ -9,9 +9,9 @@ SPDX-License-Identifier: BSD-3-Clause
 After connecting the Alinx AX7201 boards with cables according to the topology, the FPGA must programmed as described in
 [build process](../3.build/README.md#hw-compilation---vivado).
 
-<p align="center">
+<div align="center">
   <img width="70%" src="../0.doc/Wireguard/wireguard-fpga-Test-Topology.webp">
-</p>
+</div>
 
 The AX7201 board provides a USB UART interface, which is used as the WireGuard CLI. A connection to the CLI can be established using a serial terminal application such as minicom:
 
@@ -21,9 +21,9 @@ minicom -D /dev/ttyUSB0
 
 Once connected to the CLI, the FPGA can be reset (or reconfigured). This will generate a welcome message on the terminal, as shown in the figure below.
 
-<p align="center">
+<div align="center">
   <img width="70%" src="../0.doc/Wireguard/wireguard_cli.png">
-</p>
+</div>
 
 We will now go through the steps to configure the WireGuard-FPGA nodes using the CLI.
 
@@ -189,9 +189,9 @@ ping 192.168.0.2
 
 The image shows the first encrypted packet (ICMP Echo Request) captured on the node 192.168.1.1.
 
-<p align="center">
+<div align="center">
   <img width="70%" alt="Blueprint (WIP): the first encrypted packet, an ICMP Echo Request, captured on node 192.168.1.1" src="../0.doc/Wireguard/wireguard_test_wireshark.png">
-</p>
+</div>
 
 ## WireGuard Test Scripts
 

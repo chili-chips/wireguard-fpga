@@ -36,9 +36,9 @@ The Wireguard FPGA test bench aims to have a flexible approach to simulation whi
 
 The _VProc_ component is wrapped up into an [`soc_cpu.VPROC`](models/README.md#soc_cpuvproc) component with identical interfaces to the RTL. Some conversion logic is added to this BFM to convert between _VProc_'s generic memory mapped interface and the <tt>soc_if</tt> defined interface. This is very lightweight logic, with less than ten combinatorial gates to match the control signals. In addition, the <tt>soc_cpu.VPROC</tt> component has a [<tt>mem_model</tt>](models/cosim/README.md) component instantiated. This is a 'memory port' to the [<tt>mem_model</tt>](https://github.com/wyvernSemi/mem_model) C software implementation of a sparse memory model, allowing updates to the RISC-V program, if using the rv32 RISC-V ISS model ([see below](#risc-v-compiled-application)). The diagram below shows a block diagram of the test bench HDL.
 
-<p align="center">
+<div align="center">
 <img src="https://github.com/user-attachments/assets/98cb3a19-11c7-4470-a4e1-41c503429e14" width=800>
-</p>
+</div>
 
 Shown in the diagram is the Wireguard FPGA top level component (<tt>top</tt>) with the <tt>soc_cpu.VPROC</tt> component instantiated in it as one of three possible selected devices for the soc_cpu. The IMEM write port is connected to the UART for program updates and the <tt>soc_if</tt> from  <tt>soc_cpu.VPROC</tt> is connected to the interconnect fabric (<tt>soc_fabric</tt>), just as for the two RTL components. The test bench around the top level Wireguard component has a driver for the UART (<tt>bfm_uart</tt>) and the four GMII/RGMII interfaces (including MDIO signals) coming from the Wireguard core to some verification IP (`bfm_ethernet`) to drive this signalling. This BFM implementation is based around the [_udpIpPg_](https://github.com/wyvernSemi/udpIpPg) GMII/RGMII VProc based VIP. In addtion there are MDIO slave models for reading and writing over the PHY MDIO signals from Wireguard, and these also read and write to allocated _VProc_ memory for access by _VProc_ `soc_cpu` code. MDIO registers access are displayed to the console as well, for logging purpose, displaying the name of the clause 22 register accessed. Finally the test bench generates clocks and the key press reset that go to the top level's <tt>clk_rst_gen</tt> component (<tt>debounce</tt> is commented out of <tt>top.filelist</tt>).
 
@@ -157,9 +157,9 @@ Note that, as C functions, there are no default parameters and the <tt>little_en
 
 Compiling co-designed application code, either compiled for the native host machine, or to run on the <tt>rv32</tt> RISC-V ISS will need further layers on top of these APIs, which will be virtualised away by that point ([see the sections below](#hal)). The diagram below summarises the software layers that make up a program running on the VProc HDL component. The "native test code" use case, shown at the top left, is for the case just described above  that use the APIs directly.
 
-<p align="center">
+<div align="center">
 <img src="https://github.com/user-attachments/assets/373676ee-f7e2-4a1a-b9b9-079ccef90c37" width=800>
-</p>
+</div>
 
 ### Other Software Use Cases
 
@@ -433,7 +433,7 @@ Details of the memory model can be found in the [README.md](models/cosim/README.
 
 The Wireguard FPGA logic has interfaces for four Ethernet ports, transferring UDP/Ipv4 packets over GMII for 1GbE. Accompanying each Ethernet port is also an MDIO interface used for configuring the PHY with IEEE802.3 Clasue 22 registers. In order to drive these interfaces, the test bench has a [`bfm_ethernet`](models/README.md#the-bfm_ethernet-ethernet-driver-module) module based on the [udpIpPg VIP](https://github.com/wyvernSemi/udpIpPg) to generate packets over GMII, along with  [bfm_phy_mdio blocks](models/README.md#the-bfm_phy_mdio-mdio-slave-driver-module) to respond to the MDIO transactions and which map the registers to address ranges within in the [mem_model's](https://github.com/wyvernSemi/mem_model) memory space via instantiated mem_model HDL components.
 
-<p align="center"><img width= "500" src="https://github.com/user-attachments/assets/5d441c97-9d9f-43d7-99da-d5156b7d106d"></p>
+<div align="center"><img width= "500" src="https://github.com/user-attachments/assets/5d441c97-9d9f-43d7-99da-d5156b7d106d"></div>
 
 More details on the ethernet driver and udpIpPg can be found in the  [README.md](models/udpIpPg/README.md) file in 4.sim/models/udpIpPg.
 

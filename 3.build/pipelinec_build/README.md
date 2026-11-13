@@ -12,9 +12,9 @@ For both *encryption* and *decryption* we will present a diagram that showcases 
 
 # Encryption
 
-<p align="center">
+<div align="center">
     <img width="700" src="./doc/Encryption.png">
-</p>
+</div>
 
 In this section we will present the *encryption* block's structure. The architecture is displayed on the graph above. The goal of the *encryption* block is to take *plaintext* as it's input, the block will cyphere the input text and output the encrypted text. Alongside the encrypted text, as the output of this block we also have the authentiaction tag, both the tag and the encrypted text are streamed one after the other (first the ciphertext and then the tag).
 As the graph above shows, the *encryption* is consisted of four blocks: *chacha20_pipeline_shared*, prep_auth_data*, *poly1305_pipeline_shared* and *append_auth_tag*. TThe *chacha20_pipeline_shared* and *poly1305_pipeline_shared* blocks are used in both *encryption* and *decryption*, that's why these blocks are pipelines shared between the two blocks. Both pipelines have a multiplexer on their respected inputs and choose which inputs they will take. This way we manage to save space by having only one block instead of having two blocks each.
@@ -224,9 +224,9 @@ The module uses a simple two-state FSM to sequence the Ciphertext pass-through a
 
 # Decryption
 
-<p align="center">
+<div align="center">
     <img width="700" src="./doc/chacha20poly1305_decrypt.png">
-</p>
+</div>
 
 The picture above presents the *Decryption* block. We can see right away that this block uses a couple more blocks than it's encryption counterpart. Still, it uses the same *chacha20_pipeline_shared* and *poly305_pipeline_shared* blocks that we described in the previous section. In this section we will showcase in detail the remaining four blocks that are used for the *decryption*: *strip_auth_tag*, *prep_auth_tag*, *poly1305_verify* and *wait_to_verify*.
 

@@ -3,10 +3,10 @@
 This design implements concurrent ChaCha20-Poly1305 encryption and decryption
 using **Pypeline HDL** to generate FPGA hardware and run native simulation. 
 
-<p align="center">
+<div align="center">
   <img width="90%" src="0.doc/wireguard-pypeline-sim-light.png"
    alt="Pypeline native sim: Python HDL, cycle-exact sim engine, silicon-verified">
-</p>
+</div>
 
 The default targets Artix-7 at **80 MHz**, with a **256-bit packet
 datapath**, one shared ChaCha20 pipeline, and a private pipelined Poly1305 MAC
