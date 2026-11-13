@@ -19,11 +19,9 @@ SPDX-License-Identifier: BSD-3-Clause
 
 # Wireguard FPGA
 Virtual Private Networks (VPNs) are the central and indispensable component of Internet security. They comprise a set of technologies that connect geographically dispersed, heterogeneous networks through encrypted tunnels, creating the impression of a homogenous private network on the public shared physical medium. 
-<p align="center">
-  <img width="20%", src="0.doc/artwork/wireguardfpga.hex.svg">
-  <img width="16%", src="0.doc/artwork/ethernet-cable.png">
-  <img width="20%", src="0.doc/artwork/wireguardfpga.hex.svg">
-</p>
+<div align="center">
+  <img width="56%" alt="WireGuard FPGA" src="0.doc/artwork/wireguardfpga.banner.png">
+</div>
 
 With traditional solutions (such as OpenVPN / IPSec) starting to run out of steam, Wireguard is increasingly coming to the forefront as a modern, secure data tunneling and encryption method, one that's also easier to manage than the incumbents. Both software and hardware implementations of Wireguard already exist. However, the software performance is far below the speed of wire. The existing hardware approaches are both prohibitively expensive and based on proprietary, closed-source IP blocks and tools.<br> 
 
@@ -57,10 +55,10 @@ To make the hardware Wireguard truly accessible in the genuine spirit of open-so
 -	which is supported by open-source tools  
 -	and with all gateware written in the ubiquitous Verilog / System Verilog
 
-<p align="center">
+<div align="center">
   <img width="50%" src="0.doc/Alinx/AX7201.png">
   <img width="50%" src="0.doc/Alinx/ALINX7201x2.jpg">
-</p>
+</div>
 
 ## References
 
@@ -120,17 +118,17 @@ The Phase2 continuation project is therefore also in the plans, to maximize effi
 ## HW/SW Partitioning
 Since the WireGuard node essentially functions as an IP router with WireGuard protocol support, we have decided to design the system according to a two-layer architecture: a control plane responsible for managing IP routing processes and executing the WireGuard protocol (managing remote peers, sessions, and keys), and a data plane that will perform IP routing and cryptography processes at wire speed. The control plane will be implemented as software running on a soft CPU, while the data plane will be fully implemented in RTL on an FPGA.
 
-<p align="center">
+<div align="center">
   <img width="80%" src="0.doc/Wireguard/wireguard-fpga-muxed-Architecture-HW-SW-Partitioning.webp">
-</p>
+</div>
  
 In the HW/SW partitioning diagram, we can observe two types of network traffic: control traffic, which originates from the control plane and goes toward the external network (and vice versa), and data traffic, which arrives from the external network and, after processing in the data plane, returns to the external network. Specifically, control traffic represents WireGuard protocol handshake messages, while data traffic consists of end-user traffic, either encrypted or in plaintext, depending on the perspective.
 
 ## Hardware Architecture and Theory of Operation
 
-<p align="center">
+<div align="center">
   <img width="90%" src="0.doc/Wireguard/wireguard-fpga-Architecture-HW.webp">
-</p>
+</div>
 
 The hardware architecture essentially follows the HW/SW partitioning and consists of two domains: a soft CPU for the control plane and RTL for the data plane.
 
@@ -156,9 +154,9 @@ The details of hardware architecture can be found in the [README.md](./1.hw/READ
 
 ## Software Architecture and Theory of Operation
 
-<p align="center">
+<div align="center">
   <img width="60%" src="0.doc/Wireguard/wireguard-fpga-muxed-Architecture-SW.webp">
-</p>
+</div>
 
 The conceptual class diagram provides an overview of the components in the software part of the system without delving into implementation details. The focus is on the WireGuard Agent, which implements the protocol's handshake procedures, along with the following supplementary components:
 - [Curve25519](http://cr.yp.to/ecdh.html) - an ECDH algorithm implementation for establishing a shared secret using a public-private key pair between two remote parties connected via an insecure channel, such as the Internet
@@ -184,9 +182,9 @@ To illustrate the operation of the system as a whole, we have prepared a step-by
 - 10.9.0.2 - WireGuard peer B
 - 10.10.0.1 - the end-user host at site B
 
-<p align="center">
+<div align="center">
   <img width="70%" src="0.doc/Wireguard/wireguard-fpga-muxed-Example-Topology.webp">
-</p>
+</div>
 
 The detailed analysis can be found in the [README.md](./1.hw/README.md#hwsw-working-together-as-a-coherent-system) in the `1.hw/` directory.
 
@@ -194,10 +192,10 @@ The detailed analysis can be found in the [README.md](./1.hw/README.md#hwsw-work
 
 The ChaCha20-Poly1305 AEAD core is also written in [Pypeline](https://github.com/JulianKemmerer/PipelineC#what-is-pypelinec), the Python front-end of PipelineC: hardware design and cycle-exact simulation in plain Python, RFC 8439-conformant and verified on silicon.
 
-<p align="center">
+<div align="center">
   <img width="80%" src="3.build/pypeline_build/0.doc/wireguard-pypeline-sim-light.png"
    alt="Pypeline native sim: Python HDL, cycle-exact sim engine, silicon-verified">
-</p>
+</div>
 
 Details: [3.build/pypeline_build](3.build/pypeline_build/README.md).
 
@@ -218,9 +216,9 @@ The [Wireguard FPGA test bench](4.sim/README.md) aims to have a flexible approac
 
 The figure below shows an oveview block diagram of the test bench HDL.
 
-<p align="center">
+<div align="center">
    <img src="https://github.com/user-attachments/assets/98cb3a19-11c7-4470-a4e1-41c503429e14" width=600>
-</p>
+</div>
 
 More details on the architecture and usage of the Wireguard test bench can be found in the [README.md](4.sim/README.md) in the `4.sim` directory.
 
@@ -244,9 +242,9 @@ The details of the build process can be found in the [README.md](3.build/README.
 ## Lab Test and Validation Setup
 The figure illustrates a test topology consisting of two remote hosts, A and B, connected in a VPN implemented using two WireGuard-FPGA nodes interconnected over a public network. An additional node in the public network is included to demonstrate traffic encryption. Detailed instructions for configuring the WireGuard-FPGA nodes are provided in [README.md](5.test/README.md) in the `5.test/` directory.
 
-<p align="center">
+<div align="center">
   <img width="70%" src="0.doc/Wireguard/wireguard-fpga-Test-Topology.webp">
-</p>
+</div>
 
 ---
 # Project Execution Plan / Tracking
@@ -358,42 +356,42 @@ The objective of this optional deliverable is to ensure stable and efficient lin
 ### Acknowledgements
 We are grateful to **NLnet Foundation** for their sponsorship of this development activity.
 
-<p align="center">
+<div align="center">
    <a href="https://nlnet.nl"><img alt="NLnet logo" src="https://github.com/chili-chips-ba/openeye/assets/67533663/18e7db5c-8c52-406b-a58e-8860caa327c2"></a>
    <a href="https://nlnet.nl/entrust"><img width="20%" alt="NGI-Entrust-Logo" src="https://github.com/chili-chips-ba/openeye-CamSI/assets/67533663/013684f5-d530-42ab-807d-b4afd34c1522"></a>
-</p>
+</div>
 
 This project was funded through the NGI0 Entrust Fund, a fund established by NLnet with financial support from the European Commission's Next Generation Internet programme, under the aegis of DG Communications Networks, Content and Technology under grant agreement No 101069594.
 
 The **wyvernSemi**'s wisdom and contribution made a great deal of difference -- Thank you, we are honored to have you on the project.
 
-<p align="center">
+<div align="center">
    <a href="https://github.com/wyvernSemi"><img width="15%" alt="wyvernSemi-Logo" src="0.doc/artwork/wyvernSemi-logo-rounded.png"></a>
-</p>
+</div>
 
 If it was not for **Julian Kemmerer's** unreserved support helping us move our two cryptography blocks from C to gates, be it by guiding and mentoring, or by doing it himself, the meat of this project would not have been so easily pushed through to hardware using `PipelineC`. Thank you Mr.OpensourceHLS 🙏. 
 
-<p align="center">
+<div align="center">
  <a href="https://github.com/JulianKemmerer/PipelineC"><img width="50%" alt="PipelineC logo" src="0.doc/artwork/pipelineC.logo.png"></a>
-</p>
+</div>
 
-<p align="center">
+<div align="center">
  <a href="https://github.com/JulianKemmerer/PipelineC#what-is-pypelinec"><img width="50%" alt="PypelineC logo" src="0.doc/artwork/pypelinec.logo.png"></a>
-</p>
+</div>
 
 **openXC7**, with **Yosys** at its core, turns RTL into a loadable FPGA bitfile. **PeakRDL** turns our SystemRDL file into CSR RTL+headers+RegMap docs. **Verilator**, **slang** and **Verible** keep our RTL clean, and Verilator runs the SoC co-simulation. **cocotb** with **GHDL** verifies the generated crypto cores. **[sv2v](https://github.com/zachjs/sv2v)** converted our SystemVerilog for the first openXC7 port, and is still there as `FRONTEND=sv2v`. But, that's not everything that made this project possible -- Thank you all for these wonderful opensource tools :sparkles:.
 
-<p align="center"> 
+<div align="center"> 
   <a href="https://github.com/openXC7"><img alt="openXC7 logo" width="35%" src="0.doc/artwork/openXC7.logo.png"></a>
   <a href="https://www.symbioticeda.com"><img alt="Symbiotic EDA logo" width="25%" src="0.doc/artwork/symbioticeda.logo.png"></a>
-</p>
+</div>
 
-<p align="center">
+<div align="center">
   <a href="https://peakrdl.readthedocs.io"><img alt="PeakRDL logo" width="14%" src="0.doc/artwork/PeakRDL.logo.png"></a>
   <a href="https://www.yosyshq.com"><img alt="YosysHQ logo" width="25%" src="0.doc/artwork/YosysHQ.logo.png"></a>
-</p>
+</div>
 
-<p align="center">
+<div align="center">
   <a href="https://verilator.org"><img alt="Verilator logo" width="25%" src="0.doc/artwork/Verilator.logo.png"></a>
   <a href="https://www.cocotb.org"><img alt="cocotb logo" width="20%" src="0.doc/artwork/cocotb.logo.png"></a>
   <a href="https://github.com/ghdl/ghdl"><img alt="GHDL logo" width="20%" src="0.doc/artwork/GHDL.logo.png"></a>
@@ -404,7 +402,7 @@ If it was not for **Julian Kemmerer's** unreserved support helping us move our t
   <a href="https://github.com/YosysHQ/picorv32"><img alt="PicoRV32 logo" width="20%" src="0.doc/artwork/picoRV32.logo.png"></a>
   <a href="https://riscv.org"><img alt="RISC-V logo" width="12%" src="0.doc/artwork/RISC-V.logo.JPG"></a>
   <a href="https://www.drawio.com"><img alt="draw.io logo" width="25%" src="0.doc/artwork/drawio.logo.png"></a>
-</p>
+</div>
 
 ### Community Outreach
 - [2026-11-12](https://www.linkedin.com/posts/jkemmerer_excited-that-a-paper-featuring-pipelinec-share-7526696968883093504-4t7m/?utm_source=share&utm_medium=member_desktop&rcm=ACoAAAJv-TcBSi_5ff0VNMrInrT-xg44YF3jnyU)
