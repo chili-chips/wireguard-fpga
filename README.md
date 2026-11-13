@@ -6,7 +6,7 @@ SPDX-License-Identifier: BSD-3-Clause
 
 [![NLnet:Funded](https://badgen.net/badge/NLnet/Funded/08C)](https://nlnet.nl/)
 [![Stars](https://badgen.net/github/stars/chili-chips/wireguard-fpga?label=Stars)](https://github.com/chili-chips/wireguard-fpga/stargazers)
-[![GitLab:Mirror](https://badgen.net/badge/GitLab/Mirror/orange)](https://gitlab.com/chili-chips/wireguard-fpga)
+[![GitLab:Mirror](https://badgen.net/badge/GitLab/Mirror/green)](https://gitlab.com/chili-chips/wireguard-fpga)
 [![License:BSD-3](https://badgen.net/badge/License/BSD-3/blue)](LICENSES)
 [![PipelineC:YES](https://badgen.net/badge/PipelineC/YES/green)](3.build/pipelinec_build)
 [![PypelineHDL+Sim:YES](https://badgen.net/badge/PypelineHDL%2BSim/YES/green)](3.build/pypeline_build)
