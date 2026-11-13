@@ -13,6 +13,8 @@ SPDX-License-Identifier: BSD-3-Clause
 [![PeakRDL:YES](https://badgen.net/badge/PeakRDL/YES/green)](3.build/csr_build)
 [![eduBOS5:WIP](https://badgen.net/badge/eduBOS5/WIP/orange)](https://github.com/chili-chips/openPCIE/blob/main/2.rtl/0.common.opensource/src/CPU.eduBOS5/README.md)
 [![VProc:YES](https://badgen.net/badge/VProc/YES/green)](4.sim/README.md)
+[![WaveCrux:Pass](https://badgen.net/badge/WaveCrux/Pass/green)](https://wavecrux.app)
+[![JanusHDL:WIP](https://badgen.net/badge/JanusHDL/WIP/orange)](https://que.no/janushdl/)
 [![Lint](https://badgen.net/github/checks/chili-chips/wireguard-fpga/main/run-lint?label=Lint)](https://github.com/chili-chips/wireguard-fpga/actions/workflows/lint.yml)
 [![Verible](https://badgen.net/github/checks/chili-chips/wireguard-fpga/main/verible?label=Verible)](https://github.com/chili-chips/wireguard-fpga/actions/workflows/verible.yml)
 [![openXC7:Pass](https://badgen.net/badge/openXC7/Pass/green)](3.build/hw_build.openXC7)
