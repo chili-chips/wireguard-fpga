@@ -357,8 +357,8 @@ The objective of this optional deliverable is to ensure stable and efficient lin
 We are grateful to **NLnet Foundation** for their sponsorship of this development activity.
 
 <div align="center">
-   <a href="https://nlnet.nl"><img alt="NLnet logo" src="https://github.com/chili-chips-ba/openeye/assets/67533663/18e7db5c-8c52-406b-a58e-8860caa327c2"></a>
-   <a href="https://nlnet.nl/entrust"><img width="20%" alt="NGI-Entrust-Logo" src="https://github.com/chili-chips-ba/openeye-CamSI/assets/67533663/013684f5-d530-42ab-807d-b4afd34c1522"></a>
+   <a href="https://nlnet.nl"><img width="30%" alt="NLnet logo" src="0.doc/artwork/NLnet-logo.png"></a>
+   <a href="https://nlnet.nl/entrust"><img width="20%" alt="NGI-Entrust-Logo" src="0.doc/artwork/NGI0-Entrust.logo.svg"></a>
 </div>
 
 This project was funded through the NGI0 Entrust Fund, a fund established by NLnet with financial support from the European Commission's Next Generation Internet programme, under the aegis of DG Communications Networks, Content and Technology under grant agreement No 101069594.
@@ -394,6 +394,7 @@ If it was not for **Julian Kemmerer's** unreserved support helping us move our t
 <div align="center">
   <a href="https://verilator.org"><img alt="Verilator logo" width="25%" src="0.doc/artwork/Verilator.logo.png"></a>
   <a href="https://www.cocotb.org"><img alt="cocotb logo" width="20%" src="0.doc/artwork/cocotb.logo.png"></a>
+  <a href="https://que.no/janushdl/"><img alt="JanusHDL logo" width="25%" src="0.doc/artwork/JanusHDL.logo.png"></a>
   <a href="https://github.com/ghdl/ghdl"><img alt="GHDL logo" width="20%" src="0.doc/artwork/GHDL.logo.png"></a>
   <a href="https://github.com/MikePopoloski/slang"><img alt="MikePopoloski slang logo" width="25%" src="0.doc/artwork/slang.logo.png"></a>
   <a href="https://www.chipsalliance.org/projects"><img alt="Chips Alliance SV Tools logo" width="15%" src="0.doc/artwork/ChipsAlliance-SV-Tools.logo.png"></a>
