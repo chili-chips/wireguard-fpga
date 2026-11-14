@@ -48,8 +48,8 @@ module imem #(
     parameter int NUM_WORDS = 8192  // in 32-bit: 8KWords = 32KBytes
 ) (
     // Clock & reset
-    input logic clk,
-    input logic arst_n,
+    input  logic        clk,
+    input  logic        arst_n,
 
     // CPU Read-Only port
     input  logic        rvld,

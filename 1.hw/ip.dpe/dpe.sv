@@ -61,40 +61,40 @@ module dpe
   import dpe_pkg::*;
 
   dpe_if muxed_1 (
-      .clk(from_cpu.clk),
-      .rst(from_cpu.rst)
+      .clk (from_cpu.clk),
+      .rst (from_cpu.rst)
   );
   dpe_if muxed_2 (
-      .clk(from_cpu.clk),
-      .rst(from_cpu.rst)
+      .clk (from_cpu.clk),
+      .rst (from_cpu.rst)
   );
 
   // DPE multiplexer
   dpe_multiplexer u_dpe_multiplexer (
-      .pause     (from_csr.dpe.fcr.pause.value),
-      .is_idle   (to_csr_dpe.fcr.idle.next),
-      .from_cpu  (from_cpu),
-      .from_eth_1(from_eth_1),
-      .from_eth_2(from_eth_2),
-      .from_eth_3(from_eth_3),
-      .from_eth_4(from_eth_4),
-      .to_dpe    (muxed_1)
+      .pause      (from_csr.dpe.fcr.pause.value),
+      .is_idle    (to_csr_dpe.fcr.idle.next),
+      .from_cpu   (from_cpu),
+      .from_eth_1 (from_eth_1),
+      .from_eth_2 (from_eth_2),
+      .from_eth_3 (from_eth_3),
+      .from_eth_4 (from_eth_4),
+      .to_dpe     (muxed_1)
   );
 
   // DPE dummy switch
   dpe_dummy_switch u_dpe_dummy_switch (
-      .inp (muxed_1),
-      .outp(muxed_2)
+      .inp  (muxed_1),
+      .outp (muxed_2)
   );
 
   // DPE demultiplexer
   dpe_demultiplexer u_dpe_demultiplexer (
-      .from_dpe(muxed_2),
-      .to_cpu  (to_cpu),
-      .to_eth_1(to_eth_1),
-      .to_eth_2(to_eth_2),
-      .to_eth_3(to_eth_3),
-      .to_eth_4(to_eth_4)
+      .from_dpe (muxed_2),
+      .to_cpu   (to_cpu),
+      .to_eth_1 (to_eth_1),
+      .to_eth_2 (to_eth_2),
+      .to_eth_3 (to_eth_3),
+      .to_eth_4 (to_eth_4)
   );
 
   // DPE egress Engine
@@ -112,17 +112,17 @@ module dpe
   logic        rt_rd_ack;
 
   tdp_ram #(
-      .ADDR_WIDTH(8)
+      .ADDR_WIDTH (8)
   ) u_routing_table (
-      .clk(from_cpu.clk),
-      .we_a(from_csr.routing_table.req & from_csr.routing_table.req_is_wr),
-      .addr_a(from_csr.routing_table.addr[9:2]),
-      .din_a(from_csr.routing_table.wr_data),
-      .dout_a(rt_rd_data),
-      .we_b(1'b0),
-      .addr_b('0),
-      .din_b('0),
-      .dout_b(  /*LINT:OK*/)  // port B is for the DPE, which does not read the table yet
+      .clk (from_cpu.clk),
+      .we_a (from_csr.routing_table.req & from_csr.routing_table.req_is_wr),
+      .addr_a (from_csr.routing_table.addr[9:2]),
+      .din_a (from_csr.routing_table.wr_data),
+      .dout_a (rt_rd_data),
+      .we_b (1'b0),
+      .addr_b ('0),
+      .din_b ('0),
+      .dout_b (  /*LINT:OK*/)  // port B is for the DPE, which does not read the table yet
   );
   always_ff @(posedge from_cpu.clk) begin
     rt_rd_ack <= from_csr.routing_table.req & ~from_csr.routing_table.req_is_wr;
@@ -137,17 +137,17 @@ module dpe
   logic        ck_rd_ack;
 
   tdp_ram #(
-      .ADDR_WIDTH(11)
+      .ADDR_WIDTH (11)
   ) u_cryptokey_table (
-      .clk(from_cpu.clk),
-      .we_a(from_csr.cryptokey_table.req & from_csr.cryptokey_table.req_is_wr),
-      .addr_a(from_csr.cryptokey_table.addr[12:2]),
-      .din_a(from_csr.cryptokey_table.wr_data),
-      .dout_a(ck_rd_data),
-      .we_b(1'b0),
-      .addr_b('0),
-      .din_b('0),
-      .dout_b(  /*LINT:OK*/)  // port B is for the DPE, which does not read the table yet
+      .clk (from_cpu.clk),
+      .we_a (from_csr.cryptokey_table.req & from_csr.cryptokey_table.req_is_wr),
+      .addr_a (from_csr.cryptokey_table.addr[12:2]),
+      .din_a (from_csr.cryptokey_table.wr_data),
+      .dout_a (ck_rd_data),
+      .we_b (1'b0),
+      .addr_b ('0),
+      .din_b ('0),
+      .dout_b (  /*LINT:OK*/)  // port B is for the DPE, which does not read the table yet
   );
   always_ff @(posedge from_cpu.clk) begin
     ck_rd_ack <= from_csr.cryptokey_table.req & ~from_csr.cryptokey_table.req_is_wr;

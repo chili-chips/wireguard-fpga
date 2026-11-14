@@ -51,28 +51,28 @@ module dpe_demultiplexer (
   import dpe_pkg::*;
 
   dpe_if from_dpe_sbuff (
-      .clk(from_dpe.clk),
-      .rst(from_dpe.rst)
+      .clk (from_dpe.clk),
+      .rst (from_dpe.rst)
   );
   dpe_if to_cpu_sbuff (
-      .clk(from_dpe.clk),
-      .rst(from_dpe.rst)
+      .clk (from_dpe.clk),
+      .rst (from_dpe.rst)
   );
   dpe_if to_eth_1_sbuff (
-      .clk(from_dpe.clk),
-      .rst(from_dpe.rst)
+      .clk (from_dpe.clk),
+      .rst (from_dpe.rst)
   );
   dpe_if to_eth_2_sbuff (
-      .clk(from_dpe.clk),
-      .rst(from_dpe.rst)
+      .clk (from_dpe.clk),
+      .rst (from_dpe.rst)
   );
   dpe_if to_eth_3_sbuff (
-      .clk(from_dpe.clk),
-      .rst(from_dpe.rst)
+      .clk (from_dpe.clk),
+      .rst (from_dpe.rst)
   );
   dpe_if to_eth_4_sbuff (
-      .clk(from_dpe.clk),
-      .rst(from_dpe.rst)
+      .clk (from_dpe.clk),
+      .rst (from_dpe.rst)
   );
 
   // Destination decode: unicast, multicast pair or broadcast
@@ -200,32 +200,32 @@ module dpe_demultiplexer (
 
   // Skid buffers
   dpe_if_skid_buffer u_dpe_if_skid_buffer_from_dpe (
-      .inp (from_dpe),
-      .outp(from_dpe_sbuff)
+      .inp  (from_dpe),
+      .outp (from_dpe_sbuff)
   );
 
   dpe_if_skid_buffer u_dpe_if_skid_buffer_to_cpu (
-      .inp (to_cpu_sbuff),
-      .outp(to_cpu)
+      .inp  (to_cpu_sbuff),
+      .outp (to_cpu)
   );
 
   dpe_if_skid_buffer u_dpe_if_skid_buffer_to_eth_1 (
-      .inp (to_eth_1_sbuff),
-      .outp(to_eth_1)
+      .inp  (to_eth_1_sbuff),
+      .outp (to_eth_1)
   );
 
   dpe_if_skid_buffer u_dpe_if_skid_buffer_to_eth_2 (
-      .inp (to_eth_2_sbuff),
-      .outp(to_eth_2)
+      .inp  (to_eth_2_sbuff),
+      .outp (to_eth_2)
   );
 
   dpe_if_skid_buffer u_dpe_if_skid_buffer_to_eth_3 (
-      .inp (to_eth_3_sbuff),
-      .outp(to_eth_3)
+      .inp  (to_eth_3_sbuff),
+      .outp (to_eth_3)
   );
 
   dpe_if_skid_buffer u_dpe_if_skid_buffer_to_eth_4 (
-      .inp (to_eth_4_sbuff),
-      .outp(to_eth_4)
+      .inp  (to_eth_4_sbuff),
+      .outp (to_eth_4)
   );
 endmodule

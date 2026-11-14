@@ -19,6 +19,7 @@ SPDX-License-Identifier: BSD-3-Clause
   * [Configuring ISS timing model](#configuring-iss-timing-model)
   * [Running ISS code](#running-iss-code)
 * [RTL-Only Simulation Makefile](#rtl-only-simulation-makefile)
+* [JanusHDL](#janushdl)
 * [Debugging Code](#debugging-code)
   * [Natively Compiled Code](#natively-compiled-code)
   * [ISS Software](#iss-software)
@@ -260,6 +261,7 @@ Command line configurable variables:
   USRSIMOPTS:       additional Verilator flags, such as setting generics (default blank)
   WAVESAVEFILE:     name of .gtkw file to use when displaying waveforms (default wave.CSR_ETHERNET_TEST.gtkw)
   BUILD:            Select build type from DEFAULT or ISS (default DEFAULT)
+  SIM:              verilator or janushdl; janushdl has the run target only (default verilator)
   TIMEOUTUS:        Test bench timeout period in microseconds (default 10000)
   DISABLE_SIM_CTRL: Disable/enable Verilator simulation control (default disabled)
   ISS_BUS_CREDIT:   BUILD=ISS: 1 for bus credit and no fetch/load wait states (default 0)
@@ -395,6 +397,33 @@ cd 4.sim   && make sim TIMEOUTUS=7000 USRSIMOPTS="+define+UART_BUS_STRESS +defin
 ```
 
 It ends with `CHK_UART_BUS: PASS` or `FAIL`.
+
+### JanusHDL
+
+`SIM=janushdl` runs the test bench on [JanusHDL](https://que.no/janushdl/) (`jhdl`, free but closed source) in place of Verilator:
+
+```
+make -f MakefileVProc.mk SIM=janushdl run
+```
+
+- The models are the same DPI-C build. `libvproc.a`, `libuser.a` and _udpIpPg_ are linked into `obj/libvprocdpi.so`, which `jhdl --sv-lib` loads.
+- JanusHDL compiles the HDL at each run, so there is no simulator build.
+- `VERILATOR` is not defined: the models take their event-simulator branches. `SYNTHESIS` is defined, to leave out the two immediate assertions of the PeakRDL `csr.sv`, which JanusHDL does not parse.
+- `USRSIMOPTS` goes to `jhdl`, e.g. `USRSIMOPTS="--fst wave.fst"` for the waves.
+- Only the `run` target.
+
+Status with JanusHDL 0.17.0 (preview): **the run stops at elaboration**, on `tdp_ram.sv`. What stands in the way, found with scratch copies of the files:
+
+| Where | What JanusHDL 0.17.0 does | Runs |
+|---|---|---|
+| `1.hw/ip.infra/tdp_ram.sv:65,74` | error: `mem` written by two `always_ff` (IEEE 1800 9.2.2.4) | all |
+| `models/udpIpPg/bfm_ethernet.sv:169` | error: `inout` port on one bit of a net is not supported yet | all |
+| `models/bfm_phy_mdio.sv:73` | error: array of strings set from `{...}` is not supported yet | all |
+| `models/udpIpPg/bfm_ethernet.sv:128-134`, `tb.sv:321-323` | no message, wrong result: `gmii[i]` with a genvar `i` is always `gmii[0]`, so ports 2 to 4 receive X | all |
+| `1.hw/ip.cpu/cpu.EDUBOS5/edubos5_rf.sv:32,42`, `1.hw/ip.cpu/imem.sv:102` | error: variable written by an `always_ff` and an `initial` | `CPU=rtl` |
+| `1.hw/ip.cpu/cpu.EDUBOS5/edubos5.sv:211` | error: bit select of a packed union member is not supported yet | `CPU=rtl` |
+
+With scratch copies that work around the four `all` rows, the default run (`BUILD=DEFAULT`) starts: the firmware boots and both UDP nodes send their frame. No frame is received, and the run ends at the time limit. Verilator ends the same test with `All frames received: test done` at 2.002 ms. The cause is not found yet. Speed, on one loaded machine: 1709 s for 2.5 ms, against 178 s for the 2.0 ms of the Verilator executable.
 
 ## Debugging Code
 
@@ -573,6 +602,7 @@ The firmware source has no co-simulation code but four spots:
 | Component | In use | Source |
 |---|---|---|
 | Verilator | 5.052 | [verilator.org](https://verilator.org) |
+| JanusHDL | 0.17.0 (preview), optional (`SIM=janushdl`): stops at elaboration, see [JanusHDL](#janushdl) | [que.no/janushdl](https://que.no/janushdl/) |
 | VProc | 1.13.4 | [wyvernSemi/vproc](https://github.com/wyvernSemi/vproc) |
 | mem_model | `main` c7b9c62 (1.0.1 + one fix) | [wyvernSemi/mem_model](https://github.com/wyvernSemi/mem_model) |
 | rv32 ISS **(modified, see below)** | 1.3.3 (`774d84fa`) | [wyvernSemi/rv32](https://github.com/wyvernSemi/rv32) |

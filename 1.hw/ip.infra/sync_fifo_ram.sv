@@ -67,15 +67,15 @@ module sync_fifo_ram #(
     parameter int DWIDTH = 16,
     parameter int AWIDTH = 4
 ) (
-    input logic arst_n,
-    input logic clk,
+    input  logic              arst_n,
+    input  logic              clk,
 
     //-------------------------------------------------
-    input logic [DWIDTH-1:0] din,  // input data into FIFO
-    input logic              we,   // FIFO write enable
-    input logic              re,   // FIFO read enable
+    input  logic [DWIDTH-1:0] din,        // input data into FIFO
+    input  logic              we,         // FIFO write enable
+    input  logic              re,         // FIFO read enable
 
-                                   //----------------------------------------------
+    //----------------------------------------------
     output logic [  AWIDTH:0] dcount,     // fullness (occupancy) of FIFO in DWIDTH words
     output logic              empty,      // 1 when FIFO is empty
     output logic              full,       // 1 when FIFO is full

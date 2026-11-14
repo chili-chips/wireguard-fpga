@@ -57,9 +57,9 @@ module clk_rst_gen (
   wire clk;
 
   IBUFGDS sys_clk_ibufgds (
-      .O (clk),
-      .I (clk_p),
-      .IB(clk_n)
+      .O  (clk),
+      .I  (clk_p),
+      .IB (clk_n)
   );
 
   //==========================================================================
@@ -70,18 +70,18 @@ module clk_rst_gen (
   wire sys_reset;
 
   fpga_pll_80M u_sys_pll (
-      .clk           (clk),
-      .rst_n         (rst_n),
-      .sys_pll_clk   (sys_pll_clk),
-      .sys_pll_locked(sys_pll_locked)
+      .clk            (clk),
+      .rst_n          (rst_n),
+      .sys_pll_clk    (sys_pll_clk),
+      .sys_pll_locked (sys_pll_locked)
   );
 
   sync_reset #(
-      .N(4)
+      .N (4)
   ) sys_sync_reset_inst (
-      .clk(sys_pll_clk),
-      .rst(~sys_pll_locked),
-      .out(sys_reset)
+      .clk (sys_pll_clk),
+      .rst (~sys_pll_locked),
+      .out (sys_reset)
   );
 
   assign sys_rst   = sys_reset;
@@ -95,18 +95,18 @@ module clk_rst_gen (
   wire eth_pll_clk;
 
   fpga_pll_125M u_eth_pll (
-      .clk           (clk),
-      .rst_n         (rst_n),
-      .eth_pll_clk   (eth_pll_clk),
-      .eth_pll_locked(eth_pll_locked)
+      .clk            (clk),
+      .rst_n          (rst_n),
+      .eth_pll_clk    (eth_pll_clk),
+      .eth_pll_locked (eth_pll_locked)
   );
 
   sync_reset #(
-      .N(4)
+      .N (4)
   ) eth_sync_reset_inst (
-      .clk(eth_pll_clk),
-      .rst(~eth_pll_locked),
-      .out(eth_gtx_rst)
+      .clk (eth_pll_clk),
+      .rst (~eth_pll_locked),
+      .out (eth_gtx_rst)
   );
 
   assign eth_gtx_clk = eth_pll_clk;

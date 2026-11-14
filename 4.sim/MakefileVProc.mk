@@ -20,6 +20,9 @@ BUILD            = DEFAULT
 # vproc: VProc is soc_cpu (BUILD=DEFAULT or ISS); rtl: the RTL soc_cpu that
 # 1.hw/top.filelist lists (PicoRV32 or eduBOS5), running 3.build/sw_build
 CPU              = vproc
+# verilator, or janushdl (jhdl, 0.17 or later): it loads the same DPI-C
+# models as a shared library (--sv-lib) and compiles the HDL at each run
+SIM              = verilator
 TIMEOUTUS        = 10000
 DISABLE_SIM_CTRL = 1
 # BUILD=ISS only. 1: bus credit and no fetch/load wait states (as openPCIE),
@@ -258,6 +261,24 @@ endif
 
 SIMMAKEFLAGS     = --quiet
 SIMEXE           = $(WORKDIR)/V$(TB_NAME)
+SIMCMD           = $(SIMEXE)
+
+# SIM=janushdl: the models' shared library, and the jhdl command line.
+# SYNTHESIS leaves out the two immediate assertions of the PeakRDL csr.sv,
+# which JanusHDL 0.17 does not parse.
+ifeq ("$(SIM)", "janushdl")
+  SIMEXE         = $(VOBJDIR)/libvprocdpi.so
+  SIMCMD         = jhdl --top $(TB_NAME)                      \
+                   $(SIMDEFS) +define+SYNTHESIS               \
+                   $(patsubst -I%,+incdir+%,$(SIMINCLPATHS))  \
+                   -f $(TOPFILELIST) -f $(TBFILELIST)         \
+                   $(VPROCDIR)/verilator/verilator_sim_ctrl.sv \
+                   -gRUN_SIM_US=$(TIMEOUTUS)                  \
+                   -gDISABLE_SIM_CTRL=$(DISABLE_SIM_CTRL)     \
+                   --sv-lib $(SIMEXE) $(USRSIMOPTS)
+else ifneq ("$(SIM)", "verilator")
+  $(error SIM must be verilator or janushdl (got "$(SIM)"))
+endif
 
 #
 # GTKWave variables
@@ -325,11 +346,26 @@ compile: $(USERLIB) $(VLIB) $(RV32LIB)
 	               -Wl,-no-whole-archive                  \
 	               -ldl $(RV32LDOPTS)"
 
+ifeq ("$(SIM)", "janushdl")
+#
+# The DPI-C models as one shared library, for jhdl --sv-lib. flushfst(),
+# which VerilatorSimCtrl calls, is in versimSV.cpp: an empty one here.
+#
+$(SIMEXE): $(USERLIB) $(VLIB) $(RV32LIB)
+	@echo 'void flushfst() {}' | $(C++) -x c++ -c -fPIC - -o $(VOBJDIR)/flushfst.o
+	@$(C++) -shared -o $@                                 \
+	               -Wl,-whole-archive                     \
+	               $(VLIB) $(USERLIB)                     \
+	               -L$(UDPDIR)/lib $(UDPLDOPT)            \
+	               -Wl,-no-whole-archive                  \
+	               $(VOBJDIR)/flushfst.o $(RV32LDOPTS) -ldl
+else
 #
 # Generate Verilator test bench executable
 #
 $(SIMEXE): compile
 	@+make --no-print-directory $(SIMMAKEFLAGS) -C$(WORKDIR) -f V$(TB_NAME).mk V$(TB_NAME)
+endif
 
 # Create local file list for top, with the RTL soc_cpu files removed, so
 # soc_cpu.VPROC is used instead (CPU=vproc). CPU=rtl keeps them, and drops
@@ -337,7 +373,7 @@ $(SIMEXE): compile
 ifeq ("$(CPU)", "rtl")
   SOCCPUMATCH    = __rtl_soc_cpu_kept__
   TBFILELIST     = $(VOBJDIR)/$(TB_NAME)_rtl.filelist
-compile: $(TBFILELIST)
+compile $(SIMEXE): $(TBFILELIST)
 $(TBFILELIST): $(TB_NAME).filelist $(BUILD_STAMP)
 	@grep -v "soc_cpu.VPROC.sv" $< > $@
 endif
@@ -378,7 +414,7 @@ xml2stems: $(TOPFILELIST)
 #======================================================
 
 run: all
-	@$(SIMEXE)
+	@$(SIMCMD)
 
 rungui: all xml2stems
 	@$(SIMEXE) | tee sim.log
@@ -409,6 +445,7 @@ help:
 	@$(info $(SPC) $(SPC) WAVESAVEFILE:     name of .gtkw file to use when displaying waveforms (default wave.CSR_ETHERNET_TEST.gtkw))
 	@$(info $(SPC) $(SPC) BUILD:            Select build type from DEFAULT or ISS (default DEFAULT))
 	@$(info $(SPC) $(SPC) CPU:              vproc (VProc soc_cpu) or rtl (the RTL soc_cpu in 1.hw/top.filelist) (default vproc))
+	@$(info $(SPC) $(SPC) SIM:              verilator or janushdl; janushdl has the run target only (default verilator))
 	@$(info $(SPC) $(SPC) TIMEOUTUS:        Test bench timeout period in microseconds (default 10000))
 	@$(info $(SPC) $(SPC) DISABLE_SIM_CTRL: Disable/enable Verilator simulation control (default disabled))
 	@$(info $(SPC) $(SPC) ISS_BUS_CREDIT:   BUILD=ISS: 1 for bus credit and no fetch/load wait states (default 0))

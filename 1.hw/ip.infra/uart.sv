@@ -58,23 +58,23 @@
 module uart
   import csr_pkg::*;
 (
-    input logic arst_n,
-    input logic clk,
+    input  logic                           arst_n,
+    input  logic                           clk,
 
-    input  logic uart_rx,
-    output logic uart_tx,
+    input  logic                           uart_rx,
+    output logic                           uart_tx,
 
-    input  csr_pkg::csr__out_t      from_csr,
-    output csr_pkg::csr__uart__in_t to_csr,
+    input  csr_pkg::csr__out_t             from_csr,
+    output csr_pkg::csr__uart__in_t        to_csr,
 
     // IMEM Write port, for live updates of CPU program
-    output logic        imem_cpu_rstn,
-    output logic        imem_we,
-    output logic [31:2] imem_waddr,
-    output logic [31:0] imem_wdat,
+    output logic                           imem_cpu_rstn,
+    output logic                           imem_we,
+    output logic                    [31:2] imem_waddr,
+    output logic                    [31:0] imem_wdat,
 
     // DMEM/CSR bus mastering interface
-    soc_if.MST bus
+           soc_if.MST                      bus
 );
   import soc_pkg::*;
 
@@ -382,27 +382,27 @@ module uart
 
   // synchronous RxFIFO absorbs the variability of CPU reads
   sync_fifo_ram #(
-      .DWIDTH(8),
-      .AWIDTH(4)   // 16 entries
+      .DWIDTH (8),
+      .AWIDTH (4)   // 16 entries
   ) u_rx_fifo (
 
       // Inputs
-      .arst_n(arst_n),
-      .clk   (clk),
+      .arst_n (arst_n),
+      .clk    (clk),
 
-      .din(rx_shift),
-      .we (~bus_vld & rx_fifo_we),
+      .din (rx_shift),
+      .we  (~bus_vld & rx_fifo_we),
       //.re        (from_csr.uart.rx_trigger.read.value), // FIFO internal logic prevents underflow
-      .re (from_csr.uart.rx.data.swacc), // FIFO internal logic prevents underflow
+      .re  (from_csr.uart.rx.data.swacc), // FIFO internal logic prevents underflow
 
       // Outputs
-      .dcount(  /*LINT:OK*/),  // FIFO fill level not needed
-      .empty (rx_fifo_empty),
-      .full  (rx_fifo_full),
+      .dcount (  /*LINT:OK*/),  // FIFO fill level not needed
+      .empty  (rx_fifo_empty),
+      .full   (rx_fifo_full),
 
-      .dout_comb(rx_fifo_dout),  // fall-through: Data is available w/o read
+      .dout_comb (rx_fifo_dout),  // fall-through: Data is available w/o read
 
-      .dout(  /*LINT:OK*/)  // dout_comb (fall-through) is used
+      .dout (  /*LINT:OK*/)  // dout_comb (fall-through) is used
   );
 
 
@@ -575,32 +575,32 @@ module uart
   // TX FIFO input: the IMEM loader's bytes on the bus, else the CSR's
   logic [7:0] tx_fifo_din;
   logic       tx_fifo_we;
-  assign tx_fifo_din = bus_vld ? uart_tx_data : from_csr.uart.tx.data.value;
-  assign tx_fifo_we  = bus_vld ? uart_tx_valid : from_csr.uart.tx_trigger.write.value;
+  assign      tx_fifo_din = bus_vld ? uart_tx_data : from_csr.uart.tx.data.value;
+  assign      tx_fifo_we  = bus_vld ? uart_tx_valid : from_csr.uart.tx_trigger.write.value;
 
   sync_fifo_ram #(
-      .DWIDTH(8),
-      .AWIDTH(4)   // 16 entries
+      .DWIDTH (8),
+      .AWIDTH (4)   // 16 entries
   ) u_tx_fifo (
 
       // Inputs
-      .arst_n(arst_n),
-      .clk   (clk),
+      .arst_n (arst_n),
+      .clk    (clk),
 
-      .din(tx_fifo_din),
+      .din (tx_fifo_din),
       //.din       (uart_rx_data),  // loopback test
-      .we (tx_fifo_we),
+      .we  (tx_fifo_we),
       //.we        (uart_rx_valid), // loopback test
-      .re (tx_fifo_re),
+      .re  (tx_fifo_re),
 
       // Outputs
-      .dcount(  /*LINT:OK*/),  // FIFO fill level not needed
-      .empty (tx_fifo_empty),
-      .full  (uart_tx_busy),   // SW write is ignored when FIFO is full
+      .dcount (  /*LINT:OK*/),  // FIFO fill level not needed
+      .empty  (tx_fifo_empty),
+      .full   (uart_tx_busy),   // SW write is ignored when FIFO is full
 
-      .dout_comb(tx_data),  // fall-through: Data is available w/o read
+      .dout_comb (tx_data),  // fall-through: Data is available w/o read
 
-      .dout(  /*LINT:OK*/)  // dout_comb (fall-through) is used
+      .dout (  /*LINT:OK*/)  // dout_comb (fall-through) is used
   );
 
 

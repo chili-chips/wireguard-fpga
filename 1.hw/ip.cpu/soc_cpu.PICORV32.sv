@@ -87,13 +87,13 @@ module soc_cpu #(
     parameter logic [31:0] ADDR_RESET     = 32'h0000_0000,
     parameter int          NUM_WORDS_IMEM = 8192
 ) (
-    soc_if.MST bus,
+           soc_if.MST        bus,
 
     // access point for reloading CPU program memory
-    input logic        imem_cpu_rstn,
-    input logic        imem_we,
-    input logic [31:2] imem_waddr,
-    input logic [31:0] imem_wdat
+    input  logic             imem_cpu_rstn,
+    input  logic             imem_we,
+    input  logic      [31:2] imem_waddr,
+    input  logic      [31:0] imem_wdat
 );
 
   logic        cpu_valid;  //-\ CPU
@@ -141,103 +141,103 @@ module soc_cpu #(
   // use, i.e. free memory is at the addresses below the current SP value.
   //--------------------------------------------------------
   picorv32 #(
-      .PROGADDR_RESET(ADDR_RESET),
-      .STACKADDR     (32'h1000_8000), // 32KB
+      .PROGADDR_RESET (ADDR_RESET),
+      .STACKADDR      (32'h1000_8000), // 32KB
 
-      .COMPRESSED_ISA(0),  // C:1200B; UN=1600B
+      .COMPRESSED_ISA (0),  // C:1200B; UN=1600B
 
-      .TWO_STAGE_SHIFT  (1),
-      .TWO_CYCLE_COMPARE(0),
-      .TWO_CYCLE_ALU    (0),
+      .TWO_STAGE_SHIFT   (1),
+      .TWO_CYCLE_COMPARE (0),
+      .TWO_CYCLE_ALU     (0),
 
-      .LATCHED_MEM_RDATA(0),
-      .BARREL_SHIFTER   (0),
-      .ENABLE_MUL       (0),
-      .ENABLE_FAST_MUL  (0),
-      .ENABLE_DIV       (0),
+      .LATCHED_MEM_RDATA (0),
+      .BARREL_SHIFTER    (0),
+      .ENABLE_MUL        (0),
+      .ENABLE_FAST_MUL   (0),
+      .ENABLE_DIV        (0),
 
-      .ENABLE_REGS_DUALPORT(1),
-      .ENABLE_REGS_16_31   (1),
-      .ENABLE_PCPI         (0),
-      .ENABLE_COUNTERS     (0),  // the firmware reads csr.cycle, not rdcycle
-      .ENABLE_COUNTERS64   (0),
+      .ENABLE_REGS_DUALPORT (1),
+      .ENABLE_REGS_16_31    (1),
+      .ENABLE_PCPI          (0),
+      .ENABLE_COUNTERS      (0),  // the firmware reads csr.cycle, not rdcycle
+      .ENABLE_COUNTERS64    (0),
 `ifdef DEBUGTRACE
       .ENABLE_TRACE        (1),
 `else
       .ENABLE_TRACE        (0),
 `endif
 
-      .ENABLE_IRQ      (0),
-      .ENABLE_IRQ_QREGS(0),
-      .ENABLE_IRQ_TIMER(0),
-      .MASKED_IRQ      (32'h0000_0000),
-      .LATCHED_IRQ     (32'hffff_ffff),
-      .PROGADDR_IRQ    (32'h0000_0010),
+      .ENABLE_IRQ       (0),
+      .ENABLE_IRQ_QREGS (0),
+      .ENABLE_IRQ_TIMER (0),
+      .MASKED_IRQ       (32'h0000_0000),
+      .LATCHED_IRQ      (32'hffff_ffff),
+      .PROGADDR_IRQ     (32'h0000_0010),
 
-      .CATCH_MISALIGN(1),
-      .CATCH_ILLINSN (1)
+      .CATCH_MISALIGN (1),
+      .CATCH_ILLINSN  (1)
   ) u_cpu (
-      .clk   (bus.clk),                    //i
-      .resetn(bus.arst_n & imem_cpu_rstn), //i
+      .clk    (bus.clk),                    //i
+      .resetn (bus.arst_n & imem_cpu_rstn), //i
 
-      .trap(  /*LINT:OK*/),  // not monitored
+      .trap (  /*LINT:OK*/),  // not monitored
 
-      .mem_valid(cpu_valid),      //o
-      .mem_instr(  /*LINT:OK*/),  // IMEM is selected by address, not by mem_instr
-      .mem_ready(cpu_ready),      //i
+      .mem_valid (cpu_valid),      //o
+      .mem_instr (  /*LINT:OK*/),  // IMEM is selected by address, not by mem_instr
+      .mem_ready (cpu_ready),      //i
 
-      .mem_addr ({cpu_addr, NC_cpu_addr}),  //o[31:0]
-      .mem_wdata(cpu_wdata),                //o[31:0]
-      .mem_wstrb(cpu_wstrb),                //o[3:0]
-      .mem_rdata(cpu_rdata),                //i[31:0]
+      .mem_addr  ({cpu_addr, NC_cpu_addr}),  //o[31:0]
+      .mem_wdata (cpu_wdata),                //o[31:0]
+      .mem_wstrb (cpu_wstrb),                //o[3:0]
+      .mem_rdata (cpu_rdata),                //i[31:0]
 
       // NOT-USED: Look-Ahead Interface
-      .mem_la_read (  /*LINT:OK*/),  // look-ahead bus, the mem_* bus is used
-      .mem_la_write(  /*LINT:OK*/),  // look-ahead bus, the mem_* bus is used
-      .mem_la_addr (  /*LINT:OK*/),  // look-ahead bus, the mem_* bus is used
-      .mem_la_wdata(  /*LINT:OK*/),  // look-ahead bus, the mem_* bus is used
-      .mem_la_wstrb(  /*LINT:OK*/),  // look-ahead bus, the mem_* bus is used
+      .mem_la_read  (  /*LINT:OK*/),  // look-ahead bus, the mem_* bus is used
+      .mem_la_write (  /*LINT:OK*/),  // look-ahead bus, the mem_* bus is used
+      .mem_la_addr  (  /*LINT:OK*/),  // look-ahead bus, the mem_* bus is used
+      .mem_la_wdata (  /*LINT:OK*/),  // look-ahead bus, the mem_* bus is used
+      .mem_la_wstrb (  /*LINT:OK*/),  // look-ahead bus, the mem_* bus is used
 
       // NOT-USED: Pico Co-Processor Interface (PCPI)
-      .pcpi_valid(  /*LINT:OK*/),  // ENABLE_PCPI is 0
-      .pcpi_insn (  /*LINT:OK*/),  // ENABLE_PCPI is 0
-      .pcpi_rsrc1(  /*LINT:OK*/),  // ENABLE_PCPI is 0
-      .pcpi_rsrc2(  /*LINT:OK*/),  // ENABLE_PCPI is 0
+      .pcpi_valid (  /*LINT:OK*/),  // ENABLE_PCPI is 0
+      .pcpi_insn  (  /*LINT:OK*/),  // ENABLE_PCPI is 0
+      .pcpi_rsrc1 (  /*LINT:OK*/),  // ENABLE_PCPI is 0
+      .pcpi_rsrc2 (  /*LINT:OK*/),  // ENABLE_PCPI is 0
 
-      .pcpi_wr   ('0),  //i
-      .pcpi_rdst ('0),  //i[31:0]
-      .pcpi_wait ('0),  //i
-      .pcpi_ready('0),  //i
+      .pcpi_wr    ('0),  //i
+      .pcpi_rdst  ('0),  //i[31:0]
+      .pcpi_wait  ('0),  //i
+      .pcpi_ready ('0),  //i
 
       // NOT-USED: IRQ Interface
-      .irq('0),            //i[31:0]
-      .eoi(  /*LINT:OK*/), // ENABLE_IRQ is 0
+      .irq ('0),            //i[31:0]
+      .eoi (  /*LINT:OK*/), // ENABLE_IRQ is 0
 
       // NOT-USED: Trace Interface
-      .trace_valid(  /*LINT:OK*/),  // ENABLE_TRACE is 0 (1 with `define DEBUGTRACE)
-      .trace_data (  /*LINT:OK*/)   // ENABLE_TRACE is 0 (1 with `define DEBUGTRACE)
+      .trace_valid (  /*LINT:OK*/),  // ENABLE_TRACE is 0 (1 with `define DEBUGTRACE)
+      .trace_data  (  /*LINT:OK*/)   // ENABLE_TRACE is 0 (1 with `define DEBUGTRACE)
   );
 
   //----------------------------------------------------
   // Instruction (aka Program) memory for the CPU
   //----------------------------------------------------
   imem #(
-      .NUM_WORDS(NUM_WORDS_IMEM)
+      .NUM_WORDS (NUM_WORDS_IMEM)
   ) u_imem (
-      .clk   (bus.clk),
-      .arst_n(bus.arst_n),
+      .clk    (bus.clk),
+      .arst_n (bus.arst_n),
 
       // CPU Read-Only port
-      .rvld (imem_vld),
-      .rrdy (imem_rdy),
-      .raddr(cpu_addr),
-      .rdat (imem_rdat),
+      .rvld  (imem_vld),
+      .rrdy  (imem_rdy),
+      .raddr (cpu_addr),
+      .rdat  (imem_rdat),
 
       // Write port for reloading new CPU program
-      .we   (imem_we),
-      .waddr(imem_waddr),
-      .wdat (imem_wdat),
-      .wrdat(  /*LINT:OK*/)  // port B reads: eduBOS5 data loads only
+      .we    (imem_we),
+      .waddr (imem_waddr),
+      .wdat  (imem_wdat),
+      .wrdat (  /*LINT:OK*/)  // port B reads: eduBOS5 data loads only
   );
 
 endmodule : soc_cpu

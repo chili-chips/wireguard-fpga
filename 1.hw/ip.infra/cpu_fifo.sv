@@ -49,103 +49,103 @@ module cpu_fifo
            dpe_if.m_axis                from_cpu
 );
   axis_fifo #(
-      .DEPTH         (4096),
-      .DATA_WIDTH    (128),
-      .USER_WIDTH    (8),
-      .FRAME_FIFO    (1),
-      .DROP_WHEN_FULL(1)
+      .DEPTH          (4096),
+      .DATA_WIDTH     (128),
+      .USER_WIDTH     (8),
+      .FRAME_FIFO     (1),
+      .DROP_WHEN_FULL (1)
   ) tx_fifo (
-      .clk(to_cpu.clk),
-      .rst(to_cpu.rst),
+      .clk (to_cpu.clk),
+      .rst (to_cpu.rst),
 
-      .s_axis_tdata(to_cpu.tdata),
-      .s_axis_tkeep(to_cpu.tkeep),
-      .s_axis_tvalid(to_cpu.tvalid),
-      .s_axis_tready(to_cpu.tready),
-      .s_axis_tlast(to_cpu.tlast),
-      .s_axis_tuser({
+      .s_axis_tdata (to_cpu.tdata),
+      .s_axis_tkeep (to_cpu.tkeep),
+      .s_axis_tvalid (to_cpu.tvalid),
+      .s_axis_tready (to_cpu.tready),
+      .s_axis_tlast (to_cpu.tlast),
+      .s_axis_tuser ({
         to_cpu.tuser_bypass_all, to_cpu.tuser_bypass_stage, to_cpu.tuser_src, to_cpu.tuser_dst
       }),
-      .s_axis_tid('0),
-      .s_axis_tdest('0),
+      .s_axis_tid ('0),
+      .s_axis_tdest ('0),
 
-      .m_axis_tdata({
+      .m_axis_tdata ({
         to_csr.tx.data_127_96.tdata.next,
         to_csr.tx.data_95_64.tdata.next,
         to_csr.tx.data_63_32.tdata.next,
         to_csr.tx.data_31_0.tdata.next
       }),
-      .m_axis_tkeep(to_csr.tx.control.tkeep.next),
-      .m_axis_tvalid(to_csr.tx.status.tvalid.next),
-      .m_axis_tready(from_csr.cpu_fifo.tx.trigger.tready.value),
-      .m_axis_tlast(to_csr.tx.control.tlast.next),
-      .m_axis_tuser({
+      .m_axis_tkeep (to_csr.tx.control.tkeep.next),
+      .m_axis_tvalid (to_csr.tx.status.tvalid.next),
+      .m_axis_tready (from_csr.cpu_fifo.tx.trigger.tready.value),
+      .m_axis_tlast (to_csr.tx.control.tlast.next),
+      .m_axis_tuser ({
         to_csr.tx.control.tuser_bypass_all.next,
         to_csr.tx.control.tuser_bypass_stage.next,
         to_csr.tx.control.tuser_src.next,
         to_csr.tx.control.tuser_dst.next
       }),
-      .m_axis_tid(  /*LINT:OK*/),  // ID_ENABLE is 0
-      .m_axis_tdest(  /*LINT:OK*/),  // DEST_ENABLE is 0: dpe_if carries no tdest
+      .m_axis_tid (  /*LINT:OK*/),  // ID_ENABLE is 0
+      .m_axis_tdest (  /*LINT:OK*/),  // DEST_ENABLE is 0: dpe_if carries no tdest
 
-      .pause_req          (1'b0),
-      .pause_ack          (  /*LINT:OK*/),  // PAUSE_ENABLE is 0
-      .status_depth       (  /*LINT:OK*/),  // FIFO status not monitored
-      .status_depth_commit(  /*LINT:OK*/),  // FIFO status not monitored
-      .status_overflow    (  /*LINT:OK*/),  // FIFO status not monitored
-      .status_bad_frame   (  /*LINT:OK*/),  // FIFO status not monitored
-      .status_good_frame  (  /*LINT:OK*/)   // FIFO status not monitored
+      .pause_req           (1'b0),
+      .pause_ack           (  /*LINT:OK*/),  // PAUSE_ENABLE is 0
+      .status_depth        (  /*LINT:OK*/),  // FIFO status not monitored
+      .status_depth_commit (  /*LINT:OK*/),  // FIFO status not monitored
+      .status_overflow     (  /*LINT:OK*/),  // FIFO status not monitored
+      .status_bad_frame    (  /*LINT:OK*/),  // FIFO status not monitored
+      .status_good_frame   (  /*LINT:OK*/)   // FIFO status not monitored
   );
 
   axis_fifo #(
-      .DEPTH         (4096),
-      .DATA_WIDTH    (128),
-      .USER_WIDTH    (8),
-      .FRAME_FIFO    (1),
-      .DROP_WHEN_FULL(1)
+      .DEPTH          (4096),
+      .DATA_WIDTH     (128),
+      .USER_WIDTH     (8),
+      .FRAME_FIFO     (1),
+      .DROP_WHEN_FULL (1)
   ) rx_fifo (
-      .clk(to_cpu.clk),
-      .rst(to_cpu.rst),
+      .clk (to_cpu.clk),
+      .rst (to_cpu.rst),
 
-      .s_axis_tdata({
+      .s_axis_tdata ({
         from_csr.cpu_fifo.rx.data_127_96.tdata.value,
         from_csr.cpu_fifo.rx.data_95_64.tdata.value,
         from_csr.cpu_fifo.rx.data_63_32.tdata.value,
         from_csr.cpu_fifo.rx.data_31_0.tdata.value
       }),
-      .s_axis_tkeep(from_csr.cpu_fifo.rx.control.tkeep.value),
-      .s_axis_tvalid(from_csr.cpu_fifo.rx.trigger.tvalid.value),
-      .s_axis_tready(to_csr.rx.status.tready.next),
-      .s_axis_tlast(from_csr.cpu_fifo.rx.control.tlast.value),
-      .s_axis_tuser({
+      .s_axis_tkeep (from_csr.cpu_fifo.rx.control.tkeep.value),
+      .s_axis_tvalid (from_csr.cpu_fifo.rx.trigger.tvalid.value),
+      .s_axis_tready (to_csr.rx.status.tready.next),
+      .s_axis_tlast (from_csr.cpu_fifo.rx.control.tlast.value),
+      .s_axis_tuser ({
         from_csr.cpu_fifo.rx.control.tuser_bypass_all.value,
         from_csr.cpu_fifo.rx.control.tuser_bypass_stage.value,
         from_csr.cpu_fifo.rx.control.tuser_src.value,
         from_csr.cpu_fifo.rx.control.tuser_dst.value
       }),
-      .s_axis_tid('0),
-      .s_axis_tdest('0),
+      .s_axis_tid ('0),
+      .s_axis_tdest ('0),
 
-      .m_axis_tdata(from_cpu.tdata),
-      .m_axis_tkeep(from_cpu.tkeep),
-      .m_axis_tvalid(from_cpu.tvalid),
-      .m_axis_tready(from_cpu.tready),
-      .m_axis_tlast(from_cpu.tlast),
-      .m_axis_tuser({
+      .m_axis_tdata (from_cpu.tdata),
+      .m_axis_tkeep (from_cpu.tkeep),
+      .m_axis_tvalid (from_cpu.tvalid),
+      .m_axis_tready (from_cpu.tready),
+      .m_axis_tlast (from_cpu.tlast),
+      .m_axis_tuser ({
         from_cpu.tuser_bypass_all,
         from_cpu.tuser_bypass_stage,
         from_cpu.tuser_src,
         from_cpu.tuser_dst
       }),
-      .m_axis_tid(  /*LINT:OK*/),  // ID_ENABLE is 0
-      .m_axis_tdest(  /*LINT:OK*/),  // DEST_ENABLE is 0: dpe_if carries no tdest
+      .m_axis_tid (  /*LINT:OK*/),  // ID_ENABLE is 0
+      .m_axis_tdest (  /*LINT:OK*/),  // DEST_ENABLE is 0: dpe_if carries no tdest
 
-      .pause_req          (1'b0),
-      .pause_ack          (  /*LINT:OK*/),  // PAUSE_ENABLE is 0
-      .status_depth       (  /*LINT:OK*/),  // FIFO status not monitored
-      .status_depth_commit(  /*LINT:OK*/),  // FIFO status not monitored
-      .status_overflow    (  /*LINT:OK*/),  // FIFO status not monitored
-      .status_bad_frame   (  /*LINT:OK*/),  // FIFO status not monitored
-      .status_good_frame  (  /*LINT:OK*/)   // FIFO status not monitored
+      .pause_req           (1'b0),
+      .pause_ack           (  /*LINT:OK*/),  // PAUSE_ENABLE is 0
+      .status_depth        (  /*LINT:OK*/),  // FIFO status not monitored
+      .status_depth_commit (  /*LINT:OK*/),  // FIFO status not monitored
+      .status_overflow     (  /*LINT:OK*/),  // FIFO status not monitored
+      .status_bad_frame    (  /*LINT:OK*/),  // FIFO status not monitored
+      .status_good_frame   (  /*LINT:OK*/)   // FIFO status not monitored
   );
 endmodule

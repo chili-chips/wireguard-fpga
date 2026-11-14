@@ -37,13 +37,13 @@ module soc_cpu #(
     parameter logic [31:0] ADDR_RESET     = 32'h0000_0000,
     parameter int          NUM_WORDS_IMEM = 8192
 ) (
-    soc_if.MST bus,
+           soc_if.MST        bus,
 
     // access point for reloading CPU program memory
-    input logic        imem_cpu_rstn,
-    input logic        imem_we,
-    input logic [31:2] imem_waddr,
-    input logic [31:0] imem_wdat
+    input  logic             imem_cpu_rstn,
+    input  logic             imem_we,
+    input  logic      [31:2] imem_waddr,
+    input  logic      [31:0] imem_wdat
 );
 
   if (ADDR_RESET != 32'h0000_0000) begin : g_addr_reset_check
@@ -121,24 +121,24 @@ module soc_cpu #(
   // eduBOS5 itself
   //--------------------------------------------------------
   edubos5 #(
-      .EN_WAIT4REGS   (EDUBOS5_WAIT4REGS),
-      .STORE_WAITS_RDY(1'b1)                // the UART can hold the bus (#61)
+      .EN_WAIT4REGS    (EDUBOS5_WAIT4REGS),
+      .STORE_WAITS_RDY (1'b1)                // the UART can hold the bus (#61)
   ) u_cpu (
-      .clk   (bus.clk),
-      .arst_n(bus.arst_n & imem_cpu_rstn),
+      .clk    (bus.clk),
+      .arst_n (bus.arst_n & imem_cpu_rstn),
 
-      .imem_addr(imem_addr),
-      .imem_rdat(imem_rdat),
-      .imem_rdy (1'b1),       // IMEM answers in one cycle
-      .imem_vld (imem_vld),
+      .imem_addr (imem_addr),
+      .imem_rdat (imem_rdat),
+      .imem_rdy  (1'b1),       // IMEM answers in one cycle
+      .imem_vld  (imem_vld),
 
-      .dmem_addr  (dmem_addr),
-      .dmem_we    (dmem_we),
-      .dmem_strobe(  /*LINT:OK*/),  // dmem_vld is the request
-      .dmem_wdat  (dmem_wdat),
-      .dmem_rdat  (dmem_rdat),
-      .dmem_rdy   (dmem_rdy),
-      .dmem_vld   (dmem_vld)
+      .dmem_addr   (dmem_addr),
+      .dmem_we     (dmem_we),
+      .dmem_strobe (  /*LINT:OK*/),  // dmem_vld is the request
+      .dmem_wdat   (dmem_wdat),
+      .dmem_rdat   (dmem_rdat),
+      .dmem_rdy    (dmem_rdy),
+      .dmem_vld    (dmem_vld)
   );
 
   //----------------------------------------------------
@@ -146,25 +146,25 @@ module soc_cpu #(
   //----------------------------------------------------
   // IMEM port B address: program reload (CPU in reset), else CPU data loads
   logic [31:2] imem_b_addr;
-  assign imem_b_addr = imem_we ? imem_waddr : dmem_addr[31:2];
+  assign       imem_b_addr = imem_we ? imem_waddr : dmem_addr[31:2];
 
   imem #(
-      .NUM_WORDS(NUM_WORDS_IMEM)
+      .NUM_WORDS (NUM_WORDS_IMEM)
   ) u_imem (
-      .clk   (bus.clk),
-      .arst_n(bus.arst_n),
+      .clk    (bus.clk),
+      .arst_n (bus.arst_n),
 
       // instruction fetch
-      .rvld (imem_vld),
-      .rrdy (  /*LINT:OK*/),  // eduBOS5 takes the data one cycle after the address
-      .raddr(imem_addr),
-      .rdat (imem_rdat),
+      .rvld  (imem_vld),
+      .rrdy  (  /*LINT:OK*/),  // eduBOS5 takes the data one cycle after the address
+      .raddr (imem_addr),
+      .rdat  (imem_rdat),
 
       // port B: program reload (CPU in reset), else CPU data loads
-      .we   (imem_we),
-      .waddr(imem_b_addr),
-      .wdat (imem_wdat),
-      .wrdat(imem_load_rdat)
+      .we    (imem_we),
+      .waddr (imem_b_addr),
+      .wdat  (imem_wdat),
+      .wrdat (imem_load_rdat)
   );
 
 endmodule : soc_cpu

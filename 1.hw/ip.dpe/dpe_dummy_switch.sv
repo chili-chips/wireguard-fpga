@@ -76,8 +76,8 @@ module dpe_dummy_switch (
   import dpe_pkg::*;
 
   dpe_if outp_sbuff (
-      .clk(inp.clk),
-      .rst(inp.rst)
+      .clk (inp.clk),
+      .rst (inp.rst)
   );
 
   // Backpressure
@@ -121,7 +121,7 @@ module dpe_dummy_switch (
 
   // Skid buffers
   dpe_if_skid_buffer skid_buffer_outp (
-      .inp (outp_sbuff),
-      .outp(outp)
+      .inp  (outp_sbuff),
+      .outp (outp)
   );
 endmodule

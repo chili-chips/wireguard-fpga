@@ -61,24 +61,24 @@ module soc_csr
   assign bus.rdy                 = s_cpuif_rd_ack | s_cpuif_wr_ack;
 
   csr csr_inst (
-      .clk(bus.clk),
-      .rst(~bus.arst_n),
+      .clk (bus.clk),
+      .rst (~bus.arst_n),
 
-      .s_cpuif_req(bus.vld),
-      .s_cpuif_req_is_wr(|bus.we),
-      .s_cpuif_addr({bus.addr[CSR_MIN_ADDR_WIDTH-1:2], 2'b00}),
-      .s_cpuif_wr_data(bus.wdat),
-      .s_cpuif_wr_biten(s_cpuif_wr_biten),
-      .s_cpuif_req_stall_wr(  /*LINT:OK*/),  // soc_if has no stall or error path
-      .s_cpuif_req_stall_rd(  /*LINT:OK*/),  // soc_if has no stall or error path
-      .s_cpuif_rd_ack(s_cpuif_rd_ack),
-      .s_cpuif_rd_err(  /*LINT:OK*/),  // soc_if has no stall or error path
-      .s_cpuif_rd_data(bus.rdat),
-      .s_cpuif_wr_ack(s_cpuif_wr_ack),
-      .s_cpuif_wr_err(  /*LINT:OK*/),  // soc_if has no stall or error path
+      .s_cpuif_req (bus.vld),
+      .s_cpuif_req_is_wr (|bus.we),
+      .s_cpuif_addr ({bus.addr[CSR_MIN_ADDR_WIDTH-1:2], 2'b00}),
+      .s_cpuif_wr_data (bus.wdat),
+      .s_cpuif_wr_biten (s_cpuif_wr_biten),
+      .s_cpuif_req_stall_wr (  /*LINT:OK*/),  // soc_if has no stall or error path
+      .s_cpuif_req_stall_rd (  /*LINT:OK*/),  // soc_if has no stall or error path
+      .s_cpuif_rd_ack (s_cpuif_rd_ack),
+      .s_cpuif_rd_err (  /*LINT:OK*/),  // soc_if has no stall or error path
+      .s_cpuif_rd_data (bus.rdat),
+      .s_cpuif_wr_ack (s_cpuif_wr_ack),
+      .s_cpuif_wr_err (  /*LINT:OK*/),  // soc_if has no stall or error path
 
-      .hwif_in (hwif_in),
-      .hwif_out(hwif_out)
+      .hwif_in  (hwif_in),
+      .hwif_out (hwif_out)
   );
 
   //=========================================

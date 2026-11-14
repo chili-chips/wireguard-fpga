@@ -45,7 +45,7 @@ module tdp_ram #(
     parameter int ADDR_WIDTH = 8,
     parameter int DEPTH      = (1 << ADDR_WIDTH)
 ) (
-    input logic clk,
+    input  logic                  clk,
 
     input  logic                  we_a,
     input  logic [ADDR_WIDTH-1:0] addr_a,

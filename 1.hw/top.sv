@@ -41,9 +41,9 @@
 //==========================================================================
 
 module top (
-    input clk_p,  //board clock positive
-    input clk_n,  //board clock negative
-    input rst_n,  //reset, low active
+    input        clk_p,     //board clock positive
+    input        clk_n,     //board clock negative
+    input        rst_n,     //reset, low active
 
     // Ethernet 1
     output       e1_reset,  //phy reset
@@ -102,11 +102,11 @@ module top (
     output [7:0] e4_txd,    //GMII sending data
 
     // UART
-    input  uart_rx,
-    output uart_tx,
+    input        uart_rx,
+    output       uart_tx,
 
     // Keys
-    input [1:0] key_in,
+    input  [1:0] key_in,
 
     // LEDs
     output [1:0] led
@@ -124,58 +124,58 @@ module top (
   logic eth_gtx_rst;
 
   clk_rst_gen u_clk_rst_gen (
-      .clk_p      (clk_p),
-      .clk_n      (clk_n),
-      .rst_n      (rst_n),
-      .sys_clk    (sys_clk),
-      .sys_rst    (sys_rst),
-      .sys_rst_n  (sys_rst_n),
-      .eth_gtx_clk(eth_gtx_clk),
-      .eth_gtx_rst(eth_gtx_rst)
+      .clk_p       (clk_p),
+      .clk_n       (clk_n),
+      .rst_n       (rst_n),
+      .sys_clk     (sys_clk),
+      .sys_rst     (sys_rst),
+      .sys_rst_n   (sys_rst_n),
+      .eth_gtx_clk (eth_gtx_clk),
+      .eth_gtx_rst (eth_gtx_rst)
   );
 
   //==========================================================================
   // CPU<->DPE<->Ethernet Interconnect
   //==========================================================================
   dpe_if from_cpu (
-      .clk(sys_clk),
-      .rst(sys_rst)
+      .clk (sys_clk),
+      .rst (sys_rst)
   );
   dpe_if from_eth_1 (
-      .clk(sys_clk),
-      .rst(sys_rst)
+      .clk (sys_clk),
+      .rst (sys_rst)
   );
   dpe_if from_eth_2 (
-      .clk(sys_clk),
-      .rst(sys_rst)
+      .clk (sys_clk),
+      .rst (sys_rst)
   );
   dpe_if from_eth_3 (
-      .clk(sys_clk),
-      .rst(sys_rst)
+      .clk (sys_clk),
+      .rst (sys_rst)
   );
   dpe_if from_eth_4 (
-      .clk(sys_clk),
-      .rst(sys_rst)
+      .clk (sys_clk),
+      .rst (sys_rst)
   );
   dpe_if to_cpu (
-      .clk(sys_clk),
-      .rst(sys_rst)
+      .clk (sys_clk),
+      .rst (sys_rst)
   );
   dpe_if to_eth_1 (
-      .clk(sys_clk),
-      .rst(sys_rst)
+      .clk (sys_clk),
+      .rst (sys_rst)
   );
   dpe_if to_eth_2 (
-      .clk(sys_clk),
-      .rst(sys_rst)
+      .clk (sys_clk),
+      .rst (sys_rst)
   );
   dpe_if to_eth_3 (
-      .clk(sys_clk),
-      .rst(sys_rst)
+      .clk (sys_clk),
+      .rst (sys_rst)
   );
   dpe_if to_eth_4 (
-      .clk(sys_clk),
-      .rst(sys_rst)
+      .clk (sys_clk),
+      .rst (sys_rst)
   );
   csr_pkg::csr__in_t  to_csr;
   csr_pkg::csr__out_t from_csr;
@@ -187,20 +187,20 @@ module top (
   localparam int NUM_WORDS_DMEM = 16384;  //=> 64kB DataRAM
 
   soc_if bus_cpu (
-      .arst_n(sys_rst_n),
-      .clk   (sys_clk)
+      .arst_n (sys_rst_n),
+      .clk    (sys_clk)
   );
   soc_if bus_uart (
-      .arst_n(sys_rst_n),
-      .clk   (sys_clk)
+      .arst_n (sys_rst_n),
+      .clk    (sys_clk)
   );
   soc_if bus_dmem (
-      .arst_n(sys_rst_n),
-      .clk   (sys_clk)
+      .arst_n (sys_rst_n),
+      .clk    (sys_clk)
   );
   soc_if bus_csr (
-      .arst_n(sys_rst_n),
-      .clk   (sys_clk)
+      .arst_n (sys_rst_n),
+      .clk    (sys_clk)
   );
 
   logic        imem_cpu_rstn;
@@ -210,65 +210,65 @@ module top (
 
   //---------------------------------
   soc_cpu #(
-      .ADDR_RESET    (32'h0000_0000),
-      .NUM_WORDS_IMEM(NUM_WORDS_IMEM)
+      .ADDR_RESET     (32'h0000_0000),
+      .NUM_WORDS_IMEM (NUM_WORDS_IMEM)
   ) u_cpu (
-      .bus(bus_cpu),  //MST
+      .bus (bus_cpu),  //MST
 
-      .imem_cpu_rstn(imem_cpu_rstn),  //-\ access point
-      .imem_we      (imem_we),        //-| for
-      .imem_waddr   (imem_waddr),     // | reloading CPU
-      .imem_wdat    (imem_wdat)       //-/ program memory
+      .imem_cpu_rstn (imem_cpu_rstn),  //-\ access point
+      .imem_we       (imem_we),        //-| for
+      .imem_waddr    (imem_waddr),     // | reloading CPU
+      .imem_wdat     (imem_wdat)       //-/ program memory
   );
 
   //---------------------------------
   soc_fabric u_fabric (
-      .cpu (bus_cpu),  //SLV
-      .uart(bus_uart), //SLV
+      .cpu  (bus_cpu),  //SLV
+      .uart (bus_uart), //SLV
 
-      .dmem(bus_dmem),  //MST
-      .csr (bus_csr)    //MST
+      .dmem (bus_dmem),  //MST
+      .csr  (bus_csr)    //MST
   );
 
   //---------------------------------
   soc_ram #(
-      .NUM_WORDS(NUM_WORDS_DMEM)
+      .NUM_WORDS (NUM_WORDS_DMEM)
   ) u_dmem (
-      .bus(bus_dmem)  //SLV
+      .bus (bus_dmem)  //SLV
   );
 
   //---------------------------------
   soc_csr u_soc_csr (
-      .bus     (bus_csr),  //SLV
-      .hwif_in (to_csr),   //i
-      .hwif_out(from_csr)  //o
+      .bus      (bus_csr),  //SLV
+      .hwif_in  (to_csr),   //i
+      .hwif_out (from_csr)  //o
   );
 
   //---------------------------------
   uart u_uart (
-      .arst_n(sys_rst_n),  //i
-      .clk   (sys_clk),    //i
+      .arst_n (sys_rst_n),  //i
+      .clk    (sys_clk),    //i
 
-      .uart_rx(uart_rx),  //i
-      .uart_tx(uart_tx),  //o
+      .uart_rx (uart_rx),  //i
+      .uart_tx (uart_tx),  //o
 
-      .from_csr(from_csr),    //i
-      .to_csr  (to_csr.uart), //o
+      .from_csr (from_csr),    //i
+      .to_csr   (to_csr.uart), //o
 
-      .imem_cpu_rstn(imem_cpu_rstn),  //o
-      .imem_we      (imem_we),        //o
-      .imem_waddr   (imem_waddr),     //o[31:2]
-      .imem_wdat    (imem_wdat),      //o[31:0]
+      .imem_cpu_rstn (imem_cpu_rstn),  //o
+      .imem_we       (imem_we),        //o
+      .imem_waddr    (imem_waddr),     //o[31:2]
+      .imem_wdat     (imem_wdat),      //o[31:0]
 
-      .bus(bus_uart)  //MST
+      .bus (bus_uart)  //MST
   );
 
   //---------------------------------
   cpu_fifo u_cpu_fifo (
-      .from_csr(from_csr),         //i
-      .to_csr  (to_csr.cpu_fifo),  //o
-      .to_cpu  (to_cpu),           //SLV
-      .from_cpu(from_cpu)          //MST
+      .from_csr (from_csr),         //i
+      .to_csr   (to_csr.cpu_fifo),  //o
+      .to_cpu   (to_cpu),           //SLV
+      .from_cpu (from_cpu)          //MST
   );
 
   //==========================================================================
@@ -286,109 +286,109 @@ module top (
   // DPE
   //==========================================================================
   dpe u_dpe (
-      .from_csr              (from_csr),                //i
-      .to_csr_dpe            (to_csr.dpe),              //o
-      .to_csr_routing_table  (to_csr.routing_table),    //o
-      .to_csr_cryptokey_table(to_csr.cryptokey_table),  //o
-      .from_cpu              (from_cpu),                //SLV
-      .from_eth_1            (from_eth_1),              //SLV
-      .from_eth_2            (from_eth_2),              //SLV
-      .from_eth_3            (from_eth_3),              //SLV
-      .from_eth_4            (from_eth_4),              //SLV
-      .to_cpu                (to_cpu),                  //MST
-      .to_eth_1              (to_eth_1),                //MST
-      .to_eth_2              (to_eth_2),                //MST
-      .to_eth_3              (to_eth_3),                //MST
-      .to_eth_4              (to_eth_4)                 //MST
+      .from_csr               (from_csr),                //i
+      .to_csr_dpe             (to_csr.dpe),              //o
+      .to_csr_routing_table   (to_csr.routing_table),    //o
+      .to_csr_cryptokey_table (to_csr.cryptokey_table),  //o
+      .from_cpu               (from_cpu),                //SLV
+      .from_eth_1             (from_eth_1),              //SLV
+      .from_eth_2             (from_eth_2),              //SLV
+      .from_eth_3             (from_eth_3),              //SLV
+      .from_eth_4             (from_eth_4),              //SLV
+      .to_cpu                 (to_cpu),                  //MST
+      .to_eth_1               (to_eth_1),                //MST
+      .to_eth_2               (to_eth_2),                //MST
+      .to_eth_3               (to_eth_3),                //MST
+      .to_eth_4               (to_eth_4)                 //MST
   );
 
   //==========================================================================
   // Ethernet subsystems
   //==========================================================================
   ethernet_mac u_eth_1 (
-      .gtx_clk    (eth_gtx_clk),
-      .gtx_rst    (eth_gtx_rst),
-      .gmii_rx_clk(e1_rxc),
-      .gmii_rxd   (e1_rxd),
-      .gmii_rx_dv (e1_rxdv),
-      .gmii_rx_er (e1_rxer),
-      .mii_tx_clk (e1_txc),
-      .gmii_tx_clk(e1_gtxc),
-      .gmii_txd   (e1_txd),
-      .gmii_tx_en (e1_txen),
-      .gmii_tx_er (e1_txer),
-      .speed      (to_csr.ethernet[0].status.speed.next),
-      .rx_fifo    (from_eth_1),
-      .tx_fifo    (to_eth_1)
+      .gtx_clk     (eth_gtx_clk),
+      .gtx_rst     (eth_gtx_rst),
+      .gmii_rx_clk (e1_rxc),
+      .gmii_rxd    (e1_rxd),
+      .gmii_rx_dv  (e1_rxdv),
+      .gmii_rx_er  (e1_rxer),
+      .mii_tx_clk  (e1_txc),
+      .gmii_tx_clk (e1_gtxc),
+      .gmii_txd    (e1_txd),
+      .gmii_tx_en  (e1_txen),
+      .gmii_tx_er  (e1_txer),
+      .speed       (to_csr.ethernet[0].status.speed.next),
+      .rx_fifo     (from_eth_1),
+      .tx_fifo     (to_eth_1)
   );
 
   //--------------------------------------------------------------------------
   ethernet_mac u_eth_2 (
-      .gtx_clk    (eth_gtx_clk),
-      .gtx_rst    (eth_gtx_rst),
-      .gmii_rx_clk(e2_rxc),
-      .gmii_rxd   (e2_rxd),
-      .gmii_rx_dv (e2_rxdv),
-      .gmii_rx_er (e2_rxer),
-      .mii_tx_clk (e2_txc),
-      .gmii_tx_clk(e2_gtxc),
-      .gmii_txd   (e2_txd),
-      .gmii_tx_en (e2_txen),
-      .gmii_tx_er (e2_txer),
-      .speed      (to_csr.ethernet[1].status.speed.next),
-      .rx_fifo    (from_eth_2),
-      .tx_fifo    (to_eth_2)
+      .gtx_clk     (eth_gtx_clk),
+      .gtx_rst     (eth_gtx_rst),
+      .gmii_rx_clk (e2_rxc),
+      .gmii_rxd    (e2_rxd),
+      .gmii_rx_dv  (e2_rxdv),
+      .gmii_rx_er  (e2_rxer),
+      .mii_tx_clk  (e2_txc),
+      .gmii_tx_clk (e2_gtxc),
+      .gmii_txd    (e2_txd),
+      .gmii_tx_en  (e2_txen),
+      .gmii_tx_er  (e2_txer),
+      .speed       (to_csr.ethernet[1].status.speed.next),
+      .rx_fifo     (from_eth_2),
+      .tx_fifo     (to_eth_2)
   );
 
   //--------------------------------------------------------------------------
   ethernet_mac u_eth_3 (
-      .gtx_clk    (eth_gtx_clk),
-      .gtx_rst    (eth_gtx_rst),
-      .gmii_rx_clk(e3_rxc),
-      .gmii_rxd   (e3_rxd),
-      .gmii_rx_dv (e3_rxdv),
-      .gmii_rx_er (e3_rxer),
-      .mii_tx_clk (e3_txc),
-      .gmii_tx_clk(e3_gtxc),
-      .gmii_txd   (e3_txd),
-      .gmii_tx_en (e3_txen),
-      .gmii_tx_er (e3_txer),
-      .speed      (to_csr.ethernet[2].status.speed.next),
-      .rx_fifo    (from_eth_3),
-      .tx_fifo    (to_eth_3)
+      .gtx_clk     (eth_gtx_clk),
+      .gtx_rst     (eth_gtx_rst),
+      .gmii_rx_clk (e3_rxc),
+      .gmii_rxd    (e3_rxd),
+      .gmii_rx_dv  (e3_rxdv),
+      .gmii_rx_er  (e3_rxer),
+      .mii_tx_clk  (e3_txc),
+      .gmii_tx_clk (e3_gtxc),
+      .gmii_txd    (e3_txd),
+      .gmii_tx_en  (e3_txen),
+      .gmii_tx_er  (e3_txer),
+      .speed       (to_csr.ethernet[2].status.speed.next),
+      .rx_fifo     (from_eth_3),
+      .tx_fifo     (to_eth_3)
   );
 
   //--------------------------------------------------------------------------
   ethernet_mac u_eth_4 (
-      .gtx_clk    (eth_gtx_clk),
-      .gtx_rst    (eth_gtx_rst),
-      .gmii_rx_clk(e4_rxc),
-      .gmii_rxd   (e4_rxd),
-      .gmii_rx_dv (e4_rxdv),
-      .gmii_rx_er (e4_rxer),
-      .mii_tx_clk (e4_txc),
-      .gmii_tx_clk(e4_gtxc),
-      .gmii_txd   (e4_txd),
-      .gmii_tx_en (e4_txen),
-      .gmii_tx_er (e4_txer),
-      .speed      (to_csr.ethernet[3].status.speed.next),
-      .rx_fifo    (from_eth_4),
-      .tx_fifo    (to_eth_4)
+      .gtx_clk     (eth_gtx_clk),
+      .gtx_rst     (eth_gtx_rst),
+      .gmii_rx_clk (e4_rxc),
+      .gmii_rxd    (e4_rxd),
+      .gmii_rx_dv  (e4_rxdv),
+      .gmii_rx_er  (e4_rxer),
+      .mii_tx_clk  (e4_txc),
+      .gmii_tx_clk (e4_gtxc),
+      .gmii_txd    (e4_txd),
+      .gmii_tx_en  (e4_txen),
+      .gmii_tx_er  (e4_txer),
+      .speed       (to_csr.ethernet[3].status.speed.next),
+      .rx_fifo     (from_eth_4),
+      .tx_fifo     (to_eth_4)
   );
 
   //--------------------------------------------------------------------------
   ethernet_phy u_phy (
-      .e1_reset(e1_reset),
-      .e1_mdc  (e1_mdc),
-      .e1_mdio (e1_mdio),
-      .e2_reset(e2_reset),
-      .e2_mdc  (e2_mdc),
-      .e2_mdio (e2_mdio),
-      .e3_reset(e3_reset),
-      .e3_mdc  (e3_mdc),
-      .e3_mdio (e3_mdio),
-      .e4_reset(e4_reset),
-      .e4_mdc  (e4_mdc),
-      .e4_mdio (e4_mdio)
+      .e1_reset (e1_reset),
+      .e1_mdc   (e1_mdc),
+      .e1_mdio  (e1_mdio),
+      .e2_reset (e2_reset),
+      .e2_mdc   (e2_mdc),
+      .e2_mdio  (e2_mdio),
+      .e3_reset (e3_reset),
+      .e3_mdc   (e3_mdc),
+      .e3_mdio  (e3_mdio),
+      .e4_reset (e4_reset),
+      .e4_mdc   (e4_mdc),
+      .e4_mdio  (e4_mdio)
   );
 endmodule
