@@ -37,13 +37,13 @@ module soc_cpu #(
     parameter logic [31:0] ADDR_RESET     = 32'h0000_0000,
     parameter int          NUM_WORDS_IMEM = 8192
 ) (
-           soc_if.MST        bus,
+    soc_if.MST          bus,
 
     // access point for reloading CPU program memory
-    input  logic             imem_cpu_rstn,
-    input  logic             imem_we,
-    input  logic      [31:2] imem_waddr,
-    input  logic      [31:0] imem_wdat
+    input  logic        imem_cpu_rstn,
+    input  logic        imem_we,
+    input  logic [31:2] imem_waddr,
+    input  logic [31:0] imem_wdat
 );
 
   if (ADDR_RESET != 32'h0000_0000) begin : g_addr_reset_check

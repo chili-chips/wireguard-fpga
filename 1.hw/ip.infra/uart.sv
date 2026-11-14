@@ -74,7 +74,7 @@ module uart
     output logic                    [31:0] imem_wdat,
 
     // DMEM/CSR bus mastering interface
-           soc_if.MST                      bus
+    soc_if.MST                             bus
 );
   import soc_pkg::*;
 

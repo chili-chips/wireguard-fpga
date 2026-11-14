@@ -44,7 +44,7 @@ module soc_csr
   import soc_pkg::*;
   import csr_pkg::*;
 (
-           soc_if.SLV          bus,
+    soc_if.SLV                 bus,
     input  csr_pkg::csr__in_t  hwif_in,
     output csr_pkg::csr__out_t hwif_out
 );

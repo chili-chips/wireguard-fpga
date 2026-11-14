@@ -601,7 +601,7 @@ The firmware source has no co-simulation code but four spots:
 
 | Component | In use | Source |
 |---|---|---|
-| Verilator | 5.052 | [verilator.org](https://verilator.org) |
+| Verilator | 5.055 (devel, `v5.054-260-gb9f22851`) | [verilator.org](https://verilator.org) |
 | JanusHDL | 0.17.0 (preview), optional (`SIM=janushdl`): stops at elaboration, see [JanusHDL](#janushdl) | [que.no/janushdl](https://que.no/janushdl/) |
 | VProc | 1.13.4 | [wyvernSemi/vproc](https://github.com/wyvernSemi/vproc) |
 | mem_model | `main` c7b9c62 (1.0.1 + one fix) | [wyvernSemi/mem_model](https://github.com/wyvernSemi/mem_model) |

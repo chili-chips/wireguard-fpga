@@ -45,8 +45,8 @@ module cpu_fifo
 (
     input  csr_pkg::csr__out_t          from_csr,
     output csr_pkg::csr__cpu_fifo__in_t to_csr,
-           dpe_if.s_axis                to_cpu,
-           dpe_if.m_axis                from_cpu
+    dpe_if.s_axis                       to_cpu,
+    dpe_if.m_axis                       from_cpu
 );
   axis_fifo #(
       .DEPTH          (4096),

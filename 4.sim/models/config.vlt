@@ -28,3 +28,6 @@ lint_off -rule PROCASSINIT
 lint_off -rule DEFOVERRIDE
 // Xilinx unisim simulation models: timing (specify) is not simulated
 lint_off -rule SPECIFYIGN -file "*/models/no-change/*"
+// and they write one variable from several plain always blocks (ODDR: both
+// clock edges and the async set/reset): legal, and simulates as written
+lint_off -rule MULTIDRIVENPROC -file "*/models/no-change/*"

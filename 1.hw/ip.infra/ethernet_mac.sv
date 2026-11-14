@@ -41,20 +41,20 @@
 //==========================================================================
 
 module ethernet_mac (
-    input  logic               gtx_clk,
-    input  logic               gtx_rst,
-    input  logic               gmii_rx_clk,
-    input  logic         [7:0] gmii_rxd,
-    input  logic               gmii_rx_dv,
-    input  logic               gmii_rx_er,
-    input  logic               mii_tx_clk,
-    output logic               gmii_tx_clk,
-    output logic         [7:0] gmii_txd,
-    output logic               gmii_tx_en,
-    output logic               gmii_tx_er,
-    output logic         [1:0] speed,
-           dpe_if.s_axis       tx_fifo,
-           dpe_if.m_axis       rx_fifo
+    input  logic       gtx_clk,
+    input  logic       gtx_rst,
+    input  logic       gmii_rx_clk,
+    input  logic [7:0] gmii_rxd,
+    input  logic       gmii_rx_dv,
+    input  logic       gmii_rx_er,
+    input  logic       mii_tx_clk,
+    output logic       gmii_tx_clk,
+    output logic [7:0] gmii_txd,
+    output logic       gmii_tx_en,
+    output logic       gmii_tx_er,
+    output logic [1:0] speed,
+    dpe_if.s_axis      tx_fifo,
+    dpe_if.m_axis      rx_fifo
 );
   eth_mac_1g_gmii_fifo #(
       .TARGET            ("XILINX"),

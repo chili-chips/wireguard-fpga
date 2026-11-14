@@ -41,15 +41,15 @@
 //==========================================================================
 
 module dpe_multiplexer (
-    input  logic         pause,
-    output logic         is_idle,
+    input  logic  pause,
+    output logic  is_idle,
 
-           dpe_if.s_axis from_cpu,
-           dpe_if.s_axis from_eth_1,
-           dpe_if.s_axis from_eth_2,
-           dpe_if.s_axis from_eth_3,
-           dpe_if.s_axis from_eth_4,
-           dpe_if.m_axis to_dpe
+    dpe_if.s_axis from_cpu,
+    dpe_if.s_axis from_eth_1,
+    dpe_if.s_axis from_eth_2,
+    dpe_if.s_axis from_eth_3,
+    dpe_if.s_axis from_eth_4,
+    dpe_if.m_axis to_dpe
 );
   import dpe_pkg::*;
 
