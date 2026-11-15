@@ -1,0 +1,40 @@
+# SPDX-FileCopyrightText: 2026 Chili.CHIPS*ba
+# 
+# SPDX-License-Identifier: BSD-3-Clause
+
+version = 1
+
+[[annotations]]
+path = ["0.doc/**", "3.build/csr_build/generated-files/**", "3.build/hw_build.openXC7/build_artifacts/**", "3.build/hw_build.openXC7/converted/**", "3.build/hw_build.Vivado/**", "3.build/sw_build/**", "3.build/pipelinec_build/**" , "3.build/pypeline_build/measurements/**", "4.sim/**.gtkw", "4.sim/**.fst", "4.sim/**.ron", "4.sim/**.pcap", "99.warmup/**"]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2026 Chili.CHIPS*ba"
+SPDX-License-Identifier = "BSD-3-Clause"
+
+# Pypeline build (3.build/pypeline_build), contributed mostly by Julian
+# Kemmerer (PipelineC); BSD-3-Clause like the rest of the repository
+[[annotations]]
+path = ["3.build/pypeline_build/**"]
+precedence = "aggregate"
+SPDX-FileCopyrightText = ["2026 Julian Kemmerer", "2026 Chili.CHIPS"]
+SPDX-License-Identifier = "BSD-3-Clause"
+
+# Instructions for Claude Code, kept free of header comments
+[[annotations]]
+path = ["CLAUDE.md"]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2026 Chili.CHIPS"
+SPDX-License-Identifier = "BSD-3-Clause"
+
+# rv32 RISC-V ISS sources (wyvernSemi/rv32, iss/src), with openPCIE's fixes
+# applied from 4.sim/models/rv32/rv32-openpcie.patch
+[[annotations]]
+path = ["4.sim/models/rv32/src/**"]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2021-2025 Simon Southwell"
+SPDX-License-Identifier = "GPL-3.0-or-later"
+
+[[annotations]]
+path = ["4.sim/models/rv32/rv32-openpcie.patch"]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2026 Chili.CHIPS"
+SPDX-License-Identifier = "GPL-3.0-or-later"

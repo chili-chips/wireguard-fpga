@@ -1,0 +1,10 @@
+# Local synthesis/simulation caches and disposable investigation workspace.
+/generated-files/
+/validation/
+/evaluation/
+/measurements/
+/tests/
+__pycache__/
+*.pyc
+/lextab.py
+/yacctab.py

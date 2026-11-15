@@ -1,0 +1,369 @@
+// SPDX-FileCopyrightText: 2026 Chili.CHIPS*ba
+//
+// SPDX-License-Identifier: BSD-3-Clause
+
+//========================================================================== 
+// Wireguard-1GE FPGA * NLnet-sponsored open-source implementation   
+//--------------------------------------------------------------------------
+//                   Copyright (C) 2026 Chili.CHIPS*ba
+// 
+// Redistribution and use in source and binary forms, with or without 
+// modification, are permitted provided that the following conditions 
+// are met:
+//
+// 1. Redistributions of source code must retain the above copyright 
+// notice, this list of conditions and the following disclaimer.
+//
+// 2. Redistributions in binary form must reproduce the above copyright 
+// notice, this list of conditions and the following disclaimer in the 
+// documentation and/or other materials provided with the distribution.
+//
+// 3. Neither the name of the copyright holder nor the names of its 
+// contributors may be used to endorse or promote products derived
+// from this software without specific prior written permission.
+//
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS 
+// IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED 
+// TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A 
+// PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT 
+// HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, 
+// SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT 
+// LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, 
+// DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY 
+// THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT 
+// (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
+// OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+//
+//              https://opensource.org/license/bsd-3-clause
+//--------------------------------------------------------------------------
+// Description:
+//   UART library
+//==========================================================================
+
+#include "uart.h"
+
+/**********************************************************************
+ * Function:    uart_send_char()
+ *
+ * Description: Sends a single characters to UART HW Controller
+ *
+ * Returns:     None
+ **********************************************************************/
+void uart_send_char(char c) {
+#ifdef VPROC
+   // Co-simulation: to the simulation log, at once. At 115200 baud the boot
+   // banner alone keeps the firmware out of its main loop for ~40 ms.
+   if (c != '\r') VPrint("%c", c);
+#else
+   // wait for HW "not busy", then send the byte/character
+   while (CSR_GET(uart.tx, CSR__UART__TX__BUSY));
+   CSR_SET(uart.tx, CSR__UART__TX__DATA, c);
+#endif
+}
+
+/**********************************************************************
+ * Function:    uart_send_hex()
+ *
+ * Description: Converts decimal to a string of ASCII HEX characters
+ *              and sends them to UART
+ *
+ * Returns:     None
+ **********************************************************************/
+void uart_send_hex(unsigned int val, int digits) {
+   for (int i = (4*digits) - 4; i >= 0; i -= 4)
+      uart_send_char("0123456789ABCDEF"[(val >> i) % 16]);
+}
+
+/**********************************************************************
+ * Function:    uart_send_hex_bytes()
+ *
+ * Description: Converts a byte array into ASCII hexadecimal
+ *              representation and sends it over UART.
+ *              Each byte is transmitted as two HEX characters
+ *
+ * Returns:     None
+ **********************************************************************/
+void uart_send_hex_bytes(const uint8_t *data, int len) {
+   const char hex[] = "0123456789ABCDEF";
+   for (int i = 0; i < len; i++)
+   {
+      uint8_t b = data[i];
+      uart_send_char(hex[b >> 4]);    // high nibble
+      uart_send_char(hex[b & 0xF]);   // low nibble
+   }
+}
+
+/**********************************************************************
+ * Function:    uart_send_dec()
+ *
+ * Description: Converts decimal value to a string of
+ *              ASCII characters and sends them to UART
+ *
+ * Returns:     None
+ **********************************************************************/
+void uart_send_dec(uint32_t val) {
+   if (val == 0) {
+      uart_send_char('0');
+      return;
+   }
+
+   uint32_t divisor = 1;
+
+   while (divisor <= val / 10) {
+      divisor *= 10;
+   }
+
+   while (divisor > 0) {
+      uint32_t digit = val / divisor;
+      uart_send_char(digit + '0');
+      val -= digit * divisor;
+      divisor /= 10;
+   }
+}
+
+/**********************************************************************
+ * Function:    uart_send()
+ *
+ * Description: Sends a string of characters to UART
+ *
+ * Returns:     None
+ **********************************************************************/
+void uart_send(const char *s) {
+   while (*s) uart_send_char(*(s++));
+}
+
+/**********************************************************************
+ * Function:    uart_send_ip()
+ *
+ * Description: Sends IP address (xxx.xxx.xxx.xxx) to UART
+ *
+ * Returns:     None
+ **********************************************************************/
+void uart_send_ip(const uint8_t *ip) {
+   uart_send_dec(ip[0]);
+   uart_send_char('.');
+   uart_send_dec(ip[1]);
+   uart_send_char('.');
+   uart_send_dec(ip[2]);
+   uart_send_char('.');
+   uart_send_dec(ip[3]);
+}
+
+/**********************************************************************
+ * Function:    uart_send_ip()
+ *
+ * Description: Sends MAC address (xx:xx:xx:xx:xx:xx) to UART
+ *
+ * Returns:     None
+ **********************************************************************/
+void uart_send_mac(const uint8_t *mac) {
+   uart_send_hex(mac[0], 2);
+   uart_send_char(':');
+   uart_send_hex(mac[1], 2);
+   uart_send_char(':');
+   uart_send_hex(mac[2], 2);
+   uart_send_char(':');
+   uart_send_hex(mac[3], 2);
+   uart_send_char(':');
+   uart_send_hex(mac[4], 2);
+   uart_send_char(':');
+   uart_send_hex(mac[5], 2);
+}
+
+/**********************************************************************
+ * Function:    uart_recv()
+ *
+ * Description: Receive data from UART HW until <CR> or <CR><LF>
+ *              arrives, printing echo
+ *
+ * Returns:     None
+ **********************************************************************/
+uint8_t uart_recv(char *s) {
+   uint32_t uart_rx;
+
+   // Check for available data:
+   uart_rx = CSR_REG32(uart.rx);
+   if (uart_rx & UART_RX_VALID) {
+      // if SOP received, ignore RX;
+      if ((uart_rx & UART_RX_DATA) == UART_SOP)
+         return 0;
+
+      // otherwise, keep reading from UART until user enters <ENTER>,
+      //  or allocated buffer is exhausted
+      //  (UART_RXBUF_SIZE-1) opens space to append NULL
+      int i = 0;
+      while (i < UART_RXBUF_SIZE-1) {
+         // Store received character
+         *s = (char)(uart_rx & UART_RX_DATA);
+
+         // <CR> or <CR><LF> indicates end of user input
+         // Append <LF> and exit
+         if (*s == '\n') {
+            s++;
+            i++;
+            break;
+         // On <CR> echo back <CR><LF> and exit
+         } else if (*s == '\r') {
+            uart_send_char('\r');
+            uart_send_char('\n');
+            *s = '\n';
+            s++;
+            i++;
+            break;
+         } else {
+            // On <BS> or <DEL> remove previously received
+            //  character and echo back <BS><SPACE><BS>;
+            if (*s == '\b' || *s == UART_DEL) {
+               if (i > 0) {
+                  s--;
+                  i--;
+                  uart_send_char('\b');
+                  uart_send_char(' ');
+                  uart_send_char('\b');
+               }
+            // otherwise, echo back and append received character
+            } else {
+               uart_send_char(*s);
+               s++;
+               i++;
+            }
+         }
+
+         // wait for HW to collect one byte/character
+         //  (*) due to Clear-on-Read nature of VALID and OFLOW flags,
+         //      this MUST BE ONE SHOT READ. Otherwise, both data and
+         //      flags could be lost
+         //
+         // (**) since this is a tight loop, we in this case
+         //      don't need to look at 'uart_rx.fld.oflow'
+         do {
+            uart_rx = CSR_REG32(uart.rx);
+         } while (!(uart_rx & UART_RX_VALID));
+      };
+
+      // Append NULL
+      *s = '\0';
+
+      return i;
+   } else {
+      return 0;
+   }
+}
+
+#ifdef UART_TEST
+/**********************************************************************
+ * Function:    uart_test()
+ *
+ * Description: Simple test of UART input/output, with gaming mindset.
+ *              The objectives are to:
+ *               - test the RTL implementation of all relevant logic
+ *               - illustrate the handshake between SW and HW
+ *               - provide a foundation for development of "production"
+ *                 code for UART resource
+ *
+ * Returns:     None
+ **********************************************************************/
+void uart_test(void) {
+   const char *rx_expd = "Mi smo FPGA raja";
+   char        rx_data[UART_RXBUF_SIZE];
+   char       *rx_data_ptr;
+   int         result;
+
+   uart_send((char*)"\r\n\nSelam eduSOC Hackers!\r\n");
+   uart_send((char*)"Try guessing 3 times what I'm thinking, then press <ENTER>.\r\n");
+
+   for (int i=3; i>0; i--) {
+      //take input from UART and store it into allocated buffer
+      rx_data_ptr = &rx_data[0];
+      while(!uart_recv(rx_data_ptr));
+
+      uart_send((char*)"\r\n\n\tYou entered: ");
+      uart_send(rx_data_ptr);
+
+      // check received data
+      if (strcmp(rx_expd, rx_data_ptr) == 0) {
+          //CSR -> gpo.fld.led_off = 0b10; // turn on first LED
+          uart_send((char*)"\r\n\t| You hit it! :-)\r\n");
+          break;
+
+      // mismatch
+      } else {
+          //CSR -> gpo.fld.led_off = 0b11; // turn off all LEDs
+          uart_send((char*)"\r\n\t| Sorry, you missed it.");
+
+          if (i>1) {
+            uart_send((char*)"\r\n\t| ...Try again. Credit left: ");
+            uart_send_hex(i-1, 1);
+            uart_send((char*)"\r\n\n\n");
+          }
+      }
+   }
+
+   uart_send((char*)"\r\nDONE!\r\n");
+}
+#endif // UART_TEST
+
+
+#ifdef RISCV_TEST
+/**********************************************************************
+ * Function:    uart_tests_info(int cmd)
+ *
+ * Description: Sends RISC-V test info to UART
+ *
+ * Returns:     None
+ **********************************************************************/
+void uart_tests_info(int cmd) {
+
+   char *tests_list[] = {
+    "OK!\r\n\r\n",
+    "ERROR!\r\n\r\n",
+    "add", "addi", "and", "andi", "auipc",
+    "beq", "bge", "bgeu", "blt", "bltu", "bne", "jal", "jalr",
+    "lb", "lbu", "lh", "lhu", "lui", "lw",
+    "ma_data", "or", "ori",
+    "sb", "sh", "simple",
+    "sll", "slli", "slt", "slti", "sltiu", "sltu",
+    "sra", "srai", "srl", "srli",
+    "sub", "sw",
+    "xor", "xori",
+    "breakpoint", "csr",
+    "illegal", "lh-misaligned",
+    "lw-misaligned", "ma_addr",
+    "ma_fetch", "mcsr",
+    "sbreak", "scall",
+    "sh-misaligned", "shamt",
+    "sw-misaligned", "zicntr"};
+
+   // UART signalizes test start and result
+   if (cmd == 0 || cmd == 1) {
+      uart_send(tests_list[cmd]);
+   }
+   else {
+      char message [32];
+
+      char *prefix = "Testing: ";
+      char *mes_ptr = message;
+      char *tst_ptr = tests_list[cmd];
+
+      while (*prefix)
+      {
+         *mes_ptr++ = *prefix++;
+      }
+
+      while (*tst_ptr)
+      {
+         *mes_ptr++ = *tst_ptr++;
+      }
+
+      *mes_ptr++ =  '\r';
+      *mes_ptr++ =  '\n';
+      *mes_ptr++ =  '\0';
+
+      uart_send(message);
+   }
+}
+#endif // RISCV_TESTS
+
+//==========================================================================
+// End-of-File
+//==========================================================================

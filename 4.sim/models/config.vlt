@@ -1,0 +1,33 @@
+// SPDX-FileCopyrightText: 2026 Chili.CHIPS*ba
+//
+// SPDX-License-Identifier: BSD-3-Clause
+
+`verilator_config
+
+lint_off -rule PINCONNECTEMPTY
+lint_off -rule PINMISSING
+lint_off -rule DECLFILENAME
+lint_off -rule GENUNNAMED
+lint_off -rule IMPLICIT
+lint_off -rule REALCVT
+lint_off -rule EOFNEWLINE
+lint_off -rule UNUSEDSIGNAL
+lint_off -rule UNUSEDPARAM
+lint_off -rule UNDRIVEN
+lint_off -rule MULTIDRIVEN
+lint_off -rule LATCH
+lint_off -rule BLKSEQ
+lint_off -rule SYNCASYNCNET
+lint_off -rule MISINDENT
+lint_off -rule VARHIDDEN
+lint_off -rule UNOPTFLAT
+lint_off -rule BLKANDNBLK
+lint_off -rule WIDTHEXPAND
+lint_off -rule WIDTHTRUNC
+lint_off -rule PROCASSINIT
+lint_off -rule DEFOVERRIDE
+// Xilinx unisim simulation models: timing (specify) is not simulated
+lint_off -rule SPECIFYIGN -file "*/models/no-change/*"
+// and they write one variable from several plain always blocks (ODDR: both
+// clock edges and the async set/reset): legal, and simulates as written
+lint_off -rule MULTIDRIVENPROC -file "*/models/no-change/*"

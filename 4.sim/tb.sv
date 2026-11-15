@@ -1,0 +1,459 @@
+// SPDX-FileCopyrightText: 2026 Chili.CHIPS*ba
+//
+// SPDX-License-Identifier: BSD-3-Clause
+
+//========================================================================== 
+// Wireguard-1GE FPGA * NLnet-sponsored open-source implementation   
+//--------------------------------------------------------------------------
+//                   Copyright (C) 2026 Chili.CHIPS*ba
+// 
+// Redistribution and use in source and binary forms, with or without 
+// modification, are permitted provided that the following conditions 
+// are met:
+//
+// 1. Redistributions of source code must retain the above copyright 
+// notice, this list of conditions and the following disclaimer.
+//
+// 2. Redistributions in binary form must reproduce the above copyright 
+// notice, this list of conditions and the following disclaimer in the 
+// documentation and/or other materials provided with the distribution.
+//
+// 3. Neither the name of the copyright holder nor the names of its 
+// contributors may be used to endorse or promote products derived
+// from this software without specific prior written permission.
+//
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS 
+// IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED 
+// TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A 
+// PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT 
+// HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, 
+// SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT 
+// LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, 
+// DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY 
+// THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT 
+// (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
+// OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+//
+//              https://opensource.org/license/bsd-3-clause
+//--------------------------------------------------------------------------
+// Description: Simulation testbench for FPGA. It provides models of
+//              external resources, as connected on the actual board
+//==========================================================================
+
+`timescale 1ps/1ps
+
+module tb #(
+   parameter int RUN_SIM_US     = 10000,
+   parameter int ETH_START_NODE = 1,
+   parameter int MDIO_BUFF_ADDR = 32'h50000000,
+   parameter int DISABLE_SIM_CTRL = 1
+)();
+   glbl glbl();
+
+   //localparam DLY_PCB_PAD_PS    = 1_000;
+   localparam NUM_ETH_PORTS     = 4;
+
+//--------------------------------------------------------------
+// Generate clocks and run sim until the test is done (halt_req), or
+// for RUN_SIM_US at most
+   localparam  HALF_CLK_P_PERIOD_PS      =   2_500; // 200MHz
+   localparam  HALF_GMII_PERIOD_PS       =   4_000; // 125MHz
+   localparam  HALF_PERIOD_ETH_TX_PS     =  20_000; // 25 MHz
+   localparam  HALF_PERIOD_OTHER_BFMS_PS =   6_250; // 80 MHz
+
+   localparam  RST_CYLES      = 10;
+   localparam  GMII_RST_CYLES = 10;
+   localparam  HALT_TAIL_US   = 10;  // run on after halt_req, for the waves
+
+   logic       clk_p, clk_n;
+   logic       rst_n;
+   logic       gmiiclk, gmiiclkx2;
+   logic       gmiiarst_n;
+   logic       eth_txc;
+   logic       clk_80;
+   logic [2:1] key;
+   logic       halt_req;  // the UDP test code is done (udpIpPg halt)
+
+   initial begin
+      clk_p      = 1'b0;
+      rst_n      = 1'b0;
+      gmiiclk    = 1'b0;
+      gmiiclkx2  = 1'b0;
+      gmiiarst_n = 1'b0;
+      eth_txc    = 1'b0;
+      clk_80     = 1'b0;
+      key        = 2'b0;
+
+      fork
+         begin : board_rst_n
+            #(HALF_CLK_P_PERIOD_PS*RST_CYLES * 1ps)
+               rst_n = 1'b1;
+         end
+
+         forever begin: clk_p_gen
+            #(HALF_CLK_P_PERIOD_PS * 1ps)
+               clk_p  = ~clk_p;
+         end
+
+         forever begin: gmii_clock_gen
+            #(HALF_GMII_PERIOD_PS * 1ps)
+               gmiiclk = ~gmiiclk;
+         end
+
+         forever begin: gmii_clockx2_gen
+            #(HALF_GMII_PERIOD_PS/2 * 1ps)
+               gmiiclkx2 = ~gmiiclkx2;
+         end
+
+         forever begin: eth_txc_gen
+            #(HALF_PERIOD_ETH_TX_PS * 1ps)
+               eth_txc = ~eth_txc;
+         end
+
+         forever begin: clk_80_gen
+            #(HALF_PERIOD_OTHER_BFMS_PS * 1ps)
+               clk_80 = ~clk_80;
+         end
+
+         begin : gmii_arst_n
+            #(HALF_GMII_PERIOD_PS*2*GMII_RST_CYLES * 1ps)
+               gmiiarst_n = 1'b1;
+         end
+
+         begin: run_sim
+            fork
+               begin : time_limit
+                  #(RUN_SIM_US * 1us);
+                  $display("\n%t  TB  *** simulation time limit reached ***", $time);
+               end
+               begin : test_done
+                  @(posedge halt_req);
+                  $display("\n%t  TB  *** test done, run ends in %0d us ***", $time,
+                           HALT_TAIL_US);
+                  #(HALT_TAIL_US * 1us);
+               end
+            join_any
+            $finish(2);
+         end
+      join
+   end
+
+   assign clk_n = ~clk_p;
+
+//--------------------------------------------------------------
+
+   logic e1_rxc, e2_rxc, e3_rxc, e4_rxc;
+   logic e1_txc, e2_txc, e3_txc, e4_txc;
+
+   assign e1_rxc = gmiiclk;
+   assign e2_rxc = gmiiclk;
+   assign e3_rxc = gmiiclk;
+   assign e4_rxc = gmiiclk;
+
+   assign e1_txc = eth_txc;
+   assign e2_txc = eth_txc;
+   assign e3_txc = eth_txc;
+   assign e4_txc = eth_txc;
+
+//--------------------------------------------------------------
+
+   logic e1_rxdv, e1_rxer;
+   logic [7:0] e1_rxd;
+   logic e1_reset, e1_mdc;
+   wire  e1_mdio;
+   logic e1_gtxc, e1_txen, e1_txer;
+   logic [7:0] e1_txd;
+
+   logic e2_rxdv, e2_rxer;
+   logic [7:0] e2_rxd;
+   logic e2_reset, e2_mdc;
+   wire  e2_mdio;
+   logic e2_gtxc, e2_txen, e2_txer;
+   logic [7:0] e2_txd;
+
+   logic e3_rxdv, e3_rxer;
+   logic [7:0] e3_rxd;
+   logic e3_reset, e3_mdc;
+   wire  e3_mdio;
+   logic e3_gtxc, e3_txen, e3_txer;
+   logic [7:0] e3_txd;
+
+   logic e4_rxdv, e4_rxer;
+   logic [7:0] e4_rxd;
+   logic e4_reset, e4_mdc;
+   wire  e4_mdio;
+   logic e4_gtxc, e4_txen, e4_txer;
+   logic [7:0] e4_txd;
+
+   assign e1_rxdv = gmii[0].rxdv;
+   assign e1_rxer = gmii[0].rxer;
+   assign e1_rxd  = gmii[0].rxd;
+
+   assign e2_rxdv = gmii[1].rxdv;;
+   assign e2_rxer = gmii[1].rxer;
+   assign e2_rxd  = gmii[1].rxd;
+
+   assign e3_rxdv = gmii[2].rxdv;;
+   assign e3_rxer = gmii[2].rxer;
+   assign e3_rxd  = gmii[2].rxd;
+
+   assign e4_rxdv = gmii[3].rxdv;;
+   assign e4_rxer = gmii[3].rxer;
+   assign e4_rxd  = gmii[3].rxd;
+
+//--------------------------------------------------------------
+
+   logic        uart_rx, uart_tx;
+// verilator lint_off UNUSEDSIGNAL
+   logic [3:2]  led;
+// verilator lint_off UNUSEDSIGNAL
+
+   top dut (
+      .clk_p   (clk_p),
+      .clk_n   (clk_n),
+      .rst_n   (rst_n),
+
+      // Ethernet 1
+      .e1_reset(e1_reset),
+      .e1_mdc  (e1_mdc),
+      .e1_mdio (e1_mdio),
+      .e1_rxc  (e1_rxc),
+      .e1_rxdv (e1_rxdv),
+      .e1_rxer (e1_rxer),
+      .e1_rxd  (e1_rxd),
+      .e1_txc  (e1_txc),
+      .e1_gtxc (e1_gtxc),
+      .e1_txen (e1_txen),
+      .e1_txer (e1_txer),
+      .e1_txd  (e1_txd),
+
+      // Ethernet 2
+      .e2_reset(e2_reset),
+      .e2_mdc  (e2_mdc),
+      .e2_mdio (e2_mdio),
+      .e2_rxc  (e2_rxc),
+      .e2_rxdv (e2_rxdv),
+      .e2_rxer (e2_rxer),
+      .e2_rxd  (e2_rxd),
+      .e2_txc  (e2_txc),
+      .e2_gtxc (e2_gtxc),
+      .e2_txen (e2_txen),
+      .e2_txer (e2_txer),
+      .e2_txd  (e2_txd),
+
+      // Ethernet 3
+      .e3_reset(e3_reset),
+      .e3_mdc  (e3_mdc),
+      .e3_mdio (e3_mdio),
+      .e3_rxc  (e3_rxc),
+      .e3_rxdv (e3_rxdv),
+      .e3_rxer (e3_rxer),
+      .e3_rxd  (e3_rxd),
+      .e3_txc  (e3_txc),
+      .e3_gtxc (e3_gtxc),
+      .e3_txen (e3_txen),
+      .e3_txer (e3_txer),
+      .e3_txd  (e3_txd),
+
+      // Ethernet 4
+      .e4_reset(e4_reset),
+      .e4_mdc  (e4_mdc),
+      .e4_mdio (e4_mdio),
+      .e4_rxc  (e4_rxc),
+      .e4_rxdv (e4_rxdv),
+      .e4_rxer (e4_rxer),
+      .e4_rxd  (e4_rxd),
+      .e4_txc  (e4_txc),
+      .e4_gtxc (e4_gtxc),
+      .e4_txen (e4_txen),
+      .e4_txer (e4_txer),
+      .e4_txd  (e4_txd),
+
+      // UART
+      .uart_rx (uart_rx),
+      .uart_tx (uart_tx),
+
+      // Keys
+      .key_in  (key),
+
+      // LEDs
+      .led     (led)
+   );
+
+
+// //--------------------------------------------------------------
+// Instantiation of Verilator simulation control
+// //--------------------------------------------------------------
+
+  verilator_sim_ctrl
+  #(
+     .NODE                    (15),
+     .CLK_PERIOD_PS           (HALF_CLK_P_PERIOD_PS * 2),
+     .DISABLE_SIM_CTRL        (DISABLE_SIM_CTRL)
+  ) simctrl
+  (
+    .clk                      (clk_p),
+    .cycle_count              ()
+  );
+
+//--------------------------------------------------------------
+// Ethernet UDP/IPv4 BFM
+//--------------------------------------------------------------
+
+gmii_if                                   gmii [NUM_ETH_PORTS] (gmiiarst_n, gmiiclk) ;
+wire    [NUM_ETH_PORTS-1:0]               mdio;
+wire    [NUM_ETH_PORTS-1:0]               mdio_en;
+wire    [NUM_ETH_PORTS-1:0]               mdio_out;
+
+
+// Pullup on MDIO lines
+assign (pull1, pull0) mdio = {NUM_ETH_PORTS{1'b1}};
+
+genvar PORT;
+generate
+  for (PORT = 0; PORT < NUM_ETH_PORTS; PORT++)
+  begin
+`ifdef VERILATOR
+    assign mdio[PORT]      =  mdio_en[PORT] ? mdio_out[PORT] : 1'bz;
+`endif
+
+    // Tie off GMII inputs
+    assign gmii[PORT].txen = 1'b0;
+    assign gmii[PORT].txer = 1'b0;
+    assign gmii[PORT].txd  = '0;
+  end
+endgenerate
+
+assign gmii[0].txen = e1_txen;
+assign gmii[0].txer = e1_txer;
+assign gmii[0].txd  = e1_txd;
+
+assign gmii[1].txen = e2_txen;
+assign gmii[1].txer = e2_txer;
+assign gmii[1].txd  = e2_txd;
+
+assign gmii[2].txen = e3_txen;
+assign gmii[2].txer = e3_txer;
+assign gmii[2].txd  = e3_txd;
+
+assign gmii[3].txen = e4_txen;
+assign gmii[3].txer = e4_txer;
+assign gmii[3].txd  = e4_txd;
+
+// verilator lint_off PINCONNECTEMPTY
+ bfm_ethernet
+   #(.START_NODE                          (ETH_START_NODE),
+     .NUM_PORTS                           (NUM_ETH_PORTS),
+     .MDIO_BUFF_ADDR                      (MDIO_BUFF_ADDR),
+     .RGMII                               (0)
+   ) bfm_udp
+   (
+     .clk                                 (gmiiclk),
+     .clkx2                               (gmiiclkx2),
+     .arst_n                              (gmiiarst_n),
+
+     // GMII interface
+     .gmii                                (gmii),
+
+     // MDIO interface
+     .mdioclk                             (mdioclk),
+     .mdio                                (mdio),
+
+`ifdef VERILATOR
+     .mdio_en                             (mdio_en),
+     .mdio_out                            (mdio_out),
+`endif
+
+     // Simulation halt request
+     .halt_req                            (halt_req)
+   );
+// verilator lint_on PINCONNECTEMPTY
+
+//--------------------------------------------------------------
+// model of external UART
+//--------------------------------------------------------------
+   bfm_uart bfm_uart (
+      .uart_rx  (uart_tx), //i
+      .uart_tx  (uart_rx)  //o
+   );
+
+
+// Simulation: filling the routing_table
+/*
+   logic dut_sys_clk;
+   logic dut_sys_rst;
+   csr_pkg::csr__dpe__routing_table__external__out_t bfm_req_data [64];
+   csr_pkg::csr__dpe__routing_table__external__in_t  bfm_rsp_data [64];
+
+//--------------------------------------------------------------
+// model of EGRESS
+//--------------------------------------------------------------
+   bfm_egress #(
+      .ENTRY_COUNT(64)
+   ) u_bfm_egress (
+      .clk     (dut_sys_clk),      
+      .rst     (dut_sys_rst),
+      .csr_req (bfm_req_data),
+      .csr_rsp (bfm_rsp_data)
+   );
+
+*/
+
+//--------------------------------------------------------------
+// Error monitor
+//--------------------------------------------------------------
+/*    always @(dut.csr.misc.error) begin: error_mon
+       $write("%t %m (%0d) - ", $time, dut.csr.misc.error);
+
+       case (dut.csr.misc.error)
+         4'd0   : $display("ERROR_CLEARED");
+
+         4'd1   : $display("UART_RX_OVERFLOW");
+         4'd2   : $display("ANOTHER_CMD_PENDING (drop new Cmd)");
+         4'd3   : $display("ANOTHER_CMD_IN_RX (interrupt it and start new Cmd)");
+         4'd4   : $display("UNEXPECTED_CHAR");
+         4'd5   : $display("ILLEGAL_CMD_CHAR");
+         4'd6   : $display("INVALID_ANUM (Cmd dropped)");
+         4'd7   : $display("ADC1_CMD_DROPPED");
+         4'd8   : $display("ADC2_CMD_DROPPED");
+         4'd9   : $display("DAC1_CMD_DROPPED");
+         4'd10  : $display("DAC2_CMD_DROPPED");
+         4'd11  : $display("INVALID_CMD_ID");
+
+         default: $display("UNKNOWN");
+       endcase
+    end
+*/
+
+//--------------------------------------------------------------
+/* Assertions have to be done like this
+
+    always_ff @(posedge clk) begin
+
+       $display("a = %b, b = %b, c = %b, y = %b",a,b,c,y);
+
+       if ($past(b) > 2'b0) begin
+          if (y !== 1'b1) $fatal("Assertion failed for Test Case: b > 2'b0");
+       end
+       else begin
+          if (y !== 1'b0) $fatal("Assertion failed for Test Case: b <= 2'b0");
+       end
+    end
+*/
+
+`ifdef UART_BUS_STRESS
+   chk_uart_bus chk_uart_bus ();
+`endif
+
+endmodule: tb
+
+/*
+------------------------------------------------------------------------------
+Version History:
+------------------------------------------------------------------------------
+ 2024/02/14 TI: initial creation
+ 2024/02/25 JI: adapted to Verilation limitations in handling HiZ and INOUT ports
+ 2024/03/28 JI: added DAC
+ 2024/10/31 SS: Made compatible with current dut ports and commented out
+                non-compiling test components
+*/

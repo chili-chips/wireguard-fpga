@@ -1,0 +1,174 @@
+# pyright: reportInvalidTypeForm=none
+"""FSM that adds leading and trailing bytes around the ciphertext stream to
+prepare the stream to be authenticated by Poly1305:
+AAD || padding || ciphertext || padding || AAD length || ciphertext length
+
+Pypeline port of ../pipelinec_build/src/prep_auth_data/prep_auth_data.h and
+prep_auth_data.c. prep_auth_data_fsm is instantiated directly, once per
+direction, by each dataflow core.
+"""
+import wireguard_env  # noqa: F401
+
+from enum import auto
+
+from pypeline import (
+    NamedTuple,
+    struct,
+    enum,
+    hw_func,
+    Reg,
+    uint1_t,
+    uint8_t,
+    uint16_t,
+)
+
+from stream import stream_perf_probe as perf_taps
+
+import aead_types
+from aead_types import (
+    AAD_MAX_LEN,
+    axis128_intrf,
+    axis128_stream_null,
+)
+
+
+@enum
+class prep_auth_data_state_t:
+    IDLE = auto()
+    AAD_STATE = auto()
+    CIPHERTEXT = auto()
+    LENGTHS = auto()
+
+
+# Member names in declaration order for the perf_taps state histogram -- plain
+# Python, never elaborated. See stream/stream_perf_probe.py.
+PREP_AUTH_DATA_STATE_NAMES = tuple(prep_auth_data_state_t.__members__)
+
+
+@struct
+class prep_auth_data_fsm_t(NamedTuple):
+    # Outputs
+    axis_in_if: axis128_intrf.fb_t  # input port's reverse half
+    axis_if: axis128_intrf.fwd_t  # output port's feedforward half
+
+
+@hw_func
+def prep_auth_data_fsm(
+    # Inputs
+    aad: uint8_t[AAD_MAX_LEN],
+    aad_len: uint8_t,
+    axis_in_if: axis128_intrf.fwd_t,
+    axis_if: axis128_intrf.fb_t,
+) -> prep_auth_data_fsm_t:
+    o: prep_auth_data_fsm_t
+    # FSM that adds leading and trailing bytes around the ciphertext stream
+    state: Reg[prep_auth_data_state_t]
+    aad_reg: Reg[uint8_t[AAD_MAX_LEN]]
+    counter: Reg[uint16_t]
+    # Perf probe (sim-only, elaborated away). Before the FSM reassigns `state`,
+    # so the histogram counts the state occupied this cycle. AAD_STATE +
+    # LENGTHS cycles are the per-packet framing cost that inflates the Poly1305
+    # block count by 3 (2 AAD blocks at AAD_LEN=29, plus the lengths block).
+    perf_taps.state("prep.fsm", state, PREP_AUTH_DATA_STATE_NAMES)
+
+    # Default not ready for incoming data
+    o.axis_in_if.ready = 0
+    # Default not outputting data
+    o.axis_if.stream = axis128_stream_null()
+
+    if state == prep_auth_data_state_t.IDLE:
+        # Wait for incoming ciphertext
+        if axis_in_if.stream.valid:
+            # Not yet ready for data until CIPHERTEXT
+            # If have AAD, then output it first
+            if aad_len > 0:
+                # AAD is first, save input into reg for shifting out
+                aad_reg = aad
+                # and init counter with AAD length
+                counter = aad_len
+                state = prep_auth_data_state_t.AAD_STATE
+            else:
+                # No AAD, so ciphertext is first
+                state = prep_auth_data_state_t.CIPHERTEXT
+                counter = 0
+    elif state == prep_auth_data_state_t.AAD_STATE:
+        # Output up to 128b|16 bytes of AAD this cycle
+        # AAD is conveniently padded to multiple of 16 bytes
+        # so always full tkeep, tdata=0 for padding
+        for i in range(16):
+            if counter > i:
+                o.axis_if.stream.data.frag.data[i] = aad_reg[i]
+            o.axis_if.stream.data.frag.keep[i] = 1
+        o.axis_if.stream.valid = 1
+
+        # Count AAD bytes as xfer happens
+        if o.axis_if.stream.valid & axis_if.ready:
+            # More AAD bytes?
+            if counter > 16:
+                # Prepare next AAD bytes to be at bottom of the array
+                # (C ARRAY_SHIFT_DOWN(aad_reg, AAD_MAX_LEN, 16))
+                for i in range(AAD_MAX_LEN - 16):
+                    aad_reg[i] = aad_reg[i + 16]
+                counter = counter - 16
+            else:
+                # No more AAD bytes, CIPHERTEXT is next
+                state = prep_auth_data_state_t.CIPHERTEXT
+                counter = 0
+    elif state == prep_auth_data_state_t.CIPHERTEXT:
+        # Pass through ciphertext
+        o.axis_if = axis_in_if
+        o.axis_in_if.ready = axis_if.ready
+        # last cycle of ciphertext is not the last cycle of output stream
+        o.axis_if.stream.data.eod[0] = 0
+        # Data needs to be padded to 16 bytes with zeros
+        # during cycles with partial tkeep
+        for i in range(16):
+            o.axis_if.stream.data.frag.keep[i] = 1
+            if ~axis_in_if.stream.data.frag.keep[i]:
+                o.axis_if.stream.data.frag.data[i] = 0
+
+        # Count ciphertext length as xfer happens
+        if axis_in_if.stream.valid & o.axis_in_if.ready:
+            counter = counter + aead_types.axis128_keep_count(axis_in_if.stream.data.frag)
+            # As last cycle on input ciphertext passes, move to next state
+            if axis_in_if.stream.data.eod[0]:
+                state = prep_auth_data_state_t.LENGTHS
+    else:  # if state == prep_auth_data_state_t.LENGTHS
+        # Two 64b lengths of AAD and ciphertext
+        # fit into one 128b AXIS cycle
+        pos = 0
+        # AAD length
+        for i in range(8):
+            o.axis_if.stream.data.frag.data[pos] = aad_len >> (i * 8)
+            o.axis_if.stream.data.frag.keep[pos] = 1
+            pos += 1
+        # Ciphertext length
+        for i in range(8):
+            o.axis_if.stream.data.frag.data[pos] = counter >> (i * 8)
+            o.axis_if.stream.data.frag.keep[pos] = 1
+            pos += 1
+        # Last cycle of output stream
+        o.axis_if.stream.data.eod[0] = 1
+        o.axis_if.stream.valid = 1
+
+        # As xfer happens, go back to idle
+        if o.axis_if.stream.valid & axis_if.ready:
+            state = prep_auth_data_state_t.IDLE
+
+    # Perf probes (sim-only, elaborated away -- see stream/stream_perf_probe.py).
+    # prep sits directly between the ciphertext fork and the MAC, so comparing
+    # these two taps separates "the MAC is slow" (axis_out stalls, axis_in
+    # starves in AAD/LENGTHS) from "prep itself is slow".
+    perf_taps.hs(
+        "prep.axis_in",
+        axis_in_if.stream.valid,
+        o.axis_in_if.ready,
+        axis_in_if.stream.data.frag.keep,
+    )
+    perf_taps.hs(
+        "prep.axis_out",
+        o.axis_if.stream.valid,
+        axis_if.ready,
+        o.axis_if.stream.data.frag.keep,
+    )
+    return o

@@ -1,0 +1,249 @@
+// SPDX-FileCopyrightText: 2026 Chili.CHIPS*ba
+//
+// SPDX-License-Identifier: BSD-3-Clause
+
+//========================================================================== 
+// Wireguard-1GE FPGA * NLnet-sponsored open-source implementation   
+//--------------------------------------------------------------------------
+//                   Copyright (C) 2026 Chili.CHIPS*ba
+// 
+// Redistribution and use in source and binary forms, with or without 
+// modification, are permitted provided that the following conditions 
+// are met:
+//
+// 1. Redistributions of source code must retain the above copyright 
+// notice, this list of conditions and the following disclaimer.
+//
+// 2. Redistributions in binary form must reproduce the above copyright 
+// notice, this list of conditions and the following disclaimer in the 
+// documentation and/or other materials provided with the distribution.
+//
+// 3. Neither the name of the copyright holder nor the names of its 
+// contributors may be used to endorse or promote products derived
+// from this software without specific prior written permission.
+//
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS 
+// IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED 
+// TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A 
+// PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT 
+// HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, 
+// SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT 
+// LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, 
+// DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY 
+// THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT 
+// (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
+// OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+//
+//              https://opensource.org/license/bsd-3-clause
+//--------------------------------------------------------------------------
+// Description:
+//   Minimal UART BFM, with all serial parameters fixed to:
+//     - 115.2kbps (i.e. one bit period is 8.68usec)
+//     - 8 Data bits
+//     - 1 Stop bit
+//     - 0 Parity
+//
+//  It provides the following Tx tasks:
+//     - send_char  (<byte>);
+//     - send_string(<string>);
+//
+//  along with always-on monitoring of Rx wire.
+//
+//  Use +define+UART_DEBUG for printout of debug messages.
+//==========================================================================
+
+`timescale 1ns / 1ns
+
+module bfm_uart (
+   input  logic  uart_rx,
+   output logic  uart_tx
+);
+
+   localparam int BITIME_NS = 8_680; // time for one bit in ns (8.68us)
+
+//--------------------------------------
+// Send
+//--------------------------------------
+   task send_char (input byte char);
+     //START
+      uart_tx = 1'b0;
+      #(BITIME_NS * 1ns);
+
+     //D0..7, LSB goes out first
+      for (int i=0; i<8; i++) begin
+         uart_tx = char[i];
+         #(BITIME_NS * 1ns);
+      end
+
+     //STOP
+      uart_tx = 1'b1;
+      #(BITIME_NS * 1ns);
+   endtask: send_char
+
+//- - - - - - - - - - - - - - - - - - -
+   task send_cmd (input string cmd);
+   `ifdef UART_BFM_DEBUG
+      $display("\n%t --START-- %m '$%s'\n", $time, cmd);
+   `endif
+
+     // Send Start-of-Command character
+      send_char (.char("$"));
+
+     // Send Command itself
+      for (int i=0; i<cmd.len; i++) begin
+         send_char (.char(cmd[i]));
+      end
+
+     // Send End-of-Command characters
+      send_char (.char("\r"));
+      send_char (.char("\n"));
+
+   `ifdef UART_BFM_DEBUG
+      $display("\n%t -- END -- %m '$%s'\n", $time, cmd);
+   `endif
+   endtask: send_cmd
+
+
+//- - - - - - - - - - - - - - - - - - -
+   task send_string (input string text);
+   `ifdef UART_BFM_DEBUG
+      $display("\n%t --START-- %m '%s'\n", $time, text);
+   `endif
+
+      for (int i=0; i<text.len; i++) begin
+         send_char (.char(text[i]));
+      end
+
+     // Send 'C' End-of-String character
+      send_char (.char(8'h0));
+
+   `ifdef UART_BFM_DEBUG
+      $display("\n%t -- END -- %m '%s'\n", $time, text);
+   `endif
+   endtask: send_string
+
+//- - - - - - - - - - - - - - - - - - -
+// UART bus master: write one DMEM/CSR word (protocol of 5.test/busw.UART.py)
+   task automatic bus_write (input logic [31:0] addr, input logic [31:0] data);
+      send_char (.char(8'h12)); // SOP
+      send_char (.char(8'h0E)); // BUSW
+      for (int i=0; i<4; i++) send_char (.char(addr[i*8 +: 8]));
+      for (int i=0; i<4; i++) send_char (.char(data[i*8 +: 8]));
+      send_char (.char(8'h0F)); // WE: all bytes
+      #(12 * BITIME_NS * 1ns);  // the checksum comes back
+      send_char (.char(8'h14)); // EOP
+   endtask: bus_write
+
+`ifdef UART_BUS_STRESS
+//- - - - - - - - - - - - - - - - - - -
+// #61: UART bus writes while the firmware runs (and stores); chk_uart_bus
+// checks the bus, this checks the data landed in DMEM
+   int stress_errors = 0;
+
+   task automatic bus_stress (input int n);
+      logic [31:0] addr, data;
+      for (int k=0; k<n; k++) begin
+         addr = 32'h1000_8000 + 32'(4*k);
+         data = 32'hC0DE_0000 | 32'(k);
+         bus_write (addr, data);
+         if (tb.dut.u_dmem.mem[(addr - 32'h1000_0000) >> 2] !== data) begin
+            stress_errors++;
+            $display("%t UART_BUS_STRESS: DMEM[%h] = %h, expected %h", $time, addr,
+                     tb.dut.u_dmem.mem[(addr - 32'h1000_0000) >> 2], data);
+         end
+      end
+      $display("%t UART_BUS_STRESS: %0d bus writes, %0d data errors", $time, n, stress_errors);
+   endtask: bus_stress
+`endif
+
+
+//--------------------------------------
+// Initial greeting
+//--------------------------------------
+   int recv_byte_cnt; // number of received bytes
+
+   initial begin: _init
+      recv_byte_cnt = 0;
+
+      uart_tx = 1'b1; // drive STOP bit
+      #(BITIME_NS * 1ns);
+
+     //__for UART test
+     send_string ("FPGA raja\r\n");
+`ifdef UART_BUS_STRESS
+`ifndef UART_BUS_STRESS_N
+ `define UART_BUS_STRESS_N 16
+`endif
+     bus_stress (`UART_BUS_STRESS_N);
+`endif
+     //send_string ("Mi nismo mehke koze\n");
+
+     //__for Command parsing and dispatch test
+      /* send_cmd ("2,1,1");
+       send_cmd ("2 ");
+       send_cmd ("2,1,0");
+       send_cmd ("2");
+       send_cmd ("2,1,1");
+       //#(1 * 10us);
+       send_cmd ("2,1,0");
+
+       send_cmd ("3,10,5");   // DAC#1
+       send_cmd ("4,23,73");  // DAC#2
+       //
+       //send_cmd ("1,0,0");    // ADC#1.Corner1
+       //send_cmd ("2,1,0");    // ADC#2.Corner2
+       //
+       //send_cmd ("3,100,10"); // DAC#1
+       //send_cmd ("4,3,11");   // DAC#2
+       //
+       send_cmd ("1,3,1");    // ADC#1
+       send_cmd ("2,11,1");   // ADC#2*/
+   end
+
+
+//--------------------------------------
+// Receive
+//--------------------------------------
+   byte recv_data;
+
+   initial forever begin: receiver
+
+     //___START: Look for the first input negedge
+      @(negedge uart_rx);
+
+     // wait till the middle of START bit, then check if valid
+      #(BITIME_NS / 2 * 1ns);
+      if (uart_rx !== 1'b0) begin
+         $display("%t %m RX_ERROR: START bit not 0", $time);
+      end
+
+     //___DATA0-7: Collect 8 data bits (LSB comes in first)
+      for (int i=0; i<8; i++) begin
+         #(BITIME_NS * 1ns);
+         recv_data[i] = uart_rx;
+      end
+
+     //___STOP: Wait till the middle of STOP bit to check if valid
+      #(BITIME_NS * 1ns);
+      if (uart_rx !== 1'b1) begin
+         $display("%t %m RX_ERROR: STOP bit not 1", $time);
+      end
+
+     // ... and report transaction
+   `ifdef UART_BFM_DEBUG
+      recv_byte_cnt++;
+      $display("%t %m Char#%0d \t%0h (%s)", $time,
+               recv_byte_cnt, recv_data, string'(recv_data));
+      recv_data = 'X;
+   `endif
+   end: receiver
+
+endmodule: bfm_uart
+
+
+/*
+-----------------------------------------------------------------------------
+Version History:
+-----------------------------------------------------------------------------
+ 2024/3/3 JI: original creation
+*/

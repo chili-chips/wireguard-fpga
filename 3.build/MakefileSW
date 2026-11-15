@@ -1,0 +1,119 @@
+# SPDX-FileCopyrightText: 2026 Chili.CHIPS*ba
+# 
+# SPDX-License-Identifier: BSD-3-Clause
+
+BLD_DIR := $(CURDIR)
+
+SW_SRC  := $(BLD_DIR)/../2.sw
+SW_APP  := $(SW_SRC)/app
+SW_TESTS := $(SW_SRC)/tests
+
+SW_MAIN := $(SW_APP)
+#SW_MAIN := $(SW_TESTS)/csr_uart_test
+#SW_MAIN := $(SW_TESTS)/csr_gpio_test
+#SW_MAIN := $(SW_TESTS)/csr_ethernet_test
+#SW_MAIN := $(SW_TESTS)/csr_test
+
+CSR_BLD := $(BLD_DIR)/csr_build/generated-files
+SW_BLD  := $(BLD_DIR)/sw_build
+
+#=============================================================
+# SW Build
+#-------------------------------------------------------------
+# You must have gcc installed to build software:
+#   sudo apt install gcc-riscv64-unknown-elf
+#   For more, see: 0.doc/1.README.Tool-Installs.txt
+#=============================================================
+CROSS = riscv64-unknown-elf-
+CFLAGS = -Os -std=c++11 -DTCM=1 -DHARVARD=1 -DUART_TEST
+
+#------------------------
+.PHONY: sw_all
+sw_all: sw_clean sw_out
+
+#------------------------
+# Remove all output files created from SW build process
+sw_clean:
+	rm -rf $(SW_BLD)/imem.INIT.vh
+	rm -rf $(SW_BLD)/main.lds
+	rm -rf $(SW_BLD)/main.map
+	rm -rf $(SW_BLD)/main.elf
+	rm -rf $(SW_BLD)/main.bin
+	rm -rf $(SW_BLD)/main.hex
+	rm -rf $(SW_BLD)/main.dump
+
+#------------------------
+# Compile the Linker/MemoryMapper script
+sw_map: $(SW_SRC)/link_map.lds
+	$(CROSS)cpp \
+	$(CFLAGS) \
+	-P -o $(SW_BLD)/main.lds $<
+
+#------------------------
+# Compile and link Boot and App code
+sw_elf: sw_map $(SW_SRC)/boot_crt.s \
+$(SW_APP)/assert.h \
+$(BLD_DIR)/csr_build/csr_regs.h \
+$(CSR_BLD)/csr_top.h \
+$(CSR_BLD)/csr.h \
+$(SW_APP)/uart.h                 $(SW_APP)/uart.c \
+$(SW_APP)/ethernet.h             $(SW_APP)/ethernet.c \
+$(SW_APP)/network.h              $(SW_APP)/network.c \
+$(SW_APP)/string_bare.h          $(SW_APP)/string_bare.c \
+$(SW_APP)/chacha20.h             $(SW_APP)/chacha20.c \
+$(SW_APP)/poly1305.h             $(SW_APP)/poly1305.c \
+$(SW_APP)/chacha20poly1305.h     $(SW_APP)/chacha20poly1305.c \
+$(SW_APP)/curve25519.h           $(SW_APP)/curve25519.c \
+$(SW_APP)/tweetnacl_x25519.h     $(SW_APP)/tweetnacl_x25519.c \
+$(SW_APP)/blake2s.h              $(SW_APP)/blake2s.c \
+$(SW_APP)/hkdf.h                 $(SW_APP)/hkdf.c \
+$(SW_APP)/random.h               $(SW_APP)/random.c \
+$(SW_APP)/timer.h                $(SW_APP)/timer.c \
+$(SW_MAIN)/main.cpp
+	$(CROSS)g++ \
+   $(CFLAGS) \
+   -I$(CSR_BLD) -I$(BLD_DIR)/csr_build -I$(SW_APP) \
+   -march=rv32i \
+   -mabi=ilp32 \
+   -Wl,--build-id=none,-Bstatic,-T,$(SW_BLD)/main.lds,-Map,$(SW_BLD)/main.map \
+   -ffreestanding \
+   -nostdlib \
+   -static \
+   -fomit-frame-pointer \
+   -fno-exceptions \
+   -fno-asynchronous-unwind-tables \
+   -fno-unwind-tables \
+   -flto \
+   -o $(SW_BLD)/main.elf \
+   $(SW_SRC)/boot_crt.s \
+   $(SW_APP)/uart.c \
+   $(SW_APP)/ethernet.c \
+   $(SW_APP)/network.c \
+   $(SW_APP)/string_bare.c \
+   $(SW_APP)/chacha20.c \
+   $(SW_APP)/poly1305.c \
+   $(SW_APP)/chacha20poly1305.c \
+   $(SW_APP)/curve25519.c \
+   $(SW_APP)/tweetnacl_x25519.c \
+   $(SW_APP)/blake2s.c \
+   $(SW_APP)/hkdf.c \
+   $(SW_APP)/random.c \
+   $(SW_APP)/timer.c \
+   $(SW_MAIN)/main.cpp \
+   -lgcc
+
+#------------------------
+# Create all necessary other file format from the compiled ELF
+sw_out: sw_elf
+	$(CROSS)objcopy -O verilog $(SW_BLD)/main.elf   $(SW_BLD)/main.hex
+	$(CROSS)objcopy -O binary  $(SW_BLD)/main.elf   $(SW_BLD)/main.bin
+	cd $(SW_BLD) && $(CROSS)objdump -drwC -S main.elf > main.dump
+	@# no local paths in the tracked outputs: the build folder and the
+	@# toolchain's install prefix (libgcc) come out of the map file
+	sed -i -E -e 's#$(SW_BLD)/##g' -e 's#[^ ()]*/lib/gcc/#<gcc>/lib/gcc/#g' $(SW_BLD)/main.map
+	python3 imem.INIT.py
+
+#------------------------
+.PHONY: program
+program: sw_all
+	python3 imem.UART.py

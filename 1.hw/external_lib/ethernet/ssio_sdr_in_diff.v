@@ -1,0 +1,97 @@
+// Copyright (c) 2016-2018 Alex Forencich
+//
+// SPDX-License-Identifier: MIT
+
+// Language: Verilog 2001
+
+`resetall
+`timescale 1ns / 1ps
+`default_nettype none
+
+/*
+ * Generic source synchronous SDR input
+ */
+module ssio_sdr_in_diff #
+(
+    // target ("SIM", "GENERIC", "XILINX", "ALTERA")
+    parameter TARGET = "GENERIC",
+    // Clock input style ("BUFG", "BUFR", "BUFIO", "BUFIO2")
+    // Use BUFR for Virtex-5, Virtex-6, 7-series
+    // Use BUFG for Ultrascale
+    // Use BUFIO2 for Spartan-6
+    parameter CLOCK_INPUT_STYLE = "BUFIO2",
+    // Width of register in bits
+    parameter WIDTH = 1
+)
+(
+    input  wire             input_clk_p,
+    input  wire             input_clk_n,
+
+    input  wire [WIDTH-1:0] input_d_p,
+    input  wire [WIDTH-1:0] input_d_n,
+
+    output wire             output_clk,
+
+    output wire [WIDTH-1:0] output_q
+);
+
+wire input_clk;
+wire [WIDTH-1:0] input_d;
+
+genvar n;
+
+generate
+
+if (TARGET == "XILINX") begin
+    IBUFDS
+    clk_ibufds_inst (
+        .I(input_clk_p),
+        .IB(input_clk_n),
+        .O(input_clk)
+    );
+    for (n = 0; n < WIDTH; n = n + 1) begin
+        IBUFDS
+        data_ibufds_inst (
+            .I(input_d_p[n]),
+            .IB(input_d_n[n]),
+            .O(input_d[n])
+        );
+    end
+end else if (TARGET == "ALTERA") begin
+    ALT_INBUF_DIFF
+    clk_inbuf_diff_inst (
+        .i(input_clk_p),
+        .ibar(input_clk_n),
+        .o(input_clk)
+    );
+    for (n = 0; n < WIDTH; n = n + 1) begin
+        ALT_INBUF_DIFF
+        data_inbuf_diff_inst (
+            .i(input_d_p[n]),
+            .ibar(input_d_n[n]),
+            .o(input_d[n])
+        );
+    end
+end else begin
+    assign input_clk = input_clk_p;
+    assign input_d = input_d_p;
+end
+
+endgenerate
+
+ssio_sdr_in #(
+    .TARGET(TARGET),
+    .IODDR_STYLE(IODDR_STYLE),
+    .CLOCK_INPUT_STYLE(CLOCK_INPUT_STYLE),
+    .WIDTH(WIDTH)
+)
+ssio_ddr_in_inst(
+    .input_clk(input_clk),
+    .input_d(input_d),
+    .output_clk(output_clk),
+    .output_q(output_q)
+);
+
+endmodule
+
+`resetall
