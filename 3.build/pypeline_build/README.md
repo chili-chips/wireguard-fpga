@@ -10,8 +10,9 @@ using **Pypeline HDL** to generate FPGA hardware and run native simulation.
 
 The default targets Artix-7 at **80 MHz**, with a **256-bit packet
 datapath**, one shared ChaCha20 pipeline, and a private pipelined Poly1305 MAC
-per direction. Poly1305 processes two 16-byte blocks per beat using interleaved
-accumulators, `inferred_body` multiplication, and
+per direction. Poly1305 processes two 16-byte blocks per beat using
+[paired, interleaved accumulators](src/poly1305/poly1305_design.md#breaking-the-serial-chain),
+`inferred_body` multiplication, and
 [AUTO_FSM initialization/finalization](src/poly1305/poly1305_design.md#auto_fsm-versus-auto_mcp).
 
 Packet streams use valid/ready handshakes, 32 byte-enable bits, and a last-beat
@@ -349,6 +350,8 @@ initialization, body, drain, and finalization costs. Check the ChaCha20-to-Poly1
 handoff as well as payload edges when investigating packet-boundary stalls.
 Use pipelined simulation for performance conclusions; combinational checks
 omit the hardware's pipeline delays.
+[Where the time goes](src/poly1305/poly1305_design.md#where-the-time-goes)
+reads the current results this way, stage by stage.
 
 ### Measurement outputs
 
@@ -411,7 +414,8 @@ To refresh this table from a validated default-profile run:
 
 Publication rejects unvalidated or non-default measurements. Keep full evidence
 locally; [Poly1305 component notes](src/poly1305/poly1305_design.md) explain the
-architecture and throughput tradeoffs.
+architecture and throughput tradeoffs, and
+[which stage limits each packet size](src/poly1305/poly1305_design.md#where-the-time-goes).
 
 ## Building VHDL and Verilog
 

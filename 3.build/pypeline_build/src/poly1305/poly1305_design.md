@@ -9,7 +9,271 @@ and Karatsuba elsewhere.
 See the build README for [configuration](../../README.md#design-parameters),
 [full-design data flow](../../README.md#data-flow), and
 [current measurements](../../README.md#current-results). This document explains
-the Poly1305 architecture and its throughput tradeoffs.
+the Poly1305 architecture and its throughput tradeoffs:
+
+- [Breaking the serial chain](#breaking-the-serial-chain): the math that lets
+  two blocks enter every clock, when the textbook loop takes one block at a
+  time and waits for each result.
+- [Current design](#current-design): how the hardware in
+  [poly1305_mac_paired.py](poly1305_mac_paired.py) implements it.
+- [Where the time goes](#where-the-time-goes): the measured per-packet cost of
+  each stage, and which one limits throughput at each packet size.
+
+## Breaking the serial chain
+
+Poly1305 is a polynomial in the key `r`, evaluated modulo `p = 2^130 - 5`. The
+RFC evaluates it one block at a time, and each step needs the previous step's
+result. The default design computes the same polynomial with the terms
+regrouped so that no step waits on the one before it. This section works
+through one 20-block packet using the default build's real constants: 5
+accumulator lanes, a 10-clock coefficient pipeline and a 5-clock feedback
+pipeline, as the measurement summary reports them (`accumulators=5`,
+`coefficient response=10 cycles`, `feedback response=5 cycles`). These
+diagrams are drawn by hand from the math. The generated `diagram.html` views
+start at [current design](#current-design).
+
+Notation: `c0 … c19` are the packet's 16-byte authentication blocks, each read
+little-endian with bit 128 set; `r` is the clamped key, `s` the additive key,
+and `q = r²`. Everything is modulo `p` until the final `+ s`.
+
+### The legacy loop: one block at a time
+
+```mermaid
+flowchart LR
+    c0["c0"] --> s0
+    h0["h = 0"] --> s0["h = (h + c0)·r"]
+    s0 --> s1["h = (h + c1)·r"]
+    c1["c1"] --> s1
+    s1 --> s2["h = (h + c2)·r"]
+    c2["c2"] --> s2
+    s2 --> more["… 16 more …"]
+    more --> s19["h = (h + c19)·r"]
+    c19["c19"] --> s19
+    s19 --> tag["tag = h + s"]
+```
+
+This is RFC 8439's loop, and it is what
+[poly1305_legacy.py](poly1305_legacy.py) builds: `poly1305_mac_loop_body` adds
+the block, multiplies by `r` and reduces, and `poly1305_mac_fsm` feeds it one
+block at a time. Every box needs the `h` from the box before it, so the chain
+is as long as the packet. The kernel runs as a five-cycle multi-cycle path
+(`make_stream_auto_multi_cycle`) plus one handshake cycle, so a 16-byte block
+enters every six clocks: 2.7 bytes per clock, about 1.7 Gb/s at 80 MHz. The
+recorded [baseline](../../README.md#appendix-baseline-results) measured
+1.62 Gb/s at 1920 bytes. A faster or pipelined multiplier does not remove the
+wait, because the next block still needs this block's finished `h`.
+
+### Same polynomial, regrouped
+
+Unrolled, the loop computes
+
+```text
+h = c0·r²⁰ + c1·r¹⁹ + c2·r¹⁸ + … + c18·r² + c19·r
+```
+
+The loop is one order of evaluating this sum (Horner's rule). Modular
+addition and multiplication can be reordered and factored like ordinary
+algebra, so any grouping that leaves each block with its own power of `r`
+gives the same `h`. The design uses two regroupings.
+
+**Pairs.** Factor each pair of neighbouring terms:
+`c0·r²⁰ + c1·r¹⁹ = r·q⁹·(c0·r + c1)`. Call the bracket `d0`. Then
+
+```text
+d_t = c_(2t)·r + c_(2t+1)                  (d0 = c0·r + c1, …, d9 = c18·r + c19)
+h   = r·S,   S = d0·q⁹ + d1·q⁸ + … + d8·q + d9
+```
+
+`S` has ten terms in `q` where `h` had twenty in `r`. Each `d_t` needs only
+its two blocks and `r`; no `d_t` depends on another, or on any running sum.
+
+**Lanes.** Next, group the terms of `S` whose powers of `q` differ by 5:
+`d0·q⁹ + d5·q⁴ = q⁴·(d0·q⁵ + d5)`. That bracket is accumulator lane `A0`,
+built by the step `A = A·q⁵ + d` once per pair. Doing the same for every
+pair gives five lanes:
+
+| Pair | Blocks | Term of `S` | Lane | Lane after its pairs | Lane weight |
+| ---: | --- | --- | --- | --- | --- |
+| 0 | c0, c1 | d0·q⁹ | A0 | A0 = d0·q⁵ + d5 | q⁴ |
+| 1 | c2, c3 | d1·q⁸ | A1 | A1 = d1·q⁵ + d6 | q³ |
+| 2 | c4, c5 | d2·q⁷ | A2 | A2 = d2·q⁵ + d7 | q² |
+| 3 | c6, c7 | d3·q⁶ | A3 | A3 = d3·q⁵ + d8 | q |
+| 4 | c8, c9 | d4·q⁵ | A4 | A4 = d4·q⁵ + d9 | 1 |
+| 5 | c10, c11 | d5·q⁴ | A0 | | |
+| 6 | c12, c13 | d6·q³ | A1 | | |
+| 7 | c14, c15 | d7·q² | A2 | | |
+| 8 | c16, c17 | d8·q | A3 | | |
+| 9 | c18, c19 | d9 | A4 | | |
+
+Multiplying each lane by its weight gives back every term exactly once:
+`S = A0·q⁴ + A1·q³ + A2·q² + A3·q + A4`. The new computation's dependency
+graph, coloured by lane, is:
+
+```mermaid
+flowchart LR
+    subgraph grpCoef["coefficient_pipeline: no dependencies, one pair per clock"]
+        d0["d0 = c0·r + c1"]
+        d1["d1 = c2·r + c3"]
+        d2["d2 = c4·r + c5"]
+        d3["d3 = c6·r + c7"]
+        d4["d4 = c8·r + c9"]
+        d5["d5 = c10·r + c11"]
+        d6["d6 = c12·r + c13"]
+        d7["d7 = c14·r + c15"]
+        d8["d8 = c16·r + c17"]
+        d9["d9 = c18·r + c19"]
+    end
+    subgraph grpBody["body_pipeline: 5 independent chains, stride q⁵"]
+        A0["A0 = d0·q⁵ + d5"]
+        A1["A1 = d1·q⁵ + d6"]
+        A2["A2 = d2·q⁵ + d7"]
+        A3["A3 = d3·q⁵ + d8"]
+        A4["A4 = d4·q⁵ + d9"]
+    end
+    subgraph grpFinish["finish_unit: once per packet"]
+        S["S = A0·q⁴ + A1·q³ + A2·q² + A3·q + A4"]
+        tag["tag = r·S + s"]
+    end
+    d0 --> A0
+    d5 --> A0
+    d1 --> A1
+    d6 --> A1
+    d2 --> A2
+    d7 --> A2
+    d3 --> A3
+    d8 --> A3
+    d4 --> A4
+    d9 --> A4
+    A0 --> S
+    A1 --> S
+    A2 --> S
+    A3 --> S
+    A4 --> S
+    S --> tag
+    classDef l0 fill:#dbeafe,stroke:#1d4ed8,color:#000
+    classDef l1 fill:#dcfce7,stroke:#15803d,color:#000
+    classDef l2 fill:#fef9c3,stroke:#a16207,color:#000
+    classDef l3 fill:#fee2e2,stroke:#b91c1c,color:#000
+    classDef l4 fill:#f3e8ff,stroke:#7e22ce,color:#000
+    class d0,d5,A0 l0
+    class d1,d6,A1 l1
+    class d2,d7,A2 l2
+    class d3,d8,A3 l3
+    class d4,d9,A4 l4
+```
+
+The longest chain is now two lane steps, where the loop had twenty. Each group
+in the graph is one piece of hardware in the [body stage](#body-stage):
+
+- **`coefficient_pipeline`**, the left group, computes `d = c0·r + c1`
+  (`poly1305_pair_coefficient`). It reads no state, so it can start a new pair
+  every clock and be as deep as timing needs.
+- **`body_pipeline`**, the middle group, computes `A = A·q⁵ + d`
+  (`poly1305_pair_accumulate`). A lane step needs only that lane's previous
+  value, from five pairs earlier.
+- **`finish_unit`** in the [finalization stage](#finalization-stage) does the
+  right group once per packet: five weighted products, an add tree, the final
+  `r`, and `+ s`. The powers `q … q⁵` come from `init_unit` in the
+  [initialization stage](#initialization-stage), also once per packet.
+
+The general formulas, for any lane count and for an odd block count, are in
+[paired coefficients and interleaving](#paired-coefficients-and-interleaving).
+The regrouping is exact: every simulated tag is checked against an independent
+reference implementation. The
+[original illustration/animation](https://share.gemini.google/dCzLp7lhYqaR)
+shows the interleaving idea in motion.
+
+### Five lanes hide the loop latency
+
+The same 20 blocks over time, legacy loop against the default design:
+
+```mermaid
+---
+displayMode: compact
+---
+gantt
+    title 20 blocks, legacy loop versus paired interleaved body (clocks)
+    dateFormat X
+    axisFormat %s
+    section Legacy loop
+    c0 : 0, 5
+    c1 : 6, 11
+    c2 : 12, 17
+    c3 : 18, 23
+    c4 : 24, 29
+    c5 : 30, 35
+    c6 : 36, 41
+    c7 : 42, 47
+    c8 : 48, 53
+    c9 : 54, 59
+    c10 : 60, 65
+    c11 : 66, 71
+    c12 : 72, 77
+    c13 : 78, 83
+    c14 : 84, 89
+    c15 : 90, 95
+    c16 : 96, 101
+    c17 : 102, 107
+    c18 : 108, 113
+    c19 : 114, 119
+    section coefficient_pipeline
+    d0 : 0, 10
+    d1 : 1, 11
+    d2 : 2, 12
+    d3 : 3, 13
+    d4 : 4, 14
+    d5 : 5, 15
+    d6 : 6, 16
+    d7 : 7, 17
+    d8 : 8, 18
+    d9 : 9, 19
+    section body_pipeline
+    d0 into A0 : 10, 15
+    d1 into A1 : 11, 16
+    d2 into A2 : 12, 17
+    d3 into A3 : 13, 18
+    d4 into A4 : 14, 19
+    d5 into A0 : 15, 20
+    d6 into A1 : 16, 21
+    d7 into A2 : 17, 22
+    d8 into A3 : 18, 23
+    d9 into A4 : 19, 24
+```
+
+- **Legacy loop:** one row, one block at a time: five clocks computing plus a
+  handshake clock, 120 clocks in all.
+- **`coefficient_pipeline`:** a new pair enters every clock and leaves ten
+  clocks later. Nothing in it waits on anything else.
+- **`body_pipeline`:** each row is one lane. `d0` enters lane `A0` at clock 10
+  and its result returns at clock 15, exactly when `d5`, the lane's next pair,
+  enters. The logic block passes the returning value straight to the new
+  request (same-cycle forwarding). Meanwhile lanes `A1` to `A4` fill clocks 11
+  to 14, so the pipeline takes a new pair every clock.
+
+The lane count is set by the feedback latency: with a five-clock
+`body_pipeline`, a lane can take a new pair every five clocks, so five lanes
+keep it busy every clock. Fewer lanes would stall; more would only add powers
+to precompute and products to finish. This is `L = feedback_core_latency + 2`
+in [latency-derived constants](#latency-derived-constants). The coefficient
+pipeline's depth adds latency (the ten clocks before the first `d0` arrives,
+and a longer drain at packet end) but no lanes, because coefficients never wait
+on an accumulator.
+
+The body is done after 25 clocks instead of 120. In steady state it takes 32
+bytes every clock, against 2.7 for the legacy loop: twelve times the rate. The
+per-packet setup and finalization are not in this chart; they are in
+[where the time goes](#where-the-time-goes).
+
+### What each choice bought
+
+| Choice | Removes | Costs |
+| --- | --- | --- |
+| Interleaved lanes (`A = A·r^L + c`, the 128-bit [poly1305_mac_pipelined.py](poly1305_mac_pipelined.py)) | The loop wait: one block per clock instead of one per six. | `L` accumulators per packet bank, the powers `r … r^L` in setup, and a weighted combine in finalization. |
+| Pairs (`d = c0·r + c1`, default 256-bit) | One block per lane step: two blocks per clock, the full 256-bit beat. | The coefficient pipeline's extra multiplier, and the final `r` (or odd-tail) step in finalization. |
+| Inferred feedback multiplier (`inferred_body`) | A deep feedback pipeline, which would need more lanes. | A wider single product on the feedback path; Karatsuba stays elsewhere ([multipliers](#multipliers-and-arithmetic-bounds)). |
+| Two packet banks | A wait for the 15-clock drain before the next packet can stream. | A second bank of `r`, `s`, powers and accumulators. |
+| Private setup and finalization units | Arbitration between encrypt and decrypt for each packet's setup and tag ([sharing](#shared-versus-private-compute-units)). | A setup unit and a finalization unit per direction. |
+| AUTO_FSM for setup and finalization | Duplicated multipliers: each unit reuses a few multipliers over many clocks ([AUTO_FSM versus AUTO_MCP](#auto_fsm-versus-auto_mcp)). | 44 clocks of setup and 47 of finalization per packet, which sets the packet-rate floor ([where the time goes](#where-the-time-goes)). |
 
 ## Current design
 
@@ -266,8 +530,9 @@ ciphertext separately to 16-byte boundaries, then packs pairs across those
 boundaries and the final lengths block. A MAC input beat therefore contains
 32 valid bytes, or 16 valid bytes on an unmatched final beat.
 
-The original [algorithm illustration/animation](https://share.gemini.google/dCzLp7lhYqaR)
-is retained as a conceptual aid; the [body stage](#body-stage) diagrams describe the current wiring.
+[Breaking the serial chain](#breaking-the-serial-chain) works these formulas
+through for 20 blocks and five lanes; the [body stage](#body-stage) diagrams
+describe the current wiring.
 
 ### Two pipelines per pair
 
@@ -397,6 +662,135 @@ an option to investigate, with separate advance rules, preserved forwarding,
 and correct lane ordering in completion snapshots. A common every-clock bank
 rotation would not follow the current access pattern; any replacement needs
 an area/timing comparison before adoption.
+
+## Where the time goes
+
+With the serial chain gone, the body stage no longer sets Poly1305's speed.
+What remains is each packet's fixed cost. Each stage of the
+[current design](#current-design) spends the following clocks per packet. The
+figures come from the Poly1305 lifecycle table (`blocks.md`) of the measurement
+behind the README's [current results](../../README.md#current-results); `N` is
+the packet's authentication block count, defined in
+[128-bit versus 256-bit bodies](#128-bit-versus-256-bit-bodies):
+
+| Stage | Clocks per packet | What it is doing |
+| --- | ---: | --- |
+| [`init_stage`](#initialization-stage) | 44 | `init_unit` (a 43-cycle AUTO_FSM, plus its handshake) computing `q … q⁵`. |
+| [`body_stage`](#body-stage), streaming | `ceil(N/2)` | One pair per clock. |
+| [`body_stage`](#body-stage), draining | 15 | The last pair passing through both pipelines (10 + 5 clocks). |
+| [`finish_stage`](#finalization-stage) | 47 + 1 | `finish_unit` (a 46-cycle AUTO_FSM, plus its handshake) weighting and combining the lanes, then one clock to hand over the tag. |
+
+The stages work on different packets at the same time, so these costs overlap
+rather than add up: the packet period is set by the busiest stage. The
+schedules below are drawn from the stage costs above, for steady
+back-to-back traffic.
+
+```mermaid
+---
+displayMode: compact
+---
+gantt
+    title 256-byte packets back to back (clocks)
+    dateFormat X
+    axisFormat %s
+    section init_stage
+    P0 setup : 0, 44
+    P1 setup : 48, 92
+    P2 setup : 96, 140
+    P3 setup : 144, 188
+    section body_stage
+    P0 body : 44, 54
+    P0 drain : 54, 69
+    P1 body : 92, 102
+    P1 drain : 102, 117
+    P2 body : 140, 150
+    P2 drain : 150, 165
+    P3 body : 188, 198
+    P3 drain : 198, 213
+    section finish_stage
+    P0 finish : 69, 116
+    P1 finish : 117, 164
+    P2 finish : 165, 212
+    P3 finish : 213, 260
+```
+
+A 256-byte packet is 19 blocks, so the body streams for only 10 clocks. Each
+`finish_unit` run takes 47 clocks plus the one-clock tag handoff, and it
+handles one packet at a time, so `finish_stage` starts a new packet only every
+48 clocks. That is the measured packet period. `init_stage` waits 4 clocks per
+packet for it, and `body_stage` sits idle most of the time.
+
+```mermaid
+---
+displayMode: compact
+---
+gantt
+    title 1920-byte packets back to back (clocks)
+    dateFormat X
+    axisFormat %s
+    section init_stage
+    P0 setup : 0, 44
+    P1 setup : 64, 108
+    P2 setup : 128, 172
+    section body_stage
+    P0 body : 44, 106
+    P0 drain : 106, 121
+    P1 body : 108, 170
+    P1 drain : 170, 185
+    P2 body : 172, 234
+    P2 drain : 234, 249
+    section finish_stage
+    P0 finish : 121, 168
+    P1 finish : 185, 232
+    P2 finish : 249, 296
+```
+
+A 1920-byte packet is 123 blocks, 62 body clocks, so now `body_stage` is the
+busiest stage. Its two bars overlap because of the two
+[packet banks](#packet-banks-and-backpressure): `P1` streams from one bank
+while `P0` drains in the other, so the drain costs no throughput. The
+measured period is 64 clocks: 62 body clocks plus about 2 for packet framing.
+This is the 256-bit datapath's own limit, 30 of the 32 bytes it could take per
+clock.
+
+Measured across packet sizes:
+
+| Payload bytes | `N` blocks | Body clocks | Measured period, encrypt / decrypt | Busiest stage |
+| ---: | ---: | ---: | ---: | --- |
+| 16 | 4 | 2 | 48 / 48 | `finish_stage` |
+| 64 | 7 | 4 | 48 / 62 | `finish_stage`; decrypt waits for its key upstream |
+| 256 | 19 | 10 | 48 / 48 | `finish_stage` |
+| 1024 | 67 | 34 | 48 / 48 | `finish_stage` |
+| 1420 | 92 | 46 | 49.3 / 50 | Both, about equal |
+| 1920 | 123 | 62 | 64 / 64.3 | `body_stage` |
+
+The bottlenecks, in order:
+
+1. **Per-packet finalization, below about 1.4 KB.** The 48-clock floor holds
+   from 16 to 1024 bytes, so short packets run at a fixed packet rate rather
+   than a byte rate. `finish_unit` computes five lane products, an add tree
+   and a final product. As an AUTO_FSM it reuses a few multipliers over 46
+   cycles instead of building them all; [AUTO_MCP](#auto_fsm-versus-auto_mcp)
+   would keep the parallel products, at more area. Fewer lanes mean less
+   finalization and setup work, which is one reason for the shallow
+   `inferred_body` feedback multiplier. `init_stage` is close behind at
+   44 clocks: shortening finalization alone gains at most 4 clocks per packet
+   before setup becomes the limit.
+2. **The 256-bit beat, above about 1.4 KB.** The body takes a pair every
+   clock, the full width of the stream. Going further would need more blocks
+   per beat: a wider datapath, more coefficient arithmetic, and a longer
+   finalization.
+3. **Decrypt's next key, for some sizes.** At 64 bytes decrypt's period is 62
+   clocks although its MAC stage costs match encrypt's. The extra wait is
+   outside Poly1305: decrypt's next key comes out of ChaCha20 only after the
+   current packet's keystream. To trace a wait like this, use the README's
+   [bottleneck analysis](../../README.md#finding-a-bottleneck), which also
+   covers the ChaCha20-to-Poly1305 key handoff.
+
+Two things are not bottlenecks: the body arithmetic, at one pair per clock,
+and ChaCha20, which serves 30.8 bytes per clock when fed at 1920 bytes.
+Compared with the [legacy baseline](#baseline-reference), a 1920-byte packet
+went from about 2.5 to 30 payload bytes per clock.
 
 ## AUTO_FSM versus AUTO_MCP
 
@@ -614,7 +1008,9 @@ flowchart LR
     fsm -->|final add s| tag["Authentication tag"]
 ```
 
-Each block waits for the preceding accumulator result. The recorded baseline
+Each block waits for the preceding accumulator result
+([the legacy loop](#the-legacy-loop-one-block-at-a-time) shows the chain and
+its timeline). The recorded baseline
 used a five-cycle MCP plus its handshake cycle: one block every six clocks.
 The automatic search starts at five but may increase the count for timing.
 There is no key-precomputation initialization; finalization is the FSM's addition of
