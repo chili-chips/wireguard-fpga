@@ -33,7 +33,7 @@ encrypt_dataflow_core = make_encrypt_dataflow_core(
 @MAIN(wireguard_env.TARGET_MHZ)
 def encrypt_dataflow():
     # Connect the core's forward and feedback halves explicitly at the port boundary.
-    r = encrypt_dataflow_core(
+    core = encrypt_dataflow_core(
         axis_in_if=aead_axis_intrf.fwd_t(chacha20poly1305_encrypt_ports.axis_in_if.stream),
         key=chacha20poly1305_encrypt_ports.key,
         nonce=chacha20poly1305_encrypt_ports.nonce,
@@ -41,5 +41,5 @@ def encrypt_dataflow():
         aad_len=chacha20poly1305_encrypt_ports.aad_len,
         axis_out_if=aead_axis_intrf.fb_t(chacha20poly1305_encrypt_ports.axis_out_if.ready),
     )
-    chacha20poly1305_encrypt_ports.axis_in_if.ready = r.axis_in_if.ready
-    chacha20poly1305_encrypt_ports.axis_out_if.stream = r.axis_out_if.stream
+    chacha20poly1305_encrypt_ports.axis_in_if.ready = core.axis_in_if.ready
+    chacha20poly1305_encrypt_ports.axis_out_if.stream = core.axis_out_if.stream

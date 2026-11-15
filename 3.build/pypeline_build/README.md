@@ -24,44 +24,141 @@ Its [published results](#current-results) appear below.
 
 ## Data flow
 
+Each diagram below is one level of the design's hierarchy, as the build's
+`diagram.html` draws it ([Building VHDL and Verilog](#building-vhdl-and-verilog)):
+the forward data between the blocks a function calls, each wire named as the
+code names it. Stream ready signals travel in reverse and are not drawn, nor
+are the key, nonce and AAD sideband inputs; operators and registers form logic
+blocks, and a dashed edge passes through a `Feedback` variable. To refresh one,
+open the page at that view and use **copy as Mermaid**.
+
+### Top level
+
 ```mermaid
-flowchart TB
-    plain["Encrypt: plaintext"] --> echa["Encrypt ChaCha20 stream adapter"]
-    received["Decrypt: ciphertext + tag"] --> strip["Strip tag"]
-    strip -->|ciphertext| df["Ciphertext fork"]
-    df --> dcha["Decrypt ChaCha20 stream adapter"]
-
-    echa -->|encrypt requests| shared["Shared ChaCha20 pipeline"]
-    dcha -->|decrypt requests| shared
-    shared -->|encrypt results| echa
-    shared -->|decrypt results| dcha
-
-    echa -->|ciphertext| ef["Ciphertext fork"]
-    ef --> ea["Encrypt auth FIFO"] --> ep["Frame AAD + ciphertext + lengths"]
-    ep --> em["Encrypt Poly1305"] -->|tag| append["Append tag"]
-    echa -->|MAC key| em
-    ef --> eb["Append FIFO"] --> append
-    append --> slice["Output register slice"] --> encrypted["Encrypt: ciphertext + tag"]
-
-    df --> da["Decrypt auth FIFO"] --> dp["Frame AAD + ciphertext + lengths"]
-    dp --> dm["Decrypt Poly1305"] -->|calculated tag| verify["Compare tags"]
-    dcha -->|MAC key| dm
-    strip -->|received tag| tags["Tag FIFO"] --> verify
-    dcha -->|plaintext| hold["Plaintext FIFO + wait-for-verdict FSM"]
-    verify -->|verdict| hold
-    hold --> output["Decrypt: plaintext + verification result"]
+flowchart LR
+    n0["chacha20_pipeline_shared<br>MAIN  80 MHz"]
+    n1["decrypt_dataflow<br>MAIN  80 MHz"]
+    n2["encrypt_dataflow<br>MAIN  80 MHz"]
+    subgraph inputs[" "]
+        n3["decrypt_s_axis<br>Input pins (4)  290b"]
+        n4["encrypt_s_axis<br>Input pins (4)  290b"]
+    end
+    style inputs fill:none,stroke:none
+    subgraph outputs[" "]
+        n5["decrypt_m_axis<br>Output pins (4)  290b"]
+        n6["encrypt_m_axis<br>Output pins (4)  290b"]
+    end
+    style outputs fill:none,stroke:none
+    n0 -->|"encrypt_pipeline_out_if.stream"| n2
+    n0 -->|"decrypt_pipeline_out_if.stream"| n1
+    n1 -->|"decrypt_pipeline_in_if.stream: data,<br>valid"| n0
+    n1 -->|"axis_out_if.stream"| n5
+    n2 -->|"encrypt_pipeline_in_if.stream: data,<br>valid"| n0
+    n2 -->|"axis_out_if.stream"| n6
+    n3 -->|"axis_in_if.stream"| n1
+    n4 -->|"axis_in_if.stream"| n2
+    n0 ~~~ n5
 ```
 
-Arrows show forward data/control; stream ready signals travel in reverse.
-AAD enters each framing block separately. The
-[ChaCha20 design](src/chacha20/chacha20_design.md) describes the stream adapters,
-block pipeline, and shared request/return paths.
+`encrypt_dataflow` and `decrypt_dataflow` each handle one direction. Both send
+ChaCha20 work to the one `chacha20_pipeline_shared` MAIN over global wires and
+take its results back. Each direction's AXIS pins form one stream port in and
+one out.
 
-Decrypt releases every packet after comparison, holding the verdict on
-`is_verified_out` for all valid output beats, including failed authentication.
+### Encrypt
 
-The graph follows the current [encrypt](src/chacha20poly1305/encrypt_dataflow_core.py)
-and [decrypt](src/chacha20poly1305/decrypt_dataflow_core.py) wiring.
+```mermaid
+flowchart LR
+    n2["aead_2broadcast<br>axis_broadcast_interlock"]
+    n3["append_func<br>buffered_append"]
+    n4["chacha_func<br>chacha20_encrypt_shared_adapter"]
+    n5["mac_func<br>poly1305_mac_paired"]
+    n6["prep_func<br>buffered_prep_interface"]
+    subgraph inputs[" "]
+        n0["axis_in_if<br>input  aead_axis_intrf.fwd_t (290b)"]
+    end
+    style inputs fill:none,stroke:none
+    subgraph outputs[" "]
+        n1["axis_out_if<br>output  aead_axis_intrf.fwd_t (290b)"]
+    end
+    style outputs fill:none,stroke:none
+    n0 -->|"axis_in_if"| n4
+    n2 -->|"bcast.axis_out_if[1]"| n3
+    n2 -->|"bcast.axis_out_if[0]"| n6
+    n3 -->|"append.axis_out_if"| n1
+    n4 -->|"chacha.key_if"| n5
+    n4 -->|"chacha.axis_out_if"| n2
+    n5 -->|"mac.auth_tag_if"| n3
+    n6 -->|"prep.axis_if"| n5
+    n3 ~~~ n1
+```
+
+In [encrypt_dataflow_core](src/chacha20poly1305/encrypt_dataflow_core.py),
+[ChaCha](src/chacha20/chacha20_design.md#packet-streams-and-the-poly1305-key)
+supplies ciphertext (`chacha.axis_out_if`) and a separate per-packet Poly1305 key
+(`chacha.key_if`). `aead_2broadcast` forks the ciphertext: the first
+fork is framed with the AAD, padding and lengths by `prep_func` and
+authenticated by `mac_func`
+([Poly1305 design](src/poly1305/poly1305_design.md#current-design)); the other
+keeps the ciphertext unpadded, and `append_func` packs the tag (`mac.auth_tag_if`) after it. With pipelined MACs,
+`append_func` also includes the append FIFO and output slice.
+
+### Decrypt
+
+```mermaid
+flowchart LR
+    n2["aead_2broadcast<br>axis_broadcast_interlock"]
+    n3["chacha_func<br>chacha20_decrypt_shared_adapter"]
+    n4["compare_func<br>buffered_compare"]
+    n5["mac_func<br>poly1305_mac_paired"]
+    n6["prep_func<br>buffered_prep"]
+    n7["stripping_func<br>strip_auth_tag_wide"]
+    n8["verify_func<br>wait_to_verify"]
+    subgraph inputs[" "]
+        n0["axis_in_if<br>input  aead_axis_intrf.fwd_t (290b)"]
+    end
+    style inputs fill:none,stroke:none
+    subgraph outputs[" "]
+        n1["axis_out_if<br>output  aead_axis_intrf.fwd_t (290b)"]
+    end
+    style outputs fill:none,stroke:none
+    n0 -->|"axis_in_if"| n7
+    n2 -->|"bcast.axis_out_if[1]"| n3
+    n2 -->|"bcast.axis_out_if[0]"| n6
+    n3 -->|"chacha.key_if"| n5
+    n3 -->|"chacha.axis_out_if"| n8
+    n4 -->|"compare.tags_match_if"| n8
+    n5 -->|"mac.auth_tag_if"| n4
+    n6 -->|"prep.axis_if"| n5
+    n7 -->|"strip.auth_tag_out_if"| n4
+    n7 -->|"strip.axis_out_if"| n2
+    n8 -->|"verified.axis_out_if"| n1
+    n8 ~~~ n1
+```
+
+In [decrypt_dataflow_core](src/chacha20poly1305/decrypt_dataflow_core.py),
+`stripping_func` separates the received tag (`strip.auth_tag_out_if`) from the
+ciphertext, which `aead_2broadcast` forks to authentication and decryption.
+[ChaCha](src/chacha20/chacha20_design.md) supplies plaintext and the per-packet
+Poly1305 key; `prep_func` and
+`mac_func` calculate the tag. Both tag streams preserve packet order, and
+`compare_func` compares one pair per verdict (`compare.tags_match_if`).
+`verify_func` releases the plaintext after the verdict, holding it on
+`is_verified_out` for every valid beat, including packets whose authentication
+failed.
+
+### One level down
+
+The ChaCha20 and Poly1305 blocks continue in their design documents, each
+section built around the same kind of diagram:
+
+- [ChaCha20 design](src/chacha20/chacha20_design.md): the block function and
+  its pipeline, the per-packet FSM inside `chacha_func` that sends the
+  Poly1305 key, and the shared `chacha20_pipeline_shared` MAIN of the top
+  level with its arbiter and result demux.
+- [Poly1305 design](src/poly1305/poly1305_design.md): `mac_func`
+  (`poly1305_mac_paired`) and its initialization, body and finalization
+  stages, down to the two pipelines that process each pair of blocks.
 
 ## Source layout
 
@@ -326,8 +423,9 @@ Build the default hardware and inspect its output location:
 ```
 
 PypelineC writes the generated VHDL and its `vhdl_files.txt` source list under
-the reported output directory. The default top is
-`chacha20poly1305_encrypt_decrypt_shared`.
+the reported output directory, with `diagram.html`, a page to browse the
+design's hierarchy in (the [data flow](#data-flow) diagrams come from it). The
+default top is `chacha20poly1305_encrypt_decrypt_shared`.
 
 For final Verilog export, first run the fixed-vector generated-HDL check:
 

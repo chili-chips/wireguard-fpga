@@ -172,17 +172,17 @@ def make_decrypt_dataflow_core(
         mac = mac_func(key_if=chacha.key_if, data_in_if=prep.axis_if)
 
         # Both tag streams preserve packet order; compare one pair per verdict.
-        verify = compare_func(
+        compare = compare_func(
             auth_tag_if=strip.auth_tag_out_if, calc_tag_if=mac.auth_tag_if
         )
 
         # Release plaintext after the verdict, with that bit on every valid beat,
         # including packets whose authentication failed.
-        wtv = verify_func(
-            axis_in_if=chacha.axis_out_if, verify_bit_if=verify.tags_match_if
+        verified = verify_func(
+            axis_in_if=chacha.axis_out_if, verify_bit_if=compare.tags_match_if
         )
         return decrypt_dataflow_core_ports(
-            axis_out_if=wtv.axis_out_if, is_verified_out=wtv.is_verified_out
+            axis_out_if=verified.axis_out_if, is_verified_out=verified.is_verified_out
         )
 
     return make_hw_func_from_interface_func(decrypt_dataflow_core)

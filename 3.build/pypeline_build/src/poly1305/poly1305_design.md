@@ -15,17 +15,149 @@ the Poly1305 architecture and its throughput tradeoffs.
 
 We use **initialization** (`init`) and **finalization** (`finish`), matching the
 [Secworks Poly1305 hardware interface](https://github.com/secworks/poly1305#usage).
-Initialization clamps the packet key’s `r` and performs **key precomputation**
+Initialization clamps the packet key's `r` and performs **key precomputation**
 (the powers needed by interleaved lanes).
 [ChaCha20's one-time key generation](../chacha20/chacha20_design.md#packet-streams-and-the-poly1305-key)
 is a separate step. Finalization reduces the completed lanes,
 accounts for an unmatched block, and adds `s` to form the tag.
 
-Each MAC has independent initialization, body, and finalization
-stages. Two accumulator banks let the next packet enter the body while the
-previous packet drains or finalizes. One coefficient pipeline and one feedback
-pipeline serve both banks within that MAC. Every complete pair passes through
-both pipelines in sequence.
+The diagrams below are the build's `diagram.html` views of
+[poly1305_mac_paired.py](poly1305_mac_paired.py), read as the README's
+[data flow](../../README.md#data-flow) section describes: each wire is named by
+the variable that carries it, ready signals are not drawn, and a dashed edge
+passes through a `Feedback` variable. A rectangle labelled with operators
+(`mux == | …`) is the function's own logic, with its register count.
+
+`poly1305_mac_paired` is the `mac_func` of the README's
+[encrypt](../../README.md#encrypt) and [decrypt](../../README.md#decrypt)
+charts. It takes the packet key from ChaCha20 (`key_if`) and the framed
+authentication data (`data_in_if`) from `prep_func`, and returns one tag per
+packet (`auth_tag_if`). Inside, it is three stages in a row:
+
+```mermaid
+flowchart LR
+    n3["body_stage"]
+    n4["finish_stage"]
+    n5["init_stage"]
+    subgraph inputs[" "]
+        n0["data_in_if<br>input  aead_axis_intrf.fwd_t (290b)"]
+        n1["key_if<br>input  poly1305_key_stream_intrf.fwd_t …"]
+    end
+    style inputs fill:none,stroke:none
+    subgraph outputs[" "]
+        n2["auth_tag_if<br>output  poly1305_auth_tag_stream_intrf.…"]
+    end
+    style outputs fill:none,stroke:none
+    n0 -->|"data_in_if"| n3
+    n1 -->|"key_if"| n5
+    n3 -->|"body_result.completed_if"| n4
+    n4 -->|"finish_result.auth_tag_if"| n2
+    n5 -->|"prepared.prepared_if"| n3
+    n4 ~~~ n2
+```
+
+- [`init_stage`](#initialization-stage) turns the key into a prepared
+  descriptor (`prepared.prepared_if`): `r`, `s` and the powers of `r`.
+- [`body_stage`](#body-stage) authenticates two 16-byte blocks per beat into
+  per-lane accumulators, and hands a completed packet's accumulators on
+  (`body_result.completed_if`).
+- [`finish_stage`](#finalization-stage) combines them into the tag
+  (`finish_result.auth_tag_if`).
+
+Each stage has its own state, and the stages hand over one packet at a time
+through single-slot holding registers, so different packets can be in
+different stages: the next packet's key is prepared, and the previous packet's
+tag finalized, while the body stage streams. Each direction has its own MAC;
+the arithmetic pipelines run every clock, including bubbles, and admission and
+the holding registers provide backpressure at the MAC boundary.
+
+### Initialization stage
+
+```mermaid
+flowchart LR
+    n2["clamp"]
+    n3["init_unit<br>func_auto_fsm"]
+    n4["mux == | ~<br>29 ops  4 regs"]
+    subgraph inputs[" "]
+        n0["key_if<br>input  poly1305_key_stream_intrf.fwd_t …"]
+    end
+    style inputs fill:none,stroke:none
+    subgraph outputs[" "]
+        n1["prepared_if<br>output  stream_intrf_fwd_t#lt;prepared_t, …"]
+    end
+    style outputs fill:none,stroke:none
+    n0 -->|"key_bytes[0..15]"| n2
+    n0 -->|"key_bytes[16..31]<br>key_if.stream.valid"| n4
+    n2 -->|"r_bytes.bytes"| n4
+    n3 -.->|"result.stream_out_if.stream: data, valid"| n4
+    n4 -->|"request: data, valid"| n3
+    n4 -->|"o.prepared_if.stream: data, valid"| n1
+    n4 ~~~ n1
+```
+
+The 32-byte key splits into `r` (`key_bytes[0..15]`, clamped by `clamp`) and
+`s` (`key_bytes[16..31]`). The logic block's four registers are the FSM
+`state`, `r`, the `descriptor` being built, and `next_context`, the packet bank
+the descriptor will claim in the body stage. Its FSM steps through `IDLE`
+(accept a key), `INIT_LAUNCH` (send `r` to `init_unit` as `request`),
+`INIT_WAIT` (take the powers back on the dashed `result` edge) and
+`OUTPUT_DESCRIPTOR` (offer `prepared_if` until the body stage takes it).
+`init_unit` is the key-precomputation function `init` in
+[poly1305_compute.py](poly1305_compute.py) as an AUTO_FSM, a multi-cycle unit
+private to this MAC; see [AUTO_FSM versus AUTO_MCP](#auto_fsm-versus-auto_mcp)
+and, for one unit serving both directions,
+[shared versus private compute units](#shared-versus-private-compute-units).
+
+### Body stage
+
+```mermaid
+flowchart LR
+    n3["body_pipeline"]
+    n4["coefficient_pipeline"]
+    n5["mux == [i]= [i] …<br>165 ops  6 regs"]
+    subgraph inputs[" "]
+        n0["data_in_if<br>input  aead_axis_intrf.fwd_t (290b)"]
+        n1["prepared_if<br>input  stream_intrf_fwd_t#lt;prepared_t, u…"]
+    end
+    style inputs fill:none,stroke:none
+    subgraph outputs[" "]
+        n2["completed_if<br>output  stream_intrf_fwd_t#lt;completed_t,…"]
+    end
+    style outputs fill:none,stroke:none
+    n0 -->|"data_in_if.stream: data.eod[0],<br>data.frag.data[0..15],<br>data.frag.keep[0..31], valid"| n5
+    n0 -->|"data_in_if.stream.data.frag.data"| n4
+    n1 -->|"prepared_if.stream: data.context_v,<br>data.powers, data.r, data.s, valid"| n5
+    n3 -.->|"result: data, valid"| n5
+    n4 -.->|"coefficients: data, valid"| n3
+    n4 -.->|"coefficients.valid"| n5
+    n5 -->|"coefficient_request: data.r, valid"| n4
+    n5 -->|"request.data: accumulator, stride"| n3
+    n5 -->|"o.completed_if.stream"| n2
+    n3 ~~~ n2
+```
+
+Each input beat carries a pair of 16-byte blocks. The pair's 32 bytes go
+straight to `coefficient_pipeline`, which forms `d = c0*r + c1` modulo `p`
+using the packet's `r` from the logic block (`coefficient_request`). Its result
+(`coefficients`) is the coefficient input of `body_pipeline`, which updates one
+accumulator, `A = A*q^L + d` modulo `p`; the logic block supplies that
+accumulator and the stride `q^L` (`request.data`) and takes the updated value
+back (`result`). The math is in
+[paired coefficients and interleaving](#paired-coefficients-and-interleaving),
+and the split into two pipelines in
+[two pipelines per pair](#two-pipelines-per-pair).
+
+The logic block holds the six registers that give this datapath its packet
+state: the two packet `banks` (each a packet's `r`, `s`, powers, `L`
+accumulators, saved tail block and outstanding count), `issue_context` and
+`complete_context` (the bank now streaming and the bank to complete next),
+`completion` (the completed bank's snapshot, offered on `completed_if`), and
+the ownership delay lines `coefficient_owners` and `owners`. From
+`data_in_if` it takes only the control fields: the byte enables (`keep`, which
+tell a pair from a final single block), `eod`, and the first block
+(`data[0..15]`), saved as the tail when it is unmatched. The three dashed
+edges are `Feedback` variables, the pipeline results read before the calls
+that compute them. Expanded by hand, the logic block and its two pipelines are:
 
 ```mermaid
 flowchart TB
@@ -50,11 +182,47 @@ flowchart TB
     epi --> held["Held tag"] --> tag["Authentication tag output"]
 ```
 
-The diagram follows [poly1305_mac_paired.py](poly1305_mac_paired.py).
-Dashed arrows show the separate ownership delays alongside the arithmetic.
-The prepared descriptor, completion snapshot, and held tag each
-have one slot. The arithmetic pipelines run every clock, including bubbles;
-admission and the holding registers provide backpressure at the MAC boundary.
+Here the dashed arrows are the ownership delays (`coefficient_owners`,
+`owners`), which carry each pair's bank and lane alongside the arithmetic so
+its result is written back to the right accumulator. A descriptor claims an
+empty bank; the bank streams the packet, drains its outstanding results, and
+is snapshotted into `completion` once its final writeback has landed, while
+the other bank can already take the next packet. The
+[latency-derived constants](#latency-derived-constants) and
+[packet banks and backpressure](#packet-banks-and-backpressure) sections give
+the details.
+
+### Finalization stage
+
+```mermaid
+flowchart LR
+    n2["finish_unit<br>func_auto_fsm"]
+    n3["mux == & | …<br>31 ops  4 regs"]
+    subgraph inputs[" "]
+        n0["completed_if<br>input  stream_intrf_fwd_t#lt;completed_t, …"]
+    end
+    style inputs fill:none,stroke:none
+    subgraph outputs[" "]
+        n1["auth_tag_if<br>output  poly1305_auth_tag_stream_intrf.…"]
+    end
+    style outputs fill:none,stroke:none
+    n0 -->|"completed_if.stream: data.context_v,<br>valid"| n3
+    n0 -->|"completed_if.stream.data.data"| n2
+    n2 -.->|"result.stream_out_if.stream: data, valid"| n3
+    n3 -->|"request.valid"| n2
+    n3 -->|"o.auth_tag_if.stream: data, valid"| n1
+    n3 ~~~ n1
+```
+
+The completed bank's contents (`completed_if.stream.data.data`: accumulators,
+powers, tail, `s`) go straight to `finish_unit`, the `finish` function of
+[poly1305_compute.py](poly1305_compute.py) as an AUTO_FSM; the logic block only
+launches it (`request.valid`) when idle. Its four registers are the FSM
+`state` (`IDLE`, `FINISH_WAIT`, `OUTPUT_TAG`), the packet's context on launch
+(`owner_context`) and on return (`tag_context`), checked against each other in
+simulation, and the held `tag`, offered on `auth_tag_if` until the consumer
+takes it. The finalization formula is in
+[paired coefficients and interleaving](#paired-coefficients-and-interleaving).
 
 ### Implementation map
 
@@ -99,7 +267,7 @@ boundaries and the final lengths block. A MAC input beat therefore contains
 32 valid bytes, or 16 valid bytes on an unmatched final beat.
 
 The original [algorithm illustration/animation](https://share.gemini.google/dCzLp7lhYqaR)
-is retained as a conceptual aid; the diagram above describes the current wiring.
+is retained as a conceptual aid; the [body stage](#body-stage) diagrams describe the current wiring.
 
 ### Two pipelines per pair
 
@@ -107,6 +275,64 @@ The paired recurrence separates work that depends only on the incoming blocks
 and key from work that needs an accumulator. Both pipelines accept one pair's
 work per clock, so after filling they process different pairs concurrently.
 This gives two authentication blocks per clock during continuous body input.
+In the [body stage](#body-stage) view they are `coefficient_pipeline` and
+`body_pipeline`; each wraps one function, an AUTO_PIPELINE with an input and an
+output register.
+
+`poly1305_pair_coefficient`, inside `coefficient_pipeline`:
+
+```mermaid
+flowchart LR
+    n2["residue_mul_add_mod"]
+    n3(("|<br>1 op"))
+    n4(("|<br>1 op"))
+    subgraph inputs[" "]
+        n0["x<br>input  coefficient_in_stream_t (387b)"]
+    end
+    style inputs fill:none,stroke:none
+    subgraph outputs[" "]
+        n1["return_output<br>output  body_out_stream_t (131b)"]
+    end
+    style outputs fill:none,stroke:none
+    n0 -->|"x.data.blocks[0..15]"| n3
+    n0 -->|"x.data.blocks[16..31]"| n4
+    n0 -->|"x.valid"| n1
+    n0 -->|"x.data.r"| n2
+    n2 -->|"o.data"| n1
+    n3 -->|"residue_mul_add_mod.a"| n2
+    n4 -->|"residue_mul_add_mod.c"| n2
+    n2 ~~~ n1
+```
+
+The two circles read the pair's blocks little-endian and set bit 128 of each
+(`c0`, `c1`); `residue_mul_add_mod(c0, r, c1)` in
+[poly1305_math.py](poly1305_math.py) returns `c0*r + c1` modulo `p`. The valid
+bit passes alongside.
+
+`poly1305_pair_accumulate`, inside `body_pipeline`:
+
+```mermaid
+flowchart LR
+    n2["feedback_mul_add_mod<br>residue_mul_add_mod_inferred"]
+    subgraph inputs[" "]
+        n0["x<br>input  body_in_stream_t (391b)"]
+    end
+    style inputs fill:none,stroke:none
+    subgraph outputs[" "]
+        n1["return_output<br>output  body_out_stream_t (131b)"]
+    end
+    style outputs fill:none,stroke:none
+    n0 -->|"x.valid"| n1
+    n0 -->|"x.data: accumulator, stride, coefficient"| n2
+    n2 -->|"o.data"| n1
+    n2 ~~~ n1
+```
+
+`feedback_mul_add_mod` returns `accumulator*stride + coefficient` modulo `p`.
+With the default `inferred_body` selection it is
+`residue_mul_add_mod_inferred`, an inferred multiplier, as the block's second
+line shows; the coefficient path keeps the Karatsuba multiplier
+([multipliers and arithmetic bounds](#multipliers-and-arithmetic-bounds)).
 
 | Pipeline in [poly1305_mac_paired.py](poly1305_mac_paired.py) | Work for one pair | State dependency |
 | --- | --- | --- |
