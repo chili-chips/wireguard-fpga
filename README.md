@@ -419,7 +419,7 @@ If it was not for **Julian Kemmerer's** unreserved support helping us move our t
 - [2024-10-27](https://www.linkedin.com/posts/simon-southwell-7684482_riscv-iss-embeddedsoftware-activity-7256311551178027008-1nlZ?utm_source=share&utm_medium=member_desktop)
 - [2024-09-19](https://www.linkedin.com/posts/chili-chips_fpga-cpu-ethernet-activity-7242729037771522048-as-C?utm_source=share&utm_medium=member_desktop)
 
-**Issues filed upstream**, still open. Details, workarounds and the closed ones: [openXC7 issues](3.build/README.md#openxc7-issues).
+**Issues filed upstream** from this project, open and closed. Details of the open ones: [openXC7 issues](3.build/README.md#openxc7-issues).
 
 | Tool / project | Issue | What | State |
 |---|---|---|---|
@@ -427,6 +427,9 @@ If it was not for **Julian Kemmerer's** unreserved support helping us move our t
 | openXC7 nextpnr | [nextpnr#185](https://github.com/openXC7/nextpnr/issues/185) | XDC targets other than `get_ports` / `get_cells` abort the run | open |
 | openXC7 nextpnr | [nextpnr#184](https://github.com/openXC7/nextpnr/issues/184) | a differential input needs its N pin constrained | open |
 | JanusHDL | [#1](https://github.com/chili-chips/wireguard-fpga/issues/1) | 0.17.0: what simulates and what does not | open |
+| openXC7 nextpnr-xilinx | [nextpnr-xilinx#75](https://github.com/openXC7/nextpnr-xilinx/issues/75) | `BUFGMUX` not supported (legacy toolchain) | closed (fixed, [nextpnr-xilinx#81](https://github.com/openXC7/nextpnr-xilinx/pull/81)) |
+| openXC7 nextpnr-xilinx | [nextpnr-xilinx#74](https://github.com/openXC7/nextpnr-xilinx/issues/74) | `IBUFGDS` not supported (legacy toolchain) | closed |
+| openXC7 nextpnr-xilinx | [nextpnr-xilinx#73](https://github.com/openXC7/nextpnr-xilinx/issues/73) | `IOBUFGDS`, `PLLE2_BASE` not supported (legacy toolchain) | closed |
 
 Numbers without a link were filed from an account that is no longer available. JanusHDL has no public tracker (closed source, so it can read encrypted IP): its issues are in our repos, under the [`JanusHDL` label](https://github.com/issues?q=org%3Achili-chips+label%3AJanusHDL).
 
