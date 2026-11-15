@@ -1,16 +1,14 @@
 # pyright: reportInvalidTypeForm=none
-"""Nice struct/array type globally visible wires used as the encrypt design's
-DUT-facing ports. In simulation these wires are driven by the testbench; in
-hardware they are driven by the flattened top level ports
-(chacha20poly1305_encrypt_hw_io.py).
+"""Structured encrypt ports connecting the dataflow to hardware I/O or a testbench.
+
+Hardware I/O is defined in chacha20poly1305_encrypt_hw_io.py.
 
 Pypeline port of the wire declarations in
-../pipelinec_build/src/chacha20poly1305/chacha20poly1305_encrypt.h
-(wire names elaborate as chacha20poly1305_encrypt_ports_<wire>).
+../pipelinec_build/src/chacha20poly1305/chacha20poly1305_encrypt.h.
 """
 import wireguard_env  # noqa: F401
 
-from pypeline import Wire, uint1_t, uint8_t
+from pypeline import Wire, uint8_t
 
 from aead_types import (
     CHACHA20_KEY_SIZE,

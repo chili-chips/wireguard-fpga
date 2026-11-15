@@ -1,18 +1,10 @@
 # pyright: reportInvalidTypeForm=none
 """Shared ChaCha20 compute pipeline for the encrypt+decrypt shared design.
 
-Combines what used to be three separate MAINs (a pipeline instance, a
-round-robin mux/demux arbiter FSM, and two per-direction FSM wrapper MAINs)
-into: one merged MAIN owning the arbitrated pipeline (a genuinely shared
-resource crossing the otherwise-independent encrypt and decrypt dataflow
-graphs, so it stays a separate always-running process rather than being
-inlined into either), plus two plain per-direction functions matching
-chacha20's ordinary chacha20_instance.return_t interface so they can be passed to
-make_encrypt_dataflow_core/make_decrypt_dataflow_core exactly like
-chacha20.chacha20_instance is for the standalone (non-shared) builds.
+One MAIN arbitrates requests and routes results by direction. Each direction
+keeps its own ChaCha20 FSM, with the same interface as chacha20_if_func.
 
 Pypeline port of ../pipelinec_build/src/chacha20/chacha20_pipeline_shared.c
-(wire names elaborate as chacha20_pipeline_shared_<wire>).
 """
 import wireguard_env  # noqa: F401
 
@@ -50,8 +42,7 @@ from aead_types import (
 )
 
 
-# Pipeline takes same input and output as before but wrapped with ID for
-# is encrypt vs decrypt
+# Carry the requesting direction through the pipeline with each block.
 @struct
 class chacha_shared_pipeline_in_t(NamedTuple):
     data: chacha20_loop_body_in_t
@@ -70,15 +61,11 @@ chacha_shared_pipeline_out_stream_intrf = make_stream_interface(chacha_shared_pi
 
 def chacha_shared_pipeline_in_stream_null():
     return chacha_shared_pipeline_in_stream_intrf.stream_t(
-        data=chacha_shared_pipeline_in_t(
-            data=chacha20_loop_body_in_null(), is_encrypt=0
-        ),
+        data=chacha_shared_pipeline_in_t(data=chacha20_loop_body_in_null(), is_encrypt=0),
         valid=0,
     )
 
 
-# Pipeline function is same as old function by passing through ID from
-# input to output
 @hw_func
 def chacha_shared_pipeline(
     inputs: chacha_shared_pipeline_in_t,
@@ -89,42 +76,32 @@ def chacha_shared_pipeline(
     return outputs
 
 
-pipeline_func = make_stream_auto_pipeline(
-    chacha_shared_pipeline, name="chacha20_shared"
-)
+pipeline_func = make_stream_auto_pipeline(chacha_shared_pipeline, name="chacha20_shared")
 
 
-# Externally-exposed interface: looks like individual per-direction pipelines.
-# This is the one deliberately-surviving Wire boundary in the whole refactor
-# -- a genuinely arbitrated resource shared across the otherwise-independent
-# encrypt and decrypt dataflow graphs, not leftover wiring style. Each is a
-# single compound Wire[SomeInterface] (bare interface class, not .fwd_t/
-# .fb_t) -- .stream and .ready driven/read independently from different
-# functions below, same as any other flattened multi-writer struct Wire.
+# Each direction connects its FSM to the shared MAIN through these interfaces.
+# Stream data and ready travel in opposite directions.
 encrypt_pipeline_in_if: Wire[chacha20_loop_body_stream_intrf]
 decrypt_pipeline_in_if: Wire[chacha20_loop_body_stream_intrf]
 encrypt_pipeline_out_if: Wire[axis512_intrf]
 decrypt_pipeline_out_if: Wire[axis512_intrf]
 
 
-# The pipeline instance plus its round-robin input mux / ID-based output
-# demux, combined into one MAIN (used to be two: chacha20_pipeline +
-# chacha20_sharing_mux, joined by pipeline_in/pipeline_in_ready/pipeline_out/
-# pipeline_out_ready global wires).
+# Round-robin request arbitration and result routing around one shared pipeline.
 @MAIN(wireguard_env.TARGET_MHZ)
 def chacha20_pipeline_shared():
     pipeline_in_ready: Feedback[uint1_t]
     pipeline_out: Feedback[chacha_shared_pipeline_out_stream_intrf.stream_t]
 
-    # Default no data flowing (locals, driven onto wires once at the end)
+    # Default to idle; drive the interfaces after arbitration and result routing.
     pipeline_in_s: chacha_shared_pipeline_in_stream_intrf.stream_t = (
         chacha_shared_pipeline_in_stream_null()
-    )  # into pipeline
-    pipeline_out_ready_s: uint1_t = 0  # from pipeline
-    encrypt_pipeline_out_s: axis512_intrf.stream_t = axis512_stream_null()  # to encrypt
-    encrypt_pipeline_in_ready_s: uint1_t = 0  # from encrypt
-    decrypt_pipeline_out_s: axis512_intrf.stream_t = axis512_stream_null()  # to decrypt
-    decrypt_pipeline_in_ready_s: uint1_t = 0  # from decrypt
+    )
+    pipeline_out_ready_s: uint1_t = 0
+    encrypt_pipeline_out_s: axis512_intrf.stream_t = axis512_stream_null()
+    encrypt_pipeline_in_ready_s: uint1_t = 0
+    decrypt_pipeline_out_s: axis512_intrf.stream_t = axis512_stream_null()
+    decrypt_pipeline_in_ready_s: uint1_t = 0
 
     # Decrypt has initial priority. Advance only on an accepted launch, and
     # hold the selected direction while its valid input is stalled.
@@ -162,8 +139,7 @@ def chacha20_pipeline_shared():
         pipeline_in_s.data.data = decrypt_pipeline_in_if.stream.data
         pipeline_in_s.valid = decrypt_valid
 
-    # Perf probes (sim-only, elaborated away -- see stream/stream_perf_probe.py) sample
-    # this cycle's actual grant, including a lone requester or held grant.
+    # Simulation probes sample the actual grant, including a held grant.
     perf_taps.arb(
         "pipe.arb",
         is_encrypt,
@@ -191,7 +167,7 @@ def chacha20_pipeline_shared():
         grant_stalled = 1
         stalled_is_encrypt = is_encrypt
 
-    # Output side muxing based on id flag out of pipeline
+    # Route each result and its receiver's ready signal by the direction tag.
     if pipeline_out.valid:
         if pipeline_out.data.is_encrypt:
             encrypt_pipeline_out_s.data = pipeline_out.data.data
@@ -224,20 +200,17 @@ def chacha20_pipeline_shared():
     pipeline_in_ready = result.stream_in_if.ready
 
 
-# Per-direction FSM wrappers: same chacha20.chacha20_fsm as
-# chacha20.chacha20_instance uses, but talking to the shared pipeline's
-# exposed wires above instead of owning a private pipeline. Same external
-# signature/struct (chacha20.chacha20_instance.return_t) as chacha20_instance, so
-# either can be passed to make_encrypt_dataflow_core/make_decrypt_dataflow_core.
+# Per-direction adapters retain chacha20_if_func's interface and connect the
+# same ChaCha20 FSM to the shared pipeline.
 @hw_func
-def chacha20_encrypt_shared(
+def chacha20_encrypt_shared_adapter(
     key: uint8_t[CHACHA20_KEY_SIZE],
     nonce: uint8_t[CHACHA20_NONCE_SIZE],
     axis_in_if: aead_axis_intrf.fwd_t,
     key_if: poly1305_key_stream_intrf.fb_t,
     axis_out_if: aead_axis_intrf.fb_t,
-) -> chacha20.chacha20_instance.return_t:
-    o: chacha20.chacha20_instance.return_t
+) -> chacha20.chacha20_if_func.return_t:
+    o: chacha20.chacha20_if_func.return_t
     from_pipe_fwd: axis512_intrf.stream_t = encrypt_pipeline_out_if.stream
     fsm_out = chacha20.chacha20_fsm(
         key=key,
@@ -259,14 +232,14 @@ def chacha20_encrypt_shared(
 
 
 @hw_func
-def chacha20_decrypt_shared(
+def chacha20_decrypt_shared_adapter(
     key: uint8_t[CHACHA20_KEY_SIZE],
     nonce: uint8_t[CHACHA20_NONCE_SIZE],
     axis_in_if: aead_axis_intrf.fwd_t,
     key_if: poly1305_key_stream_intrf.fb_t,
     axis_out_if: aead_axis_intrf.fb_t,
-) -> chacha20.chacha20_instance.return_t:
-    o: chacha20.chacha20_instance.return_t
+) -> chacha20.chacha20_if_func.return_t:
+    o: chacha20.chacha20_if_func.return_t
     from_pipe_fwd: axis512_intrf.stream_t = decrypt_pipeline_out_if.stream
     fsm_out = chacha20.chacha20_fsm(
         key=key,
@@ -288,5 +261,5 @@ def chacha20_decrypt_shared(
 
 
 # Plain elaboration metadata: size consumers from this selected shared wrapper.
-chacha20_encrypt_shared.pipeline_func = pipeline_func
-chacha20_decrypt_shared.pipeline_func = pipeline_func
+chacha20_encrypt_shared_adapter.pipeline_func = pipeline_func
+chacha20_decrypt_shared_adapter.pipeline_func = pipeline_func

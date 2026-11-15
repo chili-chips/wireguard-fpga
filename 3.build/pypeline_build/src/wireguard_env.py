@@ -1,38 +1,13 @@
-"""Build configuration for this wireguard-fpga pypeline design tree.
+"""Shared build configuration and import setup for the Pypeline design.
 
 Import this first in every design file:
 
     import wireguard_env  # noqa: F401
 
-It does three things:
-
-1. Adds this tree's subdirectories to sys.path, so modules import with flat
-   names (`import chacha20`, `import poly1305`, ...) while files keep the same
-   directory layout as ../pipelinec_build/src/. This has nothing to do with the
-   PipelineC repo's own src/ or include/pypeline/ library: `pypelinec`
-   bootstraps both of those onto sys.path itself before importing any design
-   file.
-2. Declares the build parameters, set with `pypelinec ... -D NAME=VALUE`.
-   build.py sets them from its flags:
-     DESIGN         encrypt | decrypt | shared (default shared)
-     POLY1305_IMPL  pipelined | legacy (default pipelined)
-     DATA_BITWIDTH  128 | 256 packet datapath bits (default 256; legacy 128)
-     SHARE          auto | none | chacha20 | poly1305 | both. auto shares
-                    ChaCha20 and shares Poly1305 only with MCP compute
-     POLY1305_MULT_IMPL inferred | hybrid | hybrid_square | inferred_body
-                       (default inferred_body; legacy uses inferred). inferred_body
-                       is hybrid_square except an inferred feedback-body product
-     POLY1305_COMPUTE_IMPL fsm | mcp (published default; pipelined setup/finalization)
-     POLY1305_PROLOGUE_MAX_LATENCY positive integer AUTO_FSM cap for the prologue
-                       services (default from the published QoR profile)
-     POLY1305_EPILOGUE_MAX_LATENCY positive integer AUTO_FSM epilogue cap
-     TARGET_MHZ     positive integer MHz (default: the profile's clock)
-3. Resolves them into this build's profile: DESIGN, ENCRYPT, DECRYPT,
-   DATA_BITWIDTH, POLY1305_IMPL, POLY1305_MULT_IMPL, SHARING and TARGET_MHZ.
-
-The profile tables and output-directory names below are plain Python, shared
-with build.py and measure.py. Those import this module without PipelineC on
-sys.path; every parameter is then its default.
+This adds source subdirectories to sys.path for flat imports and resolves
+PypelineC's -D parameters. build.py and measure.py use the same profile and
+output-path helpers without requiring PypelineC. See ../README.md#setup-and-options
+for the options; DEFAULT_PROFILE defines the validated default.
 """
 
 import math
@@ -42,7 +17,7 @@ import sys
 try:
     from pypeline import DesignParamError, param
 except ImportError:
-    # build.py / measure.py: no PipelineC on sys.path, so no -D table either
+    # Host-side tools can resolve profiles without PypelineC installed.
     DesignParamError = ValueError
 
     def param(name, default=None, **_kwargs):
@@ -52,11 +27,12 @@ except ImportError:
 IMPLEMENTATIONS = ("pipelined", "legacy")
 DESIGNS = ("encrypt", "decrypt", "shared")
 SHARE_CHOICES = ("auto", "none", "chacha20", "poly1305", "both")
-
 MULT_IMPLEMENTATIONS = ("inferred", "hybrid", "hybrid_square", "inferred_body")
-# The published default: the best validated profile in README's current QoR
-# table. Promote a new default by editing it and publishing a validated
-# measurement with measure.py --update-readme. Raw records stay local.
+BLOCK_RATES = (1, 2)
+DATA_BITWIDTHS = (128, 256)
+COMPUTE_IMPLEMENTATIONS = ("fsm", "mcp")
+
+# Keep this aligned with the validated profile in README's current results.
 DEFAULT_PROFILE = {
     "design": "shared",
     "implementation": "pipelined",
@@ -69,15 +45,14 @@ DEFAULT_PROFILE = {
     "epilogue_cap": 45,
 }
 DEFAULT_MULT_IMPL = DEFAULT_PROFILE["multiplier"]
-BLOCK_RATES = (1, 2)
-DATA_BITWIDTHS = (128, 256)
-COMPUTE_IMPLEMENTATIONS = ("fsm", "mcp")
 DEFAULT_COMPUTE_IMPL = DEFAULT_PROFILE["compute"]
 DEFAULT_DATA_BITWIDTH = DEFAULT_PROFILE["data_bitwidth"]
 DEFAULT_TARGET_MHZ = DEFAULT_PROFILE["target_mhz"]
-SHARED_TARGET_MHZ = 85  # Historical hybrid_square, sharing-both profile.
-BASE_TARGET_MHZ = 30  # Other pipelined selections.
+# Fallback clocks for pipelined profiles outside the default width/multiplier.
+SHARED_TARGET_MHZ = 85  # Both ChaCha20 and Poly1305 shared.
+BASE_TARGET_MHZ = 30
 LEGACY_TARGET_MHZ = 80
+
 
 def selected_implementation(value=None):
     choice = DEFAULT_PROFILE["implementation"] if value is None else value
@@ -111,7 +86,7 @@ def selected_sharing(chacha20=True, poly1305=True, *, implementation=None):
     """The shared-resource set: {"chacha20": bool, "poly1305": bool}."""
     result = {"chacha20": bool(chacha20), "poly1305": bool(poly1305)}
     if result["poly1305"] and selected_implementation(implementation) == "legacy":
-        raise ValueError("Legacy has no prologue/epilogue MCPs to share; use --share-chacha20 --poly1305 legacy")
+        raise ValueError("Legacy has no initialization/finalization compute units to share; use --share-chacha20 --poly1305 legacy")
     return result
 
 
@@ -183,7 +158,7 @@ DEFAULT_CAP_AAD_BYTES = 29
 
 
 def default_compute_caps(data_bitwidth=None):
-    """Reproduce published caps; other widths retain their packet budget."""
+    """Use the default profile's caps, or bound them by the packet budget."""
     width = selected_data_bitwidth(data_bitwidth)
     if width == DEFAULT_DATA_BITWIDTH:
         return DEFAULT_PROFILE["prologue_cap"], DEFAULT_PROFILE["epilogue_cap"]
@@ -194,21 +169,20 @@ def default_compute_caps(data_bitwidth=None):
     return tuple(min(HISTORICAL_COMPUTE_CAP, budget - handoff) for handoff in (4, 3))
 
 
-DEFAULT_PROLOGUE_MAX_LATENCY, DEFAULT_EPILOGUE_MAX_LATENCY = default_compute_caps()
+def _selected_compute_cap(cap, parameter):
+    if not isinstance(cap, int) or isinstance(cap, bool) or cap < 1:
+        raise ValueError(f"{parameter} must be a positive integer, got {cap!r}")
+    return cap
 
 
 def selected_prologue_cap(value=None, data_bitwidth=None):
     cap = default_compute_caps(data_bitwidth)[0] if value is None else value
-    if not isinstance(cap, int) or isinstance(cap, bool) or cap < 1:
-        raise ValueError(f"POLY1305_PROLOGUE_MAX_LATENCY must be a positive integer, got {cap!r}")
-    return cap
+    return _selected_compute_cap(cap, "POLY1305_PROLOGUE_MAX_LATENCY")
 
 
 def selected_epilogue_cap(value=None, data_bitwidth=None):
     cap = default_compute_caps(data_bitwidth)[1] if value is None else value
-    if not isinstance(cap, int) or isinstance(cap, bool) or cap < 1:
-        raise ValueError(f"POLY1305_EPILOGUE_MAX_LATENCY must be a positive integer, got {cap!r}")
-    return cap
+    return _selected_compute_cap(cap, "POLY1305_EPILOGUE_MAX_LATENCY")
 
 
 def prologue_cap_out_dir(base, cap):
@@ -228,9 +202,7 @@ def compute_out_dir(base, compute):
 def resolve_profile(design="shared", implementation=None, share="auto", target_mhz=None,
                     multiplier=None, blocks_per_cycle=None, *, data_bitwidth=None,
                     compute=None, prologue_cap=None, epilogue_cap=None):
-    """The one place a build profile's defaults are decided: the design itself,
-    build.py and measure.py all call this, so a direct pypelinec run builds
-    exactly what build.py would."""
+    """Resolve the profile shared by hardware, build.py and measure.py."""
     if design not in DESIGNS:
         raise ValueError(f"DESIGN must be one of {DESIGNS}, got {design!r}")
     implementation = selected_implementation(implementation)
@@ -286,27 +258,28 @@ def add_sharing_arguments(parser):
     parser.add_argument("--share-chacha20", action="store_true",
                         help="Share ChaCha20 (alone unless --share-poly1305 is also supplied)")
     parser.add_argument("--share-poly1305", action="store_true",
-                        help="Share Poly1305 prologue/epilogue compute (pipelined MAC only)")
+                        help="Share Poly1305 initialization/finalization compute (pipelined MAC only)")
     parser.add_argument("--share-none", action="store_true",
                         help="Combined design with private ChaCha20 and Poly1305 for each direction")
 
 
 def sharing_from_args(args, *, standalone=False):
     share_none = getattr(args, "share_none", False)
+    shared = getattr(args, "shared", False)
     explicit = (args.share_chacha20 or args.share_poly1305 or share_none
-                or getattr(args, "shared", False))
+                or shared)
     if standalone:
         if explicit:
             raise ValueError("Sharing selectors cannot be combined with --enc or --dec")
         return {"chacha20": False, "poly1305": False}
     if share_none:
-        if args.share_chacha20 or args.share_poly1305 or getattr(args, "shared", False):
+        if args.share_chacha20 or args.share_poly1305 or shared:
             raise ValueError("--share-none cannot be combined with --shared or another sharing flag")
         return {"chacha20": False, "poly1305": False}
-    if explicit and not getattr(args, "shared", False):
+    if explicit and not shared:
         return selected_sharing(args.share_chacha20, args.share_poly1305,
                                 implementation=args.poly1305)
-    if getattr(args, "shared", False):
+    if shared:
         return selected_sharing(implementation=args.poly1305)
     return resolve_sharing("shared", args.poly1305, "auto", getattr(args, "poly1305_compute", None))
 
@@ -344,11 +317,13 @@ SYN_CACHE_DIR = os.path.join(GENERATED_FILES, "syn_cache")
 
 
 def profile_out_dir(kind, implementation, sharing, multiplier, compute, target_mhz,
-                    data_bitwidth, prologue_cap, epilogue_cap=64):
-    """generated-files/<kind>-<profile suffixes>: one output directory per build kind and profile."""
-    out_dir = target_out_dir(compute_out_dir(mult_out_dir(sharing_out_dir(
-        implementation_out_dir(os.path.join(".", GENERATED_FILES, kind), implementation), sharing),
-        multiplier), compute if implementation == "pipelined" else None), target_mhz)
+                    data_bitwidth, prologue_cap, epilogue_cap=HISTORICAL_COMPUTE_CAP):
+    """Return a generated-files path identified by build kind and profile."""
+    out_dir = implementation_out_dir(os.path.join(".", GENERATED_FILES, kind), implementation)
+    out_dir = sharing_out_dir(out_dir, sharing)
+    out_dir = mult_out_dir(out_dir, multiplier)
+    out_dir = compute_out_dir(out_dir, compute if implementation == "pipelined" else None)
+    out_dir = target_out_dir(out_dir, target_mhz)
     out_dir = blocks_out_dir(out_dir, data_bitwidth // 128)
     if implementation == "pipelined" and compute == "fsm":
         out_dir = prologue_cap_out_dir(out_dir, prologue_cap)
@@ -357,12 +332,11 @@ def profile_out_dir(kind, implementation, sharing, multiplier, compute, target_m
 
 
 def hardware_out_dir(design_short, *profile):
-    """Where build.py builds the real top (src/chacha20poly1305.py) of a profile. Pipelined
-    native simulations of that profile run in this directory, on the hardware built there."""
+    """Output path shared by a hardware build and its pipelined native simulations."""
     return profile_out_dir("hardware-" + design_short, *profile)
 
 
-# PipelineC writes this into a build's output directory once the build meets timing
+# PypelineC writes this into a build's output directory once it meets timing.
 BUILT_HARDWARE_FILE = "built_hardware.json"
 
 
@@ -392,12 +366,12 @@ _MULT_IMPL = param("POLY1305_MULT_IMPL", choices=MULT_IMPLEMENTATIONS,
                    help="130-bit multiply implementation (pipelined MAC only)")
 POLY1305_COMPUTE_IMPL = param("POLY1305_COMPUTE_IMPL", DEFAULT_COMPUTE_IMPL,
                             choices=COMPUTE_IMPLEMENTATIONS,
-                            help="prologue and epilogue implementation (pipelined MAC only)")
+                            help="initialization and finalization implementation (pipelined MAC only)")
 _PROLOGUE_CAP = param("POLY1305_PROLOGUE_MAX_LATENCY",
-                                      type=int,
-                                      help="AUTO_FSM prologue cap (default: published QoR profile)")
+                      type=int,
+                      help="AUTO_FSM initialization cap (default: published QoR profile)")
 _EPILOGUE_CAP = param("POLY1305_EPILOGUE_MAX_LATENCY", type=int,
-                     help="AUTO_FSM epilogue cap (default: published QoR profile)")
+                     help="AUTO_FSM finalization cap (default: published QoR profile)")
 _TARGET_MHZ = param("TARGET_MHZ", type=int,
                     help="clock goal in MHz (default: the profile's)")
 try:
@@ -424,12 +398,12 @@ TARGET_MHZ = float(_PROFILE["target_mhz"])
 _here = os.path.dirname(os.path.abspath(__file__))
 
 
-def _add(path):
+def _add_import_path(path):
     path = os.path.abspath(path)
     if path not in sys.path:
         sys.path.insert(0, path)
 
 
 for _sub in ("chacha20", "poly1305", "prep_auth_data", "auth_tag", "chacha20poly1305"):
-    _add(os.path.join(_here, _sub))
-_add(_here)
+    _add_import_path(os.path.join(_here, _sub))
+_add_import_path(_here)

@@ -2,76 +2,50 @@
 #
 # SPDX-License-Identifier: BSD-3-Clause
 
-"""Configuration and shared singletons for the performance testbenches
-(encrypt_perf_tb.py / decrypt_perf_tb.py / chacha20poly1305_perf_tb.py).
+"""Shared configuration, reference frames, and runners for native performance tests.
 
-The measurement math (taps, StreamMeter/PhaseRunner, barrier, recorder) is
-PipelineC's stream performance library, include/pypeline/stream/stream_perf.py;
-the design-side @sim_output probes are stream/stream_perf_probe.py, whose one
-tap REGISTRY this file enables. See pypeline_stream_perf_guide.md there.
-
-Every knob here is a build parameter (-D PERF_*, set by measure.py through
-build.py), read at import time, and NOTHING is baked into hardware: the phase
-plan, packet sizes, counts and payload bytes all live in Python
-`@sim_input`/`@sim_output` code. That is deliberate and load-bearing -- it
-keeps the elaborated design bit-identical across measurement runs, so
-pypelinec reuses its synthesis results (identical inputs) instead of
-re-running the 1-3 hour autopipelining sweep. Change a packet size here and
-only the simulation re-runs (see measure.py --reuse-syn).
-
-Key/nonce/AAD are reused from tb_common_sim.py rather than duplicated.
+PypelineC's stream_perf library supplies measurement and phase coordination;
+stream_perf_probe supplies the shared probe registry. PERF_* build parameters
+control simulation-only traffic and recording without changing the hardware.
+See ../../README.md#throughput-measurement for commands and metric definitions.
 """
 
-import os
 import wireguard_env
+
+import os
 from pypeline import param
 
 from stream import stream_perf_probe
 from stream.stream_perf import PerfRecorder, PhaseBarrier, PhaseRunner, packet_size_phases
 from poly1305_select import implementation_metadata
-from aead_types import AEAD_MAX_PLAINTEXT_BYTES, buffering_metadata, stream_slice_metadata
+from aead_types import (
+    AEAD_BEAT_BYTES,
+    AEAD_MAX_PLAINTEXT_BYTES,
+    buffering_metadata,
+    stream_slice_metadata,
+)
 import tb_common_sim as common
-from aead_ref_model import generate_encrypt_vector
-
-# These stateless models replace only pure arithmetic during native sim.
-# Protocol/state/pipeline schedules still run the design; HDL is unaffected.
-# Differential checks against the original functions live in
-# test_native_arithmetic_models.py. Ordinary functional TBs use original bodies.
-from native_arithmetic_models import install as install_arithmetic_models
-ARITHMETIC_MODELS = param("PERF_ARITHMETIC_MODELS", True,
-                          help="native perf only: use differential-checked pure arithmetic models")
-if ARITHMETIC_MODELS:
-    install_arithmetic_models()
 
 # MAIN name -> short label that qualifies tap names (`encrypt/chacha20.in`).
 # Update in place: the probes read this exact dict object.
-stream_perf_probe.MAIN_LABELS.update({
-    "encrypt_dataflow": "encrypt",
-    "decrypt_dataflow": "decrypt",
-    "chacha20_pipeline_shared": "shared",
-    "poly1305_prologue_shared": "shared",
-    "poly1305_epilogue_shared": "shared",
-})
+stream_perf_probe.MAIN_LABELS.update(
+    {
+        "encrypt_dataflow": "encrypt",
+        "decrypt_dataflow": "decrypt",
+        "chacha20_pipeline_shared": "shared",
+        "poly1305_init_shared": "shared",
+        "poly1305_finish_shared": "shared",
+    }
+)
 
-# ---------------------------------------------------------------------------
-# Supported payload limit. Extra verification storage absorbs admitted work
-# while a verdict is pending; FIFO rounding does not enlarge this envelope.
-# The authentication tag is stripped before plaintext enters that FIFO.
+# Supported plaintext envelope; FIFO rounding does not increase this limit.
 MAX_PACKET_BYTES = AEAD_MAX_PLAINTEXT_BYTES
-BUS_BYTES = wireguard_env.DATA_BITWIDTH // 8
+BUS_BYTES = AEAD_BEAT_BYTES
 
-# Default plan sized against MEASURED native-sim speed: the 60 MHz shared
-# perf top simulates at roughly 2 s per cycle, so the whole plan below is a few
-# thousand cycles / order of an hour or two, not a day. Packet sizes are a
-# log-ish sweep from one bus beat to MTU; the final long-packet phase is the
-# peak (steady-state) point. Widen it with -D PERF_SIZES / PERF_PACKETS or
-# measure.py --sizes/--packets -- re-measuring needs NO re-synthesis
-# (measure.py --reuse-syn), so more curve points cost only sim time.
+# Packet-size sweep followed by a longer phase with back-to-back packets.
 DEFAULT_SIZES = (16, 64, 256, 1024, 1420)
 DEFAULT_PACKETS = 4
-DEFAULT_PEAK_BYTES = 1920  # 120 beats: long steady window, FIFO headroom
-# The peak phase streams several same-size packets back to back like every other
-# phase: one lone packet measures pipeline fill/drain, not sustained throughput.
+DEFAULT_PEAK_BYTES = 1920
 DEFAULT_PEAK_PACKETS = 4
 DEFAULT_MAX_CYCLES_PER_PHASE = 20000
 DEFAULT_STALL_TIMEOUT = 1000  # cycles with no beat in or out => deadlock
@@ -88,11 +62,18 @@ PEAK_BYTES = param("PERF_PEAK_BYTES", DEFAULT_PEAK_BYTES, help="long-packet peak
 PEAK_PACKETS = param("PERF_PEAK_PACKETS", DEFAULT_PEAK_PACKETS, help="packets in the peak phase")
 SEED = param("PERF_SEED", common.DEFAULT_SEED, help="payload seed")
 MAX_CYCLES_PER_PHASE = param("PERF_MAX_CYCLES_PER_PHASE", DEFAULT_MAX_CYCLES_PER_PHASE)
-STALL_TIMEOUT = param("PERF_STALL_TIMEOUT", DEFAULT_STALL_TIMEOUT,
-                      help="cycles with no beat in or out that count as a deadlock")
+STALL_TIMEOUT = param(
+    "PERF_STALL_TIMEOUT",
+    DEFAULT_STALL_TIMEOUT,
+    help="cycles with no beat in or out that count as a deadlock",
+)
 SETTLE_CYCLES = param("PERF_SETTLE", 8)
-DIRS = param("PERF_DIRS", "both", choices=("both", "all", "enc", "encrypt", "dec", "decrypt"),
-             help="measured directions")
+DIRS = param(
+    "PERF_DIRS",
+    "both",
+    choices=("both", "all", "enc", "encrypt", "dec", "decrypt"),
+    help="measured directions",
+)
 TAP_NAMES = list(param("PERF_TAPS", (), type=_tap_names, help="extra probe taps, comma-separated"))
 
 _ALL_DIRS = ("encrypt", "decrypt")
@@ -104,8 +85,6 @@ else:
     ENABLED_DIRS = ["decrypt"]
 
 
-# Back-to-back phases (throughput vs packet size), then the long-packet peak.
-# MAX_PACKET_BYTES is the wait_to_verify FIFO limit above.
 PHASES = packet_size_phases(SIZES, PACKETS, PEAK_BYTES, PEAK_PACKETS, MAX_PACKET_BYTES)
 
 CONFIG = {
@@ -122,15 +101,13 @@ CONFIG = {
     "buffering": buffering_metadata(),
     "stream_slices": stream_slice_metadata(),
     "source_handshake": "converged",
-    "native_arithmetic": "checked-stateless-models-v1" if ARITHMETIC_MODELS else "hw-functions",
+    "native_arithmetic": "hw-functions",
     "native_soft_ops": os.environ.get("PYPELINE_SIM_SOFT_OPS", "all"),
     "decrypt_verification_retained": True,
     "bus_bytes": BUS_BYTES,
     "dirs": ENABLED_DIRS,
     "seed": SEED,
-    # PhaseRunner seeds with the string "<seed>/<phase>/<runner>", so --seed
-    # reproduces payload bytes. Records without this key used a tuple seed
-    # whose hash varied per process (cycle results unaffected).
+    # PhaseRunner's string seed reproduces payload bytes across processes.
     "payload_seeding": "string seed/phase/runner (reproducible)",
     "sizes": SIZES,
     "packets_per_size": PACKETS,
@@ -149,9 +126,7 @@ CONFIG = {
 
 BARRIER = PhaseBarrier(ENABLED_DIRS)
 RECORDER = PerfRecorder(JSON_PATH, CONFIG)
-# The ONE registry for the whole run, owned by stream_perf_probe so the design's
-# own probe call sites (which never import this file) and the testbench share
-# it. It starts empty; enable in place -- never rebind it.
+# Enable the design's existing registry in place so all probes share it.
 TAPS = stream_perf_probe.REGISTRY
 TAPS.enable(TAP_NAMES)
 
@@ -162,33 +137,42 @@ def is_enabled(direction):
     return direction in ENABLED_DIRS
 
 
-def _aad_bytes():
-    return bytes(common.AAD[: common.AAD_LEN])
-
-
 def encrypt_frame_builder(length, rng):
-    """plaintext in -> ciphertext+tag out."""
-    plaintext = bytes(rng.randrange(256) for _ in range(length))
-    ciphertext, tag = generate_encrypt_vector(
-        bytes(common.KEY), bytes(common.NONCE), _aad_bytes(), plaintext
-    )
+    """Return plaintext input and reference ciphertext/tag output."""
+    plaintext, ciphertext, tag = common.generate_packet(rng, length)
     return plaintext, ciphertext + tag, {}
 
 
 def decrypt_frame_builder(length, rng):
-    """ciphertext+tag in -> plaintext out. Only valid (verifiable) packets are
-    measured; the tampered-tag negative case lives in the functional
-    testbenches, where it cannot perturb a timing window."""
-    plaintext = bytes(rng.randrange(256) for _ in range(length))
-    ciphertext, tag = generate_encrypt_vector(
-        bytes(common.KEY), bytes(common.NONCE), _aad_bytes(), plaintext
-    )
+    """Return valid ciphertext/tag input and reference plaintext/verdict output."""
+    plaintext, ciphertext, tag = common.generate_packet(rng, length)
     return ciphertext + tag, plaintext, {"expected_verified": 1}
 
 
+def keep_count(stream):
+    """Count the valid byte lanes in a sampled beat."""
+    keep = stream.data.frag.keep
+    return sum(1 for i in range(BUS_BYTES) if keep[i])
+
+
+def packet_mismatch_message(result, payload_name):
+    """Describe a scoreboard failure, or return None for a matching packet."""
+    if result["passed"]:
+        return None
+    idx = result.get("idx", "?")
+    if "error" in result:
+        return f"{result['error']} (packet {idx})"
+    expected, got = result["expected"], result["got"]
+    n = min(len(expected), len(got))
+    first_diff = next((i for i in range(n) if expected[i] != got[i]), n)
+    return (
+        f"{payload_name} mismatch packet {idx}: expected {len(expected)} "
+        f"bytes got {len(got)} bytes, first differing byte[{first_diff}]"
+    )
+
+
 def make_runner(direction, src, snk, scoreboard, frame_builder):
-    """One PhaseRunner per direction; a direction disabled via
-    PERF_DIRS gets an empty phase plan (drives valid=0 for the whole run)."""
+    """Register a direction's runner; disabled directions get an empty plan."""
     runner = PhaseRunner(
         name=direction,
         phases=PHASES if is_enabled(direction) else [],
@@ -210,9 +194,7 @@ def make_runner(direction, src, snk, scoreboard, frame_builder):
 
 
 def all_done():
-    """True once every registered runner has finished its phase plan. Both
-    testbenches must have registered (imported) for this to mean anything, so
-    the shared top imports both."""
+    """Check completion after the top has imported and registered both runners."""
     return bool(_RUNNERS) and all(r.done for r in _RUNNERS.values())
 
 
@@ -221,26 +203,22 @@ def total_cycles():
 
 
 def finalize():
-    """Write the final JSON (phase results were already written incrementally
-    after each phase, so this only adds the run-level totals)."""
-    # Tap counters live per phase (PerfRecorder.record_taps zeroes them at each
-    # barrier release), so there is no meaningful run-level total to report --
-    # what IS worth recording is which taps actually fired, since a name that
-    # matched nothing is the usual explanation for an empty "taps" section.
+    """Add run totals to the incrementally written phase results."""
+    # Counters reset each phase; retain active names to identify unmatched taps.
     RECORDER.config["taps_active"] = TAPS.active_names()
     RECORDER.finalize(total_cycles=total_cycles())
 
 
-def summary_line():
+def summary_lines():
     lines = []
     for phase in RECORDER.as_dict()["phases"]:
-        for d in ENABLED_DIRS:
-            res = phase.get(d)
-            if not res or not res.get("bytes_per_cycle"):
+        for direction in ENABLED_DIRS:
+            result = phase.get(direction)
+            if not result or not result.get("bytes_per_cycle"):
                 continue
             lines.append(
-                f"{phase['name']:>12} {d:<8} {res['bytes_per_cycle']:6.3f} B/cyc "
-                f"window={res['window_cycles']} cold_head="
-                f"{res['latency_cycles']['cold_head']}"
+                f"{phase['name']:>12} {direction:<8} {result['bytes_per_cycle']:6.3f} B/cyc "
+                f"window={result['window_cycles']} cold_head="
+                f"{result['latency_cycles']['cold_head']}"
             )
     return lines

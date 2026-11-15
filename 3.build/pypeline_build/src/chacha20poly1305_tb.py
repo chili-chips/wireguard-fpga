@@ -1,55 +1,81 @@
 # pyright: reportInvalidTypeForm=none
-"""Simulation top: the selected design (-D DESIGN=encrypt|decrypt|shared) with
-each enabled direction's non-synthesizable testbench (@sim_input/@sim_output,
-on-the-fly random packets). In the combined design both testbenches run at the
-same time against the selected sharing configuration (-D SHARE). For the
-synthesizable-style variant (fixed vectors), see chacha20poly1305_syn_tb.py.
+# SPDX-FileCopyrightText: 2026 Chili.CHIPS*ba
+# SPDX-License-Identifier: BSD-3-Clause
 
-Only runs under native --sim (no cocotb/GHDL): @sim_input/@sim_output calls
-are elaborated away for any real-VHDL path. Without --comb, pypelinec first
-autopipelines and then native-sims the built latencies.
+"""Native correctness/performance top for the selected design and sharing configuration.
 
-Build/sim (from pypeline_build/): ./build.py --enc|--dec|--shared --sim --native [--comb]
+Both enabled directions run concurrently using @sim_input/@sim_output. PERF
+selects coordinated packet-size phases and JSON recording instead of random
+or stress traffic. See ../README.md#simulation and #throughput-measurement for
+commands, or chacha20poly1305_syn_tb.py for the fixed-vector top.
 """
-import sys, os
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import wireguard_env
 
-from pypeline import MAIN, PART, sim_finish, sim_output, wires
+from pypeline import MAIN, PART, DesignParamError, final, sim_finish, sim_output, sim_print, wires
+
+import tb_common_sim as common
+
+if common.PERF and wireguard_env.DESIGN != "shared":
+    raise DesignParamError(
+        "The performance testbench measures the combined design: build it with "
+        "DESIGN=shared (./build.py --perf); measure.py --dirs selects "
+        "the measured directions"
+    )
 
 PART("xc7a200tffg1156-2")  # Artix 7 200T
 
-# Hardware modules are discovered transitively through each other's own
-# imports; only the modules not otherwise reachable need listing here.
+# Import all selected dataflows before perf_tb_common snapshots their metadata.
 if wireguard_env.ENCRYPT:
     import encrypt_dataflow  # noqa: F401
-    import encrypt_tb
 if wireguard_env.DECRYPT:
     import decrypt_dataflow  # noqa: F401
+
+# Both performance runners register even when PERF_DIRS leaves one idle.
+if wireguard_env.ENCRYPT:
+    import encrypt_tb
+if wireguard_env.DECRYPT:
     import decrypt_tb
-import tb_common_sim as common
+
+if common.PERF:
+    import perf_tb_common as perf
+
+    @final(sim=True)
+    def write_results():
+        # Retain partial phase results without marking an interrupted run complete.
+        if not perf.all_done():
+            sim_print(
+                "PERF: simulation ended before every phase finished -- "
+                f"{perf.JSON_PATH or '(no PERF_JSON set)'} left unfinalized"
+            )
+            return
+        perf.finalize()
+        for line in perf.summary_lines():
+            sim_print("PERF: " + line)
+        sim_print(f"PERF: wrote {perf.JSON_PATH or '(no PERF_JSON set)'}")
 
 
-# Each direction's checker state (_enc_state/_dec_state) is plain Python state,
-# invisible to the elaborator like the rest of these @sim_input/@sim_output
-# testbenches, so it is safe to read here. Stop only once EVERY enabled
-# direction is done (encrypt: NUM_RANDOM_PACKETS, decrypt: NUM_TOTAL_PACKETS),
-# or whichever finishes first would silently cut off the other's remaining
-# checks.
+# Read the host-side packet counts and wait for every enabled direction.
 @sim_output
 def check_done():
-    if wireguard_env.ENCRYPT and encrypt_tb._enc_state["out_packet_idx"] < common.NUM_RANDOM_PACKETS:
+    if common.PERF:
+        if perf.all_done():
+            sim_finish()
         return
-    if wireguard_env.DECRYPT and decrypt_tb._dec_state["out_packet_idx"] < decrypt_tb.NUM_TOTAL_PACKETS:
+    if (
+        wireguard_env.ENCRYPT
+        and encrypt_tb.enc_state["out_packet_idx"] < common.NUM_RANDOM_PACKETS
+    ):
+        return
+    if (
+        wireguard_env.DECRYPT
+        and decrypt_tb.dec_state["out_packet_idx"] < decrypt_tb.NUM_TOTAL_PACKETS
+    ):
         return
     sim_finish()
 
 
-# @wires: nothing here to actually synthesize/measure a path delay for -- see
-# chacha20poly1305_syn_tb.py's matching checker comment (this variant never
-# reaches real synthesis anyway, per the module docstring, but marking it
-# keeps the pattern consistent with the syn_tb checker).
+# @wires lets native simulation run this control MAIN without saved hardware latency.
 @MAIN(wireguard_env.TARGET_MHZ)
 @wires
 def tb_finish_checker():

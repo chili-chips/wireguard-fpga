@@ -3,15 +3,16 @@
 This design implements concurrent ChaCha20-Poly1305 encryption and decryption
 using **Pypeline HDL** to generate FPGA hardware and run native simulation. 
 
-<div align="center">
+<p align="center">
   <img width="90%" src="0.doc/wireguard-pypeline-sim-light.png"
    alt="Pypeline native sim: Python HDL, cycle-exact sim engine, silicon-verified">
-</div>
+</p>
 
 The default targets Artix-7 at **80 MHz**, with a **256-bit packet
 datapath**, one shared ChaCha20 pipeline, and a private pipelined Poly1305 MAC
 per direction. Poly1305 processes two 16-byte blocks per beat using interleaved
-accumulators, `inferred_body` multiplication, and FSM setup/finalization.
+accumulators, `inferred_body` multiplication, and
+[AUTO_FSM initialization/finalization](src/poly1305/poly1305_design.md#auto_fsm-versus-auto_mcp).
 
 Packet streams use valid/ready handshakes, 32 byte-enable bits, and a last-beat
 flag. Encryption appends a 16-byte authentication tag; decryption buffers
@@ -25,64 +26,60 @@ Its [published results](#current-results) appear below.
 
 ```mermaid
 flowchart TB
-    plain["Encrypt: plaintext"] --> ein["Encrypt ChaCha20 input FSM / packer"]
+    plain["Encrypt: plaintext"] --> echa["Encrypt ChaCha20 stream adapter"]
     received["Decrypt: ciphertext + tag"] --> strip["Strip tag"]
     strip -->|ciphertext| df["Ciphertext fork"]
-    df --> din["Decrypt ChaCha20 input FSM / packer"]
+    df --> dcha["Decrypt ChaCha20 stream adapter"]
 
-    ein -->|encrypt requests| mux["Round-robin request mux"]
-    din -->|decrypt requests| mux
-    mux --> shared["Shared 512-bit ChaCha20 + XOR pipeline"]
-    shared --> demux["Result demux by direction"]
-    demux -->|encrypt results| eout["Encrypt ChaCha20 output FSM / unpacker"]
-    demux -->|decrypt results| dout["Decrypt ChaCha20 output FSM / unpacker"]
+    echa -->|encrypt requests| shared["Shared ChaCha20 pipeline"]
+    dcha -->|decrypt requests| shared
+    shared -->|encrypt results| echa
+    shared -->|decrypt results| dcha
 
-    eout -->|ciphertext| ef["Ciphertext fork"]
+    echa -->|ciphertext| ef["Ciphertext fork"]
     ef --> ea["Encrypt auth FIFO"] --> ep["Frame AAD + ciphertext + lengths"]
     ep --> em["Encrypt Poly1305"] -->|tag| append["Append tag"]
-    eout -->|MAC key| em
+    echa -->|MAC key| em
     ef --> eb["Append FIFO"] --> append
     append --> slice["Output register slice"] --> encrypted["Encrypt: ciphertext + tag"]
 
     df --> da["Decrypt auth FIFO"] --> dp["Frame AAD + ciphertext + lengths"]
     dp --> dm["Decrypt Poly1305"] -->|calculated tag| verify["Compare tags"]
-    dout -->|MAC key| dm
+    dcha -->|MAC key| dm
     strip -->|received tag| tags["Tag FIFO"] --> verify
-    dout -->|plaintext| hold["Plaintext FIFO + wait-for-verdict FSM"]
+    dcha -->|plaintext| hold["Plaintext FIFO + wait-for-verdict FSM"]
     verify -->|verdict| hold
     hold --> output["Decrypt: plaintext + verification result"]
 ```
 
-Requests carry a 512-bit block, key, nonce, and counter; results return to the
-requesting direction's output FSM as a MAC-key block or transformed payload.
 Arrows show forward data/control; stream ready signals travel in reverse.
-AAD enters each framing block separately. The input/output FSMs and width
-converters are private to each direction; only the ChaCha20 pipeline is shared.
+AAD enters each framing block separately. The
+[ChaCha20 design](src/chacha20/chacha20_design.md) describes the stream adapters,
+block pipeline, and shared request/return paths.
+
+Decrypt releases every packet after comparison, holding the verdict on
+`is_verified_out` for all valid output beats, including failed authentication.
 
 The graph follows the current [encrypt](src/chacha20poly1305/encrypt_dataflow_core.py)
-and [decrypt](src/chacha20poly1305/decrypt_dataflow_core.py) wiring and the
-[shared ChaCha20 service](src/chacha20/chacha20_pipeline_shared.py).
+and [decrypt](src/chacha20poly1305/decrypt_dataflow_core.py) wiring.
 
 ## Source layout
 
 | Location | Purpose |
 | --- | --- |
 | [build.py](build.py) | Hardware build, HDL export, and simulation entrypoint. |
-| [measure.py](measure.py) | Throughput, latency, timing, and area measurement. |
-| [bottleneck.py](bottleneck.py) | Block-level performance analysis and reports. |
+| [measure.py](measure.py) | Throughput, latency, timing, area, and bottleneck analysis. |
 | [src/wireguard_env.py](src/wireguard_env.py) | Build parameters, default profile, and source imports. |
 | [src/aead_types.py](src/aead_types.py) | Stream types, limits, and buffer factories. |
-| [src/chacha20/](src/chacha20/) | ChaCha20 arithmetic, stream processing, and shared service. |
-| [src/poly1305/](src/poly1305/) | Poly1305 arithmetic, packet processing, and tag verification. |
+| [src/chacha20/](src/chacha20/) | ChaCha20 arithmetic and stream processing; [pipeline and sharing design](src/chacha20/chacha20_design.md). |
+| [src/poly1305/](src/poly1305/) | Poly1305 arithmetic, packet processing, and tag verification; [architecture and throughput](src/poly1305/poly1305_design.md). |
 | [src/prep_auth_data/](src/prep_auth_data/) | Authentication framing. |
-| [src/auth_tag/](src/auth_tag/) | Tag packing, extraction, and plaintext verification buffering. |
+| [src/auth_tag/](src/auth_tag/) | Tag append/strip in [auth_tag.py](src/auth_tag/auth_tag.py) (128-bit) and [auth_tag_wide.py](src/auth_tag/auth_tag_wide.py) (256-bit); plaintext verification buffering. |
 | [src/chacha20poly1305/](src/chacha20poly1305/) | Encrypt/decrypt wiring, external ports, and testbench support. |
 | [src/chacha20poly1305.py](src/chacha20poly1305.py) | Hardware top. |
-| [src/chacha20poly1305_tb.py](src/chacha20poly1305_tb.py) | Random/stress native testbench top. |
+| [src/chacha20poly1305_tb.py](src/chacha20poly1305_tb.py) | Native testbench top for random/stress checks and performance measurement. |
 | [src/chacha20poly1305_syn_tb.py](src/chacha20poly1305_syn_tb.py) | Fixed-vector testbench top. |
-| [src/chacha20poly1305_perf_tb.py](src/chacha20poly1305_perf_tb.py) | Native performance testbench top. |
-| [src/poly1305_pipelined_syn_tb.py](src/poly1305_pipelined_syn_tb.py), [src/poly1305_paired_tb.py](src/poly1305_paired_tb.py) | Component testbenches. |
-| [src/native_arithmetic_models.py](src/native_arithmetic_models.py) | Stateless arithmetic models used by native performance simulation. |
+| [src/poly1305/mac_components_tb.py](src/poly1305/mac_components_tb.py), [src/poly1305/paired_path_tb.py](src/poly1305/paired_path_tb.py) | Poly1305 component and paired-path testbenches. |
 | `generated-files/` | Ignored local build outputs, synthesis cache, and measurements. |
 
 ## Setup and options
@@ -111,13 +108,13 @@ corresponding direct PypelineC `-D` parameter; use named flags in the scripts.
 | Option | PypelineC parameter | Values and default |
 | --- | --- | --- |
 | No design flag; `--enc`, `--dec` (`build.py` only) | `DESIGN` | `shared` (default combined top), `encrypt`, `decrypt`. Standalone directions cannot take sharing flags. |
-| `--shared`, `--share-chacha20`, `--share-poly1305`, `--share-none` | `SHARE` | `auto` (default: ChaCha20 only), `both`, `chacha20`, `poly1305`, `none`. `--shared` explicitly shares both services; the two resource flags together do the same. An explicit selection replaces the default set. `--share-none` excludes other sharing flags. |
+| `--shared`, `--share-chacha20`, `--share-poly1305`, `--share-none` | `SHARE` | `auto` (default: ChaCha20 only), `both`, `chacha20`, `poly1305`, `none`. `--shared` explicitly shares both resources; the two resource flags together do the same. An explicit selection replaces the default set. `--share-none` excludes other sharing flags. |
 | `--poly1305` | `POLY1305_IMPL` | `pipelined` (default), `legacy`. Legacy requires 128 bits and inferred multiplication, defaults to ChaCha20 sharing, and cannot share Poly1305. |
 | `--data-bitwidth` | `DATA_BITWIDTH` | `256` (default), `128`; selects packet data and byte-enable widths. Legacy defaults to `128`. |
 | `--poly1305-mult` | `POLY1305_MULT_IMPL` | `inferred_body` (default: inferred feedback product, Karatsuba elsewhere), `inferred` (wide products), `hybrid` (Karatsuba), `hybrid_square` (Karatsuba plus explicit squares). Legacy defaults to `inferred`. |
-| `--poly1305-compute` | `POLY1305_COMPUTE_IMPL` | `fsm` (default), `mcp`; selects pipelined setup/finalization. MCP automatically shares both services unless sharing is explicitly selected. |
-| `--poly1305-prologue-cap`, `--poly1305-epilogue-cap` | `POLY1305_PROLOGUE_MAX_LATENCY`, `POLY1305_EPILOGUE_MAX_LATENCY` | Positive FSM latency caps; defaults `44` / `45` at 256 bits, `64` / `64` at 128 bits. |
-| `--target-mhz` | `TARGET_MHZ` | Positive integer MHz. Default `80` for 256-bit `inferred_body` and legacy; other profiles default to `85` when sharing both services, otherwise `30`. |
+| `--poly1305-compute` | `POLY1305_COMPUTE_IMPL` | `fsm` (default), `mcp`; selects pipelined initialization/finalization ([architecture comparison](src/poly1305/poly1305_design.md#auto_fsm-versus-auto_mcp)). MCP automatically shares both resources unless sharing is explicitly selected. |
+| `--poly1305-prologue-cap`, `--poly1305-epilogue-cap` | `POLY1305_PROLOGUE_MAX_LATENCY`, `POLY1305_EPILOGUE_MAX_LATENCY` | Initialization/finalization FSM latency caps; defaults `44` / `45` at 256 bits, `64` / `64` at 128 bits. |
+| `--target-mhz` | `TARGET_MHZ` | Positive integer MHz. Default `80` for 256-bit `inferred_body` and legacy; other profiles default to `85` when sharing both resources, otherwise `30`. |
 
 Thanks to **FPGA-House-AG** for the
 [Karatsuba DSP multiplier reference](https://github.com/FPGA-House-AG/ChaCha20Poly1305/blob/7e75c097af32429ff2c7979b976fe876efbdb9f3/src_dsp_opt/mul_136_kar.vhd)
@@ -133,7 +130,7 @@ that inspired the multiplication choices.
 | `--comb` | Simulate without automatic pipeline delays; also available in `measure.py` for a rig check without timing/area. |
 | `--syn_tb` | Select fixed vectors; default correctness simulation uses random vectors and requires `--native`. |
 | `-D NAME=VALUE` | Pass non-profile testbench parameters, such as `TB_STRESS=1`; profile parameters use the named flags above. |
-| `--perf` | Run the combined performance testbench; implies `--sim --native`. Prefer `measure.py` for reports. |
+| `--perf` | Set `PERF=1` on the native testbench; implies `--sim --native` and requires the combined design. Prefer `measure.py` for reports. |
 | `--verilog` | Export the hardware top to Verilog; cannot combine with simulation. |
 | `-j N`, `--jobs N` | Limit concurrent synthesis jobs; positive integer, available in both scripts. |
 | `--continue` | Preserve the build output directory; required to reuse a nonempty custom directory. |
@@ -160,6 +157,7 @@ when its sources, compiler, and settings match; changed inputs may need a build.
 | `--steady-trim N` | Exclude N warm-up and N drain packets from completion-rate measurement; default no trimming. |
 | `--require-parity` | Check the 1420/1920-byte throughput goal, direction parity, and interval stability; needs at least four packets per size and a pipelined run. |
 | `--reuse-syn` | Skip the hardware build step; requires matching, current hardware artifacts. Mutually exclusive with `--rebuild`. |
+| `--bottleneck-report RESULTS_JSON` | Print block analysis of a saved record without building, simulating, or changing it. |
 | `--parse-only` | Regenerate reports from the selected run's existing outputs without building or simulating. |
 | `--update-readme` | Publish a validated result matching the default profile into this README. |
 | `--save-evidence` | Package build evidence with the local measurement. |
@@ -167,7 +165,7 @@ when its sources, compiler, and settings match; changed inputs may need a build.
 | `--area-report LOG_OR_DIR` | Print utilization; `--per-module` adds module reports and `--json` selects JSON. |
 | `--no-per-module-area` | Skip per-module area parsing during measurement. |
 | `--audit-mcps DIR` | Inspect emitted MCP arithmetic; `--audit-directions` selects `encrypt`, `decrypt`, or `encrypt,decrypt` (default). |
-| `--selftest` | Check measurement/report tooling without synthesis; also supported by `bottleneck.py`. |
+| `--selftest` | Check measurement/report tooling without synthesis; includes block analysis and saved-report checks. |
 
 Use `./build.py --help` and `./measure.py --help` for the full CLI reference.
 
@@ -191,8 +189,14 @@ Build the default hardware with `./build.py` before pipelined native simulation.
 A missing or stale build is rejected. Add `-D TB_STRESS=1` to the native random
 pipelined command to exercise backpressure with the built schedules.
 
-Random/stress testbenches are native-only. Fixed-vector testbenches support
-both simulators; adding `--comb` to their generated-VHDL command skips automatic
+The native testbench defaults to random/stress checks (`PERF=0`). Its performance
+mode (`PERF=1`, selected by `--perf`) uses coordinated packet-size phases,
+continuous input, and always-ready outputs, while still checking every packet.
+[perf_tb_common.py](src/chacha20poly1305/perf_tb_common.py) handles phase
+coordination and recording.
+
+Fixed-vector testbenches support both simulators; adding `--comb` to their
+generated-VHDL command skips automatic
 pipelining. Native checks are the ordinary development workflow.
 
 ## Measuring QoR
@@ -226,19 +230,25 @@ Changing payload sizes, packet counts, or seeds only requires simulation.
 | Packet period | Mean cycles between packet completions. |
 | Cold first output | Cycles from the first packet's input start to its first output. |
 | Median total latency | Median cycles from each packet's input start to its final output. |
-| Block stalls and service | Internal handshake, FSM, buffer, and arbitration measurements used to locate bottlenecks. |
+| Block rates and stalls | Internal handshake, FSM, buffer, and arbitration measurements used to locate bottlenecks. |
 
 ### Finding a bottleneck
 
 ```bash
 ./measure.py --label bottleneck-check --sizes 1920 --packets 4 --dirs both --taps all
-./bottleneck.py generated-files/measurements/bottleneck-check/results.json
 ```
 
-Read `summary.md` for packet goodput and periods, then `blocks.md` for block
-service rates, input starvation, downstream stalls, buffer occupancy, and
+Normal measurement writes the bottleneck analysis to `blocks.md`. To print it
+again from a saved record:
+
+```bash
+./measure.py --bottleneck-report generated-files/measurements/bottleneck-check/results.json
+```
+
+Read `summary.md` for payload throughput and periods, then `blocks.md` for block
+processing rates, input starvation, downstream stalls, buffer occupancy, and
 shared-resource arbitration. Use the Poly1305 lifecycle breakdown to separate
-setup, body, drain, and finalization costs. Check the ChaCha20-to-Poly1305 key
+initialization, body, drain, and finalization costs. Check the ChaCha20-to-Poly1305 key
 handoff as well as payload edges when investigating packet-boundary stalls.
 Use pipelined simulation for performance conclusions; combinational checks
 omit the hardware's pipeline delays.
@@ -250,7 +260,7 @@ Outputs live under `generated-files/measurements/<label>/` and are ignored by Gi
 | File | Contents |
 | --- | --- |
 | `summary.md`, `summary.csv` | Detailed throughput and latency by payload size/direction. |
-| `blocks.md`, `blocks.csv` | Block-level service, stalls, and bottleneck analysis. |
+| `blocks.md`, `blocks.csv` | Block throughput, stalls, and bottleneck analysis. |
 | `results.json` | Complete configuration, provenance, timing, area, and validation record. |
 | `taps.csv`, `perf_raw.json` | Internal counters and raw simulation results. |
 | `pypelinec.log` | Build/simulation progress and diagnostics. |
@@ -303,8 +313,8 @@ To refresh this table from a validated default-profile run:
 ```
 
 Publication rejects unvalidated or non-default measurements. Keep full evidence
-locally; [Poly1305 component notes](src/poly1305/throughput.md) hold design
-rationale and historical measurements.
+locally; [Poly1305 component notes](src/poly1305/poly1305_design.md) explain the
+architecture and throughput tradeoffs.
 
 ## Building VHDL and Verilog
 
@@ -332,12 +342,13 @@ GHDL and Yosys and retains the hardware top name.
 ## Comparison with the earlier PipelineC design
 
 The [earlier PipelineC sources](../pipelinec_build/src/) implement the same
-AEAD operation. This Pypeline design corrects their Poly1305 arithmetic and
-ciphertext-length handling, so reference tags and output lengths can differ.
+AEAD operation. See the Poly1305 notes for the
+[legacy architecture](src/poly1305/poly1305_design.md#legacy-architecture) and
+[arithmetic and framing corrections](src/poly1305/poly1305_design.md#corrections-from-the-earlier-pipelinec-implementation).
 
 Pypeline uses function calls to instantiate hardware and interfaces to connect
 forward data and reverse handshakes. Per-instance C macros become ordinary
-function instances; external hardware ports are kept separate from testbenches.
+function definitions; external hardware ports are kept separate from testbenches.
 
 ## Appendix: baseline results
 

@@ -1,34 +1,16 @@
-"""Shared test vectors for the encrypt/decrypt testbenches (plain Python data,
-no hardware). KEY/NONCE/AAD match
-../pipelinec_build/src/chacha20poly1305/{encrypt_tb.c,decrypt_tb.c}; the
-expected ciphertext and auth tag for each plaintext are generated on the fly
-by aead_ref_model.py (RFC 8439 via the `cryptography` package) instead of
-being hardcoded, so adding/removing a test string is the only edit ever
-needed here.
+"""Fixed plaintexts, reference vectors and frame packing for the testbenches.
+
+Reference ciphertext and tags are generated at import by aead_ref_model.py.
+tb_constants.py also supplies the native random and performance testbenches.
 """
 
 from aead_ref_model import generate_encrypt_vector
-
-# Test vectors
-KEY = list(range(0x80, 0xA0))  # 0x80, 0x81, ... 0x9f
-
-NONCE = [0x07, 0x00, 0x00, 0x00, 0x40, 0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0x47]
-
-AAD_TEST_STR = "Additional authenticated data"
-AAD_MAX_LEN = 32
-AAD_LEN = len(AAD_TEST_STR)  # 29
-AAD = list(AAD_TEST_STR.encode()) + [0] * (AAD_MAX_LEN - AAD_LEN)
+from tb_constants import AAD, AAD_LEN, AAD_MAX_LEN, AAD_TEST_STR, KEY, NONCE
 
 PLAINTEXT_TEST_STR_MAX_SIZE = 128
-# Lengths deliberately cover the partial-final-word and block corner cases:
-# shorter than one 16-byte AXIS word (3), exactly one word (16), one word
-# plus one byte (17), mid-word endings (56, 71, 58), exactly one 64-byte
-# ChaCha20 block (64), and the 128-byte max (a multiple of both 16 and 64).
-# 15 and 79 additionally pin r=15 (the packed ct||tag framing's maximal-
-# rotation case: only 1 tag byte merged into the ciphertext's final beat, 15
-# in the true final tag-only beat -- see issue #44 / README's "Xilinx-style
-# tkeep" section), the first within a single beat, the second spanning past a
-# 64-byte ChaCha20 block boundary.
+# Cover partial/full 16-byte Poly1305 words, 64-byte ChaCha20 blocks and the
+# maximum fixed-vector length. On the 128-bit interface, the 15- and 79-byte
+# cases leave room for only one tag byte in the final ciphertext beat.
 PLAINTEXT_TEST_STRS = [
     "Hello CHILIChips - Wireguard team, let's test this aead!",
     "PipelineC is the best HDL around :) Let's go CHILIChips Wireguard team!",
@@ -51,13 +33,8 @@ PLAINTEXTS = [
     for s in PLAINTEXT_TEST_STRS
 ]
 
-# Expected DUT output, generated on the fly per RFC 8439 (see
-# aead_ref_model.py): the ciphertext is exactly as long as the plaintext, and
-# the auth tag is packed contiguously right after it (Xilinx-style AXIS
-# framing, issue #44) -- the DUT's actual keep/eod split of that packed
-# ct||tag frame across beats is exercised by encrypt_syn_tb.py/
-# decrypt_syn_tb.py, not represented here (see their own
-# EXPECTED_OUT_FRAMES/INPUT_FRAMES construction).
+# Reference ciphertext has the same length as plaintext. The fixed-vector
+# testbenches use pack_ciphertext_frames() to append tags without padding gaps.
 POLY1305_AUTH_TAG_SIZE = 16
 CIPHERTEXT_MAX_SIZE = PLAINTEXT_TEST_STR_MAX_SIZE
 
@@ -73,8 +50,17 @@ EXPECTED_CIPHERTEXTS = [
 ]
 EXPECTED_TAGS = [list(tag) for _, tag in _GENERATED]
 
-# Decrypt-side negative test vector: test string 0's ciphertext with a
-# corrupted (bit-flipped) tag. The DUT must still emit the plaintext but with
-# is_verified_out low (decrypt_tb.py replays this as an extra final packet).
+# decrypt_syn_tb.py replays test 0 with this tag, expecting a false verdict.
 TAMPERED_TAG = list(EXPECTED_TAGS[0])
 TAMPERED_TAG[0] ^= 0x01
+
+
+def pack_ciphertext_frames(ciphertexts, tags, ciphertext_lens, max_size):
+    """Return padded ciphertext/tag arrays and their unpadded byte lengths."""
+    frames = []
+    lengths = []
+    for ciphertext, tag, ciphertext_len in zip(ciphertexts, tags, ciphertext_lens):
+        length = ciphertext_len + len(tag)
+        frames.append(ciphertext[:ciphertext_len] + tag + [0] * (max_size - length))
+        lengths.append(length)
+    return frames, lengths
