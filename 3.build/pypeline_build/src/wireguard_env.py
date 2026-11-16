@@ -340,6 +340,9 @@ def sharing_out_dir(base, sharing):
 GENERATED_FILES = "generated-files"
 # The synthesis store every build shares (pypelinec --syn_cache), relative to this tree
 SYN_CACHE_DIR = os.path.join(GENERATED_FILES, "syn_cache")
+# Tracked starting depths per profile: <hardware out_dir name>.json, a copy of
+# that build's latency_profile.json (build.py --latency-hints)
+LATENCY_HINTS_DIR = "latency_hints"
 
 
 def profile_out_dir(kind, implementation, sharing, multiplier, compute, target_mhz,

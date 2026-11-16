@@ -1,0 +1,71 @@
+{
+ "entries": [
+  {
+   "achieved_mhz": 95.694,
+   "constraint": "unconstrained",
+   "goal_mhz": 80.0,
+   "key": "chacha20_shared",
+   "kind": "AUTO_PIPELINE",
+   "latency": 19,
+   "mains": [
+    "chacha20_pipeline_shared"
+   ],
+   "name": "chacha20_shared",
+   "seed": null,
+   "shape": "d5d84865e72c33b6421e9095ba96d921baf3f23fb1219069c70cd6aae4d74a76",
+   "verified": true
+  },
+  {
+   "achieved_mhz": 81.566,
+   "constraint": "unconstrained",
+   "goal_mhz": 80.0,
+   "key": "poly1305_pair_accumulate",
+   "kind": "AUTO_PIPELINE",
+   "latency": 3,
+   "mains": [
+    "decrypt_dataflow",
+    "encrypt_dataflow"
+   ],
+   "name": "poly1305_pair_accumulate",
+   "seed": null,
+   "shape": "ec55d7f60ab486b6188b13646b7103a29b54939e3830bf252c2125599c767516",
+   "verified": true
+  },
+  {
+   "achieved_mhz": 81.566,
+   "constraint": "unconstrained",
+   "goal_mhz": 80.0,
+   "key": "poly1305_pair_coefficient",
+   "kind": "AUTO_PIPELINE",
+   "latency": 8,
+   "mains": [
+    "decrypt_dataflow",
+    "encrypt_dataflow"
+   ],
+   "name": "poly1305_pair_coefficient",
+   "seed": null,
+   "shape": "8507a419cc9af71e959030c189fcc8de16451d48045456b576408ec5fd0a17b4",
+   "verified": true
+  }
+ ],
+ "mains": {
+  "chacha20_pipeline_shared": {
+   "achieved_mhz": 95.694,
+   "goal_mhz": 80.0,
+   "met": true
+  },
+  "decrypt_dataflow": {
+   "achieved_mhz": 81.566,
+   "goal_mhz": 80.0,
+   "met": true
+  },
+  "encrypt_dataflow": {
+   "achieved_mhz": 81.566,
+   "goal_mhz": 80.0,
+   "met": true
+  }
+ },
+ "part": "xc7a200tffg1156-2",
+ "schema_version": 1,
+ "tool": "vivado"
+}

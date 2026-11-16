@@ -235,6 +235,7 @@ that inspired the multiplication choices.
 | `--rebuild` | Force a hardware build; available in both scripts. |
 | `--out-dir DIR` | Select a hardware output directory; pass the same directory to measurement or pipelined native simulation. Available in both scripts. |
 | `--syn-cache DIR` | Select the shared synthesis store; default `generated-files/syn_cache`, or `none` to disable. Available in both scripts. |
+| `--latency-hints FILE` | Starting pipeline depths for a hardware build (`pypelinec --latency_hints`), from an earlier build's `latency_profile.json`; repeatable. Default: the profile's tracked file in [latency_hints/](latency_hints/), named after its output directory; `none` skips it. `build.py` only. |
 
 PypelineC reuses unchanged builds automatically. Its latency memory and shared
 synthesis cache avoid repeating matching pipeline searches and syntheses.

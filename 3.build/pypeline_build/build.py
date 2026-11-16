@@ -25,7 +25,7 @@ from wireguard_env import (
     MULT_IMPLEMENTATIONS, DATA_BITWIDTHS, COMPUTE_IMPLEMENTATIONS,
     profile_from_args, profile_out_dir, hardware_out_dir, BUILT_HARDWARE_FILE,
     add_sharing_arguments, add_soc_argument, sharing_name, share_name_for,
-    SYN_CACHE_DIR,
+    SYN_CACHE_DIR, LATENCY_HINTS_DIR,
 )
 
 # Design parameters this script sets from its own flags (see src/wireguard_env.py)
@@ -83,6 +83,10 @@ def main():
                              "pypelinec reports such a build as up to date and does nothing")
     parser.add_argument("--out-dir", help="Separate output cache (must be empty unless --continue); "
                                           "a pipelined native simulation runs on the hardware built there")
+    parser.add_argument("--latency-hints", action="append", default=[], metavar="FILE|none",
+                        help="Starting pipeline depths for the hardware build: a latency_profile.json "
+                             "from an earlier build (pypelinec --latency_hints; repeatable). Default: "
+                             f"this profile's file in {LATENCY_HINTS_DIR}/ if there is one; 'none' skips it")
     parser.add_argument("--show-config", action="store_true", help="Print the resolved profile and cache paths without building")
     parser.add_argument("--syn-cache", default=None,
                         metavar="DIR|none",
@@ -175,6 +179,14 @@ def main():
             options.append("--verilog")
         if args.rebuild:
             options.append("--rebuild")
+        # Starting depths: the given files, else this profile's tracked one
+        hints = args.latency_hints
+        if not hints:
+            tracked = os.path.join(here, LATENCY_HINTS_DIR, os.path.basename(out_dir) + ".json")
+            hints = [tracked] if os.path.exists(tracked) else []
+        for hint in hints:
+            if hint != "none":
+                options.extend(["--latency_hints", os.path.abspath(hint)])
     if on_built_hardware and not os.path.exists(os.path.join(out_dir, BUILT_HARDWARE_FILE)):
         parser.error(f"{out_dir} holds no hardware build that met timing: build it first with "
                      "this profile's flags and no --sim")
