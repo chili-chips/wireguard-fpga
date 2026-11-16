@@ -143,3 +143,24 @@ is done.
   `make_pipelined_compute` and `make_shared_compute`. Share one copy of each.
 - **`tag_words = 2`** in `aead_types.py` holds only for 128- and 256-bit
   beats. Add an assert against `DATA_BITWIDTHS` so a new width fails loudly.
+
+### SoC integration
+
+- **The SoC still uses the old core:** `1.hw/ip.dpe/dpe_wg_encryptor.sv` and
+  `dpe_wg_decryptor.sv` instantiate the `pipelinec_build` core, which has the
+  known Poly1305 and ciphertext-length bugs. This core replaces it. The DPE
+  stream (`1.hw/ip.infra/dpe_if.sv`) is 128-bit (`tdata[127:0]`,
+  `tkeep[15:0]`), and the SoC clock is 80 MHz (`clk_80p0`).
+- **Size the core to the board:** the published default uses about 61% of the
+  xc7a200t's LUTs and 45% of its DSPs (81,489 LUT, 332 DSP48) and gives
+  19.2 Gb/s per direction. 4x 1GbE needs at most 4 Gb/s per direction, and the
+  MACs, CPU and DPE must fit too. Measure `--data-bitwidth 128` at 80 MHz as
+  the SoC profile.
+- **Failed authentication:** decrypt releases the plaintext of a failed packet
+  with `is_verified_out` low. The DPE must drop such packets, never forward
+  them.
+- **Routed timing:** the published 81.32 MHz is synthesis only (1.6% margin).
+  Check timing after place and route, in the SoC.
+- **Reproducibility:** name the tested PipelineC commit in the README (CI
+  pins `PIPELINEC_REF` in `.github/workflows/lint.yml`). Results from an
+  unpinned `master` may not reproduce.
