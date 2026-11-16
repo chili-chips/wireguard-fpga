@@ -220,7 +220,8 @@ is done.
   known Poly1305 and ciphertext-length bugs. This core replaces it. The DPE
   stream (`1.hw/ip.infra/dpe_if.sv`) is 128-bit (`tdata[127:0]`,
   `tkeep[15:0]`), and the SoC clock is 80 MHz (`clk_80p0`).
-- **Size the core to the board:** the published default uses about 61% of the
+- **Size the core to the board** ([#40](https://github.com/chili-chips/wireguard-fpga/issues/40)):
+  the published default uses about 61% of the
   xc7a200t's LUTs and 45% of its DSPs (81,489 LUT, 332 DSP48) and gives
   19.2 Gb/s per direction. 4x 1GbE needs at most 4 Gb/s per direction, and the
   MACs, CPU and DPE must fit too. Measure `--data-bitwidth 128` at 80 MHz as
