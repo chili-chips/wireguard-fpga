@@ -339,6 +339,14 @@ Pypeline uses function calls to instantiate hardware and interfaces to connect
 forward data and reverse handshakes. Per-instance C macros become ordinary
 function instances; external hardware ports are kept separate from testbenches.
 
+## Issues filed upstream
+
+Issues filed upstream from this design, open and closed.
+
+| Tool | Issue | What | Workaround | State |
+| --- | --- | --- | --- | --- |
+| PipelineC | [PipelineC#394](https://github.com/JulianKemmerer/PipelineC/issues/394) ([#35](https://github.com/chili-chips/wireguard-fpga/issues/35)) | `stream_perf.py` imports `statistics`; its untyped `LinearRegression` namedtuple becomes an empty VHDL record. Vivado 2026.1 and GHDL reject it; Vivado 2019.2 accepts it. | Move `import statistics` into `_median()` in PipelineC's `include/pypeline/stream/stream_perf.py`. | open |
+
 ## Appendix: baseline results
 
 The recorded starting point used a 128-bit datapath, legacy Poly1305 with a
