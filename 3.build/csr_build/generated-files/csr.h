@@ -12,12 +12,12 @@ extern "C" {
 
 // mem - wireguard::imem
 typedef struct __attribute__ ((__packed__)) {
-    uint32_t mem[8192];
+    uint32_t mem[16384];
 } wireguard__imem_t;
 
 // mem - wireguard::dmem
 typedef struct __attribute__ ((__packed__)) {
-    uint32_t mem[8192];
+    uint32_t mem[16384];
 } wireguard__dmem_t;
 
 // reg - csr::cpu_fifo::rx::data_31_0
@@ -950,9 +950,9 @@ typedef struct __attribute__ ((__packed__)) {
 // addrmap - wireguard
 typedef struct __attribute__ ((__packed__)) {
     wireguard__imem_t imem;
-    uint8_t RESERVED_8000_fffffff[0xfff8000];
+    uint8_t RESERVED_10000_fffffff[0xfff0000];
     wireguard__dmem_t dmem;
-    uint8_t RESERVED_10008000_1fffffff[0xfff8000];
+    uint8_t RESERVED_10010000_1fffffff[0xfff0000];
     csr_t csr;
 } wireguard_t;
 

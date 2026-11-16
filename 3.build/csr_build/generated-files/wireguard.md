@@ -21,7 +21,7 @@ Don't override. Generated from: wireguard
 
 - Absolute Address: 0x0
 - Base Offset: 0x0
-- Size: 0x8000
+- Size: 0x10000
 
 <p>CPU Program Memory</p>
 
@@ -32,7 +32,7 @@ No supported members.
 
 - Absolute Address: 0x10000000
 - Base Offset: 0x10000000
-- Size: 0x8000
+- Size: 0x10000
 
 <p>CPU Data Memory</p>
 
