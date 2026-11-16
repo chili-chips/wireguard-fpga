@@ -11,9 +11,8 @@ using **Pypeline HDL** to generate FPGA hardware and run native simulation.
 The default targets Artix-7 at **80 MHz**, with a **256-bit packet
 datapath**, one shared ChaCha20 pipeline, and a private pipelined Poly1305 MAC
 per direction. Poly1305 processes two 16-byte blocks per beat using
-[paired, interleaved accumulators](src/poly1305/poly1305_design.md#breaking-the-serial-chain),
-`inferred_body` multiplication, and
-[AUTO_FSM initialization/finalization](src/poly1305/poly1305_design.md#auto_fsm-versus-auto_mcp).
+[paired, interleaved accumulators](src/poly1305/poly1305_design.md#breaking-the-serial-chain), and experimental Pypeline HDL
+[AUTO_FSM based initialization/finalization state machines](src/poly1305/poly1305_design.md#auto_fsm-versus-auto_mcp).
 
 Packet streams use valid/ready handshakes, 32 byte-enable bits, and a last-beat
 flag. Encryption appends a 16-byte authentication tag; decryption buffers

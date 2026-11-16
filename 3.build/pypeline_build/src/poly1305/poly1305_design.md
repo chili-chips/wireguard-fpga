@@ -3,6 +3,9 @@
 The current default accepts up to two 16-byte authentication blocks per clock on a
 256-bit stream. Each direction has its own pipelined MAC, with interleaved
 accumulators, two packet contexts, and private AUTO_FSM initialization/finalization.
+The initialization/finalization [AUTO implementations](#auto_fsm-versus-auto_mcp)
+use experimental PypelineC features and serve mainly as placeholders for future
+hand-designed units.
 The `inferred_body` arithmetic selection uses an inferred feedback multiplier
 and Karatsuba elsewhere.
 
@@ -796,9 +799,14 @@ went from about 2.5 to 30 payload bytes per clock.
 
 [poly1305_compute.py](poly1305_compute.py) applies this choice only to initialization
 and finalization; the body remains automatically pipelined in both modes.
-**AUTO_FSM is experimental**, used here as a short-term alternative to writing
-resource-sharing arithmetic FSMs by hand. AUTO_MCP here refers to PypelineC's
-automatic multi-cycle-path mode (`AUTO_MULTI_CYCLE`).
+**AUTO_FSM and AUTO_MCP are experimental PypelineC features.** AUTO_MCP here
+refers to the automatic multi-cycle-path mode (`AUTO_MULTI_CYCLE`). These AUTO
+implementations of initialization (`init`) and finalization (`finish`) serve
+mainly as placeholders so the pipelined body and full packet flow can be developed
+and measured. Future work is to replace them with better hand-designed init and
+finalize units, with arithmetic sharing and scheduling tailored to these kernels.
+The latency and resource tradeoffs below describe the current placeholders;
+they are not intended as the final design for these stages.
 
 | | AUTO_FSM (default) | AUTO_MCP |
 | --- | --- | --- |
