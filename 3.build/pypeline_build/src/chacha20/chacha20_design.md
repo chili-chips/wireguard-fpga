@@ -12,7 +12,7 @@ per-packet key for the [Poly1305 MAC](../poly1305/poly1305_design.md). The
 README also covers [configuration](../../README.md#design-parameters) and
 [current measurements](../../README.md#current-results).
 
-The diagrams below are the build's `diagram.html` views of the code, one per
+The diagrams below are the build's [`diagram.html`](../../0.doc/diagram.html) views of the code, one per
 function, read as the README's [data flow](../../README.md#data-flow) section
 describes: each wire is named by the variable that carries it, ready signals
 are not drawn, and a dashed edge passes through a `Feedback` variable. A

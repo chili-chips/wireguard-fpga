@@ -29,7 +29,7 @@ through one 20-block packet using the default build's real constants: 5
 accumulator lanes, a 10-clock coefficient pipeline and a 5-clock feedback
 pipeline, as the measurement summary reports them (`accumulators=5`,
 `coefficient response=10 cycles`, `feedback response=5 cycles`). These
-diagrams are drawn by hand from the math. The generated `diagram.html` views
+diagrams are drawn by hand from the math. The generated [`diagram.html`](../../0.doc/diagram.html) views
 start at [current design](#current-design).
 
 Notation: `c0 … c19` are the packet's 16-byte authentication blocks, each read
@@ -285,7 +285,7 @@ Initialization clamps the packet key's `r` and performs **key precomputation**
 is a separate step. Finalization reduces the completed lanes,
 accounts for an unmatched block, and adds `s` to form the tag.
 
-The diagrams below are the build's `diagram.html` views of
+The diagrams below are the build's [`diagram.html`](../../0.doc/diagram.html) views of
 [poly1305_mac_paired.py](poly1305_mac_paired.py), read as the README's
 [data flow](../../README.md#data-flow) section describes: each wire is named by
 the variable that carries it, ready signals are not drawn, and a dashed edge

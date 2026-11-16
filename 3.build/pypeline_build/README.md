@@ -26,7 +26,7 @@ Its [published results](#current-results) appear below.
 ## Data flow
 
 Each diagram below is one level of the design's hierarchy, as the build's
-`diagram.html` draws it ([Building VHDL and Verilog](#building-vhdl-and-verilog)):
+[`diagram.html`](0.doc/diagram.html) draws it ([Building VHDL and Verilog](#building-vhdl-and-verilog)):
 the forward data between the blocks a function calls, each wire named as the
 code names it. Stream ready signals travel in reverse and are not drawn, nor
 are the key, nonce and AAD sideband inputs; operators and registers form logic
@@ -428,7 +428,8 @@ Build the default hardware and inspect its output location:
 
 PypelineC writes the generated VHDL and its `vhdl_files.txt` source list under
 the reported output directory, with `diagram.html`, a page to browse the
-design's hierarchy in (the [data flow](#data-flow) diagrams come from it). The
+design's hierarchy in (the [data flow](#data-flow) diagrams come from it; a
+copy is kept at [`0.doc/diagram.html`](0.doc/diagram.html)). The
 default top is `chacha20poly1305_encrypt_decrypt_shared`.
 
 For final Verilog export, first run the fixed-vector generated-HDL check:
