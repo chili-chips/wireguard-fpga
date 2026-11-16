@@ -1,0 +1,55 @@
+{
+ "entries": [
+  {
+   "achieved_mhz": 95.694,
+   "constraint": "unconstrained",
+   "goal_mhz": 80.0,
+   "key": "chacha20_shared",
+   "kind": "AUTO_PIPELINE",
+   "latency": 19,
+   "mains": [
+    "chacha20_pipeline_shared"
+   ],
+   "name": "chacha20_shared",
+   "seed": null,
+   "shape": "d5d84865e72c33b6421e9095ba96d921baf3f23fb1219069c70cd6aae4d74a76",
+   "verified": true
+  },
+  {
+   "achieved_mhz": 81.813,
+   "constraint": "unconstrained",
+   "goal_mhz": 80.0,
+   "key": "poly1305_body",
+   "kind": "AUTO_PIPELINE",
+   "latency": 4,
+   "mains": [
+    "decrypt_dataflow",
+    "encrypt_dataflow"
+   ],
+   "name": "poly1305_body",
+   "seed": null,
+   "shape": "9733c41c199e70dea8520f9f1528ead0ea1be396544d9154331d570070b8fa7a",
+   "verified": true
+  }
+ ],
+ "mains": {
+  "chacha20_pipeline_shared": {
+   "achieved_mhz": 95.694,
+   "goal_mhz": 80.0,
+   "met": true
+  },
+  "decrypt_dataflow": {
+   "achieved_mhz": 81.813,
+   "goal_mhz": 80.0,
+   "met": true
+  },
+  "encrypt_dataflow": {
+   "achieved_mhz": 81.813,
+   "goal_mhz": 80.0,
+   "met": true
+  }
+ },
+ "part": "xc7a200tffg1156-2",
+ "schema_version": 1,
+ "tool": "vivado"
+}

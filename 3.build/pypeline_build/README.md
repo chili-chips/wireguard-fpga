@@ -467,6 +467,60 @@ Issues filed upstream from this design, open and closed.
 | PipelineC | [PipelineC#396](https://github.com/JulianKemmerer/PipelineC/issues/396) ([#37](https://github.com/chili-chips/wireguard-fpga/issues/37)) | Feature: auto-pipeliner aware of DSP48 boundaries. The Poly1305 coefficient product `(c0·r + c1) mod p` infers 36 DSP48E1 but runs them combinationally. | None needed; 80 MHz is met by more stages. | open |
 | PipelineC | [PipelineC#397](https://github.com/JulianKemmerer/PipelineC/issues/397) ([#38](https://github.com/chili-chips/wireguard-fpga/issues/38)) | Feature: faster sweep. The default build takes 1 h 55 min on Vivado 2026.1, 54 min of it in 7 whole-design syntheses of all three MAINs. | Reuse the latency memory and `--syn-cache`, or pass a kept `latency_profile.json` as `--latency-hints`. | open |
 
+## Appendix: Vivado 2026.1 profile comparison
+
+The default 256-bit profile next to the 128-bit SoC profile (`--soc`), both
+built and measured with Vivado 2026.1 for `xc7a200tffg1156-2` at an 80 MHz
+goal. Sizing for the SoC is tracked in
+[#40](https://github.com/chili-chips/wireguard-fpga/issues/40).
+
+| | 256-bit (default) | 128-bit (`--soc`) |
+| --- | ---: | ---: |
+| **Throughput per direction, both directions running** | | |
+| 1920-byte packets | 19.20 / 19.10 Gb/s | 9.91 / 9.91 Gb/s |
+| 1420-byte packets | 18.42 / 18.18 Gb/s | 9.67 / 9.67 Gb/s |
+| 64-byte packets | 0.85 / 0.66 Gb/s | 0.82 / 0.81 Gb/s |
+| Packet period at 64 bytes, encrypt / decrypt | 48 / 62 clocks | 50 / 50.3 clocks |
+| **Resources** | | |
+| LUT | 82,944 (61.6%) | 63,574 (47.2%) |
+| FF | 67,171 (25.0%) | 55,982 (20.8%) |
+| DSP48E1 | 332 (44.9%) | 230 (31.1%) |
+| BRAM tiles | 26.5 (7.3%) | 18.5 (5.1%) |
+| **Fmax (synthesis, whole design)** | | |
+| Encrypt / decrypt | 81.57 MHz | 81.81 MHz |
+| ChaCha20 (shared) | 95.69 MHz | 95.69 MHz |
+| **Pipeline** | | |
+| ChaCha20 block | 19 stages | 19 stages |
+| Poly1305 feedback body | 3 stages, 5 lanes | 4 stages, 6 lanes |
+| Poly1305 coefficient | 8 stages | none (one block per clock) |
+| Poly1305 init / finalization response | 43 / 46 clocks | 47 / 36 clocks |
+| **Wall clock** | | |
+| Hardware build | 1 h 55 min, 7 sweep passes | 1 h 17 min, 3 sweep passes |
+| of which whole-design synthesis | 54 min (7 runs) | 25 min (4 runs) |
+| Throughput measurement (native sim) | 31.6 min | 31.6 min |
+
+Throughput is `encrypt / decrypt` at 80 MHz, from 4 back-to-back packets per
+size. The 256-bit build reused per-block results from two earlier attempts
+that stopped on PipelineC#394; the 128-bit build started from an empty store.
+
+**Critical paths** (Vivado post-synthesis, 12.5 ns budget):
+
+| Path | 256-bit | 128-bit |
+| --- | --- | --- |
+| Whole design, worst | 12.29 ns, slack +0.24 ns: Poly1305 init AUTO_FSM (decrypt); 27 levels (22 CARRY4, 1 DSP48) | 12.18 ns, slack +0.28 ns: Poly1305 feedback body; 71 levels (64 CARRY4) |
+| Poly1305 feedback body, `A·r^L + c mod p` | 12.18 ns at 3 stages; 71 levels (64 CARRY4); 64 DSP48 | 12.18 ns at 4 stages; same path |
+| Poly1305 coefficient, `(c0·r + c1) mod p` | 11.37 ns at 8 stages; 24 levels (19 CARRY4, 2 DSP48); 36 DSP48 | none |
+
+The feedback body's delay is the `uint260_mod_prime` reduction's carry chains,
+not its DSP48s. The coefficient product's DSP48s run without their internal
+registers ([#37](https://github.com/chili-chips/wireguard-fpga/issues/37)).
+Its delay fell with depth: 37.4 ns combinational, 16.7 ns at 4 stages,
+11.4 ns at 8.
+
+Sources: wireguard-fpga `27e74cd` (256-bit) and `7643c59` (128-bit), same
+design files; PipelineC `5b816e9d` with the PipelineC#394 workaround. Each
+profile's pipeline depths are kept in [latency_hints/](latency_hints/).
+
 ## Appendix: baseline results
 
 The recorded starting point used a 128-bit datapath, legacy Poly1305 with a
