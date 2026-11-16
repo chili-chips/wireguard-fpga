@@ -1,3 +1,8 @@
+# SPDX-FileCopyrightText: 2026 Julian Kemmerer
+# SPDX-FileCopyrightText: 2026 Chili.CHIPS
+#
+# SPDX-License-Identifier: BSD-3-Clause
+
 """Import only the selected MAC (-D POLY1305_IMPL); selection creates no hardware mux."""
 import wireguard_env  # noqa: F401
 

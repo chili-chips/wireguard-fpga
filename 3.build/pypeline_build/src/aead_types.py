@@ -1,3 +1,8 @@
+# SPDX-FileCopyrightText: 2026 Julian Kemmerer
+# SPDX-FileCopyrightText: 2026 Chili.CHIPS
+#
+# SPDX-License-Identifier: BSD-3-Clause
+
 # pyright: reportInvalidTypeForm=none
 """Shared AEAD types, latency-derived buffer sizes, and probed buffer factories."""
 import wireguard_env  # noqa: F401

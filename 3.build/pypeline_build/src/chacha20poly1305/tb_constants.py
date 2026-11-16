@@ -1,3 +1,8 @@
+# SPDX-FileCopyrightText: 2026 Julian Kemmerer
+# SPDX-FileCopyrightText: 2026 Chili.CHIPS
+#
+# SPDX-License-Identifier: BSD-3-Clause
+
 """Fixed key, nonce and AAD shared by all AEAD testbenches.
 
 Importing these constants does not generate reference packets or load PypelineC.

@@ -1,3 +1,8 @@
+# SPDX-FileCopyrightText: 2026 Julian Kemmerer
+# SPDX-FileCopyrightText: 2026 Chili.CHIPS
+#
+# SPDX-License-Identifier: BSD-3-Clause
+
 # pyright: reportInvalidTypeForm=none
 """Decrypt dataflow wiring and buffering around the selected crypto functions.
 

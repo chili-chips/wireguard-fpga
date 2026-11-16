@@ -1,3 +1,8 @@
+# SPDX-FileCopyrightText: 2026 Julian Kemmerer
+# SPDX-FileCopyrightText: 2026 Chili.CHIPS
+#
+# SPDX-License-Identifier: BSD-3-Clause
+
 """Shared build configuration and import setup for the Pypeline design.
 
 Import this first in every design file:

@@ -1,3 +1,8 @@
+# SPDX-FileCopyrightText: 2026 Julian Kemmerer
+# SPDX-FileCopyrightText: 2026 Chili.CHIPS
+#
+# SPDX-License-Identifier: BSD-3-Clause
+
 """Fixed plaintexts, reference vectors and frame packing for the testbenches.
 
 Reference ciphertext and tags are generated at import by aead_ref_model.py.

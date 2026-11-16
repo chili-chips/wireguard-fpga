@@ -1,3 +1,8 @@
+# SPDX-FileCopyrightText: 2026 Julian Kemmerer
+# SPDX-FileCopyrightText: 2026 Chili.CHIPS
+#
+# SPDX-License-Identifier: BSD-3-Clause
+
 # pyright: reportInvalidTypeForm=none
 """Buffer plaintext until its Poly1305 verdict arrives, then forward the packet
 with that verdict on is_verified_out, whether verification passed or failed.

@@ -1,3 +1,8 @@
+# SPDX-FileCopyrightText: 2026 Julian Kemmerer
+# SPDX-FileCopyrightText: 2026 Chili.CHIPS
+#
+# SPDX-License-Identifier: BSD-3-Clause
+
 # pyright: reportInvalidTypeForm=none
 """Native checks for the 256-bit paired MAC, formatter, and tag paths.
 

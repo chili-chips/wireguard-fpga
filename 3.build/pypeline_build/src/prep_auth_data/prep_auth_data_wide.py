@@ -1,3 +1,8 @@
+# SPDX-FileCopyrightText: 2026 Julian Kemmerer
+# SPDX-FileCopyrightText: 2026 Chili.CHIPS
+#
+# SPDX-License-Identifier: BSD-3-Clause
+
 # pyright: reportInvalidTypeForm=none
 """RFC 8439 framing in 16-byte blocks, packed two per packet beat."""
 import wireguard_env  # noqa: F401

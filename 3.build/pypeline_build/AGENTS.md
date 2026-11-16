@@ -5,6 +5,31 @@ for the current design, [source layout](README.md#source-layout), and
 [setup and options](README.md#setup-and-options). Link there instead of
 duplicating design descriptions, parameter tables, commands, or results here.
 
+## Licensing new files
+
+Create new source, script, configuration, and documentation files with
+SPDX copyright and license notices at the top, except for Markdown (`.md`),
+`.drawio` files, HTML diagrams, and plain-text README files. Copy this subtree's existing BSD-3-Clause
+attribution, also recorded in the root `REUSE.toml`:
+
+```python
+# SPDX-FileCopyrightText: 2026 Julian Kemmerer
+# SPDX-FileCopyrightText: 2026 Chili.CHIPS
+#
+# SPDX-License-Identifier: BSD-3-Clause
+```
+
+Use the appropriate year for future contributions. Preserve existing and
+third-party notices. Use the file format's comment syntax (`#` for Python and
+`.gitignore`), keeping shebangs and format declarations first.
+Do not add license headers to Markdown, `.drawio` files, HTML diagrams, or plain-text README files;
+the existing `REUSE.toml` annotation covers them. Binary assets are also covered by
+`REUSE.toml` and do not need `.license` sidecars. For assets or formats that
+cannot carry comments and need different attribution or licensing, preserve
+that information in a specific `REUSE.toml` annotation or a `.license` sidecar.
+Include headers when creating source and other commentable text files, with
+the exceptions above, even though `REUSE.toml` also covers this directory.
+
 ## Editing the design
 
 - Keep changes in this subproject unless the task requires otherwise. Do not
