@@ -19,7 +19,8 @@ The CSR RTL and the firmware's register header come from one SystemRDL file, `cs
   * `csr_pkg.sv`    : its structured RTL interface
   * `csr.h`         : the register layout, `peakrdl c-header` output
   * `csr_top.h`     : `CSR_TOP_T`, the address map's struct in `csr.h`
-  * `html/`, `wireguard.md` : the register map
+  * `wireguard.md`  : the register map
+  * `html/`         : the same map as HTML pages, generated but not tracked
 
 The firmware includes [`csr_regs.h`](csr_build/csr_regs.h), next to `csr.rdl` and the same file in openPCIE and openCologne-PCIE. It takes every address, the CSR base included, from `csr.h` and has four accessors:
 

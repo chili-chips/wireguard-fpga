@@ -37,7 +37,7 @@ $(PKRDLHTML): $(RDLSRC)
 $(PKRDLMD): $(RDLSRC)
 	@peakrdl markdown $^ -o $@ --top $(RDLWGTOP)
 
-# clean keeps the generated files: they are checked in, so builds need no
+# clean keeps the generated files: they are checked in (except html/), so builds need no
 # peakrdl. clean-all deletes them too; make -f MakefileCSR writes them again.
 clean:
 
