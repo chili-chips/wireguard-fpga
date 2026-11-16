@@ -44,8 +44,10 @@ PIPELINEC_REPO = (
     else DEFAULT_PIPELINEC_REPO
 )
 _PYPELINE_INCLUDE = os.path.join(PIPELINEC_REPO, "include", "pypeline")
-if _PYPELINE_INCLUDE not in sys.path:
-    sys.path.insert(0, _PYPELINE_INCLUDE)
+# The stream package imports the pypeline module (PipelineC src/) since 973a2cbf
+for _path in (os.path.join(PIPELINEC_REPO, "src"), _PYPELINE_INCLUDE):
+    if _path not in sys.path:
+        sys.path.insert(0, _path)
 
 from stream import stream_bottleneck as lib  # noqa: E402
 from stream.stream_bottleneck import (  # noqa: E402
@@ -1261,7 +1263,9 @@ def parse_utilization(text):
         out.setdefault(key, value)
         avail_key = _AVAIL_KEYS.get(key)
         if avail_key and len(cells) >= 5:
-            avail, pct = _num(cells[3]), _num(cells[4])
+            # Available and Util% are the last two columns; newer Vivado
+            # (e.g. 2026.1) inserts a Prohibited column before them
+            avail, pct = _num(cells[-2]), _num(cells[-1])
             if avail is not None:
                 out["available"].setdefault(avail_key, avail)
             if pct is not None:
