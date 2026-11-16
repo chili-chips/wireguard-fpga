@@ -1,10 +1,10 @@
 # pyright: reportInvalidTypeForm=none
-"""Two blocks per clock: coefficient preprocessing followed by interleaved feedback.
+"""256-bit MAC: paired coefficients followed by interleaved accumulator feedback.
 
-Ownership spans both free-running pipelines. Only feedback latency determines
-the lane count; accumulator reads occur after coefficient preprocessing.
+Each pair passes through both free-running pipelines. Only feedback latency
+sets the lane count; accumulator reads follow coefficient processing.
+See poly1305_design.md for the pipeline and packet-bank architecture.
 """
-import functools
 import wireguard_env  # noqa: F401
 
 from enum import auto
@@ -13,7 +13,7 @@ from pypeline import (
     uint1_t, uint8_t, make_uint_t, uint_to_array_le, array_to_uint_le, sim_assert,
 )
 from stream.stream import make_stream_t, make_stream_interface
-from poly1305_service import make_compute_service
+from poly1305_compute import make_compute_unit
 from aead_types import (
     aead_axis_intrf, poly1305_key_stream_intrf, poly1305_auth_tag_stream_intrf,
 )
@@ -43,15 +43,6 @@ def poly1305_pair_accumulate(x: body_in_stream_t) -> body_out_stream_t:
     return o
 
 
-# Keep the arithmetic body inside its latency region so the sweep can
-# attribute its critical paths and mini-sweep it. Region roots are not
-# mini-swept. Both directions instantiate this one wrapper in one named
-# latency group, so they get the same depth. It captures no lane count.
-@hw_func
-def poly1305_pair_accumulate_region(x: body_in_stream_t) -> body_out_stream_t:
-    return poly1305_pair_accumulate(x)
-
-
 @struct
 class coefficient_in_t(NamedTuple):
     r: uint130_t
@@ -78,21 +69,13 @@ def poly1305_pair_coefficient(x: coefficient_in_stream_t) -> body_out_stream_t:
     return o
 
 
-# The coefficient region's wrapper, for the same reasons as the body's.
-@hw_func
-def poly1305_pair_coefficient_region(x: coefficient_in_stream_t) -> body_out_stream_t:
-    return poly1305_pair_coefficient(x)
-
-
-@functools.lru_cache(maxsize=None)
 def get_coefficient_auto_pipeline(coefficient_latency=None):
-    """One named latency group for both directions' coefficient pipelines."""
-    name = "poly1305_pair_coefficient"
-    if coefficient_latency is not None:
-        return AUTO_PIPELINE(
-            poly1305_pair_coefficient_region, latency=coefficient_latency, name=name
-        )
-    return AUTO_PIPELINE(poly1305_pair_coefficient_region, name=name)
+    """Match coefficient depth across directions; fixed depth is for tests."""
+    return AUTO_PIPELINE(
+        poly1305_pair_coefficient,
+        latency=coefficient_latency, name="poly1305_pair_coefficient",
+    )
+
 
 # Architectural storage/phase boundaries, also consumed by FIFO sizing.
 PACKET_CONTEXTS = 2
@@ -105,10 +88,10 @@ TAG_REGISTER_CYCLES = 1
 
 
 @enum
-class prologue_state_t:
+class init_state_t:
     IDLE = auto()
-    PROLOGUE_LAUNCH = auto()
-    PROLOGUE_WAIT = auto()
+    INIT_LAUNCH = auto()
+    INIT_WAIT = auto()
     OUTPUT_DESCRIPTOR = auto()
 
 
@@ -121,15 +104,16 @@ class bank_state_t:
 
 
 @enum
-class epilogue_state_t:
+class finish_state_t:
     IDLE = auto()
-    EPILOGUE_WAIT = auto()
+    FINISH_WAIT = auto()
     OUTPUT_TAG = auto()
 
 
-PROLOGUE_STATE_NAMES = tuple(prologue_state_t.__members__)
+# Histogram labels remain compatible with saved probe records.
+INIT_STATE_NAMES = ("IDLE", "PROLOGUE_LAUNCH", "PROLOGUE_WAIT", "OUTPUT_DESCRIPTOR")
 BANK_STATE_NAMES = tuple(bank_state_t.__members__)
-EPILOGUE_STATE_NAMES = tuple(epilogue_state_t.__members__)
+FINISH_STATE_NAMES = ("IDLE", "EPILOGUE_WAIT", "OUTPUT_TAG")
 
 
 @struct
@@ -139,20 +123,16 @@ class mac_result_t(NamedTuple):
     auth_tag_if: poly1305_auth_tag_stream_intrf.fwd_t
 
 
-@functools.lru_cache(maxsize=None)
 def get_body_auto_pipeline(body_latency=None):
-    """One named latency group for both directions' feedback bodies, also used
-    to size shared MCP arrays. body_latency: a fixed body depth instead of the
-    automatic one -- only the standalone paired testbench sets it."""
-    name = "poly1305_pair_accumulate"
-    if body_latency is not None:
-        return AUTO_PIPELINE(
-            poly1305_pair_accumulate_region, latency=body_latency, name=name
-        )
-    return AUTO_PIPELINE(poly1305_pair_accumulate_region, name=name)
+    """Match feedback depth and shared-unit sizing; fixed depth is for tests."""
+    return AUTO_PIPELINE(
+        poly1305_pair_accumulate,
+        latency=body_latency, name="poly1305_pair_accumulate",
+    )
 
 
-def make_poly1305_mac_paired(direction, share_mcp=False, *, body_latency=None, coefficient_latency=None):
+def make_poly1305_mac_paired(direction, share_compute=False, *, body_latency=None, coefficient_latency=None):
+    """Define a paired MAC with private packet state and optional shared compute."""
     body_ap = get_body_auto_pipeline(body_latency)
     coefficient_ap = get_coefficient_auto_pipeline(coefficient_latency)
     coefficient_cycles = coefficient_ap.latency + 2
@@ -179,26 +159,22 @@ def make_poly1305_mac_paired(direction, share_mcp=False, *, body_latency=None, c
         input_reg = x
         return result
 
-    from poly1305_paired_compute import make_paired_compute
+    from poly1305_compute import make_paired_compute
     compute = make_paired_compute(lanes)
-    powers_t, epilogue_in_t = compute.powers_t, compute.epilogue_in_t
-    prologue, epilogue = compute.prologue, compute.epilogue
+    powers_t, finish_in_t = compute.powers_t, compute.finish_in_t
+    init, finish = compute.init, compute.finish
 
-    if share_mcp:
-        from poly1305_mcp_shared import make_shared_adapters
+    if share_compute:
+        from poly1305_compute_shared import make_shared_compute_adapters
 
-        adapters = make_shared_adapters(direction, lanes, powers_t, epilogue_in_t)
-        prologue_mcp = adapters.prologue
-        epilogue_mcp = adapters.epilogue
+        adapters = make_shared_compute_adapters(direction, lanes, powers_t, finish_in_t)
+        init_unit = adapters.init
+        finish_unit = adapters.finish
     else:
-        # Both directions instantiate the same services (make_compute_service
-        # returns one per kernel), each instance with its own state.
-        prologue_mcp = make_compute_service(
-            prologue, name="poly1305_paired_prologue", phase="prologue"
-        )
-        epilogue_mcp = make_compute_service(
-            epilogue, name="poly1305_paired_epilogue", phase="epilogue"
-        )
+        # Both directions build equal compute units, which PypelineC merges into
+        # one definition; each instance keeps its own state.
+        init_unit = make_compute_unit(init, phase="init")
+        finish_unit = make_compute_unit(finish, phase="finish")
 
     @struct
     class prepared_t(NamedTuple):
@@ -210,40 +186,40 @@ def make_poly1305_mac_paired(direction, share_mcp=False, *, body_latency=None, c
     @struct
     class completed_t(NamedTuple):
         context: uint1_t
-        data: epilogue_in_t
+        data: finish_in_t
 
     prepared_intrf = make_stream_interface(prepared_t)
     completed_intrf = make_stream_interface(completed_t)
 
     @struct
-    class prologue_stage_result_t(NamedTuple):
+    class init_stage_result_t(NamedTuple):
         key_if: poly1305_key_stream_intrf.fb_t
         prepared_if: prepared_intrf.fwd_t
         computing: uint1_t
 
     @hw_func
-    def prologue_stage(
+    def init_stage(
         key_if: poly1305_key_stream_intrf.fwd_t,
         prepared_if: prepared_intrf.fb_t,
-    ) -> prologue_stage_result_t:
-        state: Reg[prologue_state_t]
+    ) -> init_stage_result_t:
+        state: Reg[init_state_t]
         r: Reg[uint130_t]
         descriptor: Reg[prepared_t]
         next_context: Reg[uint1_t]
-        result: Feedback[prologue_mcp.return_t]
-        o: prologue_stage_result_t
-        o.key_if.ready = state == prologue_state_t.IDLE
+        result: Feedback[init_unit.return_t]
+        o: init_stage_result_t
+        o.key_if.ready = state == init_state_t.IDLE
         o.prepared_if.stream.data = descriptor
-        o.prepared_if.stream.valid = state == prologue_state_t.OUTPUT_DESCRIPTOR
-        o.computing = ((state == prologue_state_t.PROLOGUE_LAUNCH)
-                       | (state == prologue_state_t.PROLOGUE_WAIT))
-        request: prologue_mcp.in_intrf.stream_t
+        o.prepared_if.stream.valid = state == init_state_t.OUTPUT_DESCRIPTOR
+        o.computing = ((state == init_state_t.INIT_LAUNCH)
+                       | (state == init_state_t.INIT_WAIT))
+        request: init_unit.in_intrf.stream_t
         request.data = r
-        request.valid = state == prologue_state_t.PROLOGUE_LAUNCH
-        response_ready: uint1_t = state == prologue_state_t.PROLOGUE_WAIT
-        perf_taps.state("poly1305.prologue.fsm", state, PROLOGUE_STATE_NAMES)
+        request.valid = state == init_state_t.INIT_LAUNCH
+        response_ready: uint1_t = state == init_state_t.INIT_WAIT
+        perf_taps.state("poly1305.prologue.fsm", state, INIT_STATE_NAMES)
 
-        if state == prologue_state_t.IDLE:
+        if state == init_state_t.IDLE:
             if key_if.stream.valid:
                 key_bytes: uint8_t[32] = uint_to_array_le(key_if.stream.data, 8)
                 r_bytes: u8_16_t
@@ -257,20 +233,20 @@ def make_poly1305_mac_paired(direction, share_mcp=False, *, body_latency=None, c
                 descriptor.s = array_to_uint_le(s_bytes)
                 descriptor.context = next_context
                 next_context = ~next_context
-                state = prologue_state_t.PROLOGUE_LAUNCH
-        elif state == prologue_state_t.PROLOGUE_LAUNCH:
+                state = init_state_t.INIT_LAUNCH
+        elif state == init_state_t.INIT_LAUNCH:
             if result.stream_in_if.ready:
-                state = prologue_state_t.PROLOGUE_WAIT
-        elif state == prologue_state_t.PROLOGUE_WAIT:
+                state = init_state_t.INIT_WAIT
+        elif state == init_state_t.INIT_WAIT:
             if result.stream_out_if.stream.valid:
                 descriptor.powers = result.stream_out_if.stream.data
-                state = prologue_state_t.OUTPUT_DESCRIPTOR
+                state = init_state_t.OUTPUT_DESCRIPTOR
         elif prepared_if.ready:
-            state = prologue_state_t.IDLE
+            state = init_state_t.IDLE
 
-        result = prologue_mcp(
-            prologue_mcp.in_fwd_t(stream=request),
-            prologue_mcp.out_fb_t(ready=response_ready),
+        result = init_unit(
+            init_unit.in_fwd_t(stream=request),
+            init_unit.out_fb_t(ready=response_ready),
         )
         perf_taps.hs("poly1305.prologue_in", request.valid, result.stream_in_if.ready)
         perf_taps.hs("poly1305.prologue_out", result.stream_out_if.stream.valid, response_ready)
@@ -284,7 +260,7 @@ def make_poly1305_mac_paired(direction, share_mcp=False, *, body_latency=None, c
     @struct
     class bank_t(NamedTuple):
         state: bank_state_t
-        data: epilogue_in_t
+        data: finish_in_t
         retire_lane: lane_t
         outstanding: count_t
 
@@ -345,6 +321,8 @@ def make_poly1305_mac_paired(direction, share_mcp=False, *, body_latency=None, c
         coefficient_owner: body_owner_t = coefficient_owners[coefficient_cycles - 1]
         feedback_context: uint1_t = coefficient_owner.context
         feedback_lane: lane_t = coefficient_owner.lane
+        # Read the accumulator after preprocessing, so only feedback latency
+        # determines how many lanes are needed to hide the recurrence.
         request: body_in_stream_t
         request.data.accumulator = banks[feedback_context].data.accumulators[feedback_lane]
         request.data.stride = banks[feedback_context].data.powers.values[lanes - 1]
@@ -366,8 +344,8 @@ def make_poly1305_mac_paired(direction, share_mcp=False, *, body_latency=None, c
         perf_taps.hs("poly1305.drain", draining, 1)
         perf_taps.hs("poly1305.body_drain_overlap", request.valid & draining, 1)
 
-        # Results cannot be backpressured. The metadata line advances every
-        # clock, including bubbles, just like the single arithmetic pipeline.
+        # Both ownership lines advance every clock, including bubbles, with
+        # their arithmetic pipelines. Returning results cannot be stalled.
         sim_assert(result.valid == owner.valid, "Poly1305 body ownership delay mismatch")
         if result.valid:
             sim_assert(banks[retiring_context].state != bank_state_t.EMPTY,
@@ -469,49 +447,49 @@ def make_poly1305_mac_paired(direction, share_mcp=False, *, body_latency=None, c
         return o
 
     @struct
-    class epilogue_stage_result_t(NamedTuple):
+    class finish_stage_result_t(NamedTuple):
         completed_if: completed_intrf.fb_t
         auth_tag_if: poly1305_auth_tag_stream_intrf.fwd_t
         computing: uint1_t
 
     @hw_func
-    def epilogue_stage(
+    def finish_stage(
         completed_if: completed_intrf.fwd_t,
         auth_tag_if: poly1305_auth_tag_stream_intrf.fb_t,
-    ) -> epilogue_stage_result_t:
-        state: Reg[epilogue_state_t]
+    ) -> finish_stage_result_t:
+        state: Reg[finish_state_t]
         owner_context: Reg[uint1_t]
         tag_context: Reg[uint1_t]
         tag: Reg[uint128_t]
-        result: Feedback[epilogue_mcp.return_t]
-        o: epilogue_stage_result_t
-        o.completed_if.ready = (state == epilogue_state_t.IDLE) & result.stream_in_if.ready
+        result: Feedback[finish_unit.return_t]
+        o: finish_stage_result_t
+        o.completed_if.ready = (state == finish_state_t.IDLE) & result.stream_in_if.ready
         o.auth_tag_if.stream.data = tag
-        o.auth_tag_if.stream.valid = state == epilogue_state_t.OUTPUT_TAG
-        o.computing = ((state == epilogue_state_t.EPILOGUE_WAIT)
-                       | ((state == epilogue_state_t.IDLE) & completed_if.stream.valid))
-        request: epilogue_mcp.in_intrf.stream_t
+        o.auth_tag_if.stream.valid = state == finish_state_t.OUTPUT_TAG
+        o.computing = ((state == finish_state_t.FINISH_WAIT)
+                       | ((state == finish_state_t.IDLE) & completed_if.stream.valid))
+        request: finish_unit.in_intrf.stream_t
         request.data = completed_if.stream.data.data
-        request.valid = completed_if.stream.valid & (state == epilogue_state_t.IDLE)
-        response_ready: uint1_t = state == epilogue_state_t.EPILOGUE_WAIT
-        perf_taps.state("poly1305.epilogue.fsm", state, EPILOGUE_STATE_NAMES)
+        request.valid = completed_if.stream.valid & (state == finish_state_t.IDLE)
+        response_ready: uint1_t = state == finish_state_t.FINISH_WAIT
+        perf_taps.state("poly1305.epilogue.fsm", state, FINISH_STATE_NAMES)
 
-        if state == epilogue_state_t.IDLE:
+        if state == finish_state_t.IDLE:
             if request.valid & result.stream_in_if.ready:
                 owner_context = completed_if.stream.data.context
-                state = epilogue_state_t.EPILOGUE_WAIT
-        elif state == epilogue_state_t.EPILOGUE_WAIT:
+                state = finish_state_t.FINISH_WAIT
+        elif state == finish_state_t.FINISH_WAIT:
             if result.stream_out_if.stream.valid:
                 tag = result.stream_out_if.stream.data
                 tag_context = owner_context
-                state = epilogue_state_t.OUTPUT_TAG
+                state = finish_state_t.OUTPUT_TAG
         elif auth_tag_if.ready:
             sim_assert(tag_context == owner_context, "Poly1305 tag ownership mismatch")
-            state = epilogue_state_t.IDLE
+            state = finish_state_t.IDLE
 
-        result = epilogue_mcp(
-            epilogue_mcp.in_fwd_t(stream=request),
-            epilogue_mcp.out_fb_t(ready=response_ready),
+        result = finish_unit(
+            finish_unit.in_fwd_t(stream=request),
+            finish_unit.out_fb_t(ready=response_ready),
         )
         perf_taps.hs("poly1305.epilogue_in", request.valid, result.stream_in_if.ready)
         perf_taps.hs("poly1305.epilogue_out", result.stream_out_if.stream.valid, response_ready)
@@ -529,22 +507,22 @@ def make_poly1305_mac_paired(direction, share_mcp=False, *, body_latency=None, c
         auth_tag_if: poly1305_auth_tag_stream_intrf.fb_t,
     ) -> mac_result_t:
         body_result: Feedback[body_stage_result_t]
-        epilogue_result: Feedback[epilogue_stage_result_t]
-        prepared = prologue_stage(key_if, prepared_intrf.fb_t(body_result.prepared_if.ready))
+        finish_result: Feedback[finish_stage_result_t]
+        prepared = init_stage(key_if, prepared_intrf.fb_t(body_result.prepared_if.ready))
         body_result = body_stage(prepared.prepared_if, data_in_if,
-                                 completed_intrf.fb_t(epilogue_result.completed_if.ready))
-        epilogue_result = epilogue_stage(body_result.completed_if, auth_tag_if)
+                                 completed_intrf.fb_t(finish_result.completed_if.ready))
+        finish_result = finish_stage(body_result.completed_if, auth_tag_if)
         o: mac_result_t
         o.key_if = prepared.key_if
         o.data_in_if = body_result.data_in_if
-        o.auth_tag_if = epilogue_result.auth_tag_if
+        o.auth_tag_if = finish_result.auth_tag_if
         perf_taps.hs("poly1305.key_in", key_if.stream.valid, o.key_if.ready)
         perf_taps.hs("poly1305.data_in", data_in_if.stream.valid, o.data_in_if.ready,
                      data_in_if.stream.data.frag.keep)
         perf_taps.hs("poly1305.tag_out", o.auth_tag_if.stream.valid, auth_tag_if.ready)
         issuing: uint1_t = data_in_if.stream.valid & o.data_in_if.ready
         perf_taps.hs("poly1305.setup_body_overlap", prepared.computing & issuing, 1)
-        perf_taps.hs("poly1305.epilogue_body_overlap", epilogue_result.computing & issuing, 1)
+        perf_taps.hs("poly1305.epilogue_body_overlap", finish_result.computing & issuing, 1)
         return o
 
     # Plain Python metadata/test hooks; these do not add hardware ports.
@@ -555,17 +533,17 @@ def make_poly1305_mac_paired(direction, share_mcp=False, *, body_latency=None, c
     poly1305_mac_paired.body_auto_pipeline = body_ap
     poly1305_mac_paired.body_pipeline = body_pipeline
     poly1305_mac_paired.accumulator_count = lanes
-    poly1305_mac_paired.prologue_mcp = prologue_mcp
-    poly1305_mac_paired.epilogue_mcp = epilogue_mcp
-    poly1305_mac_paired.prologue = prologue
-    poly1305_mac_paired.epilogue = epilogue
-    poly1305_mac_paired.shared_mcps = bool(share_mcp)
+    poly1305_mac_paired.init_unit = init_unit
+    poly1305_mac_paired.finish_unit = finish_unit
+    poly1305_mac_paired.init = init
+    poly1305_mac_paired.finish = finish
+    poly1305_mac_paired.shared_compute = bool(share_compute)
     poly1305_mac_paired.packet_architecture = "overlapped"
-    poly1305_mac_paired.prologue_handoff_cycles = (
+    poly1305_mac_paired.init_handoff_cycles = (
         KEY_CAPTURE_CYCLES + PREPARED_REGISTER_CYCLES + BODY_CONTEXT_REGISTER_CYCLES
     )
     poly1305_mac_paired.body_commit_cycles = BODY_COMMIT_CYCLES
-    poly1305_mac_paired.epilogue_handoff_cycles = (
+    poly1305_mac_paired.finish_handoff_cycles = (
         COMPLETION_REGISTER_CYCLES + TAG_REGISTER_CYCLES
     )
     poly1305_mac_paired.packet_buffers = {

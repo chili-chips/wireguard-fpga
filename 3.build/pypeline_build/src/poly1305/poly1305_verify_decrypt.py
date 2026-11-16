@@ -1,9 +1,7 @@
 # pyright: reportInvalidTypeForm=none
-"""Check if auth_tag_if and calculated_tag are the same.
+"""Compare received and calculated authentication tags, emitting one match bit.
 
 Pypeline port of ../pipelinec_build/src/poly1305/poly1305_verify_decrypt.c.
-Wire names elaborate as poly1305_verify_decrypt_<wire>; the C globals were
-poly1305_verify_<wire> (prefix differs slightly, connections unchanged).
 """
 import wireguard_env  # noqa: F401
 
@@ -30,17 +28,16 @@ from aead_types import (
 
 @enum
 class poly1305_verify_state_t:
-    TAKE_AUTH_TAG = auto()  # take auth_tag_if and place it into a register
-    TAKE_CALC_TAG = auto()  # take calculated tag and place it into a reg
-    COMPARE_TAGS = auto()  # compare the two tags ("==") and place res in reg
-    OUTPUT_COMPARE_RESULT = auto()  # output the compare value
+    TAKE_AUTH_TAG = auto()
+    TAKE_CALC_TAG = auto()
+    COMPARE_TAGS = auto()
+    OUTPUT_COMPARE_RESULT = auto()
 
 
-# Declaration order = value order, for the perf_taps state histogram.
+# Declaration order matches the state histogram values.
 POLY1305_VERIFY_STATE_NAMES = tuple(poly1305_verify_state_t.__members__)
 
-# One registered transition per state, without upstream/downstream stalls.
-# Consumed by plaintext FIFO sizing as well as the state probe above.
+# One cycle per state without stalls; used by plaintext FIFO sizing.
 VERIFY_HANDOFF_CYCLES = len(POLY1305_VERIFY_STATE_NAMES)
 
 
@@ -58,17 +55,12 @@ def poly1305_verify_decrypt(
     tags_match_if: uint1_stream_intrf.fb_t,
 ) -> poly1305_verify_decrypt_out_t:
     o: poly1305_verify_decrypt_out_t
-    # Define static variables
     state: Reg[poly1305_verify_state_t]
-    # Sampled before the FSM reassigns it (see stream/stream_perf_probe.py).
-    # This FSM is strictly sequential (>= 4 cycles/packet), a fixed tail.
+    # Sample state before transitions.
     perf_taps.state("verify.fsm", state, POLY1305_VERIFY_STATE_NAMES)
 
-    # Regs to hold the tag value
     auth_tag_reg: Reg[poly1305_auth_tag_uint_t]
     calc_tag_reg: Reg[poly1305_auth_tag_uint_t]
-
-    # Reg to hold compare result
     tags_match_reg: Reg[uint1_t]
 
     o.auth_tag_if.ready = 0
@@ -76,38 +68,29 @@ def poly1305_verify_decrypt(
     o.tags_match_if.stream = uint1_stream_null()
 
     if state == poly1305_verify_state_t.TAKE_AUTH_TAG:
-        # Ready to take the input tag
         o.auth_tag_if.ready = 1
 
         if auth_tag_if.stream.valid & o.auth_tag_if.ready:
-            # Copy data to the register
             auth_tag_reg = auth_tag_if.stream.data
             state = poly1305_verify_state_t.TAKE_CALC_TAG
     elif state == poly1305_verify_state_t.TAKE_CALC_TAG:
-        # Ready to take the calculated tag
         o.calc_tag_if.ready = 1
 
         if calc_tag_if.stream.valid & o.calc_tag_if.ready:
             calc_tag_reg = calc_tag_if.stream.data
             state = poly1305_verify_state_t.COMPARE_TAGS
     elif state == poly1305_verify_state_t.COMPARE_TAGS:
-        # Perform comparison logic
         tags_match_reg = auth_tag_reg == calc_tag_reg
-
-        # Output the result
         state = poly1305_verify_state_t.OUTPUT_COMPARE_RESULT
     else:  # state == poly1305_verify_state_t.OUTPUT_COMPARE_RESULT
-        # Output result stored in register via local stream
+        # Hold the registered result until it is accepted.
         o.tags_match_if.stream.data = tags_match_reg
         o.tags_match_if.stream.valid = 1
 
         if tags_match_if.ready & o.tags_match_if.stream.valid:
-            # Successful output transfer
-            # Reset the FSM for the next verification
             state = poly1305_verify_state_t.TAKE_AUTH_TAG
 
-    # Perf probes (sim-only, elaborated away -- see stream/stream_perf_probe.py), last
-    # so every o.* field above is final.
+    # Sample handshakes after all output assignments.
     perf_taps.hs("verify.auth_tag", auth_tag_if.stream.valid, o.auth_tag_if.ready)
     perf_taps.hs("verify.calc_tag", calc_tag_if.stream.valid, o.calc_tag_if.ready)
     perf_taps.hs(

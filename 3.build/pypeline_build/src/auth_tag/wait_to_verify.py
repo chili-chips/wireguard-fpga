@@ -1,10 +1,8 @@
 # pyright: reportInvalidTypeForm=none
-"""Buffer decrypted plaintext in a FIFO until the Poly1305 verify bit arrives,
-then stream it out alongside the verification result.
+"""Buffer plaintext until its Poly1305 verdict arrives, then forward the packet
+with that verdict on is_verified_out, whether verification passed or failed.
 
 Pypeline port of ../pipelinec_build/src/auth_tag/wait_to_verify.c.
-The factory selects verification storage from the dataflow design metadata;
-its handshake closes through Feedback[T] locals rather than global wires.
 """
 import wireguard_env  # noqa: F401
 
@@ -31,15 +29,14 @@ from aead_types import (
     make_aead_fifo,
 )
 
+
 @enum
 class wait_to_verify_state_t:
-    # Place the input plaintext into fifo until verify bit arrives
     WAIT_TO_VERIFY_BIT = auto()
-    # once verify bit arrives output plaintext and verify bit
     OUTPUT_PLAINTEXT = auto()
 
 
-# Declaration order = value order, for the perf_taps state histogram.
+# Declaration order matches the state histogram values.
 WAIT_TO_VERIFY_STATE_NAMES = tuple(wait_to_verify_state_t.__members__)
 
 
@@ -52,12 +49,13 @@ class wait_to_verify_out_t(NamedTuple):
 
 
 def make_wait_to_verify(depth=128, *, sizing=None):
-    """Build a verifier with independent, probed plaintext storage."""
+    """Define a plaintext buffer with the caller's FIFO depth and sizing metadata."""
     if type(depth) is not int or depth < 2:
         raise ValueError("Verification FIFO memory depth must be an integer >= 2")
     verify_fifo_func = make_aead_fifo(
         aead_axis_frag_t, depth, "verify_fifo", "decrypt", sizing=sizing
     )
+    # Simulation check: each output packet must have an accepted verdict.
     checked = {"verdicts": 0, "packets": 0}
 
     @initial(sim=True)
@@ -65,11 +63,15 @@ def make_wait_to_verify(depth=128, *, sizing=None):
         checked.update(verdicts=0, packets=0)
 
     @sim_output
-    def check_verdict_order(verdict_valid, verdict_ready, output_valid, output_ready, output_last):
+    def check_verdict_order(
+        verdict_valid, verdict_ready, output_valid, output_ready, output_last
+    ):
         if verdict_valid and verdict_ready:
             checked["verdicts"] += 1
         if output_valid:
-            assert checked["verdicts"] > checked["packets"], "Plaintext exposed before its verdict"
+            assert checked["verdicts"] > checked["packets"], (
+                "Plaintext exposed before its verdict"
+            )
             if output_ready and output_last:
                 checked["packets"] += 1
 
@@ -81,72 +83,46 @@ def make_wait_to_verify(depth=128, *, sizing=None):
     ) -> wait_to_verify_out_t:
         o: wait_to_verify_out_t
         state: Reg[wait_to_verify_state_t]
-        # Sampled before the FSM reassigns it (see stream/stream_perf_probe.py).
-        # Time spent in WAIT_TO_VERIFY_BIT is exactly the decrypt-side latency
-        # penalty of holding the whole plaintext until Poly1305 returns its verdict.
+        # Sample before transitions; WAIT_TO_VERIFY_BIT also includes idle time.
         perf_taps.state("wtv.fsm", state, WAIT_TO_VERIFY_STATE_NAMES)
-        # Reg to hold the received verification result (tags_match)
         tags_match_reg: Reg[uint1_t]
 
-        # verify_fifo <-> this FSM's own mutual dependency (fifo's read data/ready
-        # feed the FSM, which in turn drives the fifo's write data/read-enable)
+        # Close the FIFO data/ready feedback through the FSM.
         verify_fifo_in_ready: Feedback[uint1_t]
         verify_fifo_out: Feedback[aead_axis_intrf.stream_t]
 
-        # Write side of FIFO
-        # the data+valid for input stream (aka fifo write data, write enable)
+        # Accept plaintext whenever the FIFO has room, in either state.
         verify_fifo_in_s: aead_axis_intrf.stream_t = axis_in_if.stream
-        # the ready signal for the input stream (aka fifo not full signal)
         o.axis_in_if.ready = verify_fifo_in_ready
 
-        # Read side of FIFO
-        # the data+valid for output stream (aka fifo read data, not empty signal)
+        # The FSM gates FIFO consumption and output validity.
         o.axis_out_if.stream = verify_fifo_out
 
-        # Default not ready for the single verify bit input
         o.verify_bit_if.ready = 0
-        # Default FIFO Read Enable is set by FSM
         verify_fifo_out_ready_s: uint1_t = 0
-        # Default output valid/tlast for stream is 0
         o.axis_out_if.stream.valid = 0
-        # Default is_verified output
         o.is_verified_out = 0
 
         if state == wait_to_verify_state_t.WAIT_TO_VERIFY_BIT:
-            # FIFO Read Enable: Disconnected, data stays buffered
+            # Hold plaintext until this packet's verdict is accepted.
             verify_fifo_out_ready_s = 0
-
-            # Output stream: invalid
             o.axis_out_if.stream.valid = 0
-
-            # Wait for verify bit
-            # Be ready to accept the single bit
             o.verify_bit_if.ready = 1
 
             if verify_bit_if.stream.valid:
-                # Capture the result and signal reception
                 tags_match_reg = verify_bit_if.stream.data
-
-                # Move to output state
                 state = wait_to_verify_state_t.OUTPUT_PLAINTEXT
         else:  # if state == wait_to_verify_state_t.OUTPUT_PLAINTEXT
-            # Plaintext output
+            # Forward the packet with a constant verdict on every valid beat.
             verify_fifo_out_ready_s = axis_out_if.ready
-            # Valid only if FIFO is not empty
             o.axis_out_if.stream.valid = verify_fifo_out.valid
-
-            # Verified bit output
-            # Synchronize with stream valid
             o.is_verified_out = tags_match_reg
 
-            # Check for successful consumption of the last packet
             if o.axis_out_if.stream.valid & axis_out_if.ready:
-                # If output is consumed, check for tlast
                 if o.axis_out_if.stream.data.eod[0]:
-                    # End of buffered plaintext, reset the FSM
                     state = wait_to_verify_state_t.WAIT_TO_VERIFY_BIT
 
-            # Input ready's are disconnected in this state
+            # Accept the next verdict only after this packet has drained.
             o.verify_bit_if.ready = 0
 
         fifo_result = verify_fifo_func(
@@ -156,8 +132,7 @@ def make_wait_to_verify(depth=128, *, sizing=None):
         verify_fifo_out = fifo_result.out_stream_if.stream
         verify_fifo_in_ready = fifo_result.in_stream_if.ready
 
-        # Perf probes (sim-only, elaborated away -- see stream/stream_perf_probe.py), last
-        # so every o.* field above is final.
+        # Sample handshakes after all output assignments.
         perf_taps.hs(
             "wtv.axis_in",
             axis_in_if.stream.valid,
@@ -171,9 +146,13 @@ def make_wait_to_verify(depth=128, *, sizing=None):
             o.axis_out_if.stream.data.frag.keep,
         )
         perf_taps.hs("wtv.verify_bit", verify_bit_if.stream.valid, o.verify_bit_if.ready)
-        check_verdict_order(verify_bit_if.stream.valid, o.verify_bit_if.ready,
-                            o.axis_out_if.stream.valid, axis_out_if.ready,
-                            o.axis_out_if.stream.data.eod[0])
+        check_verdict_order(
+            verify_bit_if.stream.valid,
+            o.verify_bit_if.ready,
+            o.axis_out_if.stream.valid,
+            axis_out_if.ready,
+            o.axis_out_if.stream.data.eod[0],
+        )
         return o
 
     return wait_to_verify

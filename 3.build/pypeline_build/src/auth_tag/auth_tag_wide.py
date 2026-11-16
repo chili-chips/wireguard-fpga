@@ -1,10 +1,27 @@
 # pyright: reportInvalidTypeForm=none
 """Packed ciphertext||16-byte-tag framing on a 32-byte packet bus."""
 import wireguard_env  # noqa: F401
-from pypeline import NamedTuple, struct, hw_func, Reg, uint1_t, uint8_t, make_uint_t, uint_to_array_le, array_to_uint_le, sim_assert
-from aead_types import (aead_axis_intrf, aead_stream_null, aead_keep_count,
-                        aead_count_to_keep, poly1305_auth_tag_stream_intrf,
-                        poly1305_auth_tag_stream_null)
+
+from pypeline import (
+    NamedTuple,
+    struct,
+    hw_func,
+    Reg,
+    uint1_t,
+    uint8_t,
+    make_uint_t,
+    uint_to_array_le,
+    array_to_uint_le,
+    sim_assert,
+)
+from aead_types import (
+    aead_axis_intrf,
+    aead_stream_null,
+    aead_keep_count,
+    aead_count_to_keep,
+    poly1305_auth_tag_stream_intrf,
+    poly1305_auth_tag_stream_null,
+)
 from stream import stream_perf_probe as perf_taps
 
 count_t = make_uint_t(7)
@@ -18,9 +35,11 @@ class append_result_t(NamedTuple):
 
 
 @hw_func
-def append_auth_tag_wide(axis_in_if: aead_axis_intrf.fwd_t,
-                         auth_tag_in_if: poly1305_auth_tag_stream_intrf.fwd_t,
-                         axis_out_if: aead_axis_intrf.fb_t) -> append_result_t:
+def append_auth_tag_wide(
+    axis_in_if: aead_axis_intrf.fwd_t,
+    auth_tag_in_if: poly1305_auth_tag_stream_intrf.fwd_t,
+    axis_out_if: aead_axis_intrf.fb_t,
+) -> append_result_t:
     waiting: Reg[uint1_t]
     second: Reg[uint1_t]
     held: Reg[uint8_t[32]]
@@ -31,6 +50,7 @@ def append_auth_tag_wide(axis_in_if: aead_axis_intrf.fwd_t,
     o.axis_out_if.stream = aead_stream_null()
     n = aead_keep_count(axis_in_if.stream.data.frag)
     tag: uint8_t[16] = uint_to_array_le(auth_tag_in_if.stream.data, 8)
+    # The final ciphertext bytes and tag occupy at most two output beats.
     merged: uint8_t[64]
     for j in range(32):
         merged[j] = held[j]
@@ -43,14 +63,16 @@ def append_auth_tag_wide(axis_in_if: aead_axis_intrf.fwd_t,
         o.axis_out_if.stream.data.eod[0] = 0
         o.axis_in_if.ready = axis_out_if.ready
         if axis_in_if.stream.data.eod[0] & (n != 32):
-            # Capture without waiting for the tag: the other fork needs this
-            # transfer to finish authentication and produce that tag.
+            # Buffer a partial tail even when output stalls. Keep ready
+            # independent of valid and the tag to avoid blocking the fork
+            # that feeds authentication.
             o.axis_out_if.stream.valid = 0
             o.axis_in_if.ready = 1
         if axis_in_if.stream.valid & o.axis_in_if.ready & axis_in_if.stream.data.eod[0]:
             sim_assert(n > 0, "Empty plaintext frame")
             held = axis_in_if.stream.data.frag.data
             held_count = n
+            # Skip the low half if the full ciphertext beat was already forwarded.
             second = n == 32
             waiting = 1
     else:
@@ -68,6 +90,7 @@ def append_auth_tag_wide(axis_in_if: aead_axis_intrf.fwd_t,
         o.axis_out_if.stream.data.frag.keep = aead_count_to_keep(keep_count)
         o.axis_out_if.stream.data.eod[0] = final
         o.axis_out_if.stream.valid = auth_tag_in_if.stream.valid
+        # Keep the tag stable across both beats; consume it with the last.
         o.auth_tag_in_if.ready = axis_out_if.ready & final
         if auth_tag_in_if.stream.valid & axis_out_if.ready:
             if final:
@@ -75,8 +98,18 @@ def append_auth_tag_wide(axis_in_if: aead_axis_intrf.fwd_t,
             else:
                 second = 1
     perf_taps.state("append.fsm", waiting, ("CIPHERTEXT", "TAG"))
-    perf_taps.hs("append.axis_in", axis_in_if.stream.valid, o.axis_in_if.ready, axis_in_if.stream.data.frag.keep)
-    perf_taps.hs("append.axis_out", o.axis_out_if.stream.valid, axis_out_if.ready, o.axis_out_if.stream.data.frag.keep)
+    perf_taps.hs(
+        "append.axis_in",
+        axis_in_if.stream.valid,
+        o.axis_in_if.ready,
+        axis_in_if.stream.data.frag.keep,
+    )
+    perf_taps.hs(
+        "append.axis_out",
+        o.axis_out_if.stream.valid,
+        axis_out_if.ready,
+        o.axis_out_if.stream.data.frag.keep,
+    )
     perf_taps.hs("append.tag_in", auth_tag_in_if.stream.valid, o.auth_tag_in_if.ready)
     return o
 
@@ -89,9 +122,11 @@ class strip_result_t(NamedTuple):
 
 
 @hw_func
-def strip_auth_tag_wide(axis_in_if: aead_axis_intrf.fwd_t,
-                        axis_out_if: aead_axis_intrf.fb_t,
-                        auth_tag_out_if: poly1305_auth_tag_stream_intrf.fb_t) -> strip_result_t:
+def strip_auth_tag_wide(
+    axis_in_if: aead_axis_intrf.fwd_t,
+    axis_out_if: aead_axis_intrf.fb_t,
+    auth_tag_out_if: poly1305_auth_tag_stream_intrf.fb_t,
+) -> strip_result_t:
     held: Reg[uint8_t[32]]
     held_valid: Reg[uint1_t]
     finishing: Reg[uint1_t]
@@ -104,12 +139,14 @@ def strip_auth_tag_wide(axis_in_if: aead_axis_intrf.fwd_t,
     o.axis_in_if.ready = 0
     o.axis_out_if.stream = aead_stream_null()
     o.auth_tag_out_if.stream = poly1305_auth_tag_stream_null()
+    # The tag and remaining ciphertext drain independently.
     o.auth_tag_out_if.stream.data = array_to_uint_le(tag)
     o.auth_tag_out_if.stream.valid = tag_valid
     if tag_valid & auth_tag_out_if.ready:
         tag_valid = 0
 
     if finishing:
+        # The final input window can contain up to 48 ciphertext bytes.
         if tail_count > 0:
             nout: count_t = tail_count
             if tail_count > 32:
@@ -124,11 +161,11 @@ def strip_auth_tag_wide(axis_in_if: aead_axis_intrf.fwd_t,
             if axis_out_if.ready:
                 tail_count -= nout
                 tail_second = 1
+        # Accept the next packet only after both outputs have drained.
         if (tail_count == 0) & ~tag_valid:
             finishing = 0
     else:
-        # The held word is safe to forward only once a nonfinal successor is
-        # present. Capture the final two-word window before exposing its tail.
+        # Retain the preceding beat in case the tag straddles the final two beats.
         n = aead_keep_count(axis_in_if.stream.data.frag)
         if axis_in_if.stream.data.eod[0]:
             o.axis_in_if.ready = 1
@@ -137,6 +174,7 @@ def strip_auth_tag_wide(axis_in_if: aead_axis_intrf.fwd_t,
                 if held_valid:
                     total += 32
                 sim_assert(total > 16, "Ciphertext frame contains no payload")
+                # Combine the held beat (if any) with the final input beat.
                 window: uint8_t[64]
                 for j in range(32):
                     window[j] = axis_in_if.stream.data.frag.data[j]
@@ -146,6 +184,7 @@ def strip_auth_tag_wide(axis_in_if: aead_axis_intrf.fwd_t,
                         window[j + 32] = axis_in_if.stream.data.frag.data[j]
                 for j in range(64):
                     tail[j] = window[j]
+                # The last 16 valid bytes are the tag; the rest is ciphertext.
                 for j in range(16):
                     tag[j] = window[total - 16 + j]
                 tag_valid = 1
@@ -154,6 +193,7 @@ def strip_auth_tag_wide(axis_in_if: aead_axis_intrf.fwd_t,
                 finishing = 1
                 held_valid = 0
         else:
+            # A nonfinal successor lets us forward and replace the held beat.
             o.axis_in_if.ready = ~held_valid | axis_out_if.ready
             o.axis_out_if.stream.valid = held_valid & axis_in_if.stream.valid
             for j in range(32):
@@ -163,7 +203,17 @@ def strip_auth_tag_wide(axis_in_if: aead_axis_intrf.fwd_t,
                 sim_assert(n == 32, "Partial nonfinal ciphertext/tag beat")
                 held = axis_in_if.stream.data.frag.data
                 held_valid = 1
-    perf_taps.hs("strip.axis_in", axis_in_if.stream.valid, o.axis_in_if.ready, axis_in_if.stream.data.frag.keep)
-    perf_taps.hs("strip.axis_out", o.axis_out_if.stream.valid, axis_out_if.ready, o.axis_out_if.stream.data.frag.keep)
+    perf_taps.hs(
+        "strip.axis_in",
+        axis_in_if.stream.valid,
+        o.axis_in_if.ready,
+        axis_in_if.stream.data.frag.keep,
+    )
+    perf_taps.hs(
+        "strip.axis_out",
+        o.axis_out_if.stream.valid,
+        axis_out_if.ready,
+        o.axis_out_if.stream.data.frag.keep,
+    )
     perf_taps.hs("strip.tag_out", o.auth_tag_out_if.stream.valid, auth_tag_out_if.ready)
     return o

@@ -1,8 +1,9 @@
 # pyright: reportInvalidTypeForm=none
 """Shared Poly1305 arithmetic, independent of either MAC controller.
 
-Residues are canonical modulo 2**130-5. Multiplication returns the low 320
-bits; all MAC products are at most 260 bits and therefore fit exactly.
+Canonical residues use 130 bits and full products use 260 bits. The legacy
+limb multiplier retains the low 320 bits, enough for every MAC product.
+See poly1305_design.md for multiplier choices and arithmetic bounds.
 """
 import wireguard_env  # noqa: F401
 
@@ -17,15 +18,13 @@ U320_NBYTES = 40
 uint320_t = make_uint_t(320)
 uint128_t = make_uint_t(128)
 
-# 2^130 is bit 2 of limb 2, so within limb 2 the bits below 2^130 are just
-# the low two
+# The low two bits of limb 2 lie below 2^130.
 _MASK = 0x3
 
 
-# Structure to hold a 320-bit unsigned integer for Poly1305 calculations
 @struct
 class u320_t(NamedTuple):
-    limbs: uint64_t[U320_NLIMBS]  # 64-bit limbs
+    limbs: uint64_t[U320_NLIMBS]
 
 
 u320_stream_intrf = make_stream_interface(u320_t)
@@ -59,9 +58,7 @@ def clamp(r: u8_16_t) -> u8_16_t:
 bytes_to_uint320 = make_type_from_bytes(u320_t)
 
 
-# 16-byte (zero-extended) variant used for the r/s key halves.
-# (The C passes 16-byte arrays to the 40-byte bytes_to_uint320 parameter and
-# relies on implicit zero-fill; here the zero-extension is explicit.)
+# Zero-extend the 16-byte r/s key halves.
 @hw_func
 def bytes16_to_uint320(src: uint8_t[16]) -> u320_t:
     padded: uint8_t[U320_NBYTES] = [0] * U320_NBYTES
@@ -71,7 +68,7 @@ def bytes16_to_uint320(src: uint8_t[16]) -> u320_t:
     return rv
 
 
-# Add two u320_t values (PipelineC built-in uint320_t + uint320_t)
+# Add modulo 2^320.
 @hw_func
 def uint320_add(a: u320_t, b: u320_t) -> u320_t:
     a_uint: uint320_t = array_to_uint_le(a.limbs)
@@ -88,11 +85,8 @@ def uint320_add(a: u320_t, b: u320_t) -> u320_t:
 def uint320_mul(a: u320_t, b: u320_t) -> u320_t:
     temp: u320_t = u320_null()
 
-    # Schoolbook multiplication: each 64x64 limb-pair product is a full
-    # 128-bit value whose low half accumulates into limb i+j and whose high
-    # half carries into limb i+j+1 (via `carry` on the next j iteration).
-    # acc's three terms sum to at most 2^128 - 1, so uint128_t holds the
-    # accumulation exactly.
+    # Each 64x64 product accumulates into limb i+j, carrying into the next
+    # limb. The three terms sum to at most 2^128 - 1 and fit in uint128_t.
     for i in range(U320_NLIMBS):
         carry: uint64_t = 0
         for j in range(U320_NLIMBS - i):
@@ -159,10 +153,8 @@ def uint320_mod_prime(a: u320_t) -> u320_t:
     return v
 
 
-# The interleaved MAC transports canonical residues, not arbitrary 320-bit
-# integers. Make those bounds part of its hardware types, including MCP
-# launch/capture registers, so synthesis cannot retain 320x320 multipliers.
-# The legacy datapath above intentionally keeps its original limb arithmetic.
+# Exact widths keep the interleaved MAC's multipliers and compute registers
+# bounded to residues and full products. Legacy uses the limb helpers above.
 uint130_t = make_uint_t(130)
 uint131_t = make_uint_t(131)
 uint133_t = make_uint_t(133)
@@ -170,14 +162,16 @@ uint260_t = make_uint_t(260)
 uint3_t = make_uint_t(3)
 POLY1305_P = (1 << 130) - 5
 
-# Exact-type registration reaches both modular multiply helpers while leaving
-# legacy 64-bit limbs and the reducer's constant products unchanged. Ordinary
-# module-level hw_func scope= does not currently affect HDL elaboration.
-# The library's pinned inferred leaves prevent recursive operator dispatch.
+# Register only 130x130 products; leave legacy limbs and constant products
+# unchanged. Pinned inferred leaves prevent recursive operator dispatch.
+# Thanks to FPGA-House-AG for the Karatsuba reference linked in poly1305_design.md.
 if wireguard_env.POLY1305_MULT_IMPL in ("hybrid", "hybrid_square", "inferred_body"):
     from operators.soft_mult import make_mult_karatsuba_inferred_leaves
-    register_operator("INFERRED_MULT", uint130_t, uint130_t,
-                      make_mult_karatsuba_inferred_leaves(uint130_t, uint130_t, threshold=34))
+
+    register_operator(
+        "INFERRED_MULT", uint130_t, uint130_t,
+        make_mult_karatsuba_inferred_leaves(uint130_t, uint130_t, threshold=34),
+    )
 
 
 @hw_func
@@ -204,11 +198,10 @@ def residue_mul_mod(a: uint130_t, b: uint130_t) -> uint130_t:
 
 
 def make_hybrid_square(width):
-    """Unsigned full square: Karatsuba above 34 bits, three DSP-sized products below.
+    """Full square: Karatsuba above 34 bits, three products at 18-34 bits,
+    and one inferred product at 1-17 bits.
 
-    This is a local experiment, independent of the library's multiplier defaults.
-    Every shift acts on an already widened value. Only the final recombination
-    is narrowed to the exact 2*width-bit result.
+    Recombination shifts use the full result width to preserve carries.
     """
     from operators.soft_mult import make_inferred_mult
     if not isinstance(width, int) or width < 1:
@@ -278,10 +271,8 @@ def residue_mul_add_mod(a: uint130_t, b: uint130_t, c: uint130_t) -> uint130_t:
     return uint260_mod_prime(value)
 
 
-# The feedback body's depth sets the lane count, and with it the setup and
-# finalization work. A wide inferred product pipelines into fewer stages than
-# Karatsuba (3 against 10 at 80 MHz, standalone), at 64 DSPs against 36.
-# The pin keeps the Karatsuba registration above from replacing it.
+# Pin a wide inferred feedback product to reduce pipeline depth, lane count,
+# and initialization/finalization work, bypassing the Karatsuba registration above.
 if wireguard_env.POLY1305_MULT_IMPL == "inferred_body":
     from operators.soft_mult import make_inferred_mult
     _feedback_mult = make_inferred_mult(uint130_t, uint130_t)
@@ -296,7 +287,7 @@ if wireguard_env.POLY1305_MULT_IMPL == "inferred_body":
 else:
     feedback_mul_add_mod = residue_mul_add_mod
 
-# Even prologue exponents use the explicit modular square.
+# Even initialization exponents use the explicit modular square.
 SQUARE_POWERS = wireguard_env.POLY1305_MULT_IMPL in ("hybrid_square", "inferred_body")
 
 

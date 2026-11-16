@@ -5,10 +5,9 @@
 
 """Build the encrypt, decrypt, or shared WireGuard hardware, or simulate it.
 
-Without --sim this builds the real top (src/chacha20poly1305.py, real ports) for the selected
-profile. A pipelined native simulation (--sim --native or --perf, without --comb) runs its
-testbench in that build's output directory, on the hardware built there: no elaboration or
-synthesis of the testbench.
+Builds src/chacha20poly1305.py for the selected profile. Pipelined native
+simulation (--sim --native or --perf, without --comb) runs its testbench on
+the hardware already built in that profile's output directory.
 """
 
 import argparse
@@ -22,7 +21,7 @@ import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "src"))
 from wireguard_env import (
-    IMPLEMENTATIONS, selected_target, GENERATED_FILES,
+    IMPLEMENTATIONS, selected_target,
     MULT_IMPLEMENTATIONS, DATA_BITWIDTHS, COMPUTE_IMPLEMENTATIONS,
     profile_from_args, profile_out_dir, hardware_out_dir, BUILT_HARDWARE_FILE,
     add_sharing_arguments, sharing_name, share_name_for,
@@ -30,7 +29,12 @@ from wireguard_env import (
 )
 
 # Design parameters this script sets from its own flags (see src/wireguard_env.py)
-PROFILE_PARAMS = ("DESIGN", "DATA_BITWIDTH", "POLY1305_IMPL", "POLY1305_BLOCKS_PER_CYCLE", "POLY1305_MULT_IMPL", "POLY1305_COMPUTE_IMPL", "POLY1305_PROLOGUE_MAX_LATENCY", "POLY1305_EPILOGUE_MAX_LATENCY", "SHARE", "TARGET_MHZ")
+PROFILE_PARAMS = (
+    "DESIGN", "DATA_BITWIDTH", "POLY1305_IMPL", "POLY1305_BLOCKS_PER_CYCLE",
+    "POLY1305_MULT_IMPL", "POLY1305_COMPUTE_IMPL",
+    "POLY1305_PROLOGUE_MAX_LATENCY", "POLY1305_EPILOGUE_MAX_LATENCY",
+    "SHARE", "TARGET_MHZ",
+)
 
 
 def main():
@@ -47,11 +51,11 @@ def main():
     parser.add_argument("--poly1305-mult", choices=MULT_IMPLEMENTATIONS,
                         help="130-bit multiply implementation (default inferred_body; legacy inferred)")
     parser.add_argument("--poly1305-compute", choices=COMPUTE_IMPLEMENTATIONS,
-                        help="Prologue/epilogue implementation (default: published QoR profile)")
+                        help="Initialization/finalization implementation (default: published QoR profile)")
     parser.add_argument("--poly1305-prologue-cap", type=int, metavar="N",
-                        help="AUTO_FSM prologue cap (default: published QoR profile; fsm only)")
+                        help="AUTO_FSM initialization cap (default: published QoR profile; fsm only)")
     parser.add_argument("--poly1305-epilogue-cap", type=int, metavar="N",
-                        help="AUTO_FSM epilogue cap (default: published QoR profile; fsm only)")
+                        help="AUTO_FSM finalization cap (default: published QoR profile; fsm only)")
     parser.add_argument("--target-mhz", type=selected_target,
                         help="Clock goal (default: 256-bit inferred_body 80 MHz; other profiles retain their clock)")
     parser.add_argument("--sim", action="store_true",
@@ -63,7 +67,8 @@ def main():
     parser.add_argument("--syn_tb", action="store_true", help="Use the fixed-vector synthesizable testbench")
     parser.add_argument("--native", action="store_true", help="Use native simulation instead of cocotb/GHDL")
     parser.add_argument("--perf", action="store_true",
-                        help="Shared QoR testbench; implies --sim --native (used by measure.py)")
+                        help="Native performance mode for the combined design; "
+                             "implies --sim --native (used by measure.py)")
     parser.add_argument("-D", "--define", action="append", default=[], metavar="NAME=VALUE",
                         help="Pass a design parameter on to pypelinec, e.g. -D TB_STRESS=1 or "
                              "-D PERF_SIZES=64,1420 (the profile itself comes from the flags above)")
@@ -77,12 +82,6 @@ def main():
                              "pypelinec reports such a build as up to date and does nothing")
     parser.add_argument("--out-dir", help="Separate output cache (must be empty unless --continue); "
                                           "a pipelined native simulation runs on the hardware built there")
-    parser.add_argument("--latency-hints", action="append", default=[], metavar="FILE",
-                        help="Starting AUTO_PIPELINE latencies for pypelinec --latency_hints "
-                             "(repeatable; a start like start_latency=, never a fixed depth)")
-    parser.add_argument("--pipeline-min-effort", type=int, metavar="N",
-                        help="pypelinec --pipeline_min_effort: extra syntheses spent trimming stages "
-                             "after timing is met (0 accepts the first met result)")
     parser.add_argument("--show-config", action="store_true", help="Print the resolved profile and cache paths without building")
     parser.add_argument("--syn-cache", default=None,
                         metavar="DIR|none",
@@ -105,6 +104,8 @@ def main():
         args.sim = args.native = True
     for define in args.define:
         name = define.partition("=")[0].strip()
+        if name == "PERF":
+            parser.error("-D PERF: use --perf to select native performance simulation")
         if name in PROFILE_PARAMS:
             parser.error(f"-D {name}: set the profile with this script's flags "
                          "(--enc/--dec/--shared, --share-*, --poly1305, --poly1305-mult, --poly1305-compute, --poly1305-prologue-cap, --poly1305-epilogue-cap, --data-bitwidth, --target-mhz)")
@@ -135,8 +136,10 @@ def main():
         f"SHARE={share_name_for(sharing)}",
         f"TARGET_MHZ={args.target_mhz}",
     ] + args.define
+    if args.sim and not args.syn_tb:
+        defines.append(f"PERF={int(args.perf)}")
 
-    pipelinec_bin = os.environ.get("PYPELINEC") or "pypelinec"
+    pypelinec_bin = os.environ.get("PYPELINEC") or "pypelinec"
     profile = (args.poly1305, sharing, args.poly1305_mult, args.poly1305_compute,
                args.target_mhz, args.data_bitwidth, args.poly1305_prologue_cap, args.poly1305_epilogue_cap)
     hardware_dir = args.out_dir or hardware_out_dir(design_short, *profile)
@@ -144,14 +147,12 @@ def main():
         args.continue_build = True
     if args.show_config:
         print(json.dumps(dict(profile=resolved,
-                              out_dir=hardware_dir, syn_cache=args.syn_cache,
-                              latency_hints=args.latency_hints), indent=2))
+                              out_dir=hardware_dir, syn_cache=args.syn_cache), indent=2))
         return 0
-    # Timing and stage counts come only from the real top: a testbench's synthesis can
-    # remove logic its constant stimulus never exercises, so its timing misjudges the design
+    # Use the hardware build's latencies; synthesis can remove unexercised testbench logic.
     on_built_hardware = args.sim and args.native and not args.comb
     if args.sim:
-        tb_type = "perf_tb" if args.perf else "syn_tb" if args.syn_tb else "tb"
+        tb_type = "syn_tb" if args.syn_tb else "tb"
         src_file = f"./src/chacha20poly1305_{tb_type}.py"
         kind = "perf" if args.perf else "syn-tb" if args.syn_tb else "sim"
         dir_parts = [kind, "comb" if args.comb else "pipe", design_short]
@@ -168,7 +169,6 @@ def main():
     else:
         src_file = "./src/chacha20poly1305.py"
         out_dir = hardware_dir
-        # The Verilog module keeps the name each design always had
         options = ["--top", f"chacha20poly1305_{design_name}"]
         if args.verilog:
             options.append("--verilog")
@@ -177,7 +177,7 @@ def main():
     if on_built_hardware and not os.path.exists(os.path.join(out_dir, BUILT_HARDWARE_FILE)):
         parser.error(f"{out_dir} holds no hardware build that met timing: build it first with "
                      "this profile's flags and no --sim")
-    cmd = [pipelinec_bin, src_file, "--out_dir", out_dir] + options
+    cmd = [pypelinec_bin, src_file, "--out_dir", out_dir] + options
     for define in defines:
         cmd.extend(["-D", define])
     if not (args.sim and args.comb):
@@ -186,15 +186,11 @@ def main():
         cmd.extend(["-j", str(args.jobs)])
     if args.syn_cache != "none":
         cmd.extend(["--syn_cache", args.syn_cache])
-    for hints in args.latency_hints:
-        cmd.extend(["--latency_hints", os.path.abspath(hints)])
-    if args.pipeline_min_effort is not None:
-        cmd.extend(["--pipeline_min_effort", str(args.pipeline_min_effort)])
     print(f"--> {design_short}: Poly1305 {args.poly1305}, clock target {args.target_mhz} MHz")
     print(f"--> Packet datapath: {args.data_bitwidth} bits; Poly1305 blocks/cycle: {args.data_bitwidth // 128}")
     print(f"--> Poly1305 multiplier: {args.poly1305_mult}")
-    print(f"--> Poly1305 prologue/epilogue: {args.poly1305_compute}"
-          + (f" (prologue/epilogue caps {args.poly1305_prologue_cap}/{args.poly1305_epilogue_cap})"
+    print(f"--> Poly1305 initialization/finalization: {args.poly1305_compute}"
+          + (f" (initialization/finalization caps {args.poly1305_prologue_cap}/{args.poly1305_epilogue_cap})"
              if args.poly1305_compute == "fsm" else ""))
     print(f"--> Shared resources: {sharing_name(sharing)}")
     if on_built_hardware:
@@ -218,10 +214,10 @@ def main():
 
 
 def direction_latency_mismatches(out_dir):
-    """Every AUTO_PIPELINE and AUTO_FSM latency that differs between an encrypt instance
-    and its decrypt twin (the same key with the other direction), or that only one
-    direction built. A generated key's _s<digest> hashes its source, direction included,
-    so pairing ignores it."""
+    """Report unequal or missing encrypt/decrypt AUTO_PIPELINE and AUTO_FSM twins.
+
+    Ignore generated _s<digest> source hashes when pairing direction keys.
+    """
     with open(os.path.join(out_dir, BUILT_HARDWARE_FILE)) as f:
         built = json.load(f)
     latencies = dict(built["auto_pipeline_latencies"])

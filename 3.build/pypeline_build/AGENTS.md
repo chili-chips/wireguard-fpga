@@ -12,6 +12,8 @@ duplicating design descriptions, parameter tables, commands, or results here.
   [earlier-design comparison](README.md#comparison-with-the-earlier-pipelinec-design).
 - Keep `import wireguard_env  # noqa: F401` as the first import in hardware
   design and testbench files. It bootstraps this tree's flat module imports.
+- Reserve leading underscores in Python names for use within one file. APIs
+  used across files should have public names; update their callers when renaming.
 - Keep profile resolution and defaults in
   [src/wireguard_env.py](src/wireguard_env.py), shared by the build and
   measurement scripts. Hardware configuration uses parameters, not environment
@@ -79,14 +81,14 @@ in the hardware as examples.
 - Update `stream_perf_probe.MAIN_LABELS` in place in
   [perf_tb_common.py](src/chacha20poly1305/perf_tb_common.py), so encrypt and
   decrypt instances keep separate labels.
-- Add new blocks to `BLOCKS` in [bottleneck.py](bottleneck.py) for report rollups.
+- Add new blocks to `BLOCKS` in [measure.py](measure.py) for report rollups.
   Reuse the probed buffer factories in [aead_types.py](src/aead_types.py).
 
 ## Maintaining documentation and results
 
 - Keep the README focused on the current default, with non-default choices in
   its options tables and baseline results in the appendix. Preserve the opening
-  image. Keep diagrams consistent with current wiring, including shared-service
+  image. Keep diagrams consistent with current wiring, including shared-unit
   request and return paths.
 - Keep the current results independent of baseline comparisons. Publish through
   the [current-results workflow](README.md#current-results), preserving both
@@ -96,9 +98,13 @@ in the hardware as examples.
 - Keep [raw measurements](README.md#measurement-outputs), diagnostic outputs,
   and scratch investigations local and ignored by Git. Publish concise
   provenance without local absolute paths; do not link to ignored artifacts.
-- Put useful component rationale in existing
-  [component notes](src/poly1305/throughput.md). Remove stale investigations,
-  dated progress notes, compiler internals, and debugging stories from the
-  README and this file rather than preserving them as a running log.
+- Keep [ChaCha20](src/chacha20/chacha20_design.md) and
+  [Poly1305](src/poly1305/poly1305_design.md) design notes focused on the
+  current architecture and implementation-specific tradeoffs; link to the
+  README for shared commands, options, and results. Link to these notes instead
+  of duplicating component details elsewhere. Preserve Poly1305's legacy and
+  intermediate architectures and illustration link, with a short history
+  timeline and a final baseline reference. Remove stale investigations,
+  compiler internals, and debugging stories rather than keeping a running log.
 - Check documented commands and flags against the scripts, and verify links
   and README anchors after documentation edits.

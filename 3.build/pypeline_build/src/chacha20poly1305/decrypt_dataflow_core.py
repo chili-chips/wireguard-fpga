@@ -1,22 +1,8 @@
 # pyright: reportInvalidTypeForm=none
-"""The decrypt dataflow graph, directly instantiating every component as a
-submodule call:
-  strip_auth_tag -> [broadcast: auth FIFO -> prep_auth_data, chacha20]
-  chacha20 -> wait_to_verify
-  strip_auth_tag -> tag FIFO -> poly1305_verify_decrypt
-  prep_auth_data -> poly1305_mac -> poly1305_verify_decrypt -> wait_to_verify
+"""Decrypt dataflow wiring and buffering around the selected crypto functions.
 
-This is an *interface function*: the body below is the whole design. Every
-component's ready signal, and the ordering feedback needed because the graph is
-not a straight line, is generated from it -- the body is a one-for-one
-transcription of the call graph in the docstring above. `is_verified_out` shows
-a plain (non-interface) output riding along in the same return bundle.
-
-What differs between the decrypt design and the combined design with shared
-resources (both built by decrypt_dataflow.py, chosen by -D DESIGN/SHARE) is
-which chacha20 instance and which MAC feed this graph, so
-decrypt_dataflow_core is a factory parameterized by those callables (mirrors
-encrypt_dataflow_core's make_encrypt_dataflow_core).
+See ../../README.md#data-flow for the default graph. Interface functions
+connect the streams below and generate their reverse ready wiring.
 """
 import wireguard_env  # noqa: F401
 
@@ -25,7 +11,7 @@ from pypeline import NamedTuple, uint1_t, uint8_t
 from interface.interface import interface
 from interface.interface_func import make_hw_func_from_interface_func
 
-import strip_auth_tag
+import auth_tag
 import prep_auth_data
 import prep_auth_data_wide
 import auth_tag_wide
@@ -69,15 +55,22 @@ def make_decrypt_dataflow_core(
     chacha_func, mac_func=None, auth_fifo_depth=None, verify_fifo_depth=None,
     tag_fifo_depth=None,
 ):
-    """Return the decrypt graph callable with its complete return_t.
+    """Define the decrypt graph with the selected ChaCha20 and Poly1305 functions.
 
-    chacha_func is a private or shared ChaCha20 callable with the
-    chacha20.chacha20_instance.return_t result contract. mac_func selects
-    the Poly1305 callable; omitting it keeps the standalone default.
+    chacha_func follows chacha20.chacha20_if_func's interface; omitting mac_func
+    selects a private MAC. Widths and buffers are chosen during elaboration.
+
+    None selects each FIFO's default depth. Auth/verify depths count packet
+    beats; tag depth counts tags. Zero disables the auth or tag FIFO. The
+    legacy MAC always leaves the authentication fork unbuffered.
     """
 
     if mac_func is None:
         mac_func = make_poly1305_mac("decrypt")
+
+    # Hold plaintext until its packet's verdict arrives. Pipelined sizing covers
+    # a maximum packet plus work admitted ahead of it, using the selected
+    # ChaCha/MAC latencies and comparator handoffs. Legacy retains 128 beats.
     verify_sizing = None
     if verify_fifo_depth is None:
         if IMPLEMENTATION == "pipelined":
@@ -90,16 +83,18 @@ def make_decrypt_dataflow_core(
             verify_fifo_depth = 128
     else:
         verify_sizing = {"method": "explicit"}
-    verify_func = wait_to_verify.make_wait_to_verify(verify_fifo_depth, sizing=verify_sizing)
+    verify_func = wait_to_verify.make_wait_to_verify(
+        verify_fifo_depth, sizing=verify_sizing
+    )
+
+    # Queue received tags so the stripper can start another packet while the
+    # comparator waits for the preceding MAC result or verdict handoff.
     if tag_fifo_depth is None:
         tag_fifo_depth = 2 if IMPLEMENTATION == "pipelined" else 0
     if type(tag_fifo_depth) is not int or (tag_fifo_depth != 0 and tag_fifo_depth < 2):
         raise ValueError("tag_fifo_depth must be None, 0, or an integer >= 2")
     compare_func = poly1305_verify_decrypt.poly1305_verify_decrypt
     if tag_fifo_depth:
-        # This queue holds packet tags, independent of payload beat width.
-        # Without it the splitter holds the next packet behind the preceding
-        # calculation/verdict, starving its ChaCha key and MAC setup.
         tag_fifo = make_aead_fifo(
             poly1305_auth_tag_uint_t, tag_fifo_depth, "tag_fifo", "decrypt",
             sizing={"method": "packet-tag-lookahead-v1", "entry_unit": "packet_tag"},
@@ -116,6 +111,10 @@ def make_decrypt_dataflow_core(
             return buffered_verify_ports(tags_match_if=compared.tags_match_if)
 
         compare_func = make_hw_func_from_interface_func(buffered_compare)
+
+    # Buffer ciphertext before authentication framing so the other fork can
+    # feed ChaCha while the MAC waits for its key or initialization/completion. Sizing
+    # includes ChaCha pipeline credits to keep the key response reachable.
     sizing = None
     if IMPLEMENTATION == "pipelined":
         if auth_fifo_depth is None:
@@ -126,14 +125,12 @@ def make_decrypt_dataflow_core(
         else:
             sizing = {"method": "explicit"}
 
-    # Select plain Python wiring, not a hardware mux. Legacy keeps its original
-    # unbuffered graph. The depth parameter also permits isolated native sizing
-    # experiments without adding diagnostic switches to build.py.
+    # Match framing and tag stripping to the selected packet width.
     prep_func = prep_auth_data.prep_auth_data_fsm
     if wireguard_env.POLY1305_BLOCKS_PER_CYCLE == 2:
         prep_func = prep_auth_data_wide.prep_auth_data_wide
-    framing_func = prep_func
-    stripping_func = strip_auth_tag.strip_auth_tag
+    framing_func = prep_func  # Retain the unbuffered function for the wrapper.
+    stripping_func = auth_tag.strip_auth_tag
     if wireguard_env.POLY1305_BLOCKS_PER_CYCLE == 2:
         stripping_func = auth_tag_wide.strip_auth_tag_wide
     if IMPLEMENTATION == "pipelined" and auth_fifo_depth:
@@ -148,7 +145,8 @@ def make_decrypt_dataflow_core(
         ) -> buffered_prep_ports:
             queued = auth_fifo(in_stream_if=axis_in_if)
             framed = framing_func(
-                aad=aad, aad_len=aad_len, axis_in_if=queued.out_stream_if)
+                aad=aad, aad_len=aad_len, axis_in_if=queued.out_stream_if
+            )
             return buffered_prep_ports(axis_if=framed.axis_if)
 
         prep_func = make_hw_func_from_interface_func(buffered_prep)
@@ -160,29 +158,31 @@ def make_decrypt_dataflow_core(
         aad: uint8_t[AAD_MAX_LEN],
         aad_len: uint8_t,
     ) -> decrypt_dataflow_core_ports:
-        # strip_auth_tag splits ciphertext+tag into stripped-ciphertext + tag,
-        # and the stripped ciphertext forks to the MAC calculation and chacha20
+        # Fork ciphertext to authentication and decryption; the tag stays separate.
         strip = stripping_func(axis_in_if=axis_in_if)
         bcast = aead_2broadcast(axis_in_if=strip.axis_out_if)
-        # chacha20 decrypts (keystream XOR); its poly key seeds poly1305_mac
+
+        # ChaCha supplies plaintext and a separate per-packet Poly1305 key.
         chacha = chacha_func(key=key, nonce=nonce, axis_in_if=bcast.axis_out_if[1])
-        # Pipelined MACs buffer the authentication fork, letting ChaCha consume
-        # ciphertext during MAC key/setup waits. Legacy uses framing directly.
+
+        # Frame AAD, padded ciphertext, and lengths; buffering is selected above.
         prep = prep_func(
             aad=aad, aad_len=aad_len, axis_in_if=bcast.axis_out_if[0]
         )
-        # poly1305_mac recomputes the tag from the poly key + the framed data
         mac = mac_func(key_if=chacha.key_if, data_in_if=prep.axis_if)
-        # ...which is compared against the tag stripped off the input
-        verify = compare_func(
+
+        # Both tag streams preserve packet order; compare one pair per verdict.
+        compare = compare_func(
             auth_tag_if=strip.auth_tag_out_if, calc_tag_if=mac.auth_tag_if
         )
-        # wait_to_verify buffers the plaintext until the match bit arrives
-        wtv = verify_func(
-            axis_in_if=chacha.axis_out_if, verify_bit_if=verify.tags_match_if
+
+        # Release plaintext after the verdict, with that bit on every valid beat,
+        # including packets whose authentication failed.
+        verified = verify_func(
+            axis_in_if=chacha.axis_out_if, verify_bit_if=compare.tags_match_if
         )
         return decrypt_dataflow_core_ports(
-            axis_out_if=wtv.axis_out_if, is_verified_out=wtv.is_verified_out
+            axis_out_if=verified.axis_out_if, is_verified_out=verified.is_verified_out
         )
 
     return make_hw_func_from_interface_func(decrypt_dataflow_core)

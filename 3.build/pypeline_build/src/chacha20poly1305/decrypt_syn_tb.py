@@ -1,18 +1,11 @@
 # pyright: reportInvalidTypeForm=none
-"""Synthesizable-style testbench for the standalone decrypt design: fixed
-10-string test vectors baked into hardware register arrays at elaboration
-time. For the non-synthesizable @sim_input/@sim_output variant (12 + 1
-on-the-fly random packets), see decrypt_tb.py.
+"""Fixed-vector decrypt testbench with hardware stream drivers and checkers.
 
-Pypeline port of ../pipelinec_build/src/chacha20poly1305/decrypt_tb.c. Input
-frames ciphertext+tag Xilinx-style packed (issue #44 -- see README), and
-uses the shared `make_axis_byte_source`/`make_axis_byte_sink` testbench
-library (PipelineC's include/pypeline/axi/axis.py) plus its own
-is_verified_out check -- only the wireguard-specific bits live here.
-
-The final packet is a negative test: test string 0's ciphertext replayed
-with a corrupted tag (tb_common.TAMPERED_TAG). The DUT must still emit that
-packet's plaintext but with is_verified_out low.
+Pypeline port of ../../../pipelinec_build/src/chacha20poly1305/decrypt_tb.c.
+Check plaintext and verdict against tb_common.py's independent reference
+vectors. The final packet replays test 0 with a corrupted tag: plaintext must
+still be returned with a false verdict. See ../../README.md#simulation for
+run instructions, or decrypt_tb.py for the native random-vector testbench.
 """
 import wireguard_env  # noqa: F401
 
@@ -36,7 +29,6 @@ from aead_types import (
     CHACHA20_KEY_SIZE,
     CHACHA20_NONCE_SIZE,
     AAD_MAX_LEN,
-    uint128_t,
     aead_axis_intrf,
     AEAD_BEAT_BYTES,
 )
@@ -56,31 +48,23 @@ from tb_common import (
     EXPECTED_TAGS,
     CIPHERTEXT_LENS,
     TAMPERED_TAG,
+    pack_ciphertext_frames,
 )
 
-# Decrypt runs the encrypt vectors in reverse: input = ciphertext + auth tag
-# packets, expected output = plaintexts. One extra final packet replays test
-# 0's ciphertext with a corrupted tag (expected: plaintext still emitted,
-# is_verified_out low).
+# Append test 0 with a tampered tag to the reference encryption vectors.
 NUM_PACKETS = NUM_PLAINTEXT_TEST_STRS + 1
 PLAINTEXT_MAX_SIZE = PLAINTEXT_TEST_STR_MAX_SIZE
 
-# Input frame = ciphertext bytes immediately followed by the 16-byte tag --
-# Xilinx-style packed AXIS (issue #44), no padding gap; byte_source derives
-# keep as a plain trailing-only partial final beat.
+# Pack ciphertext and tag without a gap; the source derives keep from length.
 LANE_WIDTH = AEAD_BEAT_BYTES
 IN_FRAME_MAX_SIZE = CIPHERTEXT_MAX_SIZE + POLY1305_AUTH_TAG_SIZE
 _INPUT_CIPHERTEXTS = EXPECTED_CIPHERTEXTS + [EXPECTED_CIPHERTEXTS[0]]
 _INPUT_TAGS = EXPECTED_TAGS + [TAMPERED_TAG]
 _INPUT_CIPHERTEXT_LENS = CIPHERTEXT_LENS + [CIPHERTEXT_LENS[0]]
 
-INPUT_FRAMES = []
-INPUT_FRAME_LENS = []
-for _ct, _tag, _ct_len in zip(_INPUT_CIPHERTEXTS, _INPUT_TAGS, _INPUT_CIPHERTEXT_LENS):
-    _total_len = _ct_len + POLY1305_AUTH_TAG_SIZE
-    _frame = _ct[:_ct_len] + _tag + [0] * (IN_FRAME_MAX_SIZE - _total_len)
-    INPUT_FRAMES.append(_frame)
-    INPUT_FRAME_LENS.append(_total_len)
+INPUT_FRAMES, INPUT_FRAME_LENS = pack_ciphertext_frames(
+    _INPUT_CIPHERTEXTS, _INPUT_TAGS, _INPUT_CIPHERTEXT_LENS, IN_FRAME_MAX_SIZE
+)
 
 EXPECTED_PLAINTEXTS = PLAINTEXTS + [PLAINTEXTS[0]]
 EXPECTED_PLAINTEXT_LENS = PLAINTEXT_LENS + [PLAINTEXT_LENS[0]]
@@ -90,14 +74,13 @@ byte_source = make_axis_byte_source(aead_axis_intrf, LANE_WIDTH, IN_FRAME_MAX_SI
 byte_sink = make_axis_byte_sink(aead_axis_intrf, AEAD_BEAT_BYTES, PLAINTEXT_MAX_SIZE)
 
 
-# Sticky and one clock cycle delayed relative to the completing "Test N DONE!" print
-# -- see encrypt_syn_tb.py's matching Wire declaration for the full explanation (why
-# this testbench doesn't call sim_finish() itself, why sticky, why delayed).
+# Stay asserted so chacha20poly1305_syn_tb.py can wait for both directions.
+# Delay completion by one clock to let the final DONE print finish before
+# the top-level checker ends the simulation.
 decrypt_all_done: Wire[uint1_t]
 
 
-# Host-side Python, printed once before the first clock by every simulator
-# (native or cocotb+GHDL) -- no hardware cycle counter needed to find cycle 0.
+# Print once before the first clock in either simulator.
 @initial(sim=True)
 def announce():
     sim_print("=== ChaCha20-Poly1305 Decryption Test ===")
@@ -106,8 +89,7 @@ def announce():
     sim_print("AAD (29 bytes): Additional authenticated data")
 
 
-# Counters, ROM selection and stream source/sink are real testbench hardware.
-# Time this MAIN normally rather than falsely declaring it wires-only.
+# Registers, counters and stream logic require a timed MAIN.
 @MAIN(wireguard_env.TARGET_MHZ)
 def decrypt_syn_tb() -> aead_axis_intrf.fwd_t:
     # Test vectors
@@ -116,13 +98,11 @@ def decrypt_syn_tb() -> aead_axis_intrf.fwd_t:
     aad: uint8_t[AAD_MAX_LEN] = AAD
     input_frames: uint8_t[NUM_PACKETS][IN_FRAME_MAX_SIZE] = INPUT_FRAMES
     input_frame_lens: uint32_t[NUM_PACKETS] = INPUT_FRAME_LENS
-    expected_plaintexts: uint8_t[NUM_PACKETS][PLAINTEXT_MAX_SIZE] = (
-        EXPECTED_PLAINTEXTS
-    )
+    expected_plaintexts: uint8_t[NUM_PACKETS][PLAINTEXT_MAX_SIZE] = EXPECTED_PLAINTEXTS
     expected_plaintext_lens: uint32_t[NUM_PACKETS] = EXPECTED_PLAINTEXT_LENS
     expected_verified_flags: uint1_t[NUM_PACKETS] = EXPECTED_VERIFIED
 
-    # Connect CSR inputs to dut
+    # Hold the key, nonce and AAD constant for every packet.
     chacha20poly1305_decrypt_ports.key = key
     chacha20poly1305_decrypt_ports.nonce = nonce
     chacha20poly1305_decrypt_ports.aad = aad
@@ -130,11 +110,10 @@ def decrypt_syn_tb() -> aead_axis_intrf.fwd_t:
 
     decrypt_all_done_reg: Reg[uint1_t]
 
-    # Drive the Wire from the sticky reg's *previous*-cycle value -- see
-    # encrypt_syn_tb.py's matching comment for why this one-cycle delay matters.
+    # Expose the previous-cycle value before completion can set the register below.
     decrypt_all_done = decrypt_all_done_reg
 
-    # --- Input side: stream each packet's ciphertext+tag through byte_source ---
+    # Load each ciphertext/tag frame once; advance after its final accepted beat.
     input_packet_count: Reg[uint32_t]
     input_loaded: Reg[uint1_t]
 
@@ -154,40 +133,43 @@ def decrypt_syn_tb() -> aead_axis_intrf.fwd_t:
     chacha20poly1305_decrypt_ports.axis_in_if.stream = src.stream_out_if.stream
     dut_in_ready = chacha20poly1305_decrypt_ports.axis_in_if.ready
 
-    # --- Output side: collect plaintext via byte_sink, compare whole frames + is_verified ---
+    # Collect plaintext, then check its verdict, length and bytes at frame completion.
     output_packet_count: Reg[uint32_t]
 
     chacha20poly1305_decrypt_ports.axis_out_if.ready = 1
     snk = byte_sink(
-        stream_in_if=aead_axis_intrf.fwd_t(chacha20poly1305_decrypt_ports.axis_out_if.stream)
+        stream_in_if=aead_axis_intrf.fwd_t(
+            chacha20poly1305_decrypt_ports.axis_out_if.stream
+        )
     )
 
     if snk.frame_valid:
         expected_verified: uint1_t = expected_verified_flags[output_packet_count]
         sim_assert(
             chacha20poly1305_decrypt_ports.is_verified_out == expected_verified,
-            f"Decrypt: Test {output_packet_count} is_verified mismatch. expected {expected_verified} got {chacha20poly1305_decrypt_ports.is_verified_out}",
+            f"Decrypt: Test {output_packet_count} is_verified mismatch. "
+            f"expected {expected_verified} "
+            f"got {chacha20poly1305_decrypt_ports.is_verified_out}",
         )
         expected_len: uint32_t = expected_plaintext_lens[output_packet_count]
         sim_assert(
             snk.frame_len == expected_len,
-            f"Decrypt: Test {output_packet_count} output length mismatch. expected {expected_len} got {snk.frame_len}",
+            f"Decrypt: Test {output_packet_count} output length mismatch. "
+            f"expected {expected_len} got {snk.frame_len}",
         )
         for i in range(PLAINTEXT_MAX_SIZE):
             byte_idx: uint32_t = i
             if byte_idx < expected_len:
                 sim_assert(
                     snk.frame_data[i] == expected_plaintexts[output_packet_count][i],
-                    f"Decrypt: Test {output_packet_count} mismatch at byte[{byte_idx}]. expected {hex(expected_plaintexts[output_packet_count][i])} got {hex(snk.frame_data[i])}",
+                    f"Decrypt: Test {output_packet_count} mismatch at byte[{byte_idx}]. "
+                    f"expected {hex(expected_plaintexts[output_packet_count][i])} "
+                    f"got {hex(snk.frame_data[i])}",
                 )
         sim_print(f"Decrypt: Test {output_packet_count} DONE!")
         output_packet_count = output_packet_count + 1
         if output_packet_count >= NUM_PACKETS:
-            # All packets checked -- signal completion (sticky; see
-            # decrypt_all_done's declaration above). The top-level file
-            # decides when it's safe to actually call sim_finish().
             decrypt_all_done_reg = 1
 
-    # dummy return for synthesis
-    # so everything doesnt optimize away
+    # Keep the observed output visible to the compiler.
     return aead_axis_intrf.fwd_t(chacha20poly1305_decrypt_ports.axis_out_if.stream)
