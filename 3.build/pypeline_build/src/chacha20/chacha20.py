@@ -25,9 +25,9 @@ from pypeline import (
     make_type_to_bytes,
     make_type_from_bytes,
 )
-from interface.interface import interface
-from interface.interface_func import make_hw_func_from_interface_func
-from stream.stream import make_stream_interface
+from interface import interface
+from interface_func import make_hw_func_from_interface_func
+from stream import make_stream_interface
 from stream.stream_auto_pipeline import make_stream_auto_pipeline
 from axi.axis import make_dwidth_widen, make_dwidth_narrow
 
@@ -40,10 +40,10 @@ from aead_types import (
     CHACHA20_BLOCK_SIZE,
     AEAD_BEAT_BYTES,
     POLY1305_KEY_SIZE,
-    aead_axis_intrf,
+    aead_axis_if_t,
     axis512_frag_t,
-    axis512_intrf,
-    poly1305_key_stream_intrf,
+    axis512_if_t,
+    poly1305_key_stream_if_t,
     aead_stream_null,
     axis512_stream_null,
     axis512_frag_null,
@@ -179,7 +179,7 @@ class chacha20_loop_body_in_t(NamedTuple):
     counter: uint32_t
 
 
-chacha20_loop_body_stream_intrf = make_stream_interface(chacha20_loop_body_in_t)
+chacha20_loop_body_stream_if_t = make_stream_interface(chacha20_loop_body_in_t)
 
 
 def chacha20_loop_body_in_null():
@@ -192,7 +192,7 @@ def chacha20_loop_body_in_null():
 
 
 def chacha20_loop_body_stream_null():
-    return chacha20_loop_body_stream_intrf.stream_t(
+    return chacha20_loop_body_stream_if_t.stream_t(
         data=chacha20_loop_body_in_null(),
         valid=0,
     )
@@ -236,11 +236,11 @@ axis512_to_aead = make_dwidth_narrow(uint8_t, AEAD_BEAT_BYTES, _block_beats)
 @struct
 class chacha20_fsm_t(NamedTuple):
     # Input ports return ready; output ports return their streams.
-    axis_in_if: aead_axis_intrf.fb_t
-    key_if: poly1305_key_stream_intrf.fwd_t
-    axis_out_if: aead_axis_intrf.fwd_t
-    to_pipeline_if: chacha20_loop_body_stream_intrf.fwd_t
-    from_pipeline_if: axis512_intrf.fb_t
+    axis_in_if: aead_axis_if_t.fb_t
+    key_if: poly1305_key_stream_if_t.fwd_t
+    axis_out_if: aead_axis_if_t.fwd_t
+    to_pipeline_if: chacha20_loop_body_stream_if_t.fwd_t
+    from_pipeline_if: axis512_if_t.fb_t
 
 
 @hw_func
@@ -248,11 +248,11 @@ def chacha20_fsm(
     # Inputs
     key: uint8_t[CHACHA20_KEY_SIZE],
     nonce: uint8_t[CHACHA20_NONCE_SIZE],
-    axis_in_if: aead_axis_intrf.fwd_t,
-    key_if: poly1305_key_stream_intrf.fb_t,
-    axis_out_if: aead_axis_intrf.fb_t,
-    to_pipeline_if: chacha20_loop_body_stream_intrf.fb_t,
-    from_pipeline_if: axis512_intrf.fwd_t,
+    axis_in_if: aead_axis_if_t.fwd_t,
+    key_if: poly1305_key_stream_if_t.fb_t,
+    axis_out_if: aead_axis_if_t.fb_t,
+    to_pipeline_if: chacha20_loop_body_stream_if_t.fb_t,
+    from_pipeline_if: axis512_if_t.fwd_t,
 ) -> chacha20_fsm_t:
     o: chacha20_fsm_t
 
@@ -265,7 +265,7 @@ def chacha20_fsm(
     # Sample state before this cycle's transitions.
     perf_taps.state("chacha20.in_state", input_side_state, CHACHA20_STATE_NAMES)
     # Default no input into width conversion
-    dwidth_conv_data_in: aead_axis_intrf.stream_t = aead_stream_null()
+    dwidth_conv_data_in: aead_axis_if_t.stream_t = aead_stream_null()
     o.axis_in_if.ready = 0
     # Default no input into pipeline
     o.to_pipeline_if.stream = chacha20_loop_body_stream_null()
@@ -282,10 +282,10 @@ def chacha20_fsm(
         dwidth_conv_data_in = axis_in_if.stream
     block_in_ready: Feedback[uint1_t]
     in_to_block = aead_to_axis512(
-        narrow_in_if=aead_axis_intrf.fwd_t(dwidth_conv_data_in),
-        wide_out_if=axis512_intrf.fb_t(block_in_ready),
+        narrow_in_if=aead_axis_if_t.fwd_t(dwidth_conv_data_in),
+        wide_out_if=axis512_if_t.fb_t(block_in_ready),
     )
-    block_in_stream: axis512_intrf.stream_t = in_to_block.wide_out_if.stream
+    block_in_stream: axis512_if_t.stream_t = in_to_block.wide_out_if.stream
     # Default not ready for incoming blocks
     block_in_ready = 0
     # Input axis into dwidth conv default gated until in plaintext state
@@ -326,7 +326,7 @@ def chacha20_fsm(
     # Default not ready for pipeline output
     o.from_pipeline_if.ready = 0
     # Default no block going out
-    block_to_out_axis_in: axis512_intrf.stream_t = axis512_stream_null()
+    block_to_out_axis_in: axis512_if_t.stream_t = axis512_stream_null()
     block_to_out_axis_in_ready: Feedback[uint1_t]
     if output_side_state == chacha20_state_t.POLY_KEY:
         # Wait for the poly key cycle of data to come out of the pipeline
@@ -352,7 +352,7 @@ def chacha20_fsm(
 
     # Convert pipeline output back to the selected AEAD bus width.
     block_to_out = axis512_to_aead(
-        wide_in_if=axis512_intrf.fwd_t(block_to_out_axis_in),
+        wide_in_if=axis512_if_t.fwd_t(block_to_out_axis_in),
         narrow_out_if=axis_out_if,
     )
     o.axis_out_if = block_to_out.narrow_out_if
@@ -393,8 +393,8 @@ pipeline_func = make_stream_auto_pipeline(chacha20_loop_body, name="chacha20")
 class chacha20_ports(NamedTuple):
     """Output ports of the ChaCha20 interface function."""
 
-    key_if: poly1305_key_stream_intrf
-    axis_out_if: aead_axis_intrf
+    key_if: poly1305_key_stream_if_t
+    axis_out_if: aead_axis_if_t
 
 
 # The interface function generates feedback wiring for the pipeline result
@@ -402,7 +402,7 @@ class chacha20_ports(NamedTuple):
 def chacha20_if_wiring(
     key: uint8_t[CHACHA20_KEY_SIZE],
     nonce: uint8_t[CHACHA20_NONCE_SIZE],
-    axis_in_if: aead_axis_intrf,
+    axis_in_if: aead_axis_if_t,
 ) -> chacha20_ports:
     fsm_out = chacha20_fsm(
         key=key, nonce=nonce, axis_in_if=axis_in_if, from_pipeline_if=pipe.stream_out_if

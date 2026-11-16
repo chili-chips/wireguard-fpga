@@ -33,7 +33,7 @@ from aead_types import (
     CHACHA20_KEY_SIZE,
     CHACHA20_NONCE_SIZE,
     AAD_MAX_LEN,
-    aead_axis_intrf,
+    aead_axis_if_t,
     AEAD_BEAT_BYTES,
 )
 from axi.axis_sim import AxisSimSink, Scoreboard
@@ -52,18 +52,18 @@ enc_state = {
 }
 
 _scoreboard = Scoreboard()
-_src = common.ConvergedAxisSource(aead_axis_intrf, AEAD_BEAT_BYTES)
+_src = common.ConvergedAxisSource(aead_axis_if_t, AEAD_BEAT_BYTES)
 if common.PERF:
     import perf_tb_common as perf
 
-    _snk = AxisSimSink(aead_axis_intrf, AEAD_BEAT_BYTES, scoreboard=_scoreboard)
+    _snk = AxisSimSink(aead_axis_if_t, AEAD_BEAT_BYTES, scoreboard=_scoreboard)
     _runner = perf.make_runner("encrypt", _src, _snk, _scoreboard, perf.encrypt_frame_builder)
 else:
-    _snk = common.ConvergedAxisSink(aead_axis_intrf, AEAD_BEAT_BYTES, scoreboard=_scoreboard)
+    _snk = common.ConvergedAxisSink(aead_axis_if_t, AEAD_BEAT_BYTES, scoreboard=_scoreboard)
 
 
 @sim_input
-def drive_in_word() -> aead_axis_intrf.stream_t:
+def drive_in_word() -> aead_axis_if_t.stream_t:
     if common.PERF:
         _runner.prepare_input()
         return _src.drive().stream
@@ -135,10 +135,10 @@ def check_out():
             keep_count=perf.keep_count(out) if out.valid else 0,
             eod=int(out.data.eod[0]),
         )
-        _snk.step(aead_axis_intrf.fwd_t(out))
+        _snk.step(aead_axis_if_t.fwd_t(out))
     else:
         _snk.step(
-            aead_axis_intrf.fwd_t(out),
+            aead_axis_if_t.fwd_t(out),
             ready=chacha20poly1305_encrypt_ports.axis_out_if.ready,
         )
     result = _snk.check_nowait()

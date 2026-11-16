@@ -7,7 +7,7 @@ from copy import deepcopy
 from pypeline import uint1_t, uint8_t, make_uint_t
 from kept_data_bus import make_kept_data_bus_t
 from ndarray import make_ndarray_fragment_t
-from stream.stream import make_stream_interface
+from stream import make_stream_interface
 from axi.axis import make_keep_count, make_count_to_keep, make_axis_broadcast_interlock
 from stream.stream_perf_probe import make_probed_stream_fifo, make_probed_skid_buffer
 
@@ -41,7 +41,7 @@ poly1305_auth_tag_uint_t = make_uint_t(8 * POLY1305_AUTH_TAG_SIZE)
 # 128-bit stream: one Poly1305 block per beat.
 axis128_bus_t = make_kept_data_bus_t(uint8_t, AXIS128_BEAT_BYTES)
 axis128_frag_t = make_ndarray_fragment_t(axis128_bus_t, 1)
-axis128_intrf = make_stream_interface(axis128_frag_t)
+axis128_if_t = make_stream_interface(axis128_frag_t)
 axis128_keep_count = make_keep_count(axis128_bus_t, AXIS128_BEAT_BYTES)
 axis128_keep_count_t = make_uint_t(AXIS128_BEAT_BYTES.bit_length())
 axis128_count_to_keep = make_count_to_keep(AXIS128_BEAT_BYTES)
@@ -52,20 +52,20 @@ aead_data_uint_t = make_uint_t(8 * AEAD_BEAT_BYTES)
 aead_keep_uint_t = make_uint_t(AEAD_BEAT_BYTES)
 aead_axis_bus_t = make_kept_data_bus_t(uint8_t, AEAD_BEAT_BYTES)
 aead_axis_frag_t = make_ndarray_fragment_t(aead_axis_bus_t, 1)
-aead_axis_intrf = make_stream_interface(aead_axis_frag_t)
+aead_axis_if_t = make_stream_interface(aead_axis_frag_t)
 aead_keep_count = make_keep_count(aead_axis_bus_t, AEAD_BEAT_BYTES)
 aead_count_to_keep = make_count_to_keep(AEAD_BEAT_BYTES)
-aead_2broadcast = make_axis_broadcast_interlock(aead_axis_intrf, 2)
+aead_2broadcast = make_axis_broadcast_interlock(aead_axis_if_t, 2)
 
 # 512-bit stream: one ChaCha20 block per beat.
 axis512_bus_t = make_kept_data_bus_t(uint8_t, CHACHA20_BLOCK_SIZE)
 axis512_frag_t = make_ndarray_fragment_t(axis512_bus_t, 1)
-axis512_intrf = make_stream_interface(axis512_frag_t)
+axis512_if_t = make_stream_interface(axis512_frag_t)
 
 # Scalar streams.
-poly1305_key_stream_intrf = make_stream_interface(poly1305_key_uint_t)
-poly1305_auth_tag_stream_intrf = make_stream_interface(poly1305_auth_tag_uint_t)
-uint1_stream_intrf = make_stream_interface(uint1_t)
+poly1305_key_stream_if_t = make_stream_interface(poly1305_key_uint_t)
+poly1305_auth_tag_stream_if_t = make_stream_interface(poly1305_auth_tag_uint_t)
+uint1_stream_if_t = make_stream_interface(uint1_t)
 
 # Reporting only: factories record allocations by direction/tap during elaboration.
 # perf_tb_common snapshots these after importing the selected dataflows.
@@ -221,9 +221,9 @@ def buffering_metadata():
     return deepcopy(_fifo_metadata)
 
 
-def make_aead_output_slice(intrf, tap_name, direction):
+def make_aead_output_slice(stream_if_t, tap_name, direction):
     """Two-slot output register slice; II=1 and stable valid under stalls."""
-    skid = make_probed_skid_buffer(intrf, tap_name, mode="full")
+    skid = make_probed_skid_buffer(stream_if_t, tap_name, mode="full")
     _output_slice_metadata[direction + "/" + tap_name] = {
         "mode": skid.mode,
         "capacity_beats": skid.capacity_beats,
@@ -246,7 +246,7 @@ def axis128_frag_null():
 
 
 def axis128_stream_null():
-    return axis128_intrf.stream_t(data=axis128_frag_null(), valid=0)
+    return axis128_if_t.stream_t(data=axis128_frag_null(), valid=0)
 
 
 def axis512_frag_null():
@@ -257,19 +257,19 @@ def axis512_frag_null():
 
 
 def axis512_stream_null():
-    return axis512_intrf.stream_t(data=axis512_frag_null(), valid=0)
+    return axis512_if_t.stream_t(data=axis512_frag_null(), valid=0)
 
 
 def poly1305_key_stream_null():
-    return poly1305_key_stream_intrf.stream_t(data=0, valid=0)
+    return poly1305_key_stream_if_t.stream_t(data=0, valid=0)
 
 
 def poly1305_auth_tag_stream_null():
-    return poly1305_auth_tag_stream_intrf.stream_t(data=0, valid=0)
+    return poly1305_auth_tag_stream_if_t.stream_t(data=0, valid=0)
 
 
 def uint1_stream_null():
-    return uint1_stream_intrf.stream_t(data=0, valid=0)
+    return uint1_stream_if_t.stream_t(data=0, valid=0)
 
 
 def aead_frag_null():
@@ -280,4 +280,4 @@ def aead_frag_null():
 
 
 def aead_stream_null():
-    return aead_axis_intrf.stream_t(data=aead_frag_null(), valid=0)
+    return aead_axis_if_t.stream_t(data=aead_frag_null(), valid=0)

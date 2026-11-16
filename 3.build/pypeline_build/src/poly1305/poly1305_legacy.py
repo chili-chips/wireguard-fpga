@@ -21,9 +21,9 @@ from pypeline import (
     concat,
     uint_to_array_le,
 )
-from interface.interface import interface
-from interface.interface_func import make_hw_func_from_interface_func
-from stream.stream import make_stream_interface
+from interface import interface
+from interface_func import make_hw_func_from_interface_func
+from stream import make_stream_interface
 from stream.stream_multi_cycle import make_stream_auto_multi_cycle
 
 from stream import stream_perf_probe as perf_taps
@@ -31,14 +31,14 @@ from stream import stream_perf_probe as perf_taps
 from aead_types import (
     POLY1305_BLOCK_SIZE,
     POLY1305_KEY_SIZE,
-    axis128_intrf,
-    poly1305_key_stream_intrf,
-    poly1305_auth_tag_stream_intrf,
+    axis128_if_t,
+    poly1305_key_stream_if_t,
+    poly1305_auth_tag_stream_if_t,
 )
 
 from poly1305_math import (
     U320_NBYTES, u320_t,
-    u320_stream_intrf, u320_null, u8_16_t, clamp, bytes_to_uint320,
+    u320_stream_if_t, u320_null, u8_16_t, clamp, bytes_to_uint320,
     bytes16_to_uint320, uint320_add, uint320_mul,
     uint320_mod_prime,
 )
@@ -52,7 +52,7 @@ class poly1305_mac_loop_body_in_t(NamedTuple):
     a: u320_t
 
 
-poly1305_mac_loop_body_stream_intrf = make_stream_interface(poly1305_mac_loop_body_in_t)
+poly1305_mac_loop_body_stream_if_t = make_stream_interface(poly1305_mac_loop_body_in_t)
 
 
 def poly1305_mac_loop_body_in_null():
@@ -100,21 +100,21 @@ POLY1305_STATE_NAMES = tuple(poly1305_state_t.__members__)
 
 @struct
 class poly1305_mac_fsm_t(NamedTuple):
-    key_if: poly1305_key_stream_intrf.fb_t
-    data_in_if: axis128_intrf.fb_t
-    auth_tag_if: poly1305_auth_tag_stream_intrf.fwd_t
-    to_compute_if: poly1305_mac_loop_body_stream_intrf.fwd_t
-    from_compute_if: u320_stream_intrf.fb_t
+    key_if: poly1305_key_stream_if_t.fb_t
+    data_in_if: axis128_if_t.fb_t
+    auth_tag_if: poly1305_auth_tag_stream_if_t.fwd_t
+    to_compute_if: poly1305_mac_loop_body_stream_if_t.fwd_t
+    from_compute_if: u320_stream_if_t.fb_t
 
 
 @hw_func
 def poly1305_mac_fsm(
     # Inputs
-    key_if: poly1305_key_stream_intrf.fwd_t,
-    data_in_if: axis128_intrf.fwd_t,
-    auth_tag_if: poly1305_auth_tag_stream_intrf.fb_t,
-    from_compute_if: u320_stream_intrf.fwd_t,
-    to_compute_if: poly1305_mac_loop_body_stream_intrf.fb_t,
+    key_if: poly1305_key_stream_if_t.fwd_t,
+    data_in_if: axis128_if_t.fwd_t,
+    auth_tag_if: poly1305_auth_tag_stream_if_t.fb_t,
+    from_compute_if: u320_stream_if_t.fwd_t,
+    to_compute_if: poly1305_mac_loop_body_stream_if_t.fb_t,
 ) -> poly1305_mac_fsm_t:
     o: poly1305_mac_fsm_t
     # Consume the compute result in the cycle it arrives.
@@ -230,14 +230,14 @@ compute_mcp = make_stream_auto_multi_cycle(poly1305_mac_loop_body)
 class poly1305_mac_ports(NamedTuple):
     """Output port of the MAC interface function."""
 
-    auth_tag_if: poly1305_auth_tag_stream_intrf
+    auth_tag_if: poly1305_auth_tag_stream_if_t
 
 
 # Each call site gets a private FSM and compute body. The interface function
 # generates feedback wiring for the compute result and reverse ready signals.
 def poly1305_mac_if_wiring(
-    key_if: poly1305_key_stream_intrf,
-    data_in_if: axis128_intrf,
+    key_if: poly1305_key_stream_if_t,
+    data_in_if: axis128_if_t,
 ) -> poly1305_mac_ports:
     fsm_out = poly1305_mac_fsm(
         key_if=key_if, data_in_if=data_in_if, from_compute_if=compute.stream_out_if

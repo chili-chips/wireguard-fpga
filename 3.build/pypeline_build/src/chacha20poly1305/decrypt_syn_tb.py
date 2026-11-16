@@ -29,7 +29,7 @@ from aead_types import (
     CHACHA20_KEY_SIZE,
     CHACHA20_NONCE_SIZE,
     AAD_MAX_LEN,
-    aead_axis_intrf,
+    aead_axis_if_t,
     AEAD_BEAT_BYTES,
 )
 from axi.axis import make_axis_byte_source, make_axis_byte_sink
@@ -70,8 +70,8 @@ EXPECTED_PLAINTEXTS = PLAINTEXTS + [PLAINTEXTS[0]]
 EXPECTED_PLAINTEXT_LENS = PLAINTEXT_LENS + [PLAINTEXT_LENS[0]]
 EXPECTED_VERIFIED = [1] * NUM_PLAINTEXT_TEST_STRS + [0]
 
-byte_source = make_axis_byte_source(aead_axis_intrf, LANE_WIDTH, IN_FRAME_MAX_SIZE)
-byte_sink = make_axis_byte_sink(aead_axis_intrf, AEAD_BEAT_BYTES, PLAINTEXT_MAX_SIZE)
+byte_source = make_axis_byte_source(aead_axis_if_t, LANE_WIDTH, IN_FRAME_MAX_SIZE)
+byte_sink = make_axis_byte_sink(aead_axis_if_t, AEAD_BEAT_BYTES, PLAINTEXT_MAX_SIZE)
 
 
 # Stay asserted so chacha20poly1305_syn_tb.py can wait for both directions.
@@ -91,7 +91,7 @@ def announce():
 
 # Registers, counters and stream logic require a timed MAIN.
 @MAIN(wireguard_env.TARGET_MHZ)
-def decrypt_syn_tb() -> aead_axis_intrf.fwd_t:
+def decrypt_syn_tb() -> aead_axis_if_t.fwd_t:
     # Test vectors
     key: uint8_t[CHACHA20_KEY_SIZE] = KEY
     nonce: uint8_t[CHACHA20_NONCE_SIZE] = NONCE
@@ -122,7 +122,7 @@ def decrypt_syn_tb() -> aead_axis_intrf.fwd_t:
         load=~input_loaded,
         load_data=input_frames[input_packet_count],
         load_len=input_frame_lens[input_packet_count],
-        stream_out_if=aead_axis_intrf.fb_t(dut_in_ready),
+        stream_out_if=aead_axis_if_t.fb_t(dut_in_ready),
     )
     if ~input_loaded:
         sim_print(f"Decrypting test string {input_packet_count}...")
@@ -138,7 +138,7 @@ def decrypt_syn_tb() -> aead_axis_intrf.fwd_t:
 
     chacha20poly1305_decrypt_ports.axis_out_if.ready = 1
     snk = byte_sink(
-        stream_in_if=aead_axis_intrf.fwd_t(
+        stream_in_if=aead_axis_if_t.fwd_t(
             chacha20poly1305_decrypt_ports.axis_out_if.stream
         )
     )
@@ -172,4 +172,4 @@ def decrypt_syn_tb() -> aead_axis_intrf.fwd_t:
             decrypt_all_done_reg = 1
 
     # Keep the observed output visible to the compiler.
-    return aead_axis_intrf.fwd_t(chacha20poly1305_decrypt_ports.axis_out_if.stream)
+    return aead_axis_if_t.fwd_t(chacha20poly1305_decrypt_ports.axis_out_if.stream)

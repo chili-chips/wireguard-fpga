@@ -11,7 +11,7 @@ from pypeline import (
     NamedTuple, struct, hw_func, uint8_t, uint64_t, make_uint_t,
     array_to_uint_le, make_type_from_bytes, register_operator,
 )
-from stream.stream import make_stream_interface
+from stream import make_stream_interface
 
 U320_NLIMBS = 5
 U320_NBYTES = 40
@@ -27,7 +27,7 @@ class u320_t(NamedTuple):
     limbs: uint64_t[U320_NLIMBS]
 
 
-u320_stream_intrf = make_stream_interface(u320_t)
+u320_stream_if_t = make_stream_interface(u320_t)
 
 
 def u320_null():

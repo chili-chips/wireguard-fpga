@@ -22,7 +22,7 @@ if wireguard_env.SHARING["poly1305"]:
     # Expose the shared compute units' MAINs and wires for discovery.
     import poly1305_compute_shared  # noqa: F401
 
-from aead_types import aead_axis_intrf
+from aead_types import aead_axis_if_t
 from encrypt_dataflow_core import make_encrypt_dataflow_core
 
 encrypt_dataflow_core = make_encrypt_dataflow_core(
@@ -34,12 +34,12 @@ encrypt_dataflow_core = make_encrypt_dataflow_core(
 def encrypt_dataflow():
     # Connect the core's forward and feedback halves explicitly at the port boundary.
     core = encrypt_dataflow_core(
-        axis_in_if=aead_axis_intrf.fwd_t(chacha20poly1305_encrypt_ports.axis_in_if.stream),
+        axis_in_if=aead_axis_if_t.fwd_t(chacha20poly1305_encrypt_ports.axis_in_if.stream),
         key=chacha20poly1305_encrypt_ports.key,
         nonce=chacha20poly1305_encrypt_ports.nonce,
         aad=chacha20poly1305_encrypt_ports.aad,
         aad_len=chacha20poly1305_encrypt_ports.aad_len,
-        axis_out_if=aead_axis_intrf.fb_t(chacha20poly1305_encrypt_ports.axis_out_if.ready),
+        axis_out_if=aead_axis_if_t.fb_t(chacha20poly1305_encrypt_ports.axis_out_if.ready),
     )
     chacha20poly1305_encrypt_ports.axis_in_if.ready = core.axis_in_if.ready
     chacha20poly1305_encrypt_ports.axis_out_if.stream = core.axis_out_if.stream

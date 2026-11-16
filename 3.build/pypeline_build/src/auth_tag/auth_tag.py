@@ -13,9 +13,9 @@ from pypeline import (
 )
 from stream import stream_perf_probe as perf_taps
 from aead_types import (
-    POLY1305_AUTH_TAG_SIZE, axis128_intrf, axis128_stream_null,
+    POLY1305_AUTH_TAG_SIZE, axis128_if_t, axis128_stream_null,
     axis128_keep_count, axis128_keep_count_t, axis128_count_to_keep,
-    poly1305_auth_tag_stream_intrf, poly1305_auth_tag_stream_null,
+    poly1305_auth_tag_stream_if_t, poly1305_auth_tag_stream_null,
 )
 
 
@@ -32,16 +32,16 @@ APPEND_AUTH_TAG_STATE_NAMES = tuple(append_auth_tag_state_t.__members__)
 
 @struct
 class append_auth_tag_out_t(NamedTuple):
-    axis_in_if: axis128_intrf.fb_t
-    auth_tag_in_if: poly1305_auth_tag_stream_intrf.fb_t
-    axis_out_if: axis128_intrf.fwd_t
+    axis_in_if: axis128_if_t.fb_t
+    auth_tag_in_if: poly1305_auth_tag_stream_if_t.fb_t
+    axis_out_if: axis128_if_t.fwd_t
 
 
 @hw_func
 def append_auth_tag(
-    axis_in_if: axis128_intrf.fwd_t,
-    auth_tag_in_if: poly1305_auth_tag_stream_intrf.fwd_t,
-    axis_out_if: axis128_intrf.fb_t,
+    axis_in_if: axis128_if_t.fwd_t,
+    auth_tag_in_if: poly1305_auth_tag_stream_if_t.fwd_t,
+    axis_out_if: axis128_if_t.fb_t,
 ) -> append_auth_tag_out_t:
     o: append_auth_tag_out_t
     state: Reg[append_auth_tag_state_t]
@@ -135,19 +135,19 @@ def append_auth_tag(
 
 @struct
 class axis128_early_tlast_t(NamedTuple):
-    axis_out_if: axis128_intrf.fwd_t
+    axis_out_if: axis128_if_t.fwd_t
     next_axis_out_is_tlast: uint1_t
-    stream_in_if: axis128_intrf.fb_t
+    stream_in_if: axis128_if_t.fb_t
 
 
 @hw_func
 def axis128_early_tlast(
-    stream_in_if: axis128_intrf.fwd_t,
-    axis_out_if: axis128_intrf.fb_t,
+    stream_in_if: axis128_if_t.fwd_t,
+    axis_out_if: axis128_if_t.fb_t,
 ) -> axis128_early_tlast_t:
     o: axis128_early_tlast_t
 
-    buffer_reg: Reg[axis128_intrf.stream_t]
+    buffer_reg: Reg[axis128_if_t.stream_t]
 
     # A nonfinal buffered beat needs the following beat's last flag.
     buffer_is_tlast: uint1_t = buffer_reg.valid & buffer_reg.data.eod[0]
@@ -175,16 +175,16 @@ def axis128_early_tlast(
 
 @struct
 class strip_auth_tag_out_t(NamedTuple):
-    axis_in_if: axis128_intrf.fb_t
-    axis_out_if: axis128_intrf.fwd_t
-    auth_tag_out_if: poly1305_auth_tag_stream_intrf.fwd_t
+    axis_in_if: axis128_if_t.fb_t
+    axis_out_if: axis128_if_t.fwd_t
+    auth_tag_out_if: poly1305_auth_tag_stream_if_t.fwd_t
 
 
 @hw_func
 def strip_auth_tag(
-    axis_in_if: axis128_intrf.fwd_t,
-    axis_out_if: axis128_intrf.fb_t,
-    auth_tag_out_if: poly1305_auth_tag_stream_intrf.fb_t,
+    axis_in_if: axis128_if_t.fwd_t,
+    axis_out_if: axis128_if_t.fb_t,
+    auth_tag_out_if: poly1305_auth_tag_stream_if_t.fb_t,
 ) -> strip_auth_tag_out_t:
     o: strip_auth_tag_out_t
     early_out_ready: Feedback[uint1_t]
@@ -192,11 +192,11 @@ def strip_auth_tag(
     prev_data_reg: Reg[uint8_t[POLY1305_AUTH_TAG_SIZE]]
 
     early_tlast = axis128_early_tlast(
-        stream_in_if=axis_in_if, axis_out_if=axis128_intrf.fb_t(early_out_ready)
+        stream_in_if=axis_in_if, axis_out_if=axis128_if_t.fb_t(early_out_ready)
     )
 
     o.axis_in_if = early_tlast.stream_in_if
-    stream_in: axis128_intrf.stream_t = early_tlast.axis_out_if.stream
+    stream_in: axis128_if_t.stream_t = early_tlast.axis_out_if.stream
 
     # Forward ciphertext, marking the penultimate input beat as its last.
     o.axis_out_if.stream = stream_in

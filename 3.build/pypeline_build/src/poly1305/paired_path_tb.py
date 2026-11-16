@@ -28,9 +28,9 @@ from pypeline import (
     uint8_t,
 )
 from aead_types import (
-    aead_axis_intrf,
-    poly1305_key_stream_intrf,
-    poly1305_auth_tag_stream_intrf,
+    aead_axis_if_t,
+    poly1305_key_stream_if_t,
+    poly1305_auth_tag_stream_if_t,
     aad_uint_t,
 )
 from axi.axis_sim import ConvergedAxisSimSource, ConvergedAxisSimSink, Scoreboard
@@ -57,17 +57,17 @@ state = {
     "launches": 0,
     "saw_stall": False,
 }
-in_if: Wire[aead_axis_intrf]
-out_if: Wire[aead_axis_intrf]
-key_if: Wire[poly1305_key_stream_intrf]
-tag_if: Wire[poly1305_auth_tag_stream_intrf]
-extracted_tag_if: Wire[poly1305_auth_tag_stream_intrf]
-packed_if: Wire[aead_axis_intrf]
+in_if: Wire[aead_axis_if_t]
+out_if: Wire[aead_axis_if_t]
+key_if: Wire[poly1305_key_stream_if_t]
+tag_if: Wire[poly1305_auth_tag_stream_if_t]
+extracted_tag_if: Wire[poly1305_auth_tag_stream_if_t]
+packed_if: Wire[aead_axis_if_t]
 aad_wire: Wire[aad_uint_t]
 aad_len_wire: Wire[uint8_t]
-source = ConvergedAxisSimSource(aead_axis_intrf, 32)
+source = ConvergedAxisSimSource(aead_axis_if_t, 32)
 scoreboard = Scoreboard()
-sink = ConvergedAxisSimSink(aead_axis_intrf, 32, scoreboard=scoreboard)
+sink = ConvergedAxisSimSink(aead_axis_if_t, 32, scoreboard=scoreboard)
 
 if MODE == "mac":
     # Count each pair through both pipelines, plus bypassed odd tails and tags.
@@ -145,13 +145,13 @@ else:
         # Check the appended frame as well as the stripped ciphertext/tag, so
         # matching append/strip errors cannot cancel in the round trip.
         packed_scoreboard = Scoreboard()
-        packed_sink = ConvergedAxisSimSink(aead_axis_intrf, 32, scoreboard=packed_scoreboard)
+        packed_sink = ConvergedAxisSimSink(aead_axis_if_t, 32, scoreboard=packed_scoreboard)
         for index, (ct, tag) in enumerate(cases):
             packed_scoreboard.expect(ct + tag, idx=index)
 
 
 @sim_input
-def drive_word() -> aead_axis_intrf.stream_t:
+def drive_word() -> aead_axis_if_t.stream_t:
     # Include an unstalled window long enough to demonstrate body II=1.
     paused = (state["cycle"] % 193 < 5) and state["cycle"] < 600
     word = source.drive(paused).stream
@@ -164,9 +164,9 @@ def drive_word() -> aead_axis_intrf.stream_t:
 
 
 @sim_input
-def drive_key() -> poly1305_key_stream_intrf.stream_t:
+def drive_key() -> poly1305_key_stream_if_t.stream_t:
     k = state["sent_keys"]
-    return poly1305_key_stream_intrf.stream_t(
+    return poly1305_key_stream_if_t.stream_t(
         data=keys[k] if k < TOTAL else 0, valid=int(k < TOTAL)
     )
 
@@ -215,14 +215,14 @@ def check():
         if accepted and data.data.eod[0]:
             state["input_packet"] += 1
 
-        sink.step(aead_axis_intrf.fwd_t(out_if.stream), ready=out_if.ready)
+        sink.step(aead_axis_if_t.fwd_t(out_if.stream), ready=out_if.ready)
         result = sink.check_nowait()
         if result is not None:
             assert result["passed"], result
             state["received"] += 1
 
         if MODE == "tags":
-            packed_sink.step(aead_axis_intrf.fwd_t(packed_if.stream), ready=packed_if.ready)
+            packed_sink.step(aead_axis_if_t.fwd_t(packed_if.stream), ready=packed_if.ready)
             packed_result = packed_sink.check_nowait()
             if packed_result is not None:
                 assert packed_result["passed"], packed_result
@@ -317,9 +317,9 @@ if MODE == "mac":
         key_if.stream = drive_key()
         tag_if.ready = drive_ready()
         result = mac(
-            key_if=poly1305_key_stream_intrf.fwd_t(key_if.stream),
-            data_in_if=aead_axis_intrf.fwd_t(in_if.stream),
-            auth_tag_if=poly1305_auth_tag_stream_intrf.fb_t(tag_if.ready),
+            key_if=poly1305_key_stream_if_t.fwd_t(key_if.stream),
+            data_in_if=aead_axis_if_t.fwd_t(in_if.stream),
+            auth_tag_if=poly1305_auth_tag_stream_if_t.fb_t(tag_if.ready),
         )
         in_if.ready = result.data_in_if.ready
         key_if.ready = result.key_if.ready
@@ -351,8 +351,8 @@ elif MODE == "prep":
         result = prep_auth_data_wide(
             aad=aad,
             aad_len=aad_len_wire,
-            axis_in_if=aead_axis_intrf.fwd_t(in_if.stream),
-            axis_if=aead_axis_intrf.fb_t(out_if.ready),
+            axis_in_if=aead_axis_if_t.fwd_t(in_if.stream),
+            axis_if=aead_axis_if_t.fb_t(out_if.ready),
         )
         in_if.ready = result.axis_in_if.ready
         out_if.stream = result.axis_if.stream
@@ -362,9 +362,9 @@ else:
     from pypeline import Feedback
 
     @sim_input
-    def drive_tag() -> poly1305_auth_tag_stream_intrf.stream_t:
+    def drive_tag() -> poly1305_auth_tag_stream_if_t.stream_t:
         k = state["tags_sent"]
-        return poly1305_auth_tag_stream_intrf.stream_t(
+        return poly1305_auth_tag_stream_if_t.stream_t(
             data=int.from_bytes(cases[k][1], "little") if k < TOTAL else 0, valid=int(k < TOTAL)
         )
 
@@ -375,20 +375,20 @@ else:
     @MAIN(wireguard_env.TARGET_MHZ)
     @wires
     def paired_tags_tb():
-        strip_ready: Feedback[aead_axis_intrf.fb_t]
+        strip_ready: Feedback[aead_axis_if_t.fb_t]
         in_if.stream = drive_word()
         tag_if.stream = drive_tag()
         out_if.ready = drive_ready()
         extracted_tag_if.ready = drive_tag_ready()
         appended = append_auth_tag_wide(
-            aead_axis_intrf.fwd_t(in_if.stream),
-            poly1305_auth_tag_stream_intrf.fwd_t(tag_if.stream),
+            aead_axis_if_t.fwd_t(in_if.stream),
+            poly1305_auth_tag_stream_if_t.fwd_t(tag_if.stream),
             strip_ready,
         )
         stripped = strip_auth_tag_wide(
             appended.axis_out_if,
-            aead_axis_intrf.fb_t(out_if.ready),
-            poly1305_auth_tag_stream_intrf.fb_t(extracted_tag_if.ready),
+            aead_axis_if_t.fb_t(out_if.ready),
+            poly1305_auth_tag_stream_if_t.fb_t(extracted_tag_if.ready),
         )
         strip_ready = stripped.axis_in_if
         # Observe the intermediate frame without adding a second consumer.

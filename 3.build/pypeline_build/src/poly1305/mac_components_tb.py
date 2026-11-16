@@ -33,9 +33,9 @@ from pypeline import (
     sim_finish,
 )
 from aead_types import (
-    axis128_intrf,
-    poly1305_key_stream_intrf,
-    poly1305_auth_tag_stream_intrf,
+    axis128_if_t,
+    poly1305_key_stream_if_t,
+    poly1305_auth_tag_stream_if_t,
 )
 import poly1305_math as arithmetic
 import poly1305_mac_pipelined as design
@@ -77,7 +77,7 @@ if MODE not in ("arithmetic", "sharing"):
     body_pipeline = mac.body_pipeline
     init = mac.init
     finish = mac.finish
-    finish_stream_t = mac.finish_unit.in_intrf.stream_t
+    finish_stream_t = mac.finish_unit.in_if_t.stream_t
     print(f"Poly1305 {MODE} TB: {DIRECTION}, P={mac.body_auto_pipeline.latency}, D=L={LANES}")
 
 if MODE == "sharing":
@@ -202,10 +202,10 @@ if MODE == "sharing":
         finish_powers: uint130_t[INIT_ARRAY_SIZE] = FINISH_POWERS
         expected_tags: uint128_t[2 * REQUESTS] = FINISH_EXPECTED
 
-        init_enc: shared.init_in_intrf.stream_t
-        init_dec: shared.init_in_intrf.stream_t
-        finish_enc: shared.finish_in_intrf.stream_t
-        finish_dec: shared.finish_in_intrf.stream_t
+        init_enc: shared.init_in_if_t.stream_t
+        init_dec: shared.init_in_if_t.stream_t
+        finish_enc: shared.finish_in_if_t.stream_t
+        finish_dec: shared.finish_in_if_t.stream_t
 
         # Early requests stay continuously asserted to check alternating ties;
         # later absolute start times add lone requesters without withdrawing a
@@ -257,16 +257,16 @@ if MODE == "sharing":
         ready[2] = (cycle >= 12) & (cycle % 7 >= 2)
         ready[3] = (cycle >= 7) & (cycle % 9 >= 2)
         p_enc = shared.encrypt_init_shared_adapter(
-            shared.init_in_intrf.fwd_t(init_enc), shared.init_out_intrf.fb_t(ready[0])
+            shared.init_in_if_t.fwd_t(init_enc), shared.init_out_if_t.fb_t(ready[0])
         )
         p_dec = shared.decrypt_init_shared_adapter(
-            shared.init_in_intrf.fwd_t(init_dec), shared.init_out_intrf.fb_t(ready[1])
+            shared.init_in_if_t.fwd_t(init_dec), shared.init_out_if_t.fb_t(ready[1])
         )
         e_enc = shared.encrypt_finish_shared_adapter(
-            shared.finish_in_intrf.fwd_t(finish_enc), shared.finish_out_intrf.fb_t(ready[2])
+            shared.finish_in_if_t.fwd_t(finish_enc), shared.finish_out_if_t.fb_t(ready[2])
         )
         e_dec = shared.decrypt_finish_shared_adapter(
-            shared.finish_in_intrf.fwd_t(finish_dec), shared.finish_out_intrf.fb_t(ready[3])
+            shared.finish_in_if_t.fwd_t(finish_dec), shared.finish_out_if_t.fb_t(ready[3])
         )
 
         launches: uint1_t[4]
@@ -443,10 +443,10 @@ elif MODE == "mac":
 
         # Send the key once, then blocks; selected cases insert input gaps.
         gap: uint1_t = gaps[packet] & ((cycle % 5 == 1) | (cycle % 5 == 2))
-        key_stream: poly1305_key_stream_intrf.stream_t
+        key_stream: poly1305_key_stream_if_t.stream_t
         key_stream.data = keys[packet]
         key_stream.valid = ~key_sent  # This test sends one packet at a time.
-        data_stream: axis128_intrf.stream_t
+        data_stream: axis128_if_t.stream_t
         data_stream.valid = key_sent & (block_index < counts[packet]) & ~gap
         data_stream.data.eod[0] = block_index == counts[packet] - 1
         for j in range(16):
@@ -457,9 +457,9 @@ elif MODE == "mac":
         # Hold each completed tag for its configured number of valid cycles.
         tag_ready: uint1_t = tag_stalls >= stalls[packet]
         o = mac(
-            poly1305_key_stream_intrf.fwd_t(stream=key_stream),
-            axis128_intrf.fwd_t(stream=data_stream),
-            poly1305_auth_tag_stream_intrf.fb_t(ready=tag_ready),
+            poly1305_key_stream_if_t.fwd_t(stream=key_stream),
+            axis128_if_t.fwd_t(stream=data_stream),
+            poly1305_auth_tag_stream_if_t.fb_t(ready=tag_ready),
         )
 
         if key_stream.valid & o.key_if.ready:

@@ -20,8 +20,8 @@ from stream import stream_perf_probe as perf_taps
 
 from aead_types import (
     poly1305_auth_tag_uint_t,
-    poly1305_auth_tag_stream_intrf,
-    uint1_stream_intrf,
+    poly1305_auth_tag_stream_if_t,
+    uint1_stream_if_t,
     uint1_stream_null,
 )
 
@@ -43,16 +43,16 @@ VERIFY_HANDOFF_CYCLES = len(POLY1305_VERIFY_STATE_NAMES)
 
 @struct
 class poly1305_verify_decrypt_out_t(NamedTuple):
-    auth_tag_if: poly1305_auth_tag_stream_intrf.fb_t
-    calc_tag_if: poly1305_auth_tag_stream_intrf.fb_t
-    tags_match_if: uint1_stream_intrf.fwd_t
+    auth_tag_if: poly1305_auth_tag_stream_if_t.fb_t
+    calc_tag_if: poly1305_auth_tag_stream_if_t.fb_t
+    tags_match_if: uint1_stream_if_t.fwd_t
 
 
 @hw_func
 def poly1305_verify_decrypt(
-    auth_tag_if: poly1305_auth_tag_stream_intrf.fwd_t,
-    calc_tag_if: poly1305_auth_tag_stream_intrf.fwd_t,
-    tags_match_if: uint1_stream_intrf.fb_t,
+    auth_tag_if: poly1305_auth_tag_stream_if_t.fwd_t,
+    calc_tag_if: poly1305_auth_tag_stream_if_t.fwd_t,
+    tags_match_if: uint1_stream_if_t.fb_t,
 ) -> poly1305_verify_decrypt_out_t:
     o: poly1305_verify_decrypt_out_t
     state: Reg[poly1305_verify_state_t]

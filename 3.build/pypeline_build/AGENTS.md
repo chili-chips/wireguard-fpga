@@ -23,7 +23,7 @@ duplicating design descriptions, parameter tables, commands, or results here.
 - Follow the existing interface functions in the
   [dataflow cores](README.md#data-flow). Keep explicit `Wire` assignments at
   top-level and shared-resource boundaries. Interface ports use matching `_if`
-  names across arguments and results; interface types use `_intrf`.
+  names across arguments and results; interface types use `_if_t`.
 - Size buffers from the selected instances' resolved pipeline metadata, ex. using
   [aead_types.py](src/aead_types.py).
 - Declare `wireguard_env.TARGET_MHZ` on every MAIN, including simulation

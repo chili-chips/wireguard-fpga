@@ -113,14 +113,14 @@ flowchart LR
     n6["axis512_to_aead<br>dwidth_narrow"]
     n7["mux == & + …<br>34 ops  3 regs"]
     subgraph inputs[" "]
-        n0["axis_in_if<br>input  aead_axis_intrf.fwd_t (290b)"]
-        n1["from_pipeline_if<br>input  axis512_intrf.fwd_t (578b)"]
+        n0["axis_in_if<br>input  aead_axis_if_t.fwd_t (290b)"]
+        n1["from_pipeline_if<br>input  axis512_if_t.fwd_t (578b)"]
     end
     style inputs fill:none,stroke:none
     subgraph outputs[" "]
-        n2["key_if<br>output  poly1305_key_stream_intrf.fwd_t…"]
-        n3["axis_out_if<br>output  aead_axis_intrf.fwd_t (290b)"]
-        n4["to_pipeline_if<br>output  chacha20_loop_body_stream_intrf…"]
+        n2["key_if<br>output  poly1305_key_stream_if_t.fwd_t …"]
+        n3["axis_out_if<br>output  aead_axis_if_t.fwd_t (290b)"]
+        n4["to_pipeline_if<br>output  chacha20_loop_body_stream_if_t.…"]
     end
     style outputs fill:none,stroke:none
     n0 -->|"axis_in_if: stream, stream.valid"| n7
@@ -175,8 +175,8 @@ flowchart LR
     end
     style inputs fill:none,stroke:none
     subgraph outputs[" "]
-        n2["decrypt_pipeline_out_if<br>wire write  axis512_intrf.wire_t (579b)"]
-        n3["encrypt_pipeline_out_if<br>wire write  axis512_intrf.wire_t (579b)"]
+        n2["decrypt_pipeline_out_if<br>wire write  axis512_if_t.wire_t (579b)"]
+        n3["encrypt_pipeline_out_if<br>wire write  axis512_if_t.wire_t (579b)"]
     end
     style outputs fill:none,stroke:none
     n0 -->|"decrypt_pipeline_in_if.stream: data,<br>valid"| n5
@@ -213,14 +213,14 @@ the same `chacha20_fsm` on those wires:
 flowchart LR
     n5["chacha20_fsm"]
     subgraph inputs[" "]
-        n0["encrypt_pipeline_out_if<br>wire read  axis512_intrf.wire_t (579b)"]
-        n2["axis_in_if<br>input  aead_axis_intrf.fwd_t (290b)"]
+        n0["encrypt_pipeline_out_if<br>wire read  axis512_if_t.wire_t (579b)"]
+        n2["axis_in_if<br>input  aead_axis_if_t.fwd_t (290b)"]
     end
     style inputs fill:none,stroke:none
     subgraph outputs[" "]
         n1["encrypt_pipeline_in_if<br>wire write  chacha20_loop_body_stream_i…"]
-        n3["key_if<br>output  poly1305_key_stream_intrf.fwd_t…"]
-        n4["axis_out_if<br>output  aead_axis_intrf.fwd_t (290b)"]
+        n3["key_if<br>output  poly1305_key_stream_if_t.fwd_t …"]
+        n4["axis_out_if<br>output  aead_axis_if_t.fwd_t (290b)"]
     end
     style outputs fill:none,stroke:none
     n0 -->|"encrypt_pipeline_out_if.stream"| n5

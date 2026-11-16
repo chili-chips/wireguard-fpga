@@ -19,7 +19,7 @@ from pypeline import (
     uint1_t,
     uint8_t,
 )
-from stream.stream import make_stream_interface
+from stream import make_stream_interface
 from stream.stream_auto_pipeline import make_stream_auto_pipeline
 
 from stream import stream_perf_probe as perf_taps
@@ -27,18 +27,18 @@ from stream import stream_perf_probe as perf_taps
 import chacha20
 from chacha20 import (
     chacha20_loop_body_in_t,
-    chacha20_loop_body_stream_intrf,
+    chacha20_loop_body_stream_if_t,
     chacha20_loop_body_in_null,
 )
 
 from aead_types import (
     CHACHA20_KEY_SIZE,
     CHACHA20_NONCE_SIZE,
-    aead_axis_intrf,
+    aead_axis_if_t,
     axis512_frag_t,
-    axis512_intrf,
+    axis512_if_t,
     axis512_stream_null,
-    poly1305_key_stream_intrf,
+    poly1305_key_stream_if_t,
 )
 
 
@@ -55,12 +55,12 @@ class chacha_shared_pipeline_out_t(NamedTuple):
     is_encrypt: uint1_t
 
 
-chacha_shared_pipeline_in_stream_intrf = make_stream_interface(chacha_shared_pipeline_in_t)
-chacha_shared_pipeline_out_stream_intrf = make_stream_interface(chacha_shared_pipeline_out_t)
+chacha_shared_pipeline_in_stream_if_t = make_stream_interface(chacha_shared_pipeline_in_t)
+chacha_shared_pipeline_out_stream_if_t = make_stream_interface(chacha_shared_pipeline_out_t)
 
 
 def chacha_shared_pipeline_in_stream_null():
-    return chacha_shared_pipeline_in_stream_intrf.stream_t(
+    return chacha_shared_pipeline_in_stream_if_t.stream_t(
         data=chacha_shared_pipeline_in_t(data=chacha20_loop_body_in_null(), is_encrypt=0),
         valid=0,
     )
@@ -81,26 +81,26 @@ pipeline_func = make_stream_auto_pipeline(chacha_shared_pipeline, name="chacha20
 
 # Each direction connects its FSM to the shared MAIN through these interfaces.
 # Stream data and ready travel in opposite directions.
-encrypt_pipeline_in_if: Wire[chacha20_loop_body_stream_intrf]
-decrypt_pipeline_in_if: Wire[chacha20_loop_body_stream_intrf]
-encrypt_pipeline_out_if: Wire[axis512_intrf]
-decrypt_pipeline_out_if: Wire[axis512_intrf]
+encrypt_pipeline_in_if: Wire[chacha20_loop_body_stream_if_t]
+decrypt_pipeline_in_if: Wire[chacha20_loop_body_stream_if_t]
+encrypt_pipeline_out_if: Wire[axis512_if_t]
+decrypt_pipeline_out_if: Wire[axis512_if_t]
 
 
 # Round-robin request arbitration and result routing around one shared pipeline.
 @MAIN(wireguard_env.TARGET_MHZ)
 def chacha20_pipeline_shared():
     pipeline_in_ready: Feedback[uint1_t]
-    pipeline_out: Feedback[chacha_shared_pipeline_out_stream_intrf.stream_t]
+    pipeline_out: Feedback[chacha_shared_pipeline_out_stream_if_t.stream_t]
 
     # Default to idle; drive the interfaces after arbitration and result routing.
-    pipeline_in_s: chacha_shared_pipeline_in_stream_intrf.stream_t = (
+    pipeline_in_s: chacha_shared_pipeline_in_stream_if_t.stream_t = (
         chacha_shared_pipeline_in_stream_null()
     )
     pipeline_out_ready_s: uint1_t = 0
-    encrypt_pipeline_out_s: axis512_intrf.stream_t = axis512_stream_null()
+    encrypt_pipeline_out_s: axis512_if_t.stream_t = axis512_stream_null()
     encrypt_pipeline_in_ready_s: uint1_t = 0
-    decrypt_pipeline_out_s: axis512_intrf.stream_t = axis512_stream_null()
+    decrypt_pipeline_out_s: axis512_if_t.stream_t = axis512_stream_null()
     decrypt_pipeline_in_ready_s: uint1_t = 0
 
     # Decrypt has initial priority. Advance only on an accepted launch, and
@@ -193,8 +193,8 @@ def chacha20_pipeline_shared():
     )
 
     result = pipeline_func(
-        stream_in_if=chacha_shared_pipeline_in_stream_intrf.fwd_t(pipeline_in_s),
-        stream_out_if=chacha_shared_pipeline_out_stream_intrf.fb_t(pipeline_out_ready_s),
+        stream_in_if=chacha_shared_pipeline_in_stream_if_t.fwd_t(pipeline_in_s),
+        stream_out_if=chacha_shared_pipeline_out_stream_if_t.fb_t(pipeline_out_ready_s),
     )
     pipeline_out = result.stream_out_if.stream
     pipeline_in_ready = result.stream_in_if.ready
@@ -206,22 +206,22 @@ def chacha20_pipeline_shared():
 def chacha20_encrypt_shared_adapter(
     key: uint8_t[CHACHA20_KEY_SIZE],
     nonce: uint8_t[CHACHA20_NONCE_SIZE],
-    axis_in_if: aead_axis_intrf.fwd_t,
-    key_if: poly1305_key_stream_intrf.fb_t,
-    axis_out_if: aead_axis_intrf.fb_t,
+    axis_in_if: aead_axis_if_t.fwd_t,
+    key_if: poly1305_key_stream_if_t.fb_t,
+    axis_out_if: aead_axis_if_t.fb_t,
 ) -> chacha20.chacha20_if_func.return_t:
     o: chacha20.chacha20_if_func.return_t
-    from_pipe_fwd: axis512_intrf.stream_t = encrypt_pipeline_out_if.stream
+    from_pipe_fwd: axis512_if_t.stream_t = encrypt_pipeline_out_if.stream
     fsm_out = chacha20.chacha20_fsm(
         key=key,
         nonce=nonce,
         axis_in_if=axis_in_if,
         key_if=key_if,
         axis_out_if=axis_out_if,
-        to_pipeline_if=chacha20.chacha20_loop_body_stream_intrf.fb_t(
+        to_pipeline_if=chacha20.chacha20_loop_body_stream_if_t.fb_t(
             encrypt_pipeline_in_if.ready
         ),
-        from_pipeline_if=axis512_intrf.fwd_t(from_pipe_fwd),
+        from_pipeline_if=axis512_if_t.fwd_t(from_pipe_fwd),
     )
     o.axis_in_if = fsm_out.axis_in_if
     o.key_if = fsm_out.key_if
@@ -235,22 +235,22 @@ def chacha20_encrypt_shared_adapter(
 def chacha20_decrypt_shared_adapter(
     key: uint8_t[CHACHA20_KEY_SIZE],
     nonce: uint8_t[CHACHA20_NONCE_SIZE],
-    axis_in_if: aead_axis_intrf.fwd_t,
-    key_if: poly1305_key_stream_intrf.fb_t,
-    axis_out_if: aead_axis_intrf.fb_t,
+    axis_in_if: aead_axis_if_t.fwd_t,
+    key_if: poly1305_key_stream_if_t.fb_t,
+    axis_out_if: aead_axis_if_t.fb_t,
 ) -> chacha20.chacha20_if_func.return_t:
     o: chacha20.chacha20_if_func.return_t
-    from_pipe_fwd: axis512_intrf.stream_t = decrypt_pipeline_out_if.stream
+    from_pipe_fwd: axis512_if_t.stream_t = decrypt_pipeline_out_if.stream
     fsm_out = chacha20.chacha20_fsm(
         key=key,
         nonce=nonce,
         axis_in_if=axis_in_if,
         key_if=key_if,
         axis_out_if=axis_out_if,
-        to_pipeline_if=chacha20.chacha20_loop_body_stream_intrf.fb_t(
+        to_pipeline_if=chacha20.chacha20_loop_body_stream_if_t.fb_t(
             decrypt_pipeline_in_if.ready
         ),
-        from_pipeline_if=axis512_intrf.fwd_t(from_pipe_fwd),
+        from_pipeline_if=axis512_if_t.fwd_t(from_pipe_fwd),
     )
     o.axis_in_if = fsm_out.axis_in_if
     o.key_if = fsm_out.key_if

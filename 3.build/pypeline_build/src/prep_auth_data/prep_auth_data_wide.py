@@ -19,7 +19,7 @@ from pypeline import (
 
 from stream import stream_perf_probe as perf_taps
 
-from aead_types import AAD_MAX_LEN, aead_axis_intrf, aead_stream_null, aead_keep_count
+from aead_types import AAD_MAX_LEN, aead_axis_if_t, aead_stream_null, aead_keep_count
 
 count_t = make_uint_t(3)
 
@@ -41,16 +41,16 @@ class block_t(NamedTuple):
 
 @struct
 class result_t(NamedTuple):
-    axis_in_if: aead_axis_intrf.fb_t
-    axis_if: aead_axis_intrf.fwd_t
+    axis_in_if: aead_axis_if_t.fb_t
+    axis_if: aead_axis_if_t.fwd_t
 
 
 @hw_func
 def prep_auth_data_wide(
     aad: uint8_t[AAD_MAX_LEN],
     aad_len: uint8_t,
-    axis_in_if: aead_axis_intrf.fwd_t,
-    axis_if: aead_axis_intrf.fb_t,
+    axis_in_if: aead_axis_if_t.fwd_t,
+    axis_if: aead_axis_if_t.fb_t,
 ) -> result_t:
     state: Reg[state_t]
     aad_reg: Reg[uint8_t[AAD_MAX_LEN]]

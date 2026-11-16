@@ -8,8 +8,8 @@ import wireguard_env  # noqa: F401
 
 from pypeline import NamedTuple, uint1_t, uint8_t
 
-from interface.interface import interface
-from interface.interface_func import make_hw_func_from_interface_func
+from interface import interface
+from interface_func import make_hw_func_from_interface_func
 
 import auth_tag
 import prep_auth_data
@@ -23,12 +23,12 @@ from aead_types import (
     CHACHA20_KEY_SIZE,
     CHACHA20_NONCE_SIZE,
     AAD_MAX_LEN,
-    aead_axis_intrf,
+    aead_axis_if_t,
     aead_axis_frag_t,
     aead_2broadcast,
     poly1305_auth_tag_uint_t,
-    poly1305_auth_tag_stream_intrf,
-    uint1_stream_intrf,
+    poly1305_auth_tag_stream_if_t,
+    uint1_stream_if_t,
     decrypt_auth_fifo_sizing,
     decrypt_verify_fifo_sizing,
     make_aead_fifo,
@@ -37,18 +37,18 @@ from aead_types import (
 
 @interface
 class decrypt_dataflow_core_ports(NamedTuple):
-    axis_out_if: aead_axis_intrf
+    axis_out_if: aead_axis_if_t
     is_verified_out: uint1_t  # plain sideband, no reverse companion
 
 
 @interface
 class buffered_prep_ports(NamedTuple):
-    axis_if: aead_axis_intrf
+    axis_if: aead_axis_if_t
 
 
 @interface
 class buffered_verify_ports(NamedTuple):
-    tags_match_if: uint1_stream_intrf
+    tags_match_if: uint1_stream_if_t
 
 
 def make_decrypt_dataflow_core(
@@ -101,8 +101,8 @@ def make_decrypt_dataflow_core(
         )
 
         def buffered_compare(
-            auth_tag_if: poly1305_auth_tag_stream_intrf,
-            calc_tag_if: poly1305_auth_tag_stream_intrf,
+            auth_tag_if: poly1305_auth_tag_stream_if_t,
+            calc_tag_if: poly1305_auth_tag_stream_if_t,
         ) -> buffered_verify_ports:
             queued = tag_fifo(in_stream_if=auth_tag_if)
             compared = poly1305_verify_decrypt.poly1305_verify_decrypt(
@@ -141,7 +141,7 @@ def make_decrypt_dataflow_core(
         def buffered_prep(
             aad: uint8_t[AAD_MAX_LEN],
             aad_len: uint8_t,
-            axis_in_if: aead_axis_intrf,
+            axis_in_if: aead_axis_if_t,
         ) -> buffered_prep_ports:
             queued = auth_fifo(in_stream_if=axis_in_if)
             framed = framing_func(
@@ -152,7 +152,7 @@ def make_decrypt_dataflow_core(
         prep_func = make_hw_func_from_interface_func(buffered_prep)
 
     def decrypt_dataflow_core(
-        axis_in_if: aead_axis_intrf,
+        axis_in_if: aead_axis_if_t,
         key: uint8_t[CHACHA20_KEY_SIZE],
         nonce: uint8_t[CHACHA20_NONCE_SIZE],
         aad: uint8_t[AAD_MAX_LEN],

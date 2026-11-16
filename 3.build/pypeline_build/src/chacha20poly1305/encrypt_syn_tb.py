@@ -28,7 +28,7 @@ from aead_types import (
     CHACHA20_KEY_SIZE,
     CHACHA20_NONCE_SIZE,
     AAD_MAX_LEN,
-    aead_axis_intrf,
+    aead_axis_if_t,
     AEAD_BEAT_BYTES,
 )
 from axi.axis import make_axis_byte_source, make_axis_byte_sink
@@ -57,14 +57,14 @@ EXPECTED_OUT_FRAMES, EXPECTED_OUT_FRAME_LENS = pack_ciphertext_frames(
 )
 
 byte_source = make_axis_byte_source(
-    aead_axis_intrf, AEAD_BEAT_BYTES, PLAINTEXT_TEST_STR_MAX_SIZE
+    aead_axis_if_t, AEAD_BEAT_BYTES, PLAINTEXT_TEST_STR_MAX_SIZE
 )
 # The sink writes every lane, including unused final-beat lanes, so round its
 # storage up to a whole beat (144 bytes becomes 160 on the 256-bit interface).
 OUT_SINK_CAPACITY = (
     (OUT_FRAME_MAX_SIZE + AEAD_BEAT_BYTES - 1) // AEAD_BEAT_BYTES
 ) * AEAD_BEAT_BYTES
-byte_sink = make_axis_byte_sink(aead_axis_intrf, AEAD_BEAT_BYTES, OUT_SINK_CAPACITY)
+byte_sink = make_axis_byte_sink(aead_axis_if_t, AEAD_BEAT_BYTES, OUT_SINK_CAPACITY)
 
 
 # Stay asserted so chacha20poly1305_syn_tb.py can wait for both directions.
@@ -84,7 +84,7 @@ def announce():
 
 # Registers, counters and stream logic require a timed MAIN.
 @MAIN(wireguard_env.TARGET_MHZ)
-def encrypt_syn_tb() -> aead_axis_intrf.fwd_t:
+def encrypt_syn_tb() -> aead_axis_if_t.fwd_t:
     # Test vectors
     key: uint8_t[CHACHA20_KEY_SIZE] = KEY
     nonce: uint8_t[CHACHA20_NONCE_SIZE] = NONCE
@@ -116,7 +116,7 @@ def encrypt_syn_tb() -> aead_axis_intrf.fwd_t:
         load=~input_loaded,
         load_data=plaintexts[input_packet_count],
         load_len=plaintext_lens[input_packet_count],
-        stream_out_if=aead_axis_intrf.fb_t(dut_in_ready),
+        stream_out_if=aead_axis_if_t.fb_t(dut_in_ready),
     )
     if ~input_loaded:
         sim_print(f"Encrypting test string {input_packet_count}...")
@@ -132,7 +132,7 @@ def encrypt_syn_tb() -> aead_axis_intrf.fwd_t:
 
     chacha20poly1305_encrypt_ports.axis_out_if.ready = 1
     snk = byte_sink(
-        stream_in_if=aead_axis_intrf.fwd_t(
+        stream_in_if=aead_axis_if_t.fwd_t(
             chacha20poly1305_encrypt_ports.axis_out_if.stream
         )
     )
@@ -159,4 +159,4 @@ def encrypt_syn_tb() -> aead_axis_intrf.fwd_t:
             encrypt_all_done_reg = 1
 
     # Keep the observed output visible to the compiler.
-    return aead_axis_intrf.fwd_t(chacha20poly1305_encrypt_ports.axis_out_if.stream)
+    return aead_axis_if_t.fwd_t(chacha20poly1305_encrypt_ports.axis_out_if.stream)

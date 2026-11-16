@@ -307,12 +307,12 @@ flowchart LR
     n4["finish_stage"]
     n5["init_stage"]
     subgraph inputs[" "]
-        n0["data_in_if<br>input  aead_axis_intrf.fwd_t (290b)"]
-        n1["key_if<br>input  poly1305_key_stream_intrf.fwd_t …"]
+        n0["data_in_if<br>input  aead_axis_if_t.fwd_t (290b)"]
+        n1["key_if<br>input  poly1305_key_stream_if_t.fwd_t (…"]
     end
     style inputs fill:none,stroke:none
     subgraph outputs[" "]
-        n2["auth_tag_if<br>output  poly1305_auth_tag_stream_intrf.…"]
+        n2["auth_tag_if<br>output  poly1305_auth_tag_stream_if_t.f…"]
     end
     style outputs fill:none,stroke:none
     n0 -->|"data_in_if"| n3
@@ -346,11 +346,11 @@ flowchart LR
     n3["init_unit<br>func_auto_fsm"]
     n4["mux == | ~<br>29 ops  4 regs"]
     subgraph inputs[" "]
-        n0["key_if<br>input  poly1305_key_stream_intrf.fwd_t …"]
+        n0["key_if<br>input  poly1305_key_stream_if_t.fwd_t (…"]
     end
     style inputs fill:none,stroke:none
     subgraph outputs[" "]
-        n1["prepared_if<br>output  stream_intrf_fwd_t#lt;prepared_t, …"]
+        n1["prepared_if<br>output  stream_if_fwd_t#lt;prepared_t, uin…"]
     end
     style outputs fill:none,stroke:none
     n0 -->|"key_bytes[0..15]"| n2
@@ -383,12 +383,12 @@ flowchart LR
     n4["coefficient_pipeline"]
     n5["mux == [i]= [i] …<br>165 ops  6 regs"]
     subgraph inputs[" "]
-        n0["data_in_if<br>input  aead_axis_intrf.fwd_t (290b)"]
-        n1["prepared_if<br>input  stream_intrf_fwd_t#lt;prepared_t, u…"]
+        n0["data_in_if<br>input  aead_axis_if_t.fwd_t (290b)"]
+        n1["prepared_if<br>input  stream_if_fwd_t#lt;prepared_t, uint…"]
     end
     style inputs fill:none,stroke:none
     subgraph outputs[" "]
-        n2["completed_if<br>output  stream_intrf_fwd_t#lt;completed_t,…"]
+        n2["completed_if<br>output  stream_if_fwd_t#lt;completed_t, ui…"]
     end
     style outputs fill:none,stroke:none
     n0 -->|"data_in_if.stream: data.eod[0],<br>data.frag.data[0..15],<br>data.frag.keep[0..31], valid"| n5
@@ -466,11 +466,11 @@ flowchart LR
     n2["finish_unit<br>func_auto_fsm"]
     n3["mux == & | …<br>31 ops  4 regs"]
     subgraph inputs[" "]
-        n0["completed_if<br>input  stream_intrf_fwd_t#lt;completed_t, …"]
+        n0["completed_if<br>input  stream_if_fwd_t#lt;completed_t, uin…"]
     end
     style inputs fill:none,stroke:none
     subgraph outputs[" "]
-        n1["auth_tag_if<br>output  poly1305_auth_tag_stream_intrf.…"]
+        n1["auth_tag_if<br>output  poly1305_auth_tag_stream_if_t.f…"]
     end
     style outputs fill:none,stroke:none
     n0 -->|"completed_if.stream: data.context_v,<br>valid"| n3

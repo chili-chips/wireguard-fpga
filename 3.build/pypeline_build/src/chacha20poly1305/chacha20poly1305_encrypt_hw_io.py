@@ -27,7 +27,7 @@ from aead_types import (
     aad_uint_t,
     aead_data_uint_t,
     aead_keep_uint_t,
-    aead_axis_intrf,
+    aead_axis_if_t,
 )
 
 # Key, nonce, and associated data
@@ -55,7 +55,7 @@ encrypt_m_axis_tready: Input[uint1_t]
 @wires
 def chacha20poly1305_encrypt_io_wires():
     # Unpack the input stream; lane 0 is the least significant byte/keep bit.
-    axis_in_s: aead_axis_intrf.stream_t
+    axis_in_s: aead_axis_if_t.stream_t
     axis_in_s.data.frag.data = uint_to_array_le(encrypt_s_axis_tdata, 8)
     axis_in_s.data.frag.keep = uint_to_array_le(encrypt_s_axis_tkeep, 1)
     axis_in_s.data.eod[0] = encrypt_s_axis_tlast

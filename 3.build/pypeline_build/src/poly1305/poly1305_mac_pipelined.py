@@ -13,10 +13,10 @@ from pypeline import (
     AUTO_PIPELINE, NamedTuple, Reg, Feedback, struct, enum, hw_func,
     uint1_t, uint8_t, make_uint_t, uint_to_array_le, array_to_uint_le, sim_assert,
 )
-from stream.stream import make_stream_t, make_stream_interface
+from stream import make_stream_t, make_stream_interface
 from poly1305_compute import make_compute_unit, make_pipelined_compute
 from aead_types import (
-    axis128_intrf, poly1305_key_stream_intrf, poly1305_auth_tag_stream_intrf,
+    axis128_if_t, poly1305_key_stream_if_t, poly1305_auth_tag_stream_if_t,
 )
 from poly1305_math import (
     u8_16_t, uint128_t, uint130_t, clamp,
@@ -87,9 +87,9 @@ FINISH_STATE_NAMES = ("IDLE", "EPILOGUE_WAIT", "OUTPUT_TAG")
 
 @struct
 class mac_result_t(NamedTuple):
-    key_if: poly1305_key_stream_intrf.fb_t
-    data_in_if: axis128_intrf.fb_t
-    auth_tag_if: poly1305_auth_tag_stream_intrf.fwd_t
+    key_if: poly1305_key_stream_if_t.fb_t
+    data_in_if: axis128_if_t.fb_t
+    auth_tag_if: poly1305_auth_tag_stream_if_t.fwd_t
 
 
 def get_body_auto_pipeline(body_latency=None):
@@ -141,19 +141,19 @@ def make_poly1305_mac_pipelined(direction, share_compute=False, *, body_latency=
         context: uint1_t
         data: finish_in_t
 
-    prepared_intrf = make_stream_interface(prepared_t)
-    completed_intrf = make_stream_interface(completed_t)
+    prepared_if_t = make_stream_interface(prepared_t)
+    completed_if_t = make_stream_interface(completed_t)
 
     @struct
     class init_stage_result_t(NamedTuple):
-        key_if: poly1305_key_stream_intrf.fb_t
-        prepared_if: prepared_intrf.fwd_t
+        key_if: poly1305_key_stream_if_t.fb_t
+        prepared_if: prepared_if_t.fwd_t
         computing: uint1_t
 
     @hw_func
     def init_stage(
-        key_if: poly1305_key_stream_intrf.fwd_t,
-        prepared_if: prepared_intrf.fb_t,
+        key_if: poly1305_key_stream_if_t.fwd_t,
+        prepared_if: prepared_if_t.fb_t,
     ) -> init_stage_result_t:
         state: Reg[init_state_t]
         r: Reg[uint130_t]
@@ -166,7 +166,7 @@ def make_poly1305_mac_pipelined(direction, share_compute=False, *, body_latency=
         o.prepared_if.stream.valid = state == init_state_t.OUTPUT_DESCRIPTOR
         o.computing = ((state == init_state_t.INIT_LAUNCH)
                        | (state == init_state_t.INIT_WAIT))
-        request: init_unit.in_intrf.stream_t
+        request: init_unit.in_if_t.stream_t
         request.data = r
         request.valid = state == init_state_t.INIT_LAUNCH
         response_ready: uint1_t = state == init_state_t.INIT_WAIT
@@ -224,20 +224,20 @@ def make_poly1305_mac_pipelined(direction, share_compute=False, *, body_latency=
 
     @struct
     class body_stage_result_t(NamedTuple):
-        prepared_if: prepared_intrf.fb_t
-        data_in_if: axis128_intrf.fb_t
-        completed_if: completed_intrf.fwd_t
+        prepared_if: prepared_if_t.fb_t
+        data_in_if: axis128_if_t.fb_t
+        completed_if: completed_if_t.fwd_t
 
     @hw_func
     def body_stage(
-        prepared_if: prepared_intrf.fwd_t,
-        data_in_if: axis128_intrf.fwd_t,
-        completed_if: completed_intrf.fb_t,
+        prepared_if: prepared_if_t.fwd_t,
+        data_in_if: axis128_if_t.fwd_t,
+        completed_if: completed_if_t.fb_t,
     ) -> body_stage_result_t:
         banks: Reg[bank_t[PACKET_CONTEXTS]]
         issue_context: Reg[uint1_t]
         complete_context: Reg[uint1_t]
-        completion: Reg[completed_intrf.stream_t]
+        completion: Reg[completed_if_t.stream_t]
         owners: Reg[body_owner_t[lanes]]
         result: Feedback[body_out_stream_t]
 
@@ -357,14 +357,14 @@ def make_poly1305_mac_pipelined(direction, share_compute=False, *, body_latency=
 
     @struct
     class finish_stage_result_t(NamedTuple):
-        completed_if: completed_intrf.fb_t
-        auth_tag_if: poly1305_auth_tag_stream_intrf.fwd_t
+        completed_if: completed_if_t.fb_t
+        auth_tag_if: poly1305_auth_tag_stream_if_t.fwd_t
         computing: uint1_t
 
     @hw_func
     def finish_stage(
-        completed_if: completed_intrf.fwd_t,
-        auth_tag_if: poly1305_auth_tag_stream_intrf.fb_t,
+        completed_if: completed_if_t.fwd_t,
+        auth_tag_if: poly1305_auth_tag_stream_if_t.fb_t,
     ) -> finish_stage_result_t:
         state: Reg[finish_state_t]
         owner_context: Reg[uint1_t]
@@ -377,7 +377,7 @@ def make_poly1305_mac_pipelined(direction, share_compute=False, *, body_latency=
         o.auth_tag_if.stream.valid = state == finish_state_t.OUTPUT_TAG
         o.computing = ((state == finish_state_t.FINISH_WAIT)
                        | ((state == finish_state_t.IDLE) & completed_if.stream.valid))
-        request: finish_unit.in_intrf.stream_t
+        request: finish_unit.in_if_t.stream_t
         request.data = completed_if.stream.data.data
         request.valid = completed_if.stream.valid & (state == finish_state_t.IDLE)
         response_ready: uint1_t = state == finish_state_t.FINISH_WAIT
@@ -411,15 +411,15 @@ def make_poly1305_mac_pipelined(direction, share_compute=False, *, body_latency=
 
     @hw_func
     def poly1305_mac_pipelined(
-        key_if: poly1305_key_stream_intrf.fwd_t,
-        data_in_if: axis128_intrf.fwd_t,
-        auth_tag_if: poly1305_auth_tag_stream_intrf.fb_t,
+        key_if: poly1305_key_stream_if_t.fwd_t,
+        data_in_if: axis128_if_t.fwd_t,
+        auth_tag_if: poly1305_auth_tag_stream_if_t.fb_t,
     ) -> mac_result_t:
         body_result: Feedback[body_stage_result_t]
         finish_result: Feedback[finish_stage_result_t]
-        prepared = init_stage(key_if, prepared_intrf.fb_t(body_result.prepared_if.ready))
+        prepared = init_stage(key_if, prepared_if_t.fb_t(body_result.prepared_if.ready))
         body_result = body_stage(prepared.prepared_if, data_in_if,
-                                 completed_intrf.fb_t(finish_result.completed_if.ready))
+                                 completed_if_t.fb_t(finish_result.completed_if.ready))
         finish_result = finish_stage(body_result.completed_if, auth_tag_if)
         o: mac_result_t
         o.key_if = prepared.key_if

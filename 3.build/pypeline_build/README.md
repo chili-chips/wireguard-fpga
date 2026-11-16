@@ -75,11 +75,11 @@ flowchart LR
     n5["mac_func<br>poly1305_mac_paired"]
     n6["prep_func<br>buffered_prep_interface"]
     subgraph inputs[" "]
-        n0["axis_in_if<br>input  aead_axis_intrf.fwd_t (290b)"]
+        n0["axis_in_if<br>input  aead_axis_if_t.fwd_t (290b)"]
     end
     style inputs fill:none,stroke:none
     subgraph outputs[" "]
-        n1["axis_out_if<br>output  aead_axis_intrf.fwd_t (290b)"]
+        n1["axis_out_if<br>output  aead_axis_if_t.fwd_t (290b)"]
     end
     style outputs fill:none,stroke:none
     n0 -->|"axis_in_if"| n4
@@ -115,11 +115,11 @@ flowchart LR
     n7["stripping_func<br>strip_auth_tag_wide"]
     n8["verify_func<br>wait_to_verify"]
     subgraph inputs[" "]
-        n0["axis_in_if<br>input  aead_axis_intrf.fwd_t (290b)"]
+        n0["axis_in_if<br>input  aead_axis_if_t.fwd_t (290b)"]
     end
     style inputs fill:none,stroke:none
     subgraph outputs[" "]
-        n1["axis_out_if<br>output  aead_axis_intrf.fwd_t (290b)"]
+        n1["axis_out_if<br>output  aead_axis_if_t.fwd_t (290b)"]
     end
     style outputs fill:none,stroke:none
     n0 -->|"axis_in_if"| n7

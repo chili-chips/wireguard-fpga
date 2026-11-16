@@ -23,9 +23,9 @@ from pypeline import (
 from stream import stream_perf_probe as perf_taps
 
 from aead_types import (
-    aead_axis_intrf,
+    aead_axis_if_t,
     aead_axis_frag_t,
-    uint1_stream_intrf,
+    uint1_stream_if_t,
     make_aead_fifo,
 )
 
@@ -42,9 +42,9 @@ WAIT_TO_VERIFY_STATE_NAMES = tuple(wait_to_verify_state_t.__members__)
 
 @struct
 class wait_to_verify_out_t(NamedTuple):
-    axis_in_if: aead_axis_intrf.fb_t
-    verify_bit_if: uint1_stream_intrf.fb_t
-    axis_out_if: aead_axis_intrf.fwd_t
+    axis_in_if: aead_axis_if_t.fb_t
+    verify_bit_if: uint1_stream_if_t.fb_t
+    axis_out_if: aead_axis_if_t.fwd_t
     is_verified_out: uint1_t  # plain sideband, no reverse companion
 
 
@@ -77,9 +77,9 @@ def make_wait_to_verify(depth=128, *, sizing=None):
 
     @hw_func
     def wait_to_verify(
-        axis_in_if: aead_axis_intrf.fwd_t,
-        verify_bit_if: uint1_stream_intrf.fwd_t,
-        axis_out_if: aead_axis_intrf.fb_t,
+        axis_in_if: aead_axis_if_t.fwd_t,
+        verify_bit_if: uint1_stream_if_t.fwd_t,
+        axis_out_if: aead_axis_if_t.fb_t,
     ) -> wait_to_verify_out_t:
         o: wait_to_verify_out_t
         state: Reg[wait_to_verify_state_t]
@@ -89,10 +89,10 @@ def make_wait_to_verify(depth=128, *, sizing=None):
 
         # Close the FIFO data/ready feedback through the FSM.
         verify_fifo_in_ready: Feedback[uint1_t]
-        verify_fifo_out: Feedback[aead_axis_intrf.stream_t]
+        verify_fifo_out: Feedback[aead_axis_if_t.stream_t]
 
         # Accept plaintext whenever the FIFO has room, in either state.
-        verify_fifo_in_s: aead_axis_intrf.stream_t = axis_in_if.stream
+        verify_fifo_in_s: aead_axis_if_t.stream_t = axis_in_if.stream
         o.axis_in_if.ready = verify_fifo_in_ready
 
         # The FSM gates FIFO consumption and output validity.
@@ -126,8 +126,8 @@ def make_wait_to_verify(depth=128, *, sizing=None):
             o.verify_bit_if.ready = 0
 
         fifo_result = verify_fifo_func(
-            in_stream_if=aead_axis_intrf.fwd_t(verify_fifo_in_s),
-            out_stream_if=aead_axis_intrf.fb_t(verify_fifo_out_ready_s),
+            in_stream_if=aead_axis_if_t.fwd_t(verify_fifo_in_s),
+            out_stream_if=aead_axis_if_t.fb_t(verify_fifo_out_ready_s),
         )
         verify_fifo_out = fifo_result.out_stream_if.stream
         verify_fifo_in_ready = fifo_result.in_stream_if.ready

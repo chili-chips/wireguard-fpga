@@ -11,7 +11,7 @@ from pypeline import (
     MAIN, NamedTuple, Reg, Feedback, Wire, struct, hw_func, uint1_t, uint2_t,
 )
 from stream import stream_perf_probe as perf_taps
-from stream.stream import make_stream_interface
+from stream import make_stream_interface
 from poly1305_compute import make_compute_unit, make_shared_compute
 from poly1305_math import (
     uint128_t, uint130_t,
@@ -30,16 +30,16 @@ CAPACITY = get_body_auto_pipeline().latency + 2
 if wireguard_env.POLY1305_BLOCKS_PER_CYCLE == 2:
     from poly1305_compute import make_paired_compute as make_shared_compute
 compute = make_shared_compute(CAPACITY)
-init_in_intrf = make_stream_interface(uint130_t)
-init_out_intrf = make_stream_interface(compute.powers_t)
-finish_in_intrf = make_stream_interface(compute.finish_in_t)
-finish_out_intrf = make_stream_interface(uint128_t)
+init_in_if_t = make_stream_interface(uint130_t)
+init_out_if_t = make_stream_interface(compute.powers_t)
+finish_in_if_t = make_stream_interface(compute.finish_in_t)
+finish_out_if_t = make_stream_interface(uint128_t)
 
 
 def make_compute_arbiter(func, input_t, output_t, phase):
     """Arbitrate two requesters for one AUTO_FSM/AUTO_MCP compute unit per phase."""
-    in_intrf = make_stream_interface(input_t)
-    out_intrf = make_stream_interface(output_t)
+    in_if_t = make_stream_interface(input_t)
+    out_if_t = make_stream_interface(output_t)
 
     @struct
     class tagged_in_t(NamedTuple):
@@ -62,10 +62,10 @@ def make_compute_arbiter(func, input_t, output_t, phase):
 
     @struct
     class result_t(NamedTuple):
-        encrypt_in_if: in_intrf.fb_t
-        decrypt_in_if: in_intrf.fb_t
-        encrypt_out_if: out_intrf.fwd_t
-        decrypt_out_if: out_intrf.fwd_t
+        encrypt_in_if: in_if_t.fb_t
+        decrypt_in_if: in_if_t.fb_t
+        encrypt_out_if: out_if_t.fwd_t
+        decrypt_out_if: out_if_t.fwd_t
 
     # Probe names are part of the saved measurement format.
     probe_phase = {"init": "prologue", "finish": "epilogue"}[phase]
@@ -77,10 +77,10 @@ def make_compute_arbiter(func, input_t, output_t, phase):
 
     @hw_func
     def arbiter(
-        encrypt_in_if: in_intrf.fwd_t,
-        decrypt_in_if: in_intrf.fwd_t,
-        encrypt_out_if: out_intrf.fb_t,
-        decrypt_out_if: out_intrf.fb_t,
+        encrypt_in_if: in_if_t.fwd_t,
+        decrypt_in_if: in_if_t.fwd_t,
+        encrypt_out_if: out_if_t.fb_t,
+        decrypt_out_if: out_if_t.fb_t,
     ) -> result_t:
         result: Feedback[unit.return_t]
         priority_encrypt: Reg[uint1_t]  # Initial priority is decrypt.
@@ -109,7 +109,7 @@ def make_compute_arbiter(func, input_t, output_t, phase):
             o.encrypt_in_if.ready = result.stream_in_if.ready & (priority_encrypt | ~dec_valid)
             o.decrypt_in_if.ready = result.stream_in_if.ready & (~priority_encrypt | ~enc_valid)
 
-        request: unit.in_intrf.stream_t
+        request: unit.in_if_t.stream_t
         request.data.is_encrypt = is_encrypt
         if is_encrypt:
             request.data.data = encrypt_in_if.stream.data
@@ -175,23 +175,23 @@ finish_arbiter = make_compute_arbiter(
 )
 
 # Each compound Wire has exactly one forward and one reverse writer.
-encrypt_init_in_if: Wire[init_in_intrf]
-decrypt_init_in_if: Wire[init_in_intrf]
-encrypt_init_out_if: Wire[init_out_intrf]
-decrypt_init_out_if: Wire[init_out_intrf]
-encrypt_finish_in_if: Wire[finish_in_intrf]
-decrypt_finish_in_if: Wire[finish_in_intrf]
-encrypt_finish_out_if: Wire[finish_out_intrf]
-decrypt_finish_out_if: Wire[finish_out_intrf]
+encrypt_init_in_if: Wire[init_in_if_t]
+decrypt_init_in_if: Wire[init_in_if_t]
+encrypt_init_out_if: Wire[init_out_if_t]
+decrypt_init_out_if: Wire[init_out_if_t]
+encrypt_finish_in_if: Wire[finish_in_if_t]
+decrypt_finish_in_if: Wire[finish_in_if_t]
+encrypt_finish_out_if: Wire[finish_out_if_t]
+decrypt_finish_out_if: Wire[finish_out_if_t]
 
 
 @MAIN(wireguard_env.TARGET_MHZ)
 def poly1305_init_shared():
     o = init_arbiter(
-        init_in_intrf.fwd_t(encrypt_init_in_if.stream),
-        init_in_intrf.fwd_t(decrypt_init_in_if.stream),
-        init_out_intrf.fb_t(encrypt_init_out_if.ready),
-        init_out_intrf.fb_t(decrypt_init_out_if.ready),
+        init_in_if_t.fwd_t(encrypt_init_in_if.stream),
+        init_in_if_t.fwd_t(decrypt_init_in_if.stream),
+        init_out_if_t.fb_t(encrypt_init_out_if.ready),
+        init_out_if_t.fb_t(decrypt_init_out_if.ready),
     )
     encrypt_init_in_if.ready = o.encrypt_in_if.ready
     decrypt_init_in_if.ready = o.decrypt_in_if.ready
@@ -202,10 +202,10 @@ def poly1305_init_shared():
 @MAIN(wireguard_env.TARGET_MHZ)
 def poly1305_finish_shared():
     o = finish_arbiter(
-        finish_in_intrf.fwd_t(encrypt_finish_in_if.stream),
-        finish_in_intrf.fwd_t(decrypt_finish_in_if.stream),
-        finish_out_intrf.fb_t(encrypt_finish_out_if.ready),
-        finish_out_intrf.fb_t(decrypt_finish_out_if.ready),
+        finish_in_if_t.fwd_t(encrypt_finish_in_if.stream),
+        finish_in_if_t.fwd_t(decrypt_finish_in_if.stream),
+        finish_out_if_t.fb_t(encrypt_finish_out_if.ready),
+        finish_out_if_t.fb_t(decrypt_finish_out_if.ready),
     )
     encrypt_finish_in_if.ready = o.encrypt_in_if.ready
     decrypt_finish_in_if.ready = o.decrypt_in_if.ready
@@ -215,71 +215,71 @@ def poly1305_finish_shared():
 
 @struct
 class init_result_t(NamedTuple):
-    stream_in_if: init_in_intrf.fb_t
-    stream_out_if: init_out_intrf.fwd_t
+    stream_in_if: init_in_if_t.fb_t
+    stream_out_if: init_out_if_t.fwd_t
 
 
 @struct
 class finish_result_t(NamedTuple):
-    stream_in_if: finish_in_intrf.fb_t
-    stream_out_if: finish_out_intrf.fwd_t
+    stream_in_if: finish_in_if_t.fb_t
+    stream_out_if: finish_out_if_t.fwd_t
 
 
 @hw_func
 def encrypt_init_shared_adapter(
-    stream_in_if: init_in_intrf.fwd_t,
-    stream_out_if: init_out_intrf.fb_t,
+    stream_in_if: init_in_if_t.fwd_t,
+    stream_out_if: init_out_if_t.fb_t,
 ) -> init_result_t:
     encrypt_init_in_if.stream = stream_in_if.stream
     encrypt_init_out_if.ready = stream_out_if.ready
     return init_result_t(
-        init_in_intrf.fb_t(encrypt_init_in_if.ready),
-        init_out_intrf.fwd_t(encrypt_init_out_if.stream),
+        init_in_if_t.fb_t(encrypt_init_in_if.ready),
+        init_out_if_t.fwd_t(encrypt_init_out_if.stream),
     )
 
 
 @hw_func
 def decrypt_init_shared_adapter(
-    stream_in_if: init_in_intrf.fwd_t,
-    stream_out_if: init_out_intrf.fb_t,
+    stream_in_if: init_in_if_t.fwd_t,
+    stream_out_if: init_out_if_t.fb_t,
 ) -> init_result_t:
     decrypt_init_in_if.stream = stream_in_if.stream
     decrypt_init_out_if.ready = stream_out_if.ready
     return init_result_t(
-        init_in_intrf.fb_t(decrypt_init_in_if.ready),
-        init_out_intrf.fwd_t(decrypt_init_out_if.stream),
+        init_in_if_t.fb_t(decrypt_init_in_if.ready),
+        init_out_if_t.fwd_t(decrypt_init_out_if.stream),
     )
 
 
 @hw_func
 def encrypt_finish_shared_adapter(
-    stream_in_if: finish_in_intrf.fwd_t,
-    stream_out_if: finish_out_intrf.fb_t,
+    stream_in_if: finish_in_if_t.fwd_t,
+    stream_out_if: finish_out_if_t.fb_t,
 ) -> finish_result_t:
     encrypt_finish_in_if.stream = stream_in_if.stream
     encrypt_finish_out_if.ready = stream_out_if.ready
     return finish_result_t(
-        finish_in_intrf.fb_t(encrypt_finish_in_if.ready),
-        finish_out_intrf.fwd_t(encrypt_finish_out_if.stream),
+        finish_in_if_t.fb_t(encrypt_finish_in_if.ready),
+        finish_out_if_t.fwd_t(encrypt_finish_out_if.stream),
     )
 
 
 @hw_func
 def decrypt_finish_shared_adapter(
-    stream_in_if: finish_in_intrf.fwd_t,
-    stream_out_if: finish_out_intrf.fb_t,
+    stream_in_if: finish_in_if_t.fwd_t,
+    stream_out_if: finish_out_if_t.fb_t,
 ) -> finish_result_t:
     decrypt_finish_in_if.stream = stream_in_if.stream
     decrypt_finish_out_if.ready = stream_out_if.ready
     return finish_result_t(
-        finish_in_intrf.fb_t(decrypt_finish_in_if.ready),
-        finish_out_intrf.fwd_t(decrypt_finish_out_if.stream),
+        finish_in_if_t.fb_t(decrypt_finish_in_if.ready),
+        finish_out_if_t.fwd_t(decrypt_finish_out_if.stream),
     )
 
 
-def _stream_attrs(func, in_intrf, out_intrf, compute_tag):
-    func.in_intrf, func.out_intrf = in_intrf, out_intrf
-    func.in_fwd_t, func.out_fb_t = in_intrf.fwd_t, out_intrf.fb_t
+def _stream_attrs(func, in_if_t, out_if_t, compute_tag):
+    func.in_if_t, func.out_if_t = in_if_t, out_if_t
+    func.in_fwd_t, func.out_fb_t = in_if_t.fwd_t, out_if_t.fb_t
     func.compute_tag = compute_tag
 
 
@@ -298,15 +298,15 @@ def make_shared_compute_adapters(direction, lanes, local_powers_t, local_finish_
 
     @struct
     class local_init_result_t(NamedTuple):
-        stream_in_if: init_in_intrf.fb_t
+        stream_in_if: init_in_if_t.fb_t
         stream_out_if: init_out.fwd_t
 
     @hw_func
     def init_payload_adapter(
-        stream_in_if: init_in_intrf.fwd_t,
+        stream_in_if: init_in_if_t.fwd_t,
         stream_out_if: init_out.fb_t,
     ) -> local_init_result_t:
-        response = init_shared_adapter(stream_in_if, init_out_intrf.fb_t(stream_out_if.ready))
+        response = init_shared_adapter(stream_in_if, init_out_if_t.fb_t(stream_out_if.ready))
         o: local_init_result_t
         o.stream_in_if = response.stream_in_if
         o.stream_out_if.stream.valid = response.stream_out_if.stream.valid
@@ -317,14 +317,14 @@ def make_shared_compute_adapters(direction, lanes, local_powers_t, local_finish_
     @struct
     class local_finish_result_t(NamedTuple):
         stream_in_if: finish_in.fb_t
-        stream_out_if: finish_out_intrf.fwd_t
+        stream_out_if: finish_out_if_t.fwd_t
 
     @hw_func
     def finish_payload_adapter(
         stream_in_if: finish_in.fwd_t,
-        stream_out_if: finish_out_intrf.fb_t,
+        stream_out_if: finish_out_if_t.fb_t,
     ) -> local_finish_result_t:
-        request: finish_in_intrf.stream_t
+        request: finish_in_if_t.stream_t
         request.valid = stream_in_if.stream.valid
         request.data.lane_count = lanes
         request.data.next_lane = stream_in_if.stream.data.next_lane
@@ -340,12 +340,12 @@ def make_shared_compute_adapters(direction, lanes, local_powers_t, local_finish_
         for j in range(lanes):
             request.data.accumulators[j] = stream_in_if.stream.data.accumulators[j]
             request.data.powers.values[j] = stream_in_if.stream.data.powers.values[j]
-        response = finish_shared_adapter(finish_in_intrf.fwd_t(request), stream_out_if)
+        response = finish_shared_adapter(finish_in_if_t.fwd_t(request), stream_out_if)
         o: local_finish_result_t
         o.stream_in_if.ready = response.stream_in_if.ready
         o.stream_out_if = response.stream_out_if
         return o
 
-    _stream_attrs(init_payload_adapter, init_in_intrf, init_out, init_arbiter.compute_tag)
-    _stream_attrs(finish_payload_adapter, finish_in, finish_out_intrf, finish_arbiter.compute_tag)
+    _stream_attrs(init_payload_adapter, init_in_if_t, init_out, init_arbiter.compute_tag)
+    _stream_attrs(finish_payload_adapter, finish_in, finish_out_if_t, finish_arbiter.compute_tag)
     return SimpleNamespace(init=init_payload_adapter, finish=finish_payload_adapter)

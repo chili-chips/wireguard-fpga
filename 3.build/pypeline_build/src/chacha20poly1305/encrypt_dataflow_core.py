@@ -8,8 +8,8 @@ import wireguard_env  # noqa: F401
 
 from pypeline import NamedTuple, uint8_t
 
-from interface.interface import interface
-from interface.interface_func import make_hw_func_from_interface_func
+from interface import interface
+from interface_func import make_hw_func_from_interface_func
 
 import prep_auth_data
 import prep_auth_data_wide
@@ -21,7 +21,7 @@ from aead_types import (
     CHACHA20_KEY_SIZE,
     CHACHA20_NONCE_SIZE,
     AAD_MAX_LEN,
-    aead_axis_intrf,
+    aead_axis_if_t,
     aead_axis_frag_t,
     aead_2broadcast,
     make_aead_output_slice,
@@ -32,7 +32,7 @@ from aead_types import (
 
 @interface
 class encrypt_dataflow_core_ports(NamedTuple):
-    axis_out_if: aead_axis_intrf
+    axis_out_if: aead_axis_if_t
 
 
 def make_encrypt_dataflow_core(chacha_func, mac_func=None):
@@ -73,16 +73,16 @@ def make_encrypt_dataflow_core(chacha_func, mac_func=None):
             aead_axis_frag_t, append_sizing["memory_depth_beats"],
             "append_fifo", "encrypt", sizing=append_sizing,
         )
-        output_slice = make_aead_output_slice(aead_axis_intrf, "output_slice", "encrypt")
+        output_slice = make_aead_output_slice(aead_axis_if_t, "output_slice", "encrypt")
 
         @interface
         class buffered_prep_ports(NamedTuple):
-            axis_if: aead_axis_intrf
+            axis_if: aead_axis_if_t
 
         def buffered_prep_interface(
             aad: uint8_t[AAD_MAX_LEN],
             aad_len: uint8_t,
-            axis_in_if: aead_axis_intrf,
+            axis_in_if: aead_axis_if_t,
         ) -> buffered_prep_ports:
             queued = auth_fifo(in_stream_if=axis_in_if)
             framed = framing_func(
@@ -93,8 +93,8 @@ def make_encrypt_dataflow_core(chacha_func, mac_func=None):
         prep_func = make_hw_func_from_interface_func(buffered_prep_interface)
 
         def buffered_append(
-            axis_in_if: aead_axis_intrf,
-            auth_tag_in_if: auth_tag.poly1305_auth_tag_stream_intrf,
+            axis_in_if: aead_axis_if_t,
+            auth_tag_in_if: auth_tag.poly1305_auth_tag_stream_if_t,
         ) -> encrypt_dataflow_core_ports:
             queued = append_fifo(in_stream_if=axis_in_if)
             packed = packing_func(
@@ -108,7 +108,7 @@ def make_encrypt_dataflow_core(chacha_func, mac_func=None):
         append_func = make_hw_func_from_interface_func(buffered_append)
 
     def encrypt_dataflow_core(
-        axis_in_if: aead_axis_intrf,
+        axis_in_if: aead_axis_if_t,
         key: uint8_t[CHACHA20_KEY_SIZE],
         nonce: uint8_t[CHACHA20_NONCE_SIZE],
         aad: uint8_t[AAD_MAX_LEN],

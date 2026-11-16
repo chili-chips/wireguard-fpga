@@ -24,7 +24,7 @@ from stream import stream_perf_probe as perf_taps
 import aead_types
 from aead_types import (
     AAD_MAX_LEN,
-    axis128_intrf,
+    axis128_if_t,
     axis128_stream_null,
 )
 
@@ -43,16 +43,16 @@ PREP_AUTH_DATA_STATE_NAMES = tuple(prep_auth_data_state_t.__members__)
 
 @struct
 class prep_auth_data_fsm_t(NamedTuple):
-    axis_in_if: axis128_intrf.fb_t  # input port's reverse half
-    axis_if: axis128_intrf.fwd_t  # output port's feedforward half
+    axis_in_if: axis128_if_t.fb_t  # input port's reverse half
+    axis_if: axis128_if_t.fwd_t  # output port's feedforward half
 
 
 @hw_func
 def prep_auth_data_fsm(
     aad: uint8_t[AAD_MAX_LEN],
     aad_len: uint8_t,
-    axis_in_if: axis128_intrf.fwd_t,
-    axis_if: axis128_intrf.fb_t,
+    axis_in_if: axis128_if_t.fwd_t,
+    axis_if: axis128_if_t.fb_t,
 ) -> prep_auth_data_fsm_t:
     o: prep_auth_data_fsm_t
     state: Reg[prep_auth_data_state_t]

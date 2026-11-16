@@ -15,11 +15,11 @@ from pypeline import (
     sim_assert,
 )
 from aead_types import (
-    aead_axis_intrf,
+    aead_axis_if_t,
     aead_stream_null,
     aead_keep_count,
     aead_count_to_keep,
-    poly1305_auth_tag_stream_intrf,
+    poly1305_auth_tag_stream_if_t,
     poly1305_auth_tag_stream_null,
 )
 from stream import stream_perf_probe as perf_taps
@@ -29,16 +29,16 @@ count_t = make_uint_t(7)
 
 @struct
 class append_result_t(NamedTuple):
-    axis_in_if: aead_axis_intrf.fb_t
-    auth_tag_in_if: poly1305_auth_tag_stream_intrf.fb_t
-    axis_out_if: aead_axis_intrf.fwd_t
+    axis_in_if: aead_axis_if_t.fb_t
+    auth_tag_in_if: poly1305_auth_tag_stream_if_t.fb_t
+    axis_out_if: aead_axis_if_t.fwd_t
 
 
 @hw_func
 def append_auth_tag_wide(
-    axis_in_if: aead_axis_intrf.fwd_t,
-    auth_tag_in_if: poly1305_auth_tag_stream_intrf.fwd_t,
-    axis_out_if: aead_axis_intrf.fb_t,
+    axis_in_if: aead_axis_if_t.fwd_t,
+    auth_tag_in_if: poly1305_auth_tag_stream_if_t.fwd_t,
+    axis_out_if: aead_axis_if_t.fb_t,
 ) -> append_result_t:
     waiting: Reg[uint1_t]
     second: Reg[uint1_t]
@@ -116,16 +116,16 @@ def append_auth_tag_wide(
 
 @struct
 class strip_result_t(NamedTuple):
-    axis_in_if: aead_axis_intrf.fb_t
-    axis_out_if: aead_axis_intrf.fwd_t
-    auth_tag_out_if: poly1305_auth_tag_stream_intrf.fwd_t
+    axis_in_if: aead_axis_if_t.fb_t
+    axis_out_if: aead_axis_if_t.fwd_t
+    auth_tag_out_if: poly1305_auth_tag_stream_if_t.fwd_t
 
 
 @hw_func
 def strip_auth_tag_wide(
-    axis_in_if: aead_axis_intrf.fwd_t,
-    axis_out_if: aead_axis_intrf.fb_t,
-    auth_tag_out_if: poly1305_auth_tag_stream_intrf.fb_t,
+    axis_in_if: aead_axis_if_t.fwd_t,
+    axis_out_if: aead_axis_if_t.fb_t,
+    auth_tag_out_if: poly1305_auth_tag_stream_if_t.fb_t,
 ) -> strip_result_t:
     held: Reg[uint8_t[32]]
     held_valid: Reg[uint1_t]
