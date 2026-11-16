@@ -33,7 +33,7 @@ compile:
 		--timing \
 		--trace-fst \
 		--trace-structs \
-		--timescale-override 1ps/1ps \
+		--timescale 1ns/1ps          \
 		--exe versimSV.cpp \
 		--Mdir ./output \
 		+define+SIM_ONLY \
@@ -70,7 +70,7 @@ xml2stems:
 		--timing \
 		-xml-only \
 		-xml-output tb.xml \
-		--timescale 1ps/1ps \
+		--timescale 1ns/1ps \
 		-f ${TB_NAME}.filelist \
 		${TB_NAME}.sv \
 		--top-module ${TB_NAME}

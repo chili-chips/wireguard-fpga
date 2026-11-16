@@ -40,7 +40,6 @@
 //   PCAP reader and writer testbench
 //==========================================================================
 
-`timescale 1ps / 1ps
 `define NULL 0
 
 module tb;
@@ -65,20 +64,20 @@ module tb;
 	   .inp(stream)
    );
 
-   always #(CLOCK_PERIOD/2) clk <= ~clk;
+   always #((CLOCK_PERIOD/2) * 1ps) clk <= ~clk;
 
    integer i = 0;
    initial begin
       rst = 1;
-      #(CLOCK_PERIOD);
+      #((CLOCK_PERIOD) * 1ps);
       rst = 0;
 
       while (~pcapfinished) begin
-	      #20
+	      #20ps
 	      i = i + 1;
 	   end
 
-      #(2*CLOCK_PERIOD);
+      #((2*CLOCK_PERIOD) * 1ps);
 
       $finish;
    end

@@ -50,7 +50,6 @@
 *
 **************************************************************************/
 
-`timescale 1ps / 1ps
 // Time delays need ps resolution
 
 // verilator lint_off WIDTHTRUNC
@@ -267,7 +266,7 @@ module sdr
   always @ (posedge Sys_clk) begin
 
       if (|Data_out_enable2 == 1'b1) begin
-         Data_out_enable2 <= #tOH {4{Data_out_enable}}; //[JI]
+         Data_out_enable2 <= #(tOH * 1ps) {4{Data_out_enable}}; //[JI]
       end
 
       //------------------------------------------------------
@@ -1153,7 +1152,7 @@ module sdr
 
           // 5) Advance burst counter subroutine
           //#tHZ Burst_decode;
-         #tHZ;         //[JI]
+         #(tHZ * 1ps);         //[JI]
          Burst_decode; //[JI]
       end // if (Data_in_enable == 1'b1)
 
@@ -1197,7 +1196,7 @@ module sdr
 
           // 3) Apply tAC delay and report the completion of read access
           //[JI] Dq_reg = #tAC Dq_dqm;
-          #tAC;
+          #(tAC * 1ps);
           Data_out_enable2 = ~Dqm_pipe2; // we apply masking here, like actual HW does it
           Dq_out_data      = mem_data;
 

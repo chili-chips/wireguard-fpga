@@ -40,7 +40,6 @@
 //   WireGuard Encryptor testbench
 //==========================================================================
 
-`timescale 1ps / 1ps
 `define NULL 0
 
 module tb;
@@ -88,23 +87,23 @@ module tb;
 	   .inp(from_encryptor)
    );
 
-   always #(CLOCK_PERIOD/2) clk <= ~clk;
+   always #((CLOCK_PERIOD/2) * 1ps) clk <= ~clk;
 
    integer i = 0;
    initial begin
       rst = 1;
-      #(CLOCK_PERIOD);
+      #((CLOCK_PERIOD) * 1ps);
       rst = 0;
 
       while (~pcapfinished) begin
-	      #(CLOCK_PERIOD);
+	      #((CLOCK_PERIOD) * 1ps);
 	   end
 
       while (~fcr_idle) begin
-	      #(CLOCK_PERIOD);
+	      #((CLOCK_PERIOD) * 1ps);
 	   end
 
-      #(2*CLOCK_PERIOD);
+      #((2*CLOCK_PERIOD) * 1ps);
 
       $finish;
    end

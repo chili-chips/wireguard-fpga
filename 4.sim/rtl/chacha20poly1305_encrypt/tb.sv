@@ -40,7 +40,6 @@
 //   ChaCha20Poly1305 encryption core testbench
 //==========================================================================
 
-`timescale 1ps/1ps
 
 module tb;
    import dpe_pkg::*;
@@ -78,7 +77,7 @@ module tb;
    };
 
    // Clock generation
-   always #(CLK_PERIOD/2) clk <= ~clk;
+   always #((CLK_PERIOD/2) * 1ps) clk <= ~clk;
 
    // DUT instantiation
    chacha20poly1305_encrypt DUT (
@@ -113,11 +112,11 @@ module tb;
       outp.tready = 1;
 
       // Reset assertion
-      #(CLK_PERIOD * 4);
+      #((CLK_PERIOD * 4) * 1ps);
       @(posedge clk);
       #1ps;
       rst = 0;
-      #(CLK_PERIOD);
+      #((CLK_PERIOD) * 1ps);
 
       // Input stimulus
       begin
@@ -154,7 +153,7 @@ module tb;
       end
 
       $display("Stimulus completed successfully");
-      #(CLK_PERIOD * 200);
+      #((CLK_PERIOD * 200) * 1ps);
       $finish(2);
    end
 

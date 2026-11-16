@@ -26,7 +26,6 @@
 // Timescale
 // --------------------------------------------
 
-`timescale 1ps/1ps
 
 // --------------------------------------------
 // Definitions
@@ -86,8 +85,8 @@ reg         UpdateResponse;
 wire  [7:0] rxd_int;
 wire  [1:0] rxc_int;
 
-assign #1   rxd_int                    = rxd;
-assign #1   rxc_int                    = {rxer, rxdv};
+assign #1ps   rxd_int                    = rxd;
+assign #1ps   rxc_int                    = {rxer, rxdv};
 
 `else
 

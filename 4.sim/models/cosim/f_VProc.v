@@ -287,7 +287,7 @@ begin
                 // Flag to update externally and wait for response.
                 // The `MINDELAY ensures it's not updated until other outputs
                 // are updated.
-                Update              <= `MINDELAY ~Update;
+                Update              <= ~Update;
                 if (DISABLE_DELTA == 0)
                 begin
                     @(UpdateResponse);

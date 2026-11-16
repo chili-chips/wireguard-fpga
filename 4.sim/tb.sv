@@ -40,7 +40,6 @@
 //              external resources, as connected on the actual board
 //==========================================================================
 
-`timescale 1ps/1ps
 
 module tb #(
    parameter int RUN_SIM_US     = 10000,

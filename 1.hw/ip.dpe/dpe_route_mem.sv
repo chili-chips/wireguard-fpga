@@ -46,7 +46,6 @@
 //   - Relies on software/driver to sort entries by Longest Prefix Match (LPM),
 //     where the most specific route is at Index 0.
 //==========================================================================
-`timescale 1ns/1ps
 
 module dpe_route_mem #(
   parameter int ENTRY_COUNT     = 64,

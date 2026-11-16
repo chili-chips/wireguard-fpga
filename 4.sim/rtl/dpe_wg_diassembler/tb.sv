@@ -40,7 +40,6 @@
 //   DPE WireGuard Disassembler testbench
 //==========================================================================
 
-`timescale 1ps/1ps
 
 module tb;
    import dpe_pkg::*;
@@ -109,7 +108,7 @@ module tb;
    };
 
    // Clock generation
-   always #(CLK_PERIOD/2) clk <= ~clk;
+   always #((CLK_PERIOD/2) * 1ps) clk <= ~clk;
 
    // DUT instantiation
    dpe_wg_disassembler DUT (
@@ -127,11 +126,11 @@ module tb;
       inp.tdata = '0;
 
       // Reset assertion
-      #(CLK_PERIOD * 4);
+      #((CLK_PERIOD * 4) * 1ps);
       @(posedge clk);
       #1ps;
       rst = 0;
-      #(CLK_PERIOD);
+      #((CLK_PERIOD) * 1ps);
 
       // Input stimulus
       begin
@@ -211,7 +210,7 @@ module tb;
          inp.tdata = '0;
       end
 
-      #(CLK_PERIOD * 7);
+      #((CLK_PERIOD * 7) * 1ps);
       $display("Stimulus completed successfully");
    $finish(2);
    end
@@ -221,21 +220,21 @@ module tb;
       @(posedge clk);
       #1ps;
       outp.tready = 1;
-      #(CLK_PERIOD * 10);
+      #((CLK_PERIOD * 10) * 1ps);
       outp.tready = 0;
-      #CLK_PERIOD;
+      #(CLK_PERIOD * 1ps);
       outp.tready = 1;
-      #(CLK_PERIOD * 16);
+      #((CLK_PERIOD * 16) * 1ps);
       outp.tready = 0;
-      #(CLK_PERIOD * 2);
+      #((CLK_PERIOD * 2) * 1ps);
       outp.tready = 1;
-      /*#(CLK_PERIOD * 4);
+      /*#((CLK_PERIOD * 4) * 1ps);
       outp.tready = 0;
-      #(CLK_PERIOD * 2);
+      #((CLK_PERIOD * 2) * 1ps);
       outp.tready = 1;
-      #(CLK_PERIOD * 6);
+      #((CLK_PERIOD * 6) * 1ps);
       outp.tready = 0;
-      #(CLK_PERIOD * 2);
+      #((CLK_PERIOD * 2) * 1ps);
       outp.tready = 1;*/
    end
 

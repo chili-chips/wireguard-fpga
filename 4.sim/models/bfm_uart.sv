@@ -50,16 +50,20 @@
 //  along with always-on monitoring of Rx wire.
 //
 //  Use +define+UART_DEBUG for printout of debug messages.
+//
+//  The bit time follows the UART's time base (soc_pkg::UART_TICK_CLKS):
+//  8.68us in hardware, shorter when the simulation build defines
+//  UART_SIM_TICK_CLKS.
 //==========================================================================
-
-`timescale 1ns / 1ns
 
 module bfm_uart (
    input  logic  uart_rx,
    output logic  uart_tx
 );
 
-   localparam int BITIME_NS = 8_680; // time for one bit in ns (8.68us)
+   // time for one bit in ns: 8.68us at the hardware's 1us tick
+   localparam real BITIME_NS = 8_680.0 * (soc_pkg::UART_TICK_CLKS + 1)
+                                       / (soc_pkg::NUM_1US_CLKS + 1);
 
 //--------------------------------------
 // Send
@@ -204,7 +208,8 @@ module bfm_uart (
 //--------------------------------------
 // Receive
 //--------------------------------------
-   byte recv_data;
+   byte   recv_data;
+   string recv_line = "";
 
    initial forever begin: receiver
 
@@ -234,6 +239,16 @@ module bfm_uart (
       recv_byte_cnt++;
       $display("%t %m Char#%0d \t%0h (%s)", $time,
                recv_byte_cnt, recv_data, string'(recv_data));
+   `endif
+      // the console: one log line per received text line (CR dropped)
+      if (recv_data == 8'h0A) begin
+         $display("UART: %s", recv_line);
+         recv_line = "";
+      end
+      else if (recv_data != 8'h0D) begin
+         recv_line = {recv_line, string'(recv_data)};
+      end
+   `ifdef UART_BFM_DEBUG
       recv_data = 'X;
    `endif
    end: receiver

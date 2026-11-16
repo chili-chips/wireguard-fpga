@@ -53,11 +53,22 @@ echo "VProc $VPROC_REF, mem_model $MEM_MODEL_REF, rv32 $RV32_REF"
 O=$(mktemp -d)
 trap 'rm -rf "$O"' EXIT
 
-# ---- VProc + mem_model: libcosimlnx.a (for the RTL-only Makefile) ----------
+# ---- VProc C sources, patched: models/cosim/vproc-coroutine.patch ------------
+# (from openPCIE_BFM; the user code as a coroutine on the simulator's thread).
+# MakefileVProc.mk applies the same patch to its own clone.
 V=$W/vproc
+VC=$O/vproc/code
+mkdir -p "$VC"
+for f in "$V"/code/*; do [ -f "$f" ] && tr -d '\r' < "$f" > "$VC/$(basename "$f")"; done
+if ! patch -s -p1 -d "$O/vproc" < "$M/cosim/vproc-coroutine.patch"; then
+    echo "ERROR: vproc-coroutine.patch no longer applies to VProc $VPROC_REF."
+    exit 1
+fi
+
+# ---- VProc + mem_model: libcosimlnx.a (for the RTL-only Makefile) ----------
 MM=$W/mem_model
-F="-c -fPIC -m64 -g -DVPROC_SV -DVERILATOR -DVP_MAX_NODES=64 -DMEM_MODEL_DEFAULT_ENDIAN=1 -I$V/code -I$MM/src"
-for f in "$V/code/VSched.c" "$V/code/VUser.c" "$MM/src/mem.c" "$MM/src/mem_model.c"; do
+F="-c -fPIC -m64 -g -DVPROC_SV -DVERILATOR -DVP_MAX_NODES=64 -DMEM_MODEL_DEFAULT_ENDIAN=1 -I$VC -I$MM/src"
+for f in "$VC/VSched.c" "$VC/VUser.c" "$MM/src/mem.c" "$MM/src/mem_model.c"; do
     gcc $F "$f" -o "$O/$(basename "$f" .c).o"
 done
 rm -f "$M/cosim/lib/libcosimlnx.a"
@@ -65,14 +76,20 @@ ar cr "$M/cosim/lib/libcosimlnx.a" "$O"/VSched.o "$O"/VUser.o "$O"/mem.o "$O"/me
 
 # ---- VProc headers and HDL --------------------------------------------------
 for f in VProc.h VProcClass.h VProcIrqClass.h VSched_pli.h VUser.h; do
-    put "$V/code/$f" "$M/cosim/include/$f"
+    put "$VC/$f" "$M/cosim/include/$f"
 done
 for f in f_VProc.v f_VProc.sv extradefs.v vprocdefs.vh vprocdpi.vh; do put "$V/$f" "$M/cosim/$f"; done
+# As openPCIE_BFM's build-vip.sh: no `timescale in the HDL (the simulator
+# command line gives it), and VProc's Update flag a plain non-blocking
+# assignment (upstream: <= `MINDELAY, #0 on all simulators but Verilator)
+sed -i -E 's/^( *`define VProcTimeScale +)`timescale.*/\1/' "$M/cosim/extradefs.v"
+sed -i -E 's/<= *`MINDELAY +/<= /' "$M/cosim/f_VProc.v"
 
 # ---- mem_model headers and HDL; mem_model.sv is ours ------------------------
 for f in mem.h mem_model.h mem_model_pli.h; do put "$MM/src/$f" "$M/cosim/include/$f"; done
 put "$MM/mem_model.v" "$M/cosim/f_mem_model.v"
 put "$MM/mem_model_dpi.vh" "$M/cosim/mem_model_dpi.vh"
+sed -i '/^`timescale/d' "$M/cosim/f_mem_model.v"
 
 # ---- the versions MakefileVProc.mk clones for libvproc.a --------------------
 MEM_HASH=$(git -C "$MM" rev-parse --short=7 HEAD)

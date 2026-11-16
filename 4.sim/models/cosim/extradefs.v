@@ -24,9 +24,9 @@
 `ifndef external_timescale
 
  `ifdef resol_10ps
- `define VProcTimeScale  `timescale 1 ps / 10 ps
+ `define VProcTimeScale  
  `else
- `define VProcTimeScale  `timescale 1 ps / 1 ps
+ `define VProcTimeScale  
  `endif
 
 `define PSEC   1

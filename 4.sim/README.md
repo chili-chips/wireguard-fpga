@@ -264,7 +264,8 @@ Command line configurable variables:
   SIM:              verilator or janushdl; janushdl has the run target only (default verilator)
   TIMEOUTUS:        Test bench timeout period in microseconds (default 10000)
   DISABLE_SIM_CTRL: Disable/enable Verilator simulation control (default disabled)
-  ISS_BUS_CREDIT:   BUILD=ISS: 1 for bus credit and no fetch/load wait states (default 0)
+  ISS_BUS_CREDIT:   BUILD=ISS: 1 for bus credit and no fetch/load wait states (default 1)
+  UART_SIM_TICK_CLKS: UART time base in clocks-1; 7 = 10x the hardware speed, 79 = hardware (default 7)
 ```
 
 By default, without a named target, the simulation executable will be built but not run. With a <tt>run</tt> target, the simulation executable is built and then executed in batch mode. To fire up waveforms after the run, a target of <tt>rungui</tt> or </tt>gui</tt> can be used. A target of <tt>clean</tt> removes all intermediate files of previous compilations.
@@ -603,7 +604,7 @@ The firmware source has no co-simulation code but four spots:
 |---|---|---|
 | Verilator | 5.055 (devel, `v5.054-260-gb9f22851`) | [verilator.org](https://verilator.org) |
 | JanusHDL | 0.17.0 (preview), optional (`SIM=janushdl`): stops at elaboration, see [JanusHDL](#janushdl) | [que.no/janushdl](https://que.no/janushdl/) |
-| VProc | 1.13.4 | [wyvernSemi/vproc](https://github.com/wyvernSemi/vproc) |
+| VProc **(modified, see below)** | 1.13.4 | [wyvernSemi/vproc](https://github.com/wyvernSemi/vproc) |
 | mem_model | `main` c7b9c62 (1.0.1 + one fix) | [wyvernSemi/mem_model](https://github.com/wyvernSemi/mem_model) |
 | rv32 ISS **(modified, see below)** | 1.3.3 (`774d84fa`) | [wyvernSemi/rv32](https://github.com/wyvernSemi/rv32) |
 | udpIpPg | 1.0.3 | [wyvernSemi/udpIpPg](https://github.com/wyvernSemi/udpIpPg) |
@@ -614,16 +615,24 @@ Linux/WSL only. [`tools/vip-upgrade.sh`](tools/vip-upgrade.sh) refreshes VProc, 
 
 | File | Change | Why |
 |---|---|---|
+| VProc `code/` (`models/cosim/vproc-coroutine.patch`, from [openPCIE_BFM](https://github.com/chili-chips/openPCIE_BFM) `01664f0`) | the user code runs as a coroutine on the simulator's thread, not a thread of its own | the default test runs 2.7 times faster, the ISS one 41 s, and every run takes the same time. `MakefileVProc.mk` applies it to its clone, `vip-upgrade.sh` to `libcosimlnx.a` and the headers |
+| `models/cosim/extradefs.v`, `f_VProc.v`, `f_mem_model.v`, `mem_model.sv` | no `` `timescale``; `Update` a plain non-blocking assignment (no `` `MINDELAY``) | as openPCIE_BFM: the simulator command line gives the timescale |
 | `models/rv32/src/rv32csr_cpu.cpp` (in `models/rv32/rv32-openpcie.patch`) | the timer-compare check in `process_interrupts()` no longer charges cycles | it added 2 cycles to every instruction |
 | `models/rv32/src/rv32i_cpu.cpp` (same patch) | `sw`, `sh` add the store extra cycles | upstream adds the load ones |
 | `models/rv32/usercode/VUserMain0.cpp` | waits for reset release, restarts at the reset vector on a new reset | as the RTL cores do |
-| `models/rv32/usercode/VUserMain0.cpp` | `ISS_BUS_CREDIT=1`: bus credit, no fetch/load wait states | an access then costs only its timing-table cycles. Off by default until the tables are measured here |
+| `models/rv32/usercode/VUserMain0.cpp` | `ISS_BUS_CREDIT=1` (default): bus credit, no fetch/load wait states | an access then costs only its timing-table cycles |
 | `models/soc_cpu.VPROC.sv` | CPU reset (`bus.arst_n & imem_cpu_rstn`, as the RTL cores) on VProc interrupt bit 3 | for the ISS reset handling |
-| `models/rv32/usercode/rv32_timing_config.h` | none yet: wireguard's original tables | openPCIE's tables were measured on a different bus |
+| `models/rv32/usercode/rv32_timing_config.h` | eduBOS5 2-stage measured in this SOC ([`2.sw/tests/iss_timing`](../2.sw/tests/iss_timing)): linear 2, jump and taken branch 2, load 5, store 2 | the ISS ends the default test 0.02% after the RTL core (3.7797 vs 3.7789 ms); the old table was 1.5% slow. The other cores keep the original tables |
 
 The patch and the `VUserMain0.cpp` changes come from [openPCIE](https://github.com/chili-chips/openpcie). Bus credit: a load or store to the simulation takes real clocks on the VProc bus. In `soc_cpu.VPROC.sv` VProc samples the ack at a rising edge, and the ack is `bus.rdy` sampled on the falling edge before it. Measured in `wave.fst`: a write takes 1 clock (DMEM and CSR), a CSR read 1, a DMEM read 2. With credit on, the ISS takes them off its next synchronisation.
 
 Two other fixes: `vusermain.cfg` halted the ISS at `0x6c`, the `jal main` in `2.sw/boot_crt.s`, so `main()` never ran (now `0x70`, `loop_forever`). And the file was CRLF, so `parseArgs()` (`vuserutils.cpp`) kept a CR on the last option and could not open `main.bin`. The file is LF now, and `parseArgs()` strips both.
+
+### Timescale, delays and the UART
+
+As in our BFMs: no `` `timescale`` in our HDL (third-party and AMD files keep theirs), every `#` delay carries its unit, and the simulator command line gives the timescale (`--timescale 1ns/1ps`).
+
+The co-simulated firmware drives the real UART registers, as on the hardware, with no `VPROC` branch. To keep console output cheap in simulated time, the make files define `UART_SIM_TICK_CLKS=7`: the UART's time base (`soc_pkg.sv`) runs 10 times faster, and `bfm_uart` follows it. `bfm_uart` prints each received line as `UART: ...`.
 
 ## References:
 - [VProc](https://github.com/wyvernSemi/vproc)

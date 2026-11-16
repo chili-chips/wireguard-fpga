@@ -53,7 +53,6 @@
 //      packet to the correct physical port and associating it with a Peer.
 //==========================================================================
 
-`timescale 1ns/1ps
 
 module dpe_egress_ip_lookup #(
   parameter int ENTRY_COUNT = 64,

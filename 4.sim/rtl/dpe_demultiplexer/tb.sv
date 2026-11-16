@@ -40,7 +40,6 @@
 //   DPE demultiplexer testbench
 //==========================================================================
 
-`timescale 1ps/1ps
 
 module tb;
     // Constants
@@ -73,7 +72,7 @@ module tb;
     };
 
     // Clock generation
-    always #(CLK_PERIOD/2) clk <= ~clk;
+    always #((CLK_PERIOD/2) * 1ps) clk <= ~clk;
 
     // DUT instantiation
     dpe_demultiplexer DUT (
@@ -94,11 +93,11 @@ module tb;
         from_dpe.tdata = '0;
 
         // Reset assertion
-        #(CLK_PERIOD * 4);
+        #((CLK_PERIOD * 4) * 1ps);
         @(posedge clk);
         #1ps;
         rst = 0;
-        #(CLK_PERIOD);
+        #((CLK_PERIOD) * 1ps);
 
         // Input stimulus
         begin
@@ -208,7 +207,7 @@ module tb;
             from_dpe.tlast = 0;
         end
 
-        #(CLK_PERIOD * 7);
+        #((CLK_PERIOD * 7) * 1ps);
         $display("Stimulus completed successfully");
     $finish(2);
     end
@@ -222,49 +221,49 @@ module tb;
         to_eth_2.tready = 1;
         to_eth_3.tready = 1;
         to_eth_4.tready = 1;
-        #(CLK_PERIOD * 7);
+        #((CLK_PERIOD * 7) * 1ps);
         to_cpu.tready = 0;
         to_eth_1.tready = 0;
         to_eth_2.tready = 0;
         to_eth_3.tready = 0;
         to_eth_4.tready = 0;
-        #CLK_PERIOD;
+        #(CLK_PERIOD * 1ps);
         to_cpu.tready = 1;
         to_eth_1.tready = 1;
         to_eth_2.tready = 1;
         to_eth_3.tready = 1;
         to_eth_4.tready = 1;
-        #(CLK_PERIOD * 4);
+        #((CLK_PERIOD * 4) * 1ps);
         to_cpu.tready = 0;
         to_eth_1.tready = 0;
         to_eth_2.tready = 0;
         to_eth_3.tready = 0;
         to_eth_4.tready = 0;
-        #(CLK_PERIOD * 3);
+        #((CLK_PERIOD * 3) * 1ps);
         to_cpu.tready = 1;
         to_eth_1.tready = 1;
         to_eth_2.tready = 1;
         to_eth_3.tready = 1;
         to_eth_4.tready = 1;
-        #(CLK_PERIOD * 4);
+        #((CLK_PERIOD * 4) * 1ps);
         to_cpu.tready = 0;
         to_eth_1.tready = 0;
         to_eth_2.tready = 0;
         to_eth_3.tready = 0;
         to_eth_4.tready = 0;
-        #(CLK_PERIOD * 2);
+        #((CLK_PERIOD * 2) * 1ps);
         to_cpu.tready = 1;
         to_eth_1.tready = 1;
         to_eth_2.tready = 1;
         to_eth_3.tready = 1;
         to_eth_4.tready = 1;
-        #(CLK_PERIOD * 6);
+        #((CLK_PERIOD * 6) * 1ps);
         to_cpu.tready = 0;
         to_eth_1.tready = 0;
         to_eth_2.tready = 0;
         to_eth_3.tready = 0;
         to_eth_4.tready = 0;
-        #(CLK_PERIOD * 2);
+        #((CLK_PERIOD * 2) * 1ps);
         to_cpu.tready = 1;
         to_eth_1.tready = 1;
         to_eth_2.tready = 1;

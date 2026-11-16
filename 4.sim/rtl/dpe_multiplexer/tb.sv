@@ -40,7 +40,6 @@
 //   DPE multiplexer testbench
 //==========================================================================
 
-`timescale 1ps/1ps
 
 module tb;
     // Constants
@@ -72,7 +71,7 @@ module tb;
     };
 
     // Clock generation
-    always #(CLK_PERIOD/2) clk <= ~clk;
+    always #((CLK_PERIOD/2) * 1ps) clk <= ~clk;
 
     // DUT instantiation
     dpe_multiplexer DUT (
@@ -115,11 +114,11 @@ module tb;
         from_eth_4.tdata = '0;
 
         // Reset assertion
-        #(CLK_PERIOD * 4);
+        #((CLK_PERIOD * 4) * 1ps);
         @(posedge clk);
         #1ps;
         rst = 0;
-        #(CLK_PERIOD);
+        #((CLK_PERIOD) * 1ps);
 
         // Start all stimulus processes in parallel
         fork
@@ -214,7 +213,7 @@ module tb;
             end
         join
 
-        #(CLK_PERIOD * 7);
+        #((CLK_PERIOD * 7) * 1ps);
         $display("Stimulus completed successfully");
     $finish(2);
     end
@@ -224,22 +223,22 @@ module tb;
         @(posedge clk);
         #1ps;
         to_dpe.tready = 1;
-        #(CLK_PERIOD * 7);
+        #((CLK_PERIOD * 7) * 1ps);
         to_dpe.tready = 0;
-        #CLK_PERIOD;
+        #(CLK_PERIOD * 1ps);
         to_dpe.tready = 1;
-        #(CLK_PERIOD * 4);
+        #((CLK_PERIOD * 4) * 1ps);
         to_dpe.tready = 0;
         pause = 1;
-        #(CLK_PERIOD * 3);
+        #((CLK_PERIOD * 3) * 1ps);
         to_dpe.tready = 1;
-        #(CLK_PERIOD * 4);
+        #((CLK_PERIOD * 4) * 1ps);
         to_dpe.tready = 0;
-        #(CLK_PERIOD * 2);
+        #((CLK_PERIOD * 2) * 1ps);
         to_dpe.tready = 1;
-        #(CLK_PERIOD * 6);
+        #((CLK_PERIOD * 6) * 1ps);
         to_dpe.tready = 0;
-        #(CLK_PERIOD * 2);
+        #((CLK_PERIOD * 2) * 1ps);
         to_dpe.tready = 1;
         pause = 0;
     end

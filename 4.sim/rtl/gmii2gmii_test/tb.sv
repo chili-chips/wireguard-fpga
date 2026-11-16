@@ -40,7 +40,6 @@
 //   GMII-to-GMII loopback testbench
 //==========================================================================
 
-`timescale 1ps/1ps
 
 module tb;
    // Constants
@@ -119,8 +118,8 @@ module tb;
    };
 
    // Clock generation
-   always #(CLK_PERIOD/2) clk <= ~clk;
-	always #(CLK25_PERIOD/2) clk25 <= ~clk25;
+   always #((CLK_PERIOD/2) * 1ps) clk <= ~clk;
+	always #((CLK25_PERIOD/2) * 1ps) clk25 <= ~clk25;
 
    // DUT instantiation
    eth_mac_1g_gmii_fifo #(
@@ -199,11 +198,11 @@ module tb;
 
       // Reset assertion
       rst = 1;
-      #(CLK_PERIOD * 4);
+      #((CLK_PERIOD * 4) * 1ps);
       @(posedge clk);
       #1ps;
       rst = 0;
-      #(CLK_PERIOD * 50);
+      #((CLK_PERIOD * 50) * 1ps);
 
       // Input stimulus
       begin
@@ -268,7 +267,7 @@ module tb;
          inp.tdata = '0;*/
       end
 
-      #(CLK_PERIOD * 5000);
+      #((CLK_PERIOD * 5000) * 1ps);
       $display("Stimulus completed successfully");
    $finish(2);
    end
@@ -278,13 +277,13 @@ module tb;
       @(posedge clk);
       #1ps;
       outp.tready = 1;
-      /*#(CLK_PERIOD * 10);
+      /*#((CLK_PERIOD * 10) * 1ps);
       outp.tready = 0;
-      #CLK_PERIOD;
+      #(CLK_PERIOD * 1ps);
       outp.tready = 1;
-      #(CLK_PERIOD * 16);
+      #((CLK_PERIOD * 16) * 1ps);
       outp.tready = 0;
-      #(CLK_PERIOD * 2);
+      #((CLK_PERIOD * 2) * 1ps);
       outp.tready = 1;
       */
    end

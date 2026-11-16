@@ -46,3 +46,10 @@ path = ["4.sim/models/rv32/rv32-openpcie.patch"]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "2026 Chili.CHIPS"
 SPDX-License-Identifier = "GPL-3.0-or-later"
+
+# VProc coroutine patch, vendored from openPCIE_BFM (1.upstream/patches)
+[[annotations]]
+path = ["4.sim/models/cosim/vproc-coroutine.patch"]
+precedence = "override"
+SPDX-FileCopyrightText = ["2004-2025 Simon Southwell", "2026 Chili.CHIPS"]
+SPDX-License-Identifier = "GPL-3.0-or-later"

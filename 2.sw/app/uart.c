@@ -50,15 +50,10 @@
  * Returns:     None
  **********************************************************************/
 void uart_send_char(char c) {
-#ifdef VPROC
-   // Co-simulation: to the simulation log, at once. At 115200 baud the boot
-   // banner alone keeps the firmware out of its main loop for ~40 ms.
-   if (c != '\r') VPrint("%c", c);
-#else
-   // wait for HW "not busy", then send the byte/character
+   // wait for HW "not busy", then send the byte/character. Co-simulation runs
+   // this same code; its UART runs faster (UART_SIM_TICK_CLKS in soc_pkg.sv)
    while (CSR_GET(uart.tx, CSR__UART__TX__BUSY));
    CSR_SET(uart.tx, CSR__UART__TX__DATA, c);
-#endif
 }
 
 /**********************************************************************

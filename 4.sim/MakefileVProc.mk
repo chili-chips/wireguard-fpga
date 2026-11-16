@@ -26,8 +26,14 @@ SIM              = verilator
 TIMEOUTUS        = 10000
 DISABLE_SIM_CTRL = 1
 # BUILD=ISS only. 1: bus credit and no fetch/load wait states (as openPCIE),
-# 0: wireguard's original ISS timing (see models/rv32/usercode/VUserMain0.cpp)
-ISS_BUS_CREDIT   = 0
+# for the measured eduBOS5 table (rv32_timing_config.h): the ISS then ends
+# the default test within 0.02% of the RTL core. 0: wait states on top
+# (see models/rv32/usercode/VUserMain0.cpp), 1.3% slow
+ISS_BUS_CREDIT   = 1
+# UART time base in simulation, in clocks (-1): 7 runs the UART 10 times
+# faster than the hardware's 1us tick (79 at 80 MHz), so console output costs
+# little simulated time. The firmware drives the real UART registers either way.
+UART_SIM_TICK_CLKS ?= 7
 
 # --------------------------------------------
 # Global exported environment variables
@@ -51,12 +57,17 @@ UDP_C          = VUserMainUdp.cpp
 UDPCODEDIR     = $(CURDIR)/usercode
 
 # VProc external dependency (for VerilatorSimCtrl). Cloned next to the repo,
-# one directory per version, so that a version bump gets a fresh clone.
-# The HDL and headers in models/cosim are the same version (tools/vip-upgrade.sh).
+# one directory per version and patch, so that a bump gets a fresh clone, and
+# patched with models/cosim/vproc-coroutine.patch: the user code runs as a
+# coroutine on the simulator's thread, not a thread of its own (about 20x
+# faster, and deterministic). The HDL and headers in models/cosim are the same
+# version and patch (tools/vip-upgrade.sh).
 VPROC_REPO     = https://github.com/wyvernSemi/vproc.git
 VLIB           = $(CURDIR)/libvproc.a
 VPROCVERSION   = VERSION_1_13_4
-VPROCDIR       = $(CURDIR)/../../vproc-$(VPROCVERSION)
+VPROC_PATCH    = $(COSIMDIR)/vproc-coroutine.patch
+VPROC_PATCHID := $(shell sha256sum $(VPROC_PATCH) | cut -c1-8)
+VPROCDIR       = $(CURDIR)/../../vproc-$(VPROCVERSION)-$(VPROC_PATCHID)
 VPROCMKFILE    = makefile.verilator
 AUX_C          = VerilatorSimCtrl.cpp
 AUXDIR         = $(VPROCDIR)/verilator/src
@@ -231,7 +242,7 @@ TBFILELIST    = $(TB_NAME).filelist
 WORKDIR          = output
 
 SIMOPTS       = --cc                                          \
-                --timescale-override 1ps/1ps                  \
+                --timescale 1ns/1ps                           \
                 --exe versimSV.cpp                            \
                 -sv                                           \
                 $(TRACEOPTS) $(TIMINGOPT) $(USRSIMOPTS)       \
@@ -243,6 +254,7 @@ SIMOPTS       = --cc                                          \
 
 SIMDEFS          = +define+VPROC_BYTE_ENABLE                  \
                    +define+SIM_ONLY                           \
+                   +define+UART_SIM_TICK_CLKS=$(UART_SIM_TICK_CLKS) \
 #                                                             \
 #                   +define+SDRAM_DEBUG                       \
 #                   +define+UART_BFM_DEBUG
@@ -384,9 +396,13 @@ $(TOPFILELIST): $(HW_SRC)/$(TOPFILELIST) $(BUILD_STAMP)
 .PHONY: vip
 vip: $(VPROCDIR) $(MEMMODELDIR)
 
-# Check out VProc repo if not at expected location
+# Check out VProc repo if not at expected location, and apply our patch
 $(VPROCDIR):
-	@git clone --depth 1 --branch $(VPROCVERSION) $(VPROC_REPO) $(VPROCDIR) --recursive
+	@rm -rf $(VPROCDIR).tmp
+	@git -c advice.detachedHead=false clone -q --depth 1 --branch $(VPROCVERSION) $(VPROC_REPO) $(VPROCDIR).tmp --recursive
+	@sed -i 's/\r$$//' $(VPROCDIR).tmp/code/*.c $(VPROCDIR).tmp/code/*.h
+	@patch -s -p1 -d $(VPROCDIR).tmp < $(VPROC_PATCH)
+	@mv $(VPROCDIR).tmp $(VPROCDIR)
 
 # Check out memory model repo if not at expected location. MEMVERSION is a
 # commit, which --branch cannot take: clone, then check it out.
@@ -400,7 +416,7 @@ xml2stems: $(TOPFILELIST)
 	        --timing                                      \
 	        -xml-only                                     \
 	        -xml-output tb.xml                            \
-	        --timescale 1ps/1ps                           \
+	        --timescale 1ns/1ps                           \
 	        $(SIMINCLPATHS) $(SIMDEFS)                    \
 	        -F $(TOPFILELIST)                             \
 	        -F $(TBFILELIST)                              \
@@ -448,7 +464,8 @@ help:
 	@$(info $(SPC) $(SPC) SIM:              verilator or janushdl; janushdl has the run target only (default verilator))
 	@$(info $(SPC) $(SPC) TIMEOUTUS:        Test bench timeout period in microseconds (default 10000))
 	@$(info $(SPC) $(SPC) DISABLE_SIM_CTRL: Disable/enable Verilator simulation control (default disabled))
-	@$(info $(SPC) $(SPC) ISS_BUS_CREDIT:   BUILD=ISS: 1 for bus credit and no fetch/load wait states (default 0))
+	@$(info $(SPC) $(SPC) ISS_BUS_CREDIT:   BUILD=ISS: 1 for bus credit and no fetch/load wait states (default 1))
+	@$(info $(SPC) $(SPC) UART_SIM_TICK_CLKS: UART time base in clocks-1; 7 = 10x the hardware speed, 79 = hardware (default 7))
 	@$(info )
 
 #======================================================

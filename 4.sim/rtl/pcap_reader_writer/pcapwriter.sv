@@ -3,7 +3,6 @@
 //
 // SPDX-License-Identifier: MIT
 
-`timescale 1ps / 1ps
 `define NULL 0
 
 // Author: Amina Tankovic

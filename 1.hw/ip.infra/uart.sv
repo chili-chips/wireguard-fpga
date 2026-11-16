@@ -178,7 +178,7 @@ module uart
       // number of clocks for 1us time-tick pulse depends
       //   on board, i.e. the period of available clocks
       // (-1 because we count from 0)
-      tick_1us <= (cnt_1us == cnt_1us_t'(NUM_1US_CLKS - 1));
+      tick_1us <= (cnt_1us == cnt_1us_t'(UART_TICK_CLKS - 1));
 
       if (tick_1us == 1'b1) begin
         cnt_1us <= '0;

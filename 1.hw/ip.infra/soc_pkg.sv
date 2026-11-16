@@ -60,6 +60,17 @@ package soc_pkg;
 
   typedef logic [CNT_1US_WIDTH-1:0] cnt_1us_t;
 
+  // UART time base, in clocks (-1): the 1us tick in hardware. A simulation
+  // build may define UART_SIM_TICK_CLKS for a shorter tick: the UART then
+  // runs (NUM_1US_CLKS+1)/(UART_SIM_TICK_CLKS+1) times faster, and the test
+  // bench's bfm_uart follows it. The firmware and its register accesses
+  // stay the same.
+`ifdef UART_SIM_TICK_CLKS
+  localparam int UART_TICK_CLKS = `UART_SIM_TICK_CLKS;
+`else
+  localparam int UART_TICK_CLKS = NUM_1US_CLKS;
+`endif
+
 
   //-----------------------------------------
   // derived values. Don't touch anything in this section

@@ -42,7 +42,6 @@
 
 `else
 
-`timescale 1ps/1ps
 
 `define MEMREAD               $memread
 `define MEMWRITE              $memwrite

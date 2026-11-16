@@ -26,7 +26,6 @@
 // Timescale
 // --------------------------------------------
 
-`timescale 1ps/1ps
 
 // --------------------------------------------
 // DEFINES
@@ -91,8 +90,8 @@ assign rgmiitxctl                  = rgmiitxctl90;
 // with a hold delay (needed, even for Verilator, since using clock
 // as mux control, and must ensure signals are sample corrrectly
 // at destination).
-assign #`HoldDly rgmiitxd          = clk ? gmiitxd[3:0] : gmiitxd[7:4];
-assign #`HoldDly rgmiitxctl        = clk ? gmiitxen     : gmiitxer;
+assign #(`HoldDly * 1ps) rgmiitxd          = clk ? gmiitxd[3:0] : gmiitxd[7:4];
+assign #(`HoldDly * 1ps) rgmiitxctl        = clk ? gmiitxen     : gmiitxer;
 
 `endif
 

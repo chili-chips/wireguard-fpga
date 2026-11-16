@@ -45,7 +45,6 @@
 //==========================================================================
 
 `ifdef SIM_ONLY
-`timescale 1ps / 1ps
 `endif
 
 module fpga_pll_80M (
@@ -59,12 +58,12 @@ module fpga_pll_80M (
   initial begin
     sys_pll_clk    = 1'b0;
     sys_pll_locked = 1'b0;
-    #40_000;
+    #40_000ps;
     sys_pll_locked = 1'b1;
   end
 
   always begin
-    #6_250 sys_pll_clk = ~sys_pll_clk;
+    #6_250ps sys_pll_clk = ~sys_pll_clk;
   end
 
 `else

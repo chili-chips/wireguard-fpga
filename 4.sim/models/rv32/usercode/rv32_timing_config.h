@@ -28,14 +28,15 @@ public:
 
 private:
 
-    // Core Timing models. These are wireguard's original tables, to be
-    // re-measured on this SOC. openPCIE has measured PicoRV32 and eduBOS5
-    // tables ({4,4,8,7}, {2,2,5,2}, {3,4,6,3} for linear, jump, load, store),
-    // but on a different bus (picorv32 native, RAM ready one cycle after
-    // valid), so they are not used here.
+    // Core Timing models. eduBOS5 2-stage: measured on the RTL in this SOC
+    // (2.sw/tests/iss_timing, fetch included, no wait states; use with
+    // ISS_BUS_CREDIT=1): linear 2, jump and taken branch 2, load 5, store 2,
+    // as openPCIE measured. With them the ISS ends the default test within
+    // 0.02% of the RTL core. The others are wireguard's original tables, not
+    // measured here (openPCIE: PicoRV32 {4,4,8,7}, eduBOS5 3-stage {3,4,6,3}).
     const rv32_iss_timing_t riscV        = {1, 4, 3, 3, 4, 34, 4};
     const rv32_iss_timing_t picorv32      = {4, 4, 5, 5, 4,  4, 4};
-    const rv32_iss_timing_t edubos5_2stg  = {2, 2, 3, 3, 2,  2, 2};
+    const rv32_iss_timing_t edubos5_2stg  = {2, 2, 5, 2, 2,  2, 2};
     const rv32_iss_timing_t edubos5_3stg  = {3, 3, 4, 4, 3,  3, 3};
     const rv32_iss_timing_t ibex_mul_sgl  = {1, 2, 2, 2, 1,  1, 1};
     const rv32_iss_timing_t ibex_mul_fast = {1, 2, 2, 2, 1,  3, 1};

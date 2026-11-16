@@ -52,7 +52,6 @@
 //     - ENTRY_COUNT: Number of hardware routing entries (default: 64).
 //==========================================================================
 
-`timescale 1ns / 1ps
 
 module bfm_egress #(
   parameter int ENTRY_COUNT = 64
