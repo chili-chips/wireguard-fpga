@@ -459,6 +459,7 @@ Issues filed upstream from this design, open and closed.
 | Tool | Issue | What | Workaround | State |
 | --- | --- | --- | --- | --- |
 | PipelineC | [PipelineC#394](https://github.com/JulianKemmerer/PipelineC/issues/394) ([#35](https://github.com/chili-chips/wireguard-fpga/issues/35)) | `stream_perf.py` imports `statistics`; its untyped `LinearRegression` namedtuple becomes an empty VHDL record. Vivado 2026.1 and GHDL reject it; Vivado 2019.2 accepts it. | Move `import statistics` into `_median()` in PipelineC's `include/pypeline/stream/stream_perf.py`. | open |
+| PipelineC | [PipelineC#395](https://github.com/JulianKemmerer/PipelineC/issues/395) ([#36](https://github.com/chili-chips/wireguard-fpga/issues/36)) | A struct `_NULL` constant calls the enum's `_to_slv` before its body is elaborated (GHDL `-Welaboration`). GHDL and Vivado 2026.1 tolerate it. | Waived in `run-lint-waivers.txt`. | open |
 
 ## Appendix: baseline results
 

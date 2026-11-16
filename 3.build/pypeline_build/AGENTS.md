@@ -122,10 +122,10 @@ in the hardware as examples.
 Notes from the PR #34 review, merged 2026-11-16. Delete each item once it
 is done.
 
-- **GHDL lint finding:** `c_structs_pkg.pkg.vhd` calls
-  `bank_state_t_..._to_slv` in a package-declaration constant before the
-  function body is elaborated (`-Welaboration`, two places). The fix belongs
-  in PipelineC's VHDL generation. Until then the `pypeline-lint` CI job fails.
+- **PipelineC#395:** a package-declaration constant in `c_structs_pkg.pkg.vhd`
+  calls `bank_state_t_..._to_slv` before its body is elaborated (GHDL
+  `-Welaboration`). The lint waives it; drop the waiver and bump
+  `PIPELINEC_REF` in `lint.yml` once it is fixed.
 - **PipelineC#394:** an empty VHDL `LinearRegression` record breaks Vivado
   2026.1 and GHDL. CI applies the workaround; drop it from `lint.yml` and the
   [README tracker](README.md#issues-filed-upstream) once it is fixed.
