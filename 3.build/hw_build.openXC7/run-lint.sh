@@ -15,6 +15,14 @@
 #   verible    Verible style rules (run-lint.verible) on our own RTL: our case
 #              rule -- signals and ports lower case, constants UPPER case --
 #              and Verible's defaults
+#   ghdl       GHDL analysis and elaboration (VHDL-2008) of the Pypeline
+#              ChaCha20-Poly1305 core, 3.build/pypeline_build, as VHDL that
+#              pypelinec --no_synth generates (combinational, no Vivado)
+#   ghdl-verilator
+#              the same VHDL converted to Verilog by Yosys' GHDL plugin, then
+#              Verilator --lint-only with its default warnings (widths, drivers,
+#              latches); -Wall's style and unused-signal warnings say nothing
+#              about a GHDL netlist
 #
 # There is no opensource CDC checker mature enough for a cdc phase.
 #
@@ -26,7 +34,10 @@
 #                                          default: the one top.filelist lists)
 #
 # A phase whose tool is not found is skipped. The tool commands can be
-# overridden: VERILATOR, YOSYS (+ YOSYS_ARGS), YOSYS_CONFIG, PYTHON, VERIBLE.
+# overridden: VERILATOR, YOSYS (+ YOSYS_ARGS), YOSYS_CONFIG, PYTHON, VERIBLE,
+# GHDL, GHDL_YOSYS (+ GHDL_YOSYS_ARGS, default "-m ghdl"; default YOSYS) and
+# PYPELINEC (PipelineC's src/pypelinec, as for pypeline_build/build.py).
+# PYPELINE_TOP selects the Pypeline top (default: the shared encrypt/decrypt one).
 # read_slang is built into the openXC7 Yosys; with the OSS CAD Suite it is a
 # plugin: YOSYS_ARGS="-m slang". The Xilinx primitives come from the Yosys
 # library (yosys-config --datdir), as blackboxes (gen_xilinx_bb.py).
@@ -62,6 +73,12 @@ YOSYS_CONFIG=${YOSYS_CONFIG:-yosys-config}
 PYTHON=${PYTHON:-python3}
 YOSYS_ARGS=${YOSYS_ARGS:-}
 VERIBLE=${VERIBLE:-verible-verilog-lint}
+GHDL=${GHDL:-ghdl}
+GHDL_YOSYS=${GHDL_YOSYS:-$YOSYS}
+GHDL_YOSYS_ARGS=${GHDL_YOSYS_ARGS:--m ghdl}
+GHDL_FLAGS="--std=08 -frelaxed"
+PYPELINEC=${PYPELINEC:-pypelinec}
+PYP_TOP=${PYPELINE_TOP:-chacha20poly1305_encrypt_decrypt_shared}
 VIEW=${VIEW:-chip}
 case $VIEW in
   chip) VL_DEFS="-DSYNTHESIS -DSYN_YOSYS_BUG"; SL_DEFS="-D SYNTHESIS -D SYN_YOSYS_BUG" ;;
@@ -70,9 +87,10 @@ case $VIEW in
 esac
 
 WAIVERS=${LINT_WAIVERS:-$HERE/run-lint-waivers.txt}
-PHASES=${*:-tags verilator yosys slang verible}
+PHASES=${*:-tags verilator yosys slang verible ghdl ghdl-verilator}
 W=${LINT_WORK:-$(mktemp -d)}
 mkdir -p "$W"
+W=$(cd "$W" && pwd)
 
 # ---- work copy ----------------------------------------------------------------
 (cd "$REPO" && cp -r --parents 1.hw/top.filelist 1.hw/top.sv 1.hw/fpgatech_lib 1.hw/external_lib \
@@ -239,17 +257,58 @@ run_verible() {
   exit_check verible $rc
 }
 
+# Pypeline VHDL, generated once into $W/pypeline for both ghdl phases
+pypeline_vhdl() {
+  [ -s pypeline/vhdl_files.txt ] && return 0
+  [ -e pypeline.failed ] && return 1
+  # no __pycache__ in the source tree
+  (cd "$REPO/3.build/pypeline_build" && PYTHONDONTWRITEBYTECODE=1 \
+     "$PYPELINEC" ./src/chacha20poly1305.py --out_dir "$W/pypeline" --top $PYP_TOP --no_synth) \
+     > pypeline.log 2>&1 && [ -s pypeline/vhdl_files.txt ] && return 0
+  touch pypeline.failed; return 1
+}
+
+run_ghdl() {
+  have "$GHDL" || { skip ghdl "$GHDL not found"; return; }
+  have "$PYPELINEC" || { skip ghdl "$PYPELINEC not found (set PYPELINEC)"; return; }
+  pypeline_vhdl || { cp pypeline.log ghdl.log; failed ghdl "pypelinec --no_synth"; return; }
+  mkdir -p ghdl.work
+  # -Wno-hide: every generated function declares a variable named after its
+  # return port (return_output)
+  { "$GHDL" -i $GHDL_FLAGS --workdir=ghdl.work $(cat pypeline/vhdl_files.txt) &&
+    "$GHDL" -m $GHDL_FLAGS -Wno-hide --workdir=ghdl.work -o ghdl.work/top $PYP_TOP; } > ghdl.log 2>&1
+  local rc=$?
+  found ghdl < <(sed "s#$W/##" ghdl.log | grep -E ':[0-9]+:[0-9]+:(warning|error)' | sort -u)
+  exit_check ghdl $rc
+}
+
+run_ghdl_verilator() {
+  local ph=ghdl-verilator
+  have "$VERILATOR" || { skip $ph "$VERILATOR not found"; return; }
+  have "$PYPELINEC" || { skip $ph "$PYPELINEC not found (set PYPELINEC)"; return; }
+  "$GHDL_YOSYS" $GHDL_YOSYS_ARGS -q -p "help ghdl" >/dev/null 2>&1 ||
+    { skip $ph "no GHDL plugin in $GHDL_YOSYS (set GHDL_YOSYS)"; return; }
+  pypeline_vhdl || { cp pypeline.log $ph.log; failed $ph "pypelinec --no_synth"; return; }
+  "$GHDL_YOSYS" $GHDL_YOSYS_ARGS -q -l $ph.log -p "ghdl $GHDL_FLAGS --no-formal \
+      $(cat pypeline/vhdl_files.txt) -e $PYP_TOP; write_verilog -noattr pypeline_top.v" >/dev/null 2>&1 ||
+    { failed $ph "GHDL to Verilog conversion"; return; }
+  "$VERILATOR" --lint-only -Wno-fatal --top-module $PYP_TOP pypeline_top.v >> $ph.log 2>&1
+  local rc=$?
+  found $ph < <(grep -E '^%(Warning|Error)' $ph.log)
+  exit_check $ph $rc
+}
+
 for ph in $PHASES; do
   case $ph in
-    tags|verilator|yosys|slang|verible) echo "== $ph"; run_$ph ;;
-    *) echo "unknown phase: $ph (tags verilator yosys slang verible)"; exit 2 ;;
+    tags|verilator|yosys|slang|verible|ghdl|ghdl-verilator) echo "== $ph"; run_${ph//-/_} ;;
+    *) echo "unknown phase: $ph (tags verilator yosys slang verible ghdl ghdl-verilator)"; exit 2 ;;
   esac
 done
 
 echo; echo "== summary  ($VIEW view, $W)"
 FAIL=0
 for ph in $PHASES; do
-  printf '  %-10s %s\n' "$ph" "${RESULT[$ph]}"
+  printf '  %-14s %s\n' "$ph" "${RESULT[$ph]}"
   case ${RESULT[$ph]} in skipped*|"0 finding"*) ;; *) FAIL=1 ;; esac
 done
 exit $FAIL

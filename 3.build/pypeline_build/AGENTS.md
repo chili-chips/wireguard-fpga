@@ -47,6 +47,14 @@ Use the README's [simulation workflow](README.md#simulation) and
 - When changing measurement or bottleneck tooling, run the corresponding
   existing `--selftest` described in [measurement controls](README.md#measurement-controls).
   Builds and self-tests must not depend on saved local measurement archives.
+- Lint the generated HDL before pushing. From the repo root, run
+  `PYPELINEC=<PipelineC>/src/pypelinec bash 3.build/hw_build.openXC7/run-lint.sh ghdl ghdl-verilator`.
+  It generates the VHDL with `pypelinec --no_synth`, without Vivado. GHDL
+  then analyzes it, and Verilator lints its GHDL-Yosys Verilog. CI job
+  `pypeline-lint` in `.github/workflows/lint.yml` runs the same check with
+  a pinned PipelineC. Fix findings in the design or in PipelineC. A waiver
+  goes in `3.build/hw_build.openXC7/run-lint-waivers.txt` only for a proven
+  false positive.
 
 ## Performance work
 
@@ -108,3 +116,33 @@ in the hardware as examples.
   compiler internals, and debugging stories rather than keeping a running log.
 - Check documented commands and flags against the scripts, and verify links
   and README anchors after documentation edits.
+
+## Open review notes (PR #34)
+
+Notes from the PR #34 review, merged 2026-11-16. Delete each item once it
+is done.
+
+- **GHDL lint finding:** `c_structs_pkg.pkg.vhd` calls
+  `bank_state_t_..._to_slv` in a package-declaration constant before the
+  function body is elaborated (`-Welaboration`, two places). The fix belongs
+  in PipelineC's VHDL generation. Until then the `pypeline-lint` CI job fails.
+- **PipelineC#394:** an empty VHDL `LinearRegression` record breaks Vivado
+  2026.1 and GHDL. CI applies the workaround; drop it from `lint.yml` and the
+  [README tracker](README.md#issues-filed-upstream) once it is fixed.
+- **Vivado 2026.1:** the project uses 2026.1, while the published results used
+  2019.2. Re-measure timing and area on 2026.1.
+- **Perf probes:** `prep.fsm` in `prep_auth_data_wide.py` and `append.fsm` in
+  `auth_tag_wide.py` sample after the FSM assignments, so they record the next
+  state. Move them before the assignments (see
+  [Adding performance probes](#adding-performance-probes)).
+- **Perf sim speed:** removing the native arithmetic models made the native
+  perf sim about 24% slower (1.04 vs 0.84 s/cycle, same PipelineC). Restore
+  the models or accept the cost.
+- **Duplicated code:** `perf_tb_common.packet_mismatch_message` repeats
+  `tb_common_sim.check_packet_result`. The `init` kernel is the same in
+  `make_pipelined_compute` and `make_shared_compute`. Share one copy of each.
+- **`tag_words = 2`** in `aead_types.py` holds only for 128- and 256-bit
+  beats. Add an assert against `DATA_BITWIDTHS` so a new width fails loudly.
+- **Twin depths:** the Poly1305 body and coefficient AUTO_PIPELINE keys include
+  the direction, so encrypt and decrypt are separate latency groups. Confirm
+  that the build's twin check covers them, or drop the direction from the key.

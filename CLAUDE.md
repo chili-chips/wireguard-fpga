@@ -73,7 +73,8 @@ make -f MakefileVProc.mk clean
 **Lint, format, LEQ** (`3.build/hw_build.openXC7/`, as on openPCIE; sources from `1.hw/top.filelist`; CI: `.github/workflows/lint.yml`, `verible.yml` run the same scripts):
 ```bash
 S=3.build/hw_build.openXC7
-bash $S/run-lint.sh                       # tags, verilator, yosys, slang, verible; waivers in run-lint-waivers.txt
+bash $S/run-lint.sh                       # tags, verilator, yosys, slang, verible, ghdl, ghdl-verilator; waivers in run-lint-waivers.txt
+PYPELINEC=<PipelineC>/src/pypelinec bash $S/run-lint.sh ghdl ghdl-verilator  # Pypeline core VHDL (pypelinec --no_synth, no Vivado)
 VIEW=sim bash $S/run-lint.sh              # simulation view (SIM_ONLY)
 CPU=picorv32 bash $S/run-lint.sh          # the other CPU (default: the one top.filelist lists)
 bash $S/run-format.sh --check             # Verible format of our own RTL

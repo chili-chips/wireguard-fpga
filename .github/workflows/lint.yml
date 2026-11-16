@@ -4,7 +4,8 @@
 #
 # RTL lint gate: 3.build/hw_build.openXC7/run-lint.sh on top, chip and simulation
 # views with eduBOS5 (the default CPU), chip view with PicoRV32; phases tags,
-# verilator, yosys and slang. The verible phase is gated in verible.yml.
+# verilator, yosys and slang. The verible phase is gated in verible.yml. Job
+# pypeline-lint runs phases ghdl and ghdl-verilator on the Pypeline core.
 # Tools come from the OSS CAD Suite (Yosys with the yosys-slang plugin,
 # Verilator).
 
@@ -58,3 +59,60 @@ jobs:
         with:
           name: lint-reports
           path: ${{ runner.temp }}/lint
+
+  # Pypeline ChaCha20-Poly1305 core (3.build/pypeline_build): pypelinec
+  # --no_synth generates its VHDL without Vivado; run-lint.sh phases ghdl and
+  # ghdl-verilator check it.
+  pypeline-lint:
+    runs-on: ubuntu-24.04
+    env:
+      # PipelineC master, pinned; bump on purpose
+      PIPELINEC_REF: 5b816e9d2dda6407de58c5313d67ff46c981c858
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install OSS CAD Suite (GHDL + Yosys GHDL plugin, Verilator)
+        uses: YosysHQ/setup-oss-cad-suite@v4
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: actions/setup-python@v6
+        id: py
+        with:
+          python-version: '3.12'
+
+      - name: Install PipelineC
+        run: |
+          git clone -q https://github.com/JulianKemmerer/PipelineC "$RUNNER_TEMP/PipelineC"
+          git -C "$RUNNER_TEMP/PipelineC" checkout -q "$PIPELINEC_REF"
+          # PipelineC imports distutils, gone from Python 3.12: setuptools brings it back
+          "${{ steps.py.outputs.python-path }}" -m pip install -q setuptools
+          # Workaround for PipelineC#394 (empty VHDL record): drop it when fixed
+          sed -i 's/^import statistics$//; s/^\(    \)return statistics.median/\1import statistics\n\1return statistics.median/' \
+            "$RUNNER_TEMP/PipelineC/include/pypeline/stream/stream_perf.py"
+          # pypelinec through this Python, not the OSS CAD Suite one
+          printf '#!/bin/sh\nexec "%s" "%s" "$@"\n' "${{ steps.py.outputs.python-path }}" \
+            "$RUNNER_TEMP/PipelineC/src/pypelinec" > "$RUNNER_TEMP/pypelinec"
+          chmod +x "$RUNNER_TEMP/pypelinec"
+
+      - name: Tool versions
+        run: |
+          ghdl --version | head -1
+          yosys -V
+          verilator --version
+
+      - name: run-lint (Pypeline VHDL)
+        env:
+          PYPELINEC: ${{ runner.temp }}/pypelinec
+          GHDL_YOSYS: yosys
+          LINT_WORK: ${{ runner.temp }}/lint/pypeline
+        run: bash 3.build/hw_build.openXC7/run-lint.sh ghdl ghdl-verilator
+
+      - name: Keep the lint reports
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: pypeline-lint-reports
+          path: |
+            ${{ runner.temp }}/lint
+            !${{ runner.temp }}/lint/pypeline/ghdl.work
