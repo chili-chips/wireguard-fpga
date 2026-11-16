@@ -460,6 +460,7 @@ Issues filed upstream from this design, open and closed.
 | --- | --- | --- | --- | --- |
 | PipelineC | [PipelineC#394](https://github.com/JulianKemmerer/PipelineC/issues/394) ([#35](https://github.com/chili-chips/wireguard-fpga/issues/35)) | `stream_perf.py` imports `statistics`; its untyped `LinearRegression` namedtuple becomes an empty VHDL record. Vivado 2026.1 and GHDL reject it; Vivado 2019.2 accepts it. | Move `import statistics` into `_median()` in PipelineC's `include/pypeline/stream/stream_perf.py`. | open |
 | PipelineC | [PipelineC#395](https://github.com/JulianKemmerer/PipelineC/issues/395) ([#36](https://github.com/chili-chips/wireguard-fpga/issues/36)) | A struct `_NULL` constant calls the enum's `_to_slv` before its body is elaborated (GHDL `-Welaboration`). GHDL and Vivado 2026.1 tolerate it. | Waived in `run-lint-waivers.txt`. | open |
+| PipelineC | [PipelineC#396](https://github.com/JulianKemmerer/PipelineC/issues/396) ([#37](https://github.com/chili-chips/wireguard-fpga/issues/37)) | Feature: auto-pipeliner aware of DSP48 boundaries. The Poly1305 coefficient product `(c0·r + c1) mod p` infers 36 DSP48E1 but runs them combinationally. | None needed; 80 MHz is met by more stages. | open |
 
 ## Appendix: baseline results
 
