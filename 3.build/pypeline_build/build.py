@@ -24,7 +24,7 @@ from wireguard_env import (
     IMPLEMENTATIONS, selected_target,
     MULT_IMPLEMENTATIONS, DATA_BITWIDTHS, COMPUTE_IMPLEMENTATIONS,
     profile_from_args, profile_out_dir, hardware_out_dir, BUILT_HARDWARE_FILE,
-    add_sharing_arguments, sharing_name, share_name_for,
+    add_sharing_arguments, add_soc_argument, sharing_name, share_name_for,
     SYN_CACHE_DIR,
 )
 
@@ -44,6 +44,7 @@ def main():
     design.add_argument("--dec", action="store_true", help="Decrypt top")
     design.add_argument("--shared", action="store_true", help="Explicitly share both ChaCha20 and Poly1305 compute")
     add_sharing_arguments(parser)
+    add_soc_argument(parser)
     parser.add_argument("--poly1305", choices=IMPLEMENTATIONS,
                         help="MAC architecture (default pipelined)")
     parser.add_argument("--data-bitwidth", type=int, choices=DATA_BITWIDTHS,

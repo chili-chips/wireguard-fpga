@@ -84,6 +84,7 @@ from wireguard_env import (
     hardware_out_dir,
     BUILT_HARDWARE_FILE,
     add_sharing_arguments,
+    add_soc_argument,
     sharing_from_args,
     sharing_name,
     sharing_out_dir,
@@ -4285,6 +4286,7 @@ def _argument_parser():
     )
     ap.add_argument("--shared", action="store_true", help="Explicitly share both resources")
     add_sharing_arguments(ap)
+    add_soc_argument(ap)
     ap.add_argument(
         "--poly1305",
         choices=IMPLEMENTATIONS,

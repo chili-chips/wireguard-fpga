@@ -117,6 +117,45 @@ in the hardware as examples.
 - Check documented commands and flags against the scripts, and verify links
   and README anchors after documentation edits.
 
+## Design write-ups: executive summary
+
+Full documents:
+[Exploring Pypeline native simulation with ChaCha20-Poly1305](https://github.com/JulianKemmerer/PipelineC/blob/master/examples/pypeline/chacha20poly1305/pypeline_sim_and_wireguard.md)
+(PipelineC repo, 2026-09-14),
+[Poly1305 design](src/poly1305/poly1305_design.md) and
+[ChaCha20 design](src/chacha20/chacha20_design.md).
+
+- **Verification:** testbenches check random packets against Python's
+  `cryptography` ChaCha20-Poly1305 (RFC 8439). That is how three Poly1305
+  math bugs were found in the old `pipelinec_build` core, whose testbench used
+  the same buggy C code as its reference. The synthesizable fixed-vector
+  testbench (`--syn_tb`) also runs under cocotb/GHDL and on an FPGA.
+- **Pipelined native sim emulates latency:** each pipelined call runs as an
+  instant Python call plus a delay line, so it is not a per-register model.
+  Check against generated VHDL with PipelineC's `pypeline_sim_debug.py`.
+- **Poly1305:** the serial `(a+c)·r` chain is regrouped into interleaved lanes
+  (5 at 256 bits, lane stride `q^L` with `q = r²`). The body takes one 16-byte block per clock
+  at 128 bits, or two at 256 bits, behind init and finalization AUTO_FSMs.
+  Those FSMs are experimental placeholders, meant to be replaced by
+  hand-designed units.
+- **Packet rate, not width, limits short packets:** finalization costs a fixed
+  48 clocks per packet (init 44), so packets up to about 1.4 KB run at
+  80 MHz / 48 = 1.67 Mpacket/s per direction whatever the width. 64-byte
+  packets get 0.85 Gb/s. Minimum-size frames on 4x 1GbE need about 6
+  Mpacket/s. Faster init and finalization is the lever for small packets.
+- **ChaCha20:** one 512-bit block pipeline shared by both directions, with
+  per-block round-robin arbitration (decrypt first). It serves 30.8 B/clock at
+  1920 bytes, so it is not a bottleneck.
+- **Next steps the write-up lists:** waveform output for native sim, random
+  backpressure (partly covered since by `-D TB_STRESS=1`), coverage-driven
+  stimulus, and manually set pipeline depths.
+- **Stale in the PipelineC write-up:** it predates the 256-bit, overlapped
+  design (128-bit only, packets up to 1024 bytes). Its links and images point
+  to the suspended `chili-chips-ba` org (now `chili-chips`). Its README anchor
+  `#fixed-poly1305-320-bit-math-is-now-rfc-8439-correct` no longer exists;
+  that content now lives in
+  [Corrections from the earlier PipelineC implementation](src/poly1305/poly1305_design.md#corrections-from-the-earlier-pipelinec-implementation).
+
 ## Open review notes (PR #34)
 
 Notes from the PR #34 review, merged 2026-11-16. Delete each item once it

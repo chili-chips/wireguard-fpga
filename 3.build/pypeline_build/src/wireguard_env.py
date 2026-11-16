@@ -44,6 +44,9 @@ DEFAULT_PROFILE = {
     "prologue_cap": 44,
     "epilogue_cap": 45,
 }
+# --soc: the SoC's DPE stream is 128-bit (1.hw/ip.infra/dpe_if.sv) on an 80 MHz
+# clock (clk_80p0); other settings keep their defaults.
+SOC_PROFILE = {"data_bitwidth": 128, "target_mhz": 80}
 DEFAULT_MULT_IMPL = DEFAULT_PROFILE["multiplier"]
 DEFAULT_COMPUTE_IMPL = DEFAULT_PROFILE["compute"]
 DEFAULT_DATA_BITWIDTH = DEFAULT_PROFILE["data_bitwidth"]
@@ -284,8 +287,26 @@ def sharing_from_args(args, *, standalone=False):
     return resolve_sharing("shared", args.poly1305, "auto", getattr(args, "poly1305_compute", None))
 
 
+def add_soc_argument(parser):
+    parser.add_argument("--soc", action="store_true",
+                        help="SoC profile: --data-bitwidth 128 --target-mhz 80, "
+                             "matching the DPE stream and clock")
+
+
+def apply_soc_profile(args):
+    """--soc fills the SoC width and clock; an explicit, different value is an error."""
+    if not getattr(args, "soc", False):
+        return
+    for key, value in SOC_PROFILE.items():
+        given = getattr(args, key)
+        if given is not None and given != value:
+            raise ValueError(f"--soc sets --{key.replace('_', '-')} {value}; got {given}")
+        setattr(args, key, value)
+
+
 def profile_from_args(args, *, standalone=False):
     """Resolve build.py and measure.py arguments through the hardware's resolver."""
+    apply_soc_profile(args)
     implementation = selected_implementation(args.poly1305)
     args.poly1305 = implementation
     sharing = sharing_from_args(args, standalone=standalone)

@@ -212,6 +212,7 @@ corresponding direct PypelineC `-D` parameter; use named flags in the scripts.
 | `--poly1305-compute` | `POLY1305_COMPUTE_IMPL` | `fsm` (default), `mcp`; selects pipelined initialization/finalization ([architecture comparison](src/poly1305/poly1305_design.md#auto_fsm-versus-auto_mcp)). MCP automatically shares both resources unless sharing is explicitly selected. |
 | `--poly1305-prologue-cap`, `--poly1305-epilogue-cap` | `POLY1305_PROLOGUE_MAX_LATENCY`, `POLY1305_EPILOGUE_MAX_LATENCY` | Initialization/finalization FSM latency caps; defaults `44` / `45` at 256 bits, `64` / `64` at 128 bits. |
 | `--target-mhz` | `TARGET_MHZ` | Positive integer MHz. Default `80` for 256-bit `inferred_body` and legacy; other profiles default to `85` when sharing both resources, otherwise `30`. |
+| `--soc` | `DATA_BITWIDTH`, `TARGET_MHZ` | SoC profile: `--data-bitwidth 128 --target-mhz 80`, the DPE stream width and clock. A different explicit value for either is an error. |
 
 Thanks to **FPGA-House-AG** for the
 [Karatsuba DSP multiplier reference](https://github.com/FPGA-House-AG/ChaCha20Poly1305/blob/7e75c097af32429ff2c7979b976fe876efbdb9f3/src_dsp_opt/mul_136_kar.vhd)
