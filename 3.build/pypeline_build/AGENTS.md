@@ -143,6 +143,3 @@ is done.
   `make_pipelined_compute` and `make_shared_compute`. Share one copy of each.
 - **`tag_words = 2`** in `aead_types.py` holds only for 128- and 256-bit
   beats. Add an assert against `DATA_BITWIDTHS` so a new width fails loudly.
-- **Twin depths:** the Poly1305 body and coefficient AUTO_PIPELINE keys include
-  the direction, so encrypt and decrypt are separate latency groups. Confirm
-  that the build's twin check covers them, or drop the direction from the key.
