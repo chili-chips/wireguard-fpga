@@ -194,6 +194,8 @@ export PYPELINEC=/path/to/PipelineC/src/pypelinec
 
 `build.py` also accepts `pypelinec` on `PATH`. For measurement tooling, set
 `PYPELINEC` as above or keep the compiler checkout at `../../../PipelineC`.
+Check out the PipelineC commit in [pipelinec.ref](pipelinec.ref): CI uses it,
+and `build.py` warns when the checkout differs.
 `--show-config` prints the resolved settings and output paths without building.
 
 ### Design parameters

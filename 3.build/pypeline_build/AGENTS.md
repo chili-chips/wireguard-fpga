@@ -37,6 +37,11 @@ the exceptions above, even though `REUSE.toml` also covers this directory.
   [earlier-design comparison](README.md#comparison-with-the-earlier-pipelinec-design).
 - Keep `import wireguard_env  # noqa: F401` as the first import in hardware
   design and testbench files. It bootstraps this tree's flat module imports.
+- [pipelinec.ref](pipelinec.ref) holds the PipelineC commit this design is
+  tested with. CI lints with that commit, and `build.py` warns when the local
+  checkout differs. A design change that needs another PipelineC commit
+  updates `pipelinec.ref` in the same commit, after `run-lint.sh ghdl
+  ghdl-verilator` passes with it.
 - Reserve leading underscores in Python names for use within one file. APIs
   used across files should have public names; update their callers when renaming.
 - Keep profile resolution and defaults in
@@ -188,8 +193,8 @@ is done.
 
 - **PipelineC#395:** a package-declaration constant in `c_structs_pkg.pkg.vhd`
   calls `bank_state_t_..._to_slv` before its body is elaborated (GHDL
-  `-Welaboration`). The lint waives it; drop the waiver and bump
-  `PIPELINEC_REF` in `lint.yml` once it is fixed.
+  `-Welaboration`). The lint waives it; drop the waiver and move
+  `pipelinec.ref` to the fixing commit once it is fixed.
 - **PipelineC#394:** an empty VHDL `LinearRegression` record breaks Vivado
   2026.1 and GHDL. CI applies the workaround; drop it from `lint.yml` and the
   [README tracker](README.md#issues-filed-upstream) once it is fixed.
@@ -225,6 +230,6 @@ is done.
   them.
 - **Routed timing:** the published 81.32 MHz is synthesis only (1.6% margin).
   Check timing after place and route, in the SoC.
-- **Reproducibility:** name the tested PipelineC commit in the README (CI
-  pins `PIPELINEC_REF` in `.github/workflows/lint.yml`). Results from an
-  unpinned `master` may not reproduce.
+- **Reproducibility:** published results name their PipelineC commit; keep it
+  equal to `pipelinec.ref`, or say why it differs. Results from an unpinned
+  `master` may not reproduce.

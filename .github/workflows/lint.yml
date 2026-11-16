@@ -65,9 +65,6 @@ jobs:
   # ghdl-verilator check it.
   pypeline-lint:
     runs-on: ubuntu-24.04
-    env:
-      # PipelineC master, pinned; bump on purpose
-      PIPELINEC_REF: 5b816e9d2dda6407de58c5313d67ff46c981c858
     steps:
       - uses: actions/checkout@v7
 
@@ -83,8 +80,11 @@ jobs:
 
       - name: Install PipelineC
         run: |
+          # The tested commit: the first non-comment line of pipelinec.ref
+          ref=$(grep -v -E '^[[:space:]]*(#|$)' 3.build/pypeline_build/pipelinec.ref | head -1)
+          echo "PipelineC $ref"
           git clone -q https://github.com/JulianKemmerer/PipelineC "$RUNNER_TEMP/PipelineC"
-          git -C "$RUNNER_TEMP/PipelineC" checkout -q "$PIPELINEC_REF"
+          git -C "$RUNNER_TEMP/PipelineC" checkout -q "$ref"
           # PipelineC imports distutils, gone from Python 3.12: setuptools brings it back
           "${{ steps.py.outputs.python-path }}" -m pip install -q setuptools
           # Workaround for PipelineC#394 (empty VHDL record): drop it when fixed

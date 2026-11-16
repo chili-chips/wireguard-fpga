@@ -18,10 +18,10 @@ precedence = "aggregate"
 SPDX-FileCopyrightText = ["2026 Julian Kemmerer", "2026 Chili.CHIPS"]
 SPDX-License-Identifier = "BSD-3-Clause"
 
-# Chili.CHIPS work in pypeline_build: tracked pipeline depths (JSON, no header)
-# and the CLAUDE.md that imports AGENTS.md
+# Chili.CHIPS work in pypeline_build, without headers: tracked pipeline depths
+# (JSON), the CLAUDE.md that imports AGENTS.md, and pipelinec.ref
 [[annotations]]
-path = ["3.build/pypeline_build/latency_hints/**", "3.build/pypeline_build/CLAUDE.md"]
+path = ["3.build/pypeline_build/latency_hints/**", "3.build/pypeline_build/CLAUDE.md", "3.build/pypeline_build/pipelinec.ref"]
 precedence = "override"
 SPDX-FileCopyrightText = "2026 Chili.CHIPS"
 SPDX-License-Identifier = "BSD-3-Clause"

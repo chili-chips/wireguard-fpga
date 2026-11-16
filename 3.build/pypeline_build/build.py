@@ -37,6 +37,24 @@ PROFILE_PARAMS = (
 )
 
 
+def check_pipelinec_ref(here, pypelinec_bin):
+    """Warn when the pypelinec checkout is not the commit in pipelinec.ref."""
+    try:
+        with open(os.path.join(here, "pipelinec.ref")) as f:
+            tested = next(line.strip() for line in f
+                          if line.strip() and not line.lstrip().startswith("#"))
+        exe = shutil.which(pypelinec_bin) or pypelinec_bin
+        repo = os.path.dirname(os.path.dirname(os.path.realpath(exe)))
+        head = subprocess.run(["git", "-C", repo, "rev-parse", "HEAD"], capture_output=True,
+                              text=True, check=True).stdout.strip()
+    except (OSError, StopIteration, subprocess.CalledProcessError):
+        print("--> WARNING: cannot compare the PipelineC checkout with pipelinec.ref")
+        return
+    if head != tested:
+        print(f"--> WARNING: PipelineC {head[:12]} is not the tested {tested[:12]} "
+              "(pipelinec.ref); update one of them")
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     design = parser.add_mutually_exclusive_group()
@@ -145,6 +163,7 @@ def main():
         defines.append(f"PERF={int(args.perf)}")
 
     pypelinec_bin = os.environ.get("PYPELINEC") or "pypelinec"
+    check_pipelinec_ref(here, pypelinec_bin)
     profile = (args.poly1305, sharing, args.poly1305_mult, args.poly1305_compute,
                args.target_mhz, args.data_bitwidth, args.poly1305_prologue_cap, args.poly1305_epilogue_cap)
     hardware_dir = args.out_dir or hardware_out_dir(design_short, *profile)

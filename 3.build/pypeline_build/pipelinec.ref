@@ -1,0 +1,6 @@
+# PipelineC (JulianKemmerer/PipelineC) commit this design is tested with.
+# CI builds the Pypeline lint with it (.github/workflows/lint.yml), and
+# build.py warns when the local pypelinec checkout differs.
+# Update it in the same commit as any design change that needs another
+# PipelineC commit. The first line that is not a comment is the hash.
+97097a875f719c67becfa6fe9885fac8f15a7738
