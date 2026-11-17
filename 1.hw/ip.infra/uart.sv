@@ -621,7 +621,7 @@ module uart
   logic [31:0] ram_data, ram_data_next;
   logic [31:0] ram_addr, ram_addr_next;
   logic [3:0] bus_we, bus_we_next;
-  logic [31:0] bus_addr, bus_addr_next;
+  soc_addr_t bus_addr, bus_addr_next;  // a word address: the host's bits [1:0] are not kept
   logic [31:0] bus_rdat, bus_rdat_next;
   logic [31:0] bus_wdat, bus_wdat_next;
   logic [7:0] checksum, checksum_next;
@@ -638,7 +638,7 @@ module uart
       ram_data      <= '0;
       bus_vld       <= 1'b0;
       bus_we        <= '0;
-      bus_addr      <= 32'h10000000;
+      bus_addr      <= soc_pkg::DMEM_BASE[31:2];
       bus_rdat      <= '0;
       bus_wdat      <= '0;
       checksum      <= '0;
@@ -850,7 +850,7 @@ module uart
 
       T_STATES_BUSW_WAIT_ADDR0: begin
         if (uart_rx_valid == 1'b1) begin
-          bus_addr_next[7:0] = uart_rx_data;
+          bus_addr_next[7:2] = uart_rx_data[7:2];
           checksum_next      = checksum + uart_rx_data;
           timeout_next       = '0;
           state_next         = T_STATES_BUSW_WAIT_ADDR1;
@@ -1015,7 +1015,7 @@ module uart
 
       T_STATES_BUSR_WAIT_ADDR0: begin
         if (uart_rx_valid == 1'b1) begin
-          bus_addr_next[7:0] = uart_rx_data;
+          bus_addr_next[7:2] = uart_rx_data[7:2];
           checksum_next      = checksum + uart_rx_data;
           timeout_next       = '0;
           state_next         = T_STATES_BUSR_WAIT_ADDR1;
@@ -1287,7 +1287,7 @@ module uart
 
   assign bus.vld          = bus_vld;
   assign bus.we           = bus_we;
-  assign bus.addr[31:2]   = bus_addr[31:2];
+  assign bus.addr         = bus_addr;
   assign bus.wdat         = bus_wdat;
 
   // CSR status, in one process

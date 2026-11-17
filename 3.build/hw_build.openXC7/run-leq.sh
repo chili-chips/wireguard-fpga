@@ -37,6 +37,17 @@
 # available for cell ... ($mem_v2)". Only "Equivalence successfully proven"
 # is a pass.
 #
+# LEQ_MODE (default auto):
+#   flat  the whole design flattened, as above: one proof, end to end
+#   hier  module by module (read_slang --keep-hierarchy): every submodule
+#         instance becomes ports of its parent (its inputs are compared, its
+#         outputs are shared free inputs), so each module is proven on its
+#         own and an unchanged FIFO never needs SAT. Needs the same modules
+#         (the same hierarchy) in gold and gate; a change that moves logic
+#         between modules needs flat, with a [sed script]
+#   auto  flat; when that ends on a memory ("No SAT model ... $mem"), which
+#         happens for any change upstream of a FIFO, hier decides
+#
 # Needs Yosys with read_slang: built into the openXC7 Yosys; with the OSS CAD
 # Suite, YOSYS_ARGS="-m slang". YOSYS, YOSYS_CONFIG and PYTHON override the
 # commands.
@@ -80,7 +91,8 @@ fi
 EXTRA=""
 [ -n "${LEQ_EXTRA:-}" ] && EXTRA="script $(cd "$(dirname "$LEQ_EXTRA")" && pwd)/$(basename "$LEQ_EXTRA")"
 
-cat > eq.ys <<EOF
+flat() {
+  cat > eq.ys <<EOF
 $READ $(files $GOLD)
 $PREP
 $REN
@@ -98,19 +110,84 @@ equiv_simple -seq 3
 equiv_induct -seq 3
 equiv_status
 EOF
-rc=0
-"$YOSYS" $YOSYS_ARGS -q -l eq.log eq.ys >/dev/null || rc=$?
-grep -E "Found [0-9]+ .equiv|Of those cells|successfully proven|^ERROR" eq.log | tail -3
-grep "Unproven" eq.log | sed -E 's/.*: .([^ ]*)_gold.*/\1/; s/\[[0-9]+\]//g' | sort | uniq -c
-echo "log: $W/eq.log"
+  rc=0
+  "$YOSYS" $YOSYS_ARGS -q -l eq.log eq.ys >/dev/null || rc=$?
+  grep -E "Found [0-9]+ .equiv|Of those cells|successfully proven|^ERROR" eq.log | tail -3
+  grep "Unproven" eq.log | sed -E 's/.*: .([^ ]*)_gold.*/\1/; s/\[[0-9]+\]//g' | sort | uniq -c
+  echo "log: $W/eq.log"
+  # Pass only if Yosys got through equiv_status and proved every $equiv cell
+  unproven=$(sed -nE 's/.*Of those cells [0-9]+ are proven and ([0-9]+) are unproven.*/\1/p' eq.log | tail -1)
+  [ $rc -eq 0 ] && [ -n "$unproven" ] && [ "$unproven" -eq 0 ]
+}
 
-# Pass only if Yosys got through equiv_status and proved every $equiv cell
-unproven=$(sed -nE 's/.*Of those cells [0-9]+ are proven and ([0-9]+) are unproven.*/\1/p' eq.log | tail -1)
-if [ $rc -ne 0 ] || [ -z "$unproven" ] || [ "$unproven" -ne 0 ]; then
-  echo "LEQ: FAILED (yosys exit $rc, unproven: ${unproven:-no equiv_status result})"
+hier() {
+  local HREAD="${READ/read_slang /read_slang --keep-hierarchy }"
+  local HPREP="hierarchy -top $TOP; proc; memory -nomap; async2sync; opt_clean"
+  local EVERT='expose -evert c:* t:$* %d; opt_clean'
+  local m mods
+  for v in gold gate; do  # the modules, by their instance path names
+    local d=$GOLD; [ $v = gate ] && d=$GATE
+    "$YOSYS" $YOSYS_ARGS -q -p "$HREAD $(files $d); $HPREP; tee -q -o mods_$v.txt ls" >/dev/null
+    sed -n 's/^  //p' mods_$v.txt | sort > mods_$v.lst
+  done
+  if ! cmp -s mods_gold.lst mods_gate.lst; then
+    echo "modules only in gold or only in gate (the hierarchy changed; use LEQ_MODE=flat):"
+    comm -3 mods_gold.lst mods_gate.lst | head -20
+    return 1
+  fi
+  mods=$(grep -v -x -F -f <(printf '%s\n' $PRIMS) mods_gold.lst)
+  {
+    echo "$HREAD $(files $GOLD)"; echo "$HPREP"; echo "$EVERT"; echo "design -stash gold"
+    echo "$HREAD $(files $GATE)"; echo "$HPREP"; echo "$EVERT"; echo "design -stash gate"
+    for m in $mods; do
+      echo "log LEQ-MODULE $m"
+      echo "design -reset"
+      echo "design -copy-from gold -as gold \\$m"
+      echo "design -copy-from gate -as gate \\$m"
+      echo "equiv_make gold gate eq"
+      echo "hierarchy -top eq"
+      echo "equiv_struct"
+      echo "equiv_simple -seq 3"
+      echo "equiv_induct -seq 3"
+      echo "equiv_status"
+    done
+  } > hier.ys
+  rc=0
+  "$YOSYS" $YOSYS_ARGS -q -l hier.log hier.ys >/dev/null || rc=$?
+  # per module: proven, or its unproven signals
+  awk '/LEQ-MODULE/ {m=$NF} /are unproven/ && !/ 0 are unproven/ {print "  " m ": " $0}
+       /Unproven \$equiv/ {sub(/.*: /, ""); print "    " $0}' hier.log
+  local n proven
+  n=$(echo "$mods" | wc -l)
+  proven=$(grep -c "Equivalence successfully proven" hier.log)
+  echo "modules proven: $proven of $n"
+  grep -m3 "^ERROR" hier.log || true
+  echo "log: $W/hier.log"
+  [ $rc -eq 0 ] && [ "$proven" -eq "$n" ]
+}
+
+MODE=${LEQ_MODE:-auto}
+case $MODE in
+  flat) flat && ok=1 || ok=0 ;;
+  hier) hier && ok=1 || ok=0 ;;
+  auto)
+    if flat; then
+      MODE=flat
+      ok=1
+    elif grep -q "No SAT model available for cell .*\$mem" eq.log; then
+      echo "flat: stopped on a memory (a change upstream of a FIFO): module by module"
+      MODE=hier
+      hier && ok=1 || ok=0
+    else
+      ok=0
+    fi ;;
+  *) echo "LEQ_MODE must be auto, flat or hier (got \"$MODE\")"; exit 2 ;;
+esac
+if [ $ok -ne 1 ]; then
+  echo "LEQ: FAILED ($MODE)"
   exit 1
 fi
-echo "LEQ: PASS"
+echo "LEQ: PASS ($MODE)"
 
 # -----------------------------------------------------------------------------
 # Project:     WireGuard-FPGA
