@@ -90,7 +90,7 @@ module dpe_wg_disassembler
   logic        beat_ok;  // the check of this beat
   always_comb begin
     beat_ok = 1'b1;
-    case (in_beat)
+    unique case (in_beat)
       2'(beat_of(
           ETH_TYPE_OFFSET
       )):

@@ -118,7 +118,7 @@ module sync_fifo_ram #(
         rd_addr <= rd_addr + addr_t'(1);
       end
 
-      case ({
+      unique case ({
         we_protected, re_protected
       })
 

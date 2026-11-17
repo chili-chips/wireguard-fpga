@@ -93,8 +93,9 @@ module dpe_dummy_switch (
     outp_sbuff.tuser.bypass_all   = inp.tuser.bypass_all;
     outp_sbuff.tuser.bypass_stage = 1'b0;
     outp_sbuff.tuser.src          = inp.tuser.src;
+    outp_sbuff.tuser.dst          = inp.tuser.dst;  // unless the switch below swaps it
     if (inp.tuser.bypass_all == 1'b0 && inp.tuser.bypass_stage == 1'b0) begin
-      case (inp.tuser.src)
+      unique case (inp.tuser.src)
         DPE_ADDR_CPU: begin
           outp_sbuff.tuser.dst = DPE_ADDR_ETH_1;
         end
@@ -110,13 +111,9 @@ module dpe_dummy_switch (
         DPE_ADDR_ETH_4: begin
           outp_sbuff.tuser.dst = DPE_ADDR_ETH_3;
         end
-        default: begin
-          outp_sbuff.tuser.dst = inp.tuser.dst;
+        default: begin  // a multicast or broadcast source: dst as it is
         end
       endcase
-    end
-    else begin
-      outp_sbuff.tuser.dst = inp.tuser.dst;
     end
   end
 

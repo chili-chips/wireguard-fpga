@@ -72,9 +72,10 @@ module fpga_pll_80M (
   end
 
 `else
-  wire sys_pll_rst = ~rst_n;
-  wire sys_pll_clkfb;
-  wire sys_pll_out;
+  logic  sys_pll_rst;
+  assign sys_pll_rst = ~rst_n;
+  logic  sys_pll_clkfb;
+  logic  sys_pll_out;
 
   PLLE2_BASE #(
 `ifndef SYN_YOSYS_BUG  // real values: read_slang cannot pass them to a primitive (sv-elab#282)

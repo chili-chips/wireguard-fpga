@@ -88,7 +88,7 @@ module dpe_multiplexer (
   always_comb begin
     next_state = state;
 
-    case (state)
+    unique case (state)
       IDLE: begin
         if (!pause) begin
           next_state = R0;
@@ -230,7 +230,7 @@ module dpe_multiplexer (
     from_eth_3.tready   = 1'b0;
     from_eth_4.tready   = 1'b0;
 
-    case (state)
+    unique case (state)
       IDLE: begin
         is_idle = !to_dpe.tvalid;
       end

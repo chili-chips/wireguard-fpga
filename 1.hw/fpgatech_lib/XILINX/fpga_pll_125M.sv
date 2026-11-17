@@ -67,9 +67,10 @@ module fpga_pll_125M (
   end
 
 `else
-  wire eth_pll_rst = ~rst_n;
-  wire eth_pll_clkfb;
-  wire eth_pll_out;
+  logic  eth_pll_rst;
+  assign eth_pll_rst = ~rst_n;
+  logic  eth_pll_clkfb;
+  logic  eth_pll_out;
 
   PLLE2_BASE #(
 `ifndef SYN_YOSYS_BUG  // real values: read_slang cannot pass them to a primitive (sv-elab#282)

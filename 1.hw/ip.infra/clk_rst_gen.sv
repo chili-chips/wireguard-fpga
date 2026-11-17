@@ -41,20 +41,20 @@
 //==========================================================================
 
 module clk_rst_gen (
-    input  clk_p,
-    input  clk_n,
-    input  rst_n,
-    output sys_clk,
-    output sys_rst,
-    output sys_rst_n,
-    output eth_gtx_clk,
-    output eth_gtx_rst
+    input  logic clk_p,
+    input  logic clk_n,
+    input  logic rst_n,
+    output logic sys_clk,
+    output logic sys_rst,
+    output logic sys_rst_n,
+    output logic eth_gtx_clk,
+    output logic eth_gtx_rst
 );
 
   //==========================================================================
   // Generate single end clock from differential input clock
   //==========================================================================
-  wire clk;
+  logic clk;
 
   IBUFGDS sys_clk_ibufgds (
       .O  (clk),
@@ -65,9 +65,9 @@ module clk_rst_gen (
   //==========================================================================
   // PLL for system clock domain
   //==========================================================================
-  wire sys_pll_locked;
-  wire sys_pll_clk;
-  wire sys_reset;
+  logic sys_pll_locked;
+  logic sys_pll_clk;
+  logic sys_reset;
 
   fpga_pll_80M u_sys_pll (
       .clk            (clk),
@@ -91,8 +91,8 @@ module clk_rst_gen (
   //==========================================================================
   // PLL for Ethernet clock domain
   //==========================================================================
-  wire eth_pll_locked;
-  wire eth_pll_clk;
+  logic eth_pll_locked;
+  logic eth_pll_clk;
 
   fpga_pll_125M u_eth_pll (
       .clk            (clk),

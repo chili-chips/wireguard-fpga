@@ -305,7 +305,7 @@ module uart
 
 
       // FSM runs on main clock, with most states gated by 'rx_cnt1us_is0'
-      case (rx_state)
+      unique case (rx_state)
 
         //---Wait for 'uart_rx_sync' negedge to start reception
         IDLE: begin
@@ -335,7 +335,7 @@ module uart
         if (rx_nextbit == 1'b1) begin
           rx_shift <= {uart_rx_sync, rx_shift[7:1]};  // MSB goes in last
 
-          case (rx_state)
+          unique case (rx_state)
             D0: begin
               rx_cnt1us <= RX_WAIT_D1;
               rx_state  <= D1;
@@ -471,7 +471,7 @@ module uart
       end
 
       // FSM runs on main clock, with most states gated by 'tx_cnt1us_is0'
-      case (tx_state)
+      unique case (tx_state)
 
         //---Keep sending as long as TxFIFO is not empty
         //   to store SW data that needs to be sent
@@ -684,7 +684,7 @@ module uart
     uart_tx_valid_next = uart_tx_valid;
     uart_tx_data_next  = uart_tx_data;
 
-    case (state)
+    unique case (state)
       T_STATES_WAIT_SOP: begin
         if ((uart_rx_valid == 1'b1) && (uart_rx_data == C_SOP)) begin
           bus_vld_next = 1'b1;
@@ -693,31 +693,37 @@ module uart
       end
 
       T_STATES_WAIT_CMD: begin
-        if ((uart_rx_valid == 1'b1) && (uart_rx_data == C_IMPR)) begin
-          cpu_rstn_next = 1'b0;
-          data_cnt_next = '0;
-          checksum_next = '0;
-          timeout_next  = '0;
-          state_next    = T_STATES_IMPR_WAIT_LEN_LB;
-        end
-        else if ((uart_rx_valid == 1'b1) && (uart_rx_data == C_BUSW)) begin
-          checksum_next = '0;
-          timeout_next  = '0;
-          state_next    = T_STATES_BUSW_WAIT_ADDR0;
-        end
-        else if ((uart_rx_valid == 1'b1) && (uart_rx_data == C_BUSR)) begin
-          checksum_next = '0;
-          timeout_next  = '0;
-          state_next    = T_STATES_BUSR_WAIT_ADDR0;
-        end
-        else if ((uart_rx_valid == 1'b1) && (uart_rx_data == C_IMWR)) begin
-          checksum_next = '0;
-          timeout_next  = '0;
-          state_next    = T_STATES_IMWR_WAIT_ADDR0;
-        end
-        else if ((uart_rx_valid == 1'b1) && (uart_rx_data == C_EOP)) begin
-          bus_vld_next = 1'b0;
-          state_next   = T_STATES_WAIT_SOP;
+        if (uart_rx_valid == 1'b1) begin
+          unique case (uart_rx_data)
+            C_IMPR: begin
+              cpu_rstn_next = 1'b0;
+              data_cnt_next = '0;
+              checksum_next = '0;
+              timeout_next  = '0;
+              state_next    = T_STATES_IMPR_WAIT_LEN_LB;
+            end
+            C_BUSW: begin
+              checksum_next = '0;
+              timeout_next  = '0;
+              state_next    = T_STATES_BUSW_WAIT_ADDR0;
+            end
+            C_BUSR: begin
+              checksum_next = '0;
+              timeout_next  = '0;
+              state_next    = T_STATES_BUSR_WAIT_ADDR0;
+            end
+            C_IMWR: begin
+              checksum_next = '0;
+              timeout_next  = '0;
+              state_next    = T_STATES_IMWR_WAIT_ADDR0;
+            end
+            C_EOP: begin
+              bus_vld_next = 1'b0;
+              state_next   = T_STATES_WAIT_SOP;
+            end
+            default: begin  // not a command: ignored
+            end
+          endcase
         end
       end
 

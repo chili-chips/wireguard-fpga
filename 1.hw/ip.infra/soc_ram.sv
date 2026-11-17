@@ -111,7 +111,7 @@ module soc_ram #(
 `ifdef SIM_ONLY
 `ifdef RAM_DEBUG
 
-  always @(posedge bus.clk) begin
+  always_ff @(posedge bus.clk) begin
     if ({bus.vld, bus.rdy} == 2'b11) begin
       if (write == 1) begin
         $display("%t %m WRITE [%08x]<=%08x (we=%b)", $time, {bus.addr, 2'd0}, bus.wdat, bus.we);

@@ -87,7 +87,7 @@ module soc_csr
 `ifdef SIM_ONLY
 `ifdef CSR_DEBUG
 
-  always @(posedge bus.clk) begin
+  always_ff @(posedge bus.clk) begin
     if ({bus.vld, bus.rdy} == 2'b11) begin
       if (|bus.we == 1) begin
         $display("%t %m WRITE [%08x]<=%08x", $time, {bus.addr, 2'd0}, bus.wdat);
