@@ -277,18 +277,18 @@
           <Attr Name="UsedIn" Val="simulation"/>
         </FileInfo>
       </File>
-      <File Path="$PPRDIR/../../1.hw/ip.infra/ethernet_mac.sv">
+      <File Path="$PPRDIR/../../1.hw/ip.eth/ethernet_mac.sv">
         <FileInfo>
-          <Attr Name="ImportPath" Val="$PPRDIR/../../1.hw/ip.infra/ethernet_mac.sv"/>
+          <Attr Name="ImportPath" Val="$PPRDIR/../../1.hw/ip.eth/ethernet_mac.sv"/>
           <Attr Name="ImportTime" Val="1739267462"/>
           <Attr Name="UsedIn" Val="synthesis"/>
           <Attr Name="UsedIn" Val="implementation"/>
           <Attr Name="UsedIn" Val="simulation"/>
         </FileInfo>
       </File>
-      <File Path="$PPRDIR/../../1.hw/ip.infra/ethernet_phy.sv">
+      <File Path="$PPRDIR/../../1.hw/ip.eth/ethernet_phy.sv">
         <FileInfo>
-          <Attr Name="ImportPath" Val="$PPRDIR/../../1.hw/ip.infra/ethernet_phy.sv"/>
+          <Attr Name="ImportPath" Val="$PPRDIR/../../1.hw/ip.eth/ethernet_phy.sv"/>
           <Attr Name="ImportTime" Val="1739271759"/>
           <Attr Name="UsedIn" Val="synthesis"/>
           <Attr Name="UsedIn" Val="implementation"/>

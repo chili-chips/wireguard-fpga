@@ -66,7 +66,6 @@ longint dbgfsm_insn_cnt;
 
 // uncomment this for register file in extra module
 //[JI] ORIG `define PICORV32_REGS picorv32_regs
-// `define PICORV32_REGS dprf_32x32bit
 
 
 //##############################################################

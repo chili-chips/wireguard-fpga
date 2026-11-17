@@ -104,7 +104,7 @@ W=$(cd "$W" && pwd)
 
 # ---- work copy ----------------------------------------------------------------
 (cd "$REPO" && cp -r --parents 1.hw/top.filelist 1.hw/top.sv 1.hw/fpgatech_lib 1.hw/external_lib \
-   1.hw/ip.infra 1.hw/ip.cpu 1.hw/ip.dpe "$W/")
+   1.hw/ip.* "$W/")
 mkdir -p "$W/bld/csr_build/generated-files" "$W/bld/sw_build"
 cp "$REPO"/3.build/csr_build/generated-files/{csr_pkg,csr}.sv "$W/bld/csr_build/generated-files/"
 cp "$REPO/3.build/sw_build/imem.INIT.vh" "$W/bld/sw_build/"
