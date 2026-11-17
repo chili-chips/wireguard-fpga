@@ -575,7 +575,7 @@ module uart
   // TX FIFO input: the IMEM loader's bytes on the bus, else the CSR's
   logic [7:0] tx_fifo_din;
   logic       tx_fifo_we;
-  assign      tx_fifo_din = bus_vld ? uart_tx_data : from_csr.uart.tx.data.value;
+  assign      tx_fifo_din = bus_vld ? uart_tx_data  : from_csr.uart.tx.data.value;
   assign      tx_fifo_we  = bus_vld ? uart_tx_valid : from_csr.uart.tx_trigger.write.value;
 
   sync_fifo_ram #(

@@ -144,16 +144,26 @@ module bfm_uart (
 // checks the bus, this checks the data landed in DMEM
    int stress_errors = 0;
 
+   // The bus writes go to a DMEM window store_stress keeps clear
+   // (2.sw/tests/store_stress: its stores start at DMEM_BASE + 0x9000); each
+   // word is a tag and its write index
+   localparam logic [31:0] BUSW_BASE = soc_pkg::DMEM_BASE + 32'h8000;
+   localparam logic [31:0] BUSW_TAG  = 32'hC0DE_0000;
+
    task automatic bus_stress (input int n);
       logic [31:0] addr, data;
+      // Start inside the firmware's store loop, whatever the UART speed
+      // (UART_SIM_TICK_CLKS): wait for the CPU's 64th store
+      repeat (64) @(posedge tb.dut.u_fabric.cpu.clk
+                    iff (tb.dut.u_fabric.cpu.vld && tb.dut.u_fabric.cpu.we != '0));
       for (int k=0; k<n; k++) begin
-         addr = 32'h1000_8000 + 32'(4*k);
-         data = 32'hC0DE_0000 | 32'(k);
+         addr = BUSW_BASE + 32'(4*k);
+         data = BUSW_TAG | 32'(k);
          bus_write (addr, data);
-         if (tb.dut.u_dmem.mem[(addr - 32'h1000_0000) >> 2] !== data) begin
+         if (tb.dut.u_dmem.mem[(addr - soc_pkg::DMEM_BASE) >> 2] !== data) begin
             stress_errors++;
             $display("%t UART_BUS_STRESS: DMEM[%h] = %h, expected %h", $time, addr,
-                     tb.dut.u_dmem.mem[(addr - 32'h1000_0000) >> 2], data);
+                     tb.dut.u_dmem.mem[(addr - soc_pkg::DMEM_BASE) >> 2], data);
          end
       end
       $display("%t UART_BUS_STRESS: %0d bus writes, %0d data errors", $time, n, stress_errors);

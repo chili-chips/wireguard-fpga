@@ -51,7 +51,9 @@
 //  This shows total allocation. Actual resources take much less, and alias
 //==========================================================================
 
-module soc_fabric (
+module soc_fabric
+  import soc_pkg::*;
+(
     // From Master(s):
     soc_if.SLV cpu,  //interface for the controlling CPU (this SOC has only 1 CPU)
     soc_if.SLV uart, //interface for the bus mastering via UART
@@ -64,34 +66,45 @@ module soc_fabric (
   //-----------------------------------------------------------
   // propagate/replicate common controls from Master to all Peripherals
   //-----------------------------------------------------------
-  logic cpu_ack;  // 1 as soon as CPU gets the bus
-  logic uart_busy;  // 1 when UART is already using the bus
-  logic uart_done;  // 1 when UART is done with using bus
+  logic      cpu_ack;  // 1 as soon as CPU gets the bus
+  logic      uart_busy;  // 1 when UART is already using the bus
+  logic      uart_done;  // 1 when UART is done with using bus
 
-  assign dmem.addr = cpu_ack ? cpu.addr : uart.addr;
-  assign dmem.we   = cpu_ack ? cpu.we : uart.we;
-  assign dmem.wdat = cpu_ack ? cpu.wdat : uart.wdat;
+  // The request that has the bus: the CPU's once cpu_ack, else the UART's
+  soc_addr_t grant_addr;
+  soc_we_t   grant_we;
+  soc_data_t grant_wdat;
+  logic      grant_vld;
 
-  assign csr.addr  = cpu_ack ? cpu.addr : uart.addr;
-  assign csr.we    = cpu_ack ? cpu.we : uart.we;
-  assign csr.wdat  = cpu_ack ? cpu.wdat : uart.wdat;
+  assign grant_addr = cpu_ack ? cpu.addr : uart.addr;
+  assign grant_we   = cpu_ack ? cpu.we   : uart.we;
+  assign grant_wdat = cpu_ack ? cpu.wdat : uart.wdat;
+
+  //a request is valid from the UART, or from the CPU while the UART does not
+  //have the bus: a waiting CPU request must not reach a peripheral with the
+  //UART's address (#61)
+  assign grant_vld  = uart.vld | cpu.vld & ~uart_busy;
+
+  assign dmem.addr  = grant_addr;
+  assign dmem.we    = grant_we;
+  assign dmem.wdat  = grant_wdat;
+
+  assign csr.addr   = grant_addr;
+  assign csr.we     = grant_we;
+  assign csr.wdat   = grant_wdat;
 
   //-----------------------------------------------------------
   // assign peripheral Point-to-Point controls per Memory Map
   //-----------------------------------------------------------
-  // peripheral selects
+  // peripheral selects (soc_pkg memory map): they never overlap
   logic dmem_sel, csr_sel;
 
-  //address decode: All selects must be mutually exclusive!
-  // DMEM: 0x1000_0000 - 0x1FFF_FFFF, CSR: 0x2000_0000 - 0x3FFF_FFFF
-  assign dmem_sel  = cpu_ack ? (cpu.addr[31:28] == 4'd1) : (uart.addr[31:28] == 4'd1);
-  assign csr_sel   = cpu_ack ? (cpu.addr[31:29] == 3'd1) : (uart.addr[31:29] == 3'd1);
+  assign dmem_sel  = soc_pkg::is_dmem(grant_addr);
+  assign csr_sel   = soc_pkg::is_csr(grant_addr);
 
-  //peripheral access is when peripheral is SELected and UART/CPU VLD; while
-  //the UART has the bus, a waiting CPU request must not reach it with the
-  //UART's address (#61)
-  assign dmem.vld  = (uart.vld | cpu.vld & ~uart_busy) & dmem_sel;
-  assign csr.vld   = (uart.vld | cpu.vld & ~uart_busy) & csr_sel;
+  //peripheral access is when peripheral is SELected and the request VLD
+  assign dmem.vld  = grant_vld & dmem_sel;
+  assign csr.vld   = grant_vld & csr_sel;
 
   //return RDY+RDAT to UART from the selected peripheral
   assign uart.rdy  = dmem_sel ? dmem.rdy & uart_busy : csr_sel ? csr.rdy & uart_busy : 1'b0;

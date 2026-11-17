@@ -96,6 +96,22 @@ package soc_pkg;
   typedef logic [SOC_BYTES-1:0] soc_we_t;
   typedef logic [SOC_DATAW-1:0] soc_data_t;  // Write Data
 
+  //- - - - - - - - - - - - - - - - - - - - -
+  // Memory map of the data bus (soc_fabric): IMEM is on its own port from 0
+  localparam logic [SOC_ADDRW-1:0] DMEM_BASE = 32'h1000_0000;  // to 0x1FFF_FFFF
+  localparam logic [SOC_ADDRW-1:0] CSR_BASE  = 32'h2000_0000;  // to 0x3FFF_FFFF
+
+  // Decode by the top address bits (the rest is unused); the two never overlap
+  // verilator lint_off UNUSEDSIGNAL
+  function automatic logic is_dmem(soc_addr_t addr);
+    return addr[31:28] == DMEM_BASE[31:28];
+  endfunction
+
+  function automatic logic is_csr(soc_addr_t addr);
+    return addr[31:29] == CSR_BASE[31:29];
+  endfunction
+  // verilator lint_on UNUSEDSIGNAL
+
   typedef enum logic {
     LO = 1'b0,
     HI = 1'b1
