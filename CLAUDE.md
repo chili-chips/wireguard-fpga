@@ -70,7 +70,7 @@ make -f MakefileVProc.mk clean
 ```
 `soc_cpu` is auto-selected between RTL (eduBOS5/PicoRV32; IBEX exists only as an ISS timing model) and the VProc virtual-processor model depending on which files are in `top.filelist`; see `4.sim/README.md` for the full picture (co-sim HAL usage, ISS timing models, PCAP replay, gdb debugging). A standalone RTL-only `4.sim/Makefile` also exists for cycle-accurate sim without VProc; it reads `1.hw/top.filelist`, so it simulates PicoRV32 by default.
 
-**Lint, format, LEQ** (`3.build/hw_build.openXC7/`, as on openPCIE; sources from `1.hw/top.filelist`; CI: `.github/workflows/lint.yml`, `verible.yml` run the same scripts):
+**Lint, format, LEQ** (`3.build/hw_build.openXC7/`, as on openPCIE; sources from `1.hw/top.filelist`, plus the DPE blocks top does not instantiate yet (`BLOCK_TOPS` in `sources.sh`, wrappers in `leq_tops.sv`); CI: `.github/workflows/lint.yml`, `verible.yml` run the same scripts):
 ```bash
 S=3.build/hw_build.openXC7
 bash $S/run-lint.sh                       # tags, verilator, yosys, slang, verible, ghdl, ghdl-verilator; waivers in run-lint-waivers.txt

@@ -3,8 +3,10 @@
 #
 # SPDX-License-Identifier: BSD-3-Clause
 #
-# Lint of the RTL of top (1.hw/top.filelist, via sources.sh): syntax and
-# limited semantic checks with a set of opensource tools, run in this order:
+# Lint of the RTL of top (1.hw/top.filelist, via sources.sh) and of the DPE
+# blocks top does not instantiate yet (BLOCK_TOPS in sources.sh, each a top of
+# its own through its wrapper in leq_tops.sv): syntax and limited semantic
+# checks with a set of opensource tools, run in this order:
 #
 #   tags       every /*LINT:OK*/ sits on an output port (no tool needed)
 #   verilator  Verilator --lint-only -Wall: unused/undriven signals, widths,
@@ -32,6 +34,12 @@
 #                                          default chip: SYNTHESIS)
 #         CPU=edubos5 bash run-lint.sh     lint with the other CPU (picorv32 or edubos5;
 #                                          default: the one top.filelist lists)
+#         LINT_TOPS="top ..." bash run-lint.sh   the tops the verilator, yosys
+#                                          and slang phases elaborate (default:
+#                                          top and BLOCK_TOPS)
+#
+# The generated ChaCha20-Poly1305 cores of the encryptor and the decryptor are
+# black boxes (gen_core_bb.py), as in run-leq.sh.
 #
 # A phase whose tool is not found is skipped. The tool commands can be
 # overridden: VERILATOR, YOSYS (+ YOSYS_ARGS), YOSYS_CONFIG, PYTHON, VERIBLE,
@@ -67,7 +75,8 @@ set -u
 HERE=$(cd "$(dirname "$0")" && pwd)
 REPO=$HERE/../..
 . "$HERE/sources.sh"
-TOP=top
+TOPS=${LINT_TOPS:-top $BLOCK_TOPS}
+CORES="chacha20poly1305_encrypt chacha20poly1305_decrypt"
 VERILATOR=${VERILATOR:-verilator}
 YOSYS=${YOSYS:-yosys}
 YOSYS_CONFIG=${YOSYS_CONFIG:-yosys-config}
@@ -99,9 +108,16 @@ W=$(cd "$W" && pwd)
 mkdir -p "$W/bld/csr_build/generated-files" "$W/bld/sw_build"
 cp "$REPO"/3.build/csr_build/generated-files/{csr_pkg,csr}.sv "$W/bld/csr_build/generated-files/"
 cp "$REPO/3.build/sw_build/imem.INIT.vh" "$W/bld/sw_build/"
+cp "$HERE/leq_tops.sv" "$W/"
 [ -n "${CPU:-}" ] && { cpu_select "$W/1.hw/top.filelist" "$CPU" || exit 1; }
 cd "$W"
 SV=$(design_rtl 1.hw bld | tr '\n' ' ')
+# the files of one top: the design, and for a block top its files and wrapper
+top_sv() {
+  if [ "$1" = top ]; then echo "$SV"; else echo "$SV $(block_rtl "$1" 1.hw) leq_tops.sv"; fi
+}
+# every file one of the tops reads, once
+ALL=$(for t in $TOPS; do top_sv $t; done | tr ' ' '\n' | awk 'NF && !seen[$0]++' | tr '\n' ' ')
 OWN=$(own_rtl 1.hw bld | tr '\n' ' ')
 INC="bld/sw_build"
 PRIMS="PLLE2_BASE BUFG IBUFGDS BUFGMUX BUFIO BUFIO2 BUFR ODDR ODDR2"
@@ -119,12 +135,12 @@ waivers() {
 # inline waivers .PIN (/*LINT:OK*/), as file:line:PIN (the first line keeps
 # awk's NR==FNR test working when there is none)
 { echo "#"
-  grep -n -o -E '\.[A-Za-z_][A-Za-z0-9_]*[[:space:]]*\([[:space:]]*/\*LINT:OK\*/[[:space:]]*\)' $SV |
+  grep -n -o -E '\.[A-Za-z_][A-Za-z0-9_]*[[:space:]]*\([[:space:]]*/\*LINT:OK\*/[[:space:]]*\)' $ALL |
     sed -E 's/^([^:]*:[0-9]+):\.([A-Za-z0-9_]*).*/\1:\2/'
 } > lint_ok.txt
 
 found() {  # $1 phase; one finding per line on stdin (not a pipe: RESULT must stay in this shell)
-  cat > $1.all
+  awk '!seen[$0]++' > $1.all  # a finding in a module that several tops share, once
   # drop findings about a pin waived inline: file:line plus the 'PIN' the tools
   # quote (Windows tools print \ in paths)
   awk 'NR == FNR { ok[$0] = 1; next }
@@ -140,11 +156,16 @@ found() {  # $1 phase; one finding per line on stdin (not a pipe: RESULT must st
   echo "-- $1: $n finding(s), $((t - n)) waived ($((t - i)) inline)"
 }
 
-# Xilinx primitive stubs, for the tags, Verilator, Yosys and slang phases
+# Xilinx primitive stubs and the generated cores as black boxes, for the
+# tags, Verilator, Yosys and slang phases
 bb() {
   [ -s bb.sv ] && return 0
   have "$YOSYS_CONFIG" || return 1
-  "$PYTHON" "$HERE/gen_xilinx_bb.py" "$("$YOSYS_CONFIG" --datdir)/xilinx" bb.sv $PRIMS >/dev/null
+  "$PYTHON" "$HERE/gen_xilinx_bb.py" "$("$YOSYS_CONFIG" --datdir)/xilinx" bb.tmp $PRIMS >/dev/null &&
+    for c in $CORES; do
+      "$PYTHON" "$HERE/gen_core_bb.py" "$REPO/3.build/pipelinec_build/generated-files/$c.v" $c >> bb.tmp ||
+        return 1
+    done && mv bb.tmp bb.sv
 }
 
 # /*LINT:OK*/ on anything but an output port; the port directions come from the
@@ -164,7 +185,7 @@ exit_check() {  # $1 phase, $2 exit status
 
 run_tags() {
   bb || { skip tags "no Xilinx stubs (yosys-config)"; return; }
-  "$PYTHON" - -- bb.sv $SV > tags.log <<'EOF'
+  "$PYTHON" - -- bb.sv $ALL > tags.log <<'EOF'
 import re, sys
 files = sys.argv[sys.argv.index('--') + 1:]
 text = {f: open(f).read() for f in files}
@@ -208,12 +229,29 @@ run_verilator() {
 lint_off -file "*bb.sv"
 lint_off -file "*/external_lib/*"
 lint_off -file "*/cpu.PICORV32/*"
+// one file of wrappers, a module per block top
+lint_off -rule DECLFILENAME -file "*leq_tops.sv"
 VLT
   # --timescale: none of the RTL sets one (no delays)
-  "$VERILATOR" --lint-only -Wall -Wno-fatal --timing --timescale 1ns/1ns --top-module $TOP $VL_DEFS \
-    -I$INC waive.vlt bb.sv $SV > verilator.log 2>&1
-  local rc=$?
-  found verilator < <(grep -E '^%(Warning|Error)' verilator.log)
+  local t rc=0
+  for t in $TOPS; do
+    "$VERILATOR" --lint-only -Wall -Wno-fatal --timing --timescale 1ns/1ns --top-module $t $VL_DEFS \
+      -DLEQ_TOP_$t -I$INC waive.vlt bb.sv $(top_sv $t) > verilator.$t.log 2>&1 || rc=$?
+  done
+  for t in $TOPS; do echo "-- top $t"; cat verilator.$t.log; done > verilator.log
+  # A package is compiled whole by every top that reads it, and each top
+  # reports the package parameters it does not use: one is unused only when
+  # every top that reads the package reports it
+  for t in $TOPS; do top_sv $t | tr ' ' '\n'; done |
+    awk 'NF { n[$0]++ } END { for (f in n) print n[f], f }' > tops_per_file.txt
+  found verilator < <(for t in $TOPS; do grep -E '^%(Warning|Error)' verilator.$t.log; done |
+    awk 'NR == FNR { n[$2] = $1; next }
+         /^%Warning-UNUSED[A-Z]*: [^ :]*_pkg\.sv:/ {
+           f = $2; sub(/:.*/, "", f)
+           if (++seen[$0] == n[f]) print
+           next
+         }
+         { print }' tops_per_file.txt -)
   exit_check verilator $rc
 }
 
@@ -222,22 +260,31 @@ run_yosys() {
   # the SIM_ONLY models (PLL clocks) are behavioural: check the netlist of the chip view only
   [ $VIEW = sim ] && { skip yosys "chip view only"; return; }
   bb || { skip yosys "no Xilinx stubs"; return; }
-  "$YOSYS" $YOSYS_ARGS -q -l yosys.log -p "read_slang $SL_DEFS --top $TOP -I $INC bb.sv $SV; \
-      hierarchy -check -top $TOP; proc; check -nolatches -initdrv" >/dev/null 2>&1
-  local rc=$?
-  if [ $rc -ne 0 ] || ! grep -q 'Executing CHECK pass' yosys.log; then
-    failed yosys "exit $rc, CHECK pass not reached"; return
-  fi
+  local t rc
+  : > yosys.log
+  for t in $TOPS; do
+    "$YOSYS" $YOSYS_ARGS -q -l yosys.$t.log -p "read_slang $SL_DEFS -D LEQ_TOP_$t --top $t -I $INC \
+        bb.sv $(top_sv $t); hierarchy -check -top $t; proc; check -nolatches -initdrv" >/dev/null 2>&1
+    rc=$?
+    cat yosys.$t.log >> yosys.log
+    if [ $rc -ne 0 ] || ! grep -q 'Executing CHECK pass' yosys.$t.log; then
+      failed yosys "top $t: exit $rc, CHECK pass not reached"; return
+    fi
+  done
   # read_slang's own warnings are the slang phase's business; take check's
-  found yosys < <(awk '/Executing CHECK pass/ { c = 1 } c && /^Warning:/' yosys.log)
+  found yosys < <(for t in $TOPS; do awk '/Executing CHECK pass/ { c = 1 } c && /^Warning:/' yosys.$t.log; done)
 }
 
 run_slang() {
   have "$YOSYS" || { skip slang "$YOSYS not found"; return; }
   bb || { skip slang "no Xilinx stubs"; return; }
-  "$YOSYS" $YOSYS_ARGS -q -l slang.log -p "read_slang $SL_DEFS --top $TOP -I $INC -Wextra bb.sv $SV" \
-      >/dev/null 2>&1
-  local rc=$?
+  local t rc=0
+  : > slang.log
+  for t in $TOPS; do
+    "$YOSYS" $YOSYS_ARGS -q -l slang.$t.log -p "read_slang $SL_DEFS -D LEQ_TOP_$t --top $t -I $INC \
+        -Wextra bb.sv $(top_sv $t)" >/dev/null 2>&1 || rc=$?
+    cat slang.$t.log >> slang.log
+  done
   # the yosys-slang plugin prints "file:line: Warning:", the built-in read_slang
   # "file:line:col: warning:"; bring both to the second form so the waivers
   # match either. Paths come relative to the work directory, after any ../

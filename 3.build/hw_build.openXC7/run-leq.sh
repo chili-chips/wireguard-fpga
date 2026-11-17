@@ -77,7 +77,7 @@ CORES="chacha20poly1305_encrypt chacha20poly1305_decrypt"
 # wrappers, with the same top ports as the gate's (adapting the old ports)
 WRAP_GOLD=$HERE/leq_tops.sv
 [ -n "${LEQ_TOPS_GOLD:-}" ] && WRAP_GOLD=$(cd "$(dirname "$LEQ_TOPS_GOLD")" && pwd)/$(basename "$LEQ_TOPS_GOLD")
-TOPS=${LEQ_TOPS:-top leq_dpe_wg_encryptor leq_dpe_wg_decryptor leq_dpe_egress_ip_lookup leq_dpe_wg_disassembler}
+TOPS=${LEQ_TOPS:-top $BLOCK_TOPS}
 W=$(mktemp -d); cd "$W"
 
 "$PYTHON" "$HERE/gen_xilinx_bb.py" "$("$YOSYS_CONFIG" --datdir)/xilinx" bb.sv $PRIMS >/dev/null
@@ -85,20 +85,10 @@ for c in $CORES; do "$PYTHON" "$HERE/gen_core_bb.py" "$GEN/$c.v" $c >> bb.sv; do
 PRIMS="$PRIMS $CORES"
 
 files() {  # $1 = 1.hw dir, $2 = gold|gate; the design, and what $TOP adds to it
-  local x=""
-  case $TOP in
-    top) ;;
-    leq_dpe_wg_encryptor) x="ip.infra/net_pkg.sv ip.dpe/dpe_wg_encryptor.sv ip.infra/dpe_if_pipeline.sv" ;;
-    leq_dpe_wg_decryptor) x="ip.infra/net_pkg.sv ip.dpe/dpe_wg_decryptor.sv ip.infra/dpe_if_pipeline.sv" ;;
-    leq_dpe_egress_ip_lookup) x="ip.dpe/dpe_egress_ip_lookup.sv ip.dpe/dpe_route_mem.sv" ;;
-    leq_dpe_wg_disassembler) x="ip.infra/net_pkg.sv ip.dpe/dpe_wg_disassembler.sv" ;;
-    *) echo "run-leq.sh: no files for top $TOP" >&2 ;;
-  esac
-  local wrap=$HERE/leq_tops.sv
+  local x="" wrap=$HERE/leq_tops.sv
   [ "$2" = gold ] && wrap=$WRAP_GOLD
-  [ "$TOP" = top ] || x="$x $wrap"
-  echo bb.sv $(design_rtl "$1" "$BLD" | tr '\n' ' ') \
-    $(for f in $x; do case $f in /*) printf '%s ' "$f" ;; *) printf '%s ' "$1/$f" ;; esac; done)
+  [ "$TOP" = top ] || x="$(block_rtl "$TOP" "$1") $wrap"
+  echo bb.sv $(design_rtl "$1" "$BLD" | tr '\n' ' ') $x
 }
 BB=$(for p in $PRIMS; do printf 't:%s ' $p; done)
 

@@ -18,6 +18,11 @@
 #                                 switch the CPU in a copy of top.filelist: the
 #                                 PicoRV32 lines or the eduBOS5 lines (commented
 #                                 out there) go in
+#   block_rtl <top> <1.hw>        what a block top adds to the design's files
+#
+# BLOCK_TOPS: the DPE blocks top does not instantiate yet, each a top of its
+# own through a wrapper in leq_tops.sv (LEQ_TOP_<top> defined), so that
+# run-leq.sh proves them and run-lint.sh lints them
 
 design_rtl() {
   local hw=$1 bld=$2
@@ -34,6 +39,19 @@ own_rtl() {
     ls "$1"/ip.dpe/dpe_egress_ip_lookup.sv "$1"/ip.dpe/dpe_route_mem.sv
     ls "$1"/ip.infra/dpe_if_pipeline.sv "$1"/ip.infra/net_pkg.sv
   } | awk '!seen[$0]++'
+}
+
+BLOCK_TOPS="leq_dpe_wg_encryptor leq_dpe_wg_decryptor leq_dpe_egress_ip_lookup leq_dpe_wg_disassembler"
+
+block_rtl() {
+  local d=$2
+  case $1 in
+    leq_dpe_wg_encryptor) echo "$d/ip.infra/net_pkg.sv $d/ip.dpe/dpe_wg_encryptor.sv $d/ip.infra/dpe_if_pipeline.sv" ;;
+    leq_dpe_wg_decryptor) echo "$d/ip.infra/net_pkg.sv $d/ip.dpe/dpe_wg_decryptor.sv $d/ip.infra/dpe_if_pipeline.sv" ;;
+    leq_dpe_egress_ip_lookup) echo "$d/ip.dpe/dpe_egress_ip_lookup.sv $d/ip.dpe/dpe_route_mem.sv" ;;
+    leq_dpe_wg_disassembler) echo "$d/ip.infra/net_pkg.sv $d/ip.dpe/dpe_wg_disassembler.sv" ;;
+    *) echo "block_rtl: no files for top $1" >&2; return 1 ;;
+  esac
 }
 
 cpu_select() {

@@ -85,7 +85,7 @@ make                             # -> build_artifacts.slang/top.bit
 ```
 
 - The frontend is `read_slang`: Yosys reads the SystemVerilog directly. `make FRONTEND=sv2v` converts it with sv2v first.
-- The sources come from `1.hw/top.filelist`, the list Vivado, `4.sim` and `run-lint.sh` use. The CPU is the one it lists: eduBOS5 by default, PicoRV32 as the alternative.
+- The sources come from `1.hw/top.filelist`, the list Vivado, `4.sim` and `run-lint.sh` use (`run-lint.sh` and `run-leq.sh` also take the DPE blocks top does not instantiate yet). The CPU is the one it lists: eduBOS5 by default, PicoRV32 as the alternative.
 - The chipdb (`chipdb.new/xc7a200tfbg484-2.bin`) is generated on the first run. It is per die, so a chipdb built for another `xc7a200t` part can be copied under this name.
 - nextpnr reads only the port constraints of `1.hw/constraints/top.xdc` (#6), plus `top.openxc7.xdc` with the `clk_n` pin (#7). A Yosys techmap, `bufgmux_map.v`, builds each `BUFGMUX` from a `BUFGCTRL` (#5); openXC7 `main` maps `BUFGMUX` itself (nextpnr#132), so the techmap goes with the next release.
 - Place and route uses `--tmg-ripup --placer-heap-timingweight 30` (`NEXTPNR_OPTS`). With nextpnr's defaults the Ethernet RX clocks land at 102-128 MHz, depending on the seed.
