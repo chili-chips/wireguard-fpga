@@ -12,7 +12,6 @@ package dpe_tb_pkg;
   import dpe_pkg::*;
 
   localparam int MAX_BYTES = 6;
-  typedef logic [7:0] byte_t;
   typedef logic [$clog2(MAX_BYTES+1)-1:0] len_t;  // a packet length, 0 to MAX_BYTES
 
   // One packet: one byte per beat, in tdata[7:0]

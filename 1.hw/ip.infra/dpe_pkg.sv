@@ -50,6 +50,7 @@ package dpe_pkg;
   localparam int DPE_KEEP_W     = DPE_DATA_BYTES;      // tkeep, a bit per byte
   localparam int DPE_ID_W       = 8;                   // tid, the peer index
 
+  typedef logic [7:0] byte_t;
   typedef logic [DPE_DATA_W-1:0] dpe_data_t;  // a beat
   typedef logic [DPE_KEEP_W-1:0] dpe_keep_t;
   typedef logic [DPE_ID_W-1:0] dpe_peer_idx_t;  // a WireGuard peer (tid)

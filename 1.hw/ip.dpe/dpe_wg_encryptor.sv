@@ -40,27 +40,28 @@
 //   DPE WireGuard Encryptor
 //==========================================================================
 
-module dpe_wg_encryptor (
-    dpe_if.s_axis        inp,
-    dpe_if.m_axis        outp,
-
-    output logic         fcr_idle,
-
-    output logic [  7:0] ram_peer_idx,
-    input  logic [ 47:0] ram_local_mac,
-    input  logic [ 31:0] ram_local_ip,
-    input  logic [ 15:0] ram_local_port,
-    input  logic [ 47:0] ram_remote_mac,
-    input  logic [ 31:0] ram_remote_ip,
-    input  logic [ 15:0] ram_remote_port,
-    input  logic [ 31:0] ram_remote_id,
-    input  logic [255:0] ram_encrypt_key,
-    input  logic [ 63:0] ram_send_cnt,
-    output logic [ 63:0] ram_new_send_cnt,
-    output logic         ram_update_send_cnt
-);
+module dpe_wg_encryptor
   import dpe_pkg::*;
   import net_pkg::*;
+(
+    dpe_if.s_axis         inp,
+    dpe_if.m_axis         outp,
+
+    output logic          fcr_idle,
+
+    output dpe_peer_idx_t ram_peer_idx,
+    input  mac_addr_t     ram_local_mac,
+    input  ipv4_addr_t    ram_local_ip,
+    input  udp_port_t     ram_local_port,
+    input  mac_addr_t     ram_remote_mac,
+    input  ipv4_addr_t    ram_remote_ip,
+    input  udp_port_t     ram_remote_port,
+    input  wg_receiver_t  ram_remote_id,
+    input  wg_key_t       ram_encrypt_key,
+    input  wg_counter_t   ram_send_cnt,
+    output wg_counter_t   ram_new_send_cnt,
+    output logic          ram_update_send_cnt
+);
 
   typedef enum logic [3:0] {
     IDLE,
@@ -96,6 +97,42 @@ module dpe_wg_encryptor (
   logic input_finished, input_finished_next;
   len16_t packet_ip_len, packet_ip_len_next;
   len16_t packet_udp_len, packet_udp_len_next;
+
+  // The headers of the outgoing frame. The routing table holds MAC, IP and
+  // UDP port in bus byte order (wire byte 0 in [7:0]): bswap*() gives their
+  // natural values
+  wg_frame_bytes_t hdr;
+  assign hdr = wg_frame_bytes(
+      '{
+          eth: '{dst: bswap48(remote_mac), src: bswap48(local_mac), ethertype: ETHERTYPE_IPV4},
+          ipv4: '{
+              version: IPV4_VERSION,
+              ihl: IPV4_IHL,
+              dscp_ecn: '0,
+              total_len: packet_ip_len,
+              id: '0,
+              flags_frag: '0,
+              ttl: IPV4_TTL,
+              proto: IP_PROTO_UDP,
+              checksum: '0,
+              src: bswap32(local_ip),
+              dst: bswap32(remote_ip)
+          },
+          udp: '{
+              src_port: bswap16(local_port),
+              dst_port: bswap16(remote_port),
+              len: packet_udp_len,
+              checksum: '0
+          },
+          wg: '{msg_type: WG_TYPE_DATA, receiver: remote_id, counter: send_cnt}
+      }
+  );
+
+  // The last header beat holds the headers' last WG_HDR_TAIL_BYTES bytes,
+  // then the first bytes of the encrypted payload
+  localparam int PAYLOAD_HEAD_W = 8 * (BEAT_BYTES - WG_HDR_TAIL_BYTES);  // 48
+  beat_t hdr_tail;
+  assign hdr_tail = hdr_beat(hdr, WG_FRAME_HDR_LEN / BEAT_BYTES);
 
   // Internal signals
   dpe_if to_encrypt (
@@ -232,14 +269,12 @@ module dpe_wg_encryptor (
 
       HEADER_1: begin
         if (piped.tvalid && piped.tready) begin
-          plaintext_data_next       = piped.tdata;
-          /* verilator lint_off WIDTHEXPAND */
-          /* verilator lint_off WIDTHTRUNC */
-          packet_ip_len_next[15:0]  = {piped.tdata[7:0], piped.tdata[15:12], 4'd0} + 16'd76;
-          packet_udp_len_next[15:0] = {piped.tdata[7:0], piped.tdata[15:12], 4'd0} + 16'd56;
-          /* verilator lint_on WIDTHEXPAND */
-          /* verilator lint_on WIDTHTRUNC */
-          state_next                = HEADER_2;
+          plaintext_data_next = piped.tdata;
+          packet_ip_len_next = wg_padded_len(be16(piped.tdata, IPV4_TOTAL_LEN_OFFSET)) +
+              WG_IPV4_OVERHEAD;
+          packet_udp_len_next = wg_padded_len(be16(piped.tdata, IPV4_TOTAL_LEN_OFFSET)) +
+              WG_UDP_OVERHEAD;
+          state_next = HEADER_2;
         end
         plaintext_valid_next = piped.tvalid;
       end
@@ -347,8 +382,7 @@ module dpe_wg_encryptor (
         to_encrypt.tkeep         = 16'hFFFF;
 
         muxed.tvalid             = 1'b1;
-        // most significant first: IP DSCP, IP version/IHL, EtherType, src MAC, dst MAC
-        muxed.tdata              = {8'h00, 8'h45, 16'h0008, local_mac, remote_mac};
+        muxed.tdata              = hdr_beat(hdr, 0);
         muxed.tlast              = 1'b0;
         muxed.tkeep              = 16'hFFFF;
         muxed.tuser.bypass_all   = 1'b0;
@@ -359,50 +393,67 @@ module dpe_wg_encryptor (
       end
 
       HEADER_2: begin
-        to_encrypt.tvalid = piped.tvalid;
-        to_encrypt.tdata = {piped.tdata[111:0], plaintext_data[127:112]};
-        to_encrypt.tlast = 1'b0;
-        to_encrypt.tkeep = 16'hFFFF;
+        to_encrypt.tvalid        = piped.tvalid;
+        to_encrypt.tdata         = {piped.tdata[111:0], plaintext_data[127:112]};
+        to_encrypt.tlast         = 1'b0;
+        to_encrypt.tkeep         = 16'hFFFF;
 
-        muxed.tvalid = 1'b1;
-        // most significant first
-        muxed.tdata = {
-          remote_ip[15:0],  // IP dst address [15:0]
-          local_ip[31:0],  // IP src address
-          16'h0000,  // IP header checksum
-          8'h11,  // IP protocol: UDP
-          8'd64,  // IP TTL
-          16'h0000,  // IP flags, fragment offset
-          16'h0000,  // IP identification
-          packet_ip_len[7:0],  // IP total length (big-endian)
-          packet_ip_len[15:8]
-        };
-        muxed.tlast = 1'b0;
-        muxed.tkeep = 16'hFFFF;
-        muxed.tuser.bypass_all = 1'b0;
+        muxed.tvalid             = 1'b1;
+        muxed.tdata              = hdr_beat(hdr, 1);
+        muxed.tlast              = 1'b0;
+        muxed.tkeep              = 16'hFFFF;
+        muxed.tuser.bypass_all   = 1'b0;
         muxed.tuser.bypass_stage = 1'b0;
-        muxed.tuser.dst = tuser_dst;
-        muxed.tuser.src = tuser_src;
-        muxed.tid = peer_idx;
+        muxed.tuser.dst          = tuser_dst;
+        muxed.tuser.src          = tuser_src;
+        muxed.tid                = peer_idx;
       end
 
       HEADER_3: begin
+        to_encrypt.tvalid        = (piped.tkeep[15:14] == 2'b00) ? plaintext_valid : piped.tvalid;
+        to_encrypt.tdata         = {piped.tdata[111:0], plaintext_data[127:112]};
+        to_encrypt.tlast         = (piped.tkeep[15:14] == 2'b00) ? 1'b1 : 1'b0;
+        to_encrypt.tkeep         = 16'hFFFF;
+
+        muxed.tvalid             = 1'b1;
+        muxed.tdata              = hdr_beat(hdr, 2);
+        muxed.tlast              = 1'b0;
+        muxed.tkeep              = 16'hFFFF;
+        muxed.tuser.bypass_all   = 1'b0;
+        muxed.tuser.bypass_stage = 1'b0;
+        muxed.tuser.dst          = tuser_dst;
+        muxed.tuser.src          = tuser_src;
+        muxed.tid                = peer_idx;
+      end
+
+      HEADER_4: begin
         to_encrypt.tvalid = (piped.tkeep[15:14] == 2'b00) ? plaintext_valid : piped.tvalid;
         to_encrypt.tdata = {piped.tdata[111:0], plaintext_data[127:112]};
         to_encrypt.tlast = (piped.tkeep[15:14] == 2'b00) ? 1'b1 : 1'b0;
         to_encrypt.tkeep = 16'hFFFF;
 
-        muxed.tvalid = 1'b1;
-        // most significant first
+        muxed.tvalid = from_encrypt.tvalid;
+        // the headers' tail, then the payload's first bytes
+        muxed.tdata = {from_encrypt.tdata[PAYLOAD_HEAD_W-1:0], hdr_tail[8*WG_HDR_TAIL_BYTES-1:0]};
+        muxed.tlast = 1'b0;
+        muxed.tkeep = 16'hFFFF;
+        muxed.tuser.bypass_all = 1'b0;
+        muxed.tuser.bypass_stage = 1'b0;
+        muxed.tuser.dst = tuser_dst;
+        muxed.tuser.src = tuser_src;
+        muxed.tid = peer_idx;
+      end
+
+      PAYLOAD: begin
+        to_encrypt.tvalid = (piped.tkeep[15:14] == 2'b00) ? plaintext_valid : piped.tvalid;
+        to_encrypt.tdata = {piped.tdata[111:0], plaintext_data[127:112]};
+        to_encrypt.tlast = (piped.tkeep[15:14] == 2'b00) ? 1'b1 : 1'b0;
+        to_encrypt.tkeep = 16'hFFFF;
+
+        muxed.tvalid = from_encrypt.tvalid;
+        // the encrypted payload
         muxed.tdata = {
-          remote_id[15:0],  // WireGuard receiver index [15:0]
-          32'h00000004,  // WireGuard type: transport data
-          16'h0000,  // UDP checksum
-          packet_udp_len[7:0],  // UDP length (big-endian)
-          packet_udp_len[15:8],
-          remote_port,  // UDP dst port
-          local_port,  // UDP src port
-          remote_ip[31:16]  // IP dst address [31:16]
+          from_encrypt.tdata[PAYLOAD_HEAD_W-1:0], encrypted_data[DPE_DATA_W-1:PAYLOAD_HEAD_W]
         };
         muxed.tlast = 1'b0;
         muxed.tkeep = 16'hFFFF;
@@ -413,46 +464,10 @@ module dpe_wg_encryptor (
         muxed.tid = peer_idx;
       end
 
-      HEADER_4: begin
-        to_encrypt.tvalid        = (piped.tkeep[15:14] == 2'b00) ? plaintext_valid : piped.tvalid;
-        to_encrypt.tdata         = {piped.tdata[111:0], plaintext_data[127:112]};
-        to_encrypt.tlast         = (piped.tkeep[15:14] == 2'b00) ? 1'b1 : 1'b0;
-        to_encrypt.tkeep         = 16'hFFFF;
-
-        muxed.tvalid             = from_encrypt.tvalid;
-        // most significant first: encrypted payload, WireGuard counter, receiver [31:16]
-        muxed.tdata              = {from_encrypt.tdata[47:0], send_cnt, remote_id[31:16]};
-        muxed.tlast              = 1'b0;
-        muxed.tkeep              = 16'hFFFF;
-        muxed.tuser.bypass_all   = 1'b0;
-        muxed.tuser.bypass_stage = 1'b0;
-        muxed.tuser.dst          = tuser_dst;
-        muxed.tuser.src          = tuser_src;
-        muxed.tid                = peer_idx;
-      end
-
-      PAYLOAD: begin
-        to_encrypt.tvalid        = (piped.tkeep[15:14] == 2'b00) ? plaintext_valid : piped.tvalid;
-        to_encrypt.tdata         = {piped.tdata[111:0], plaintext_data[127:112]};
-        to_encrypt.tlast         = (piped.tkeep[15:14] == 2'b00) ? 1'b1 : 1'b0;
-        to_encrypt.tkeep         = 16'hFFFF;
-
-        muxed.tvalid             = from_encrypt.tvalid;
-        // the encrypted payload
-        muxed.tdata              = {from_encrypt.tdata[47:0], encrypted_data[127:48]};
-        muxed.tlast              = 1'b0;
-        muxed.tkeep              = 16'hFFFF;
-        muxed.tuser.bypass_all   = 1'b0;
-        muxed.tuser.bypass_stage = 1'b0;
-        muxed.tuser.dst          = tuser_dst;
-        muxed.tuser.src          = tuser_src;
-        muxed.tid                = peer_idx;
-      end
-
       PAYLOAD_LAST: begin
         muxed.tvalid             = 1'b1;
         // the encrypted payload
-        muxed.tdata              = {48'd0, encrypted_data[127:48]};
+        muxed.tdata              = beat_t'(encrypted_data[DPE_DATA_W-1:PAYLOAD_HEAD_W]);
         muxed.tlast              = 1'b1;
         muxed.tkeep              = 16'h03FF;
         muxed.tuser.bypass_all   = 1'b0;
