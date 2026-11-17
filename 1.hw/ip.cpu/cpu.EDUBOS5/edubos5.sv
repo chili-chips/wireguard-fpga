@@ -346,6 +346,7 @@ module edubos5
             2'b11: begin
               dmem_we_next = BYTE4;
             end
+            default: ;
           endcase
         end
         SH: begin
@@ -358,6 +359,7 @@ module edubos5
             1'b1: begin
               dmem_we_next = HALFWORD2;
             end
+            default: ;
           endcase
         end
         SW:      dmem_we_next = WORD;
@@ -365,34 +367,39 @@ module edubos5
       endcase
     end
     //differentiating between load instructions
+    load_to_reg = dmem_rdat_reg;
     unique case (funct3_imm)
       LB: begin
         unique case (dmem_addr[1:0])
-          2'b00: load_to_reg = {{24{dmem_rdat_reg[7]}}, dmem_rdat_reg[7:0]};
-          2'b01: load_to_reg = {{24{dmem_rdat_reg[15]}}, dmem_rdat_reg[15:8]};
-          2'b10: load_to_reg = {{24{dmem_rdat_reg[23]}}, dmem_rdat_reg[23:16]};
-          2'b11: load_to_reg = {{24{dmem_rdat_reg[31]}}, dmem_rdat_reg[31:24]};
+          2'b00:   load_to_reg = {{24{dmem_rdat_reg[7]}}, dmem_rdat_reg[7:0]};
+          2'b01:   load_to_reg = {{24{dmem_rdat_reg[15]}}, dmem_rdat_reg[15:8]};
+          2'b10:   load_to_reg = {{24{dmem_rdat_reg[23]}}, dmem_rdat_reg[23:16]};
+          2'b11:   load_to_reg = {{24{dmem_rdat_reg[31]}}, dmem_rdat_reg[31:24]};
+          default: ;
         endcase
       end
       LH: begin
         unique case (dmem_addr[1])
-          1'b0: load_to_reg = {{16{dmem_rdat_reg[15]}}, dmem_rdat_reg[15:0]};
-          1'b1: load_to_reg = {{16{dmem_rdat_reg[31]}}, dmem_rdat_reg[31:16]};
+          1'b0:    load_to_reg = {{16{dmem_rdat_reg[15]}}, dmem_rdat_reg[15:0]};
+          1'b1:    load_to_reg = {{16{dmem_rdat_reg[31]}}, dmem_rdat_reg[31:16]};
+          default: ;
         endcase
       end
       LW:      load_to_reg = dmem_rdat_reg;
       LBU: begin
         unique case (dmem_addr[1:0])
-          2'b00: load_to_reg = {{24{1'b0}}, dmem_rdat_reg[7:0]};
-          2'b01: load_to_reg = {{24{1'b0}}, dmem_rdat_reg[15:8]};
-          2'b10: load_to_reg = {{24{1'b0}}, dmem_rdat_reg[23:16]};
-          2'b11: load_to_reg = {{24{1'b0}}, dmem_rdat_reg[31:24]};
+          2'b00:   load_to_reg = {{24{1'b0}}, dmem_rdat_reg[7:0]};
+          2'b01:   load_to_reg = {{24{1'b0}}, dmem_rdat_reg[15:8]};
+          2'b10:   load_to_reg = {{24{1'b0}}, dmem_rdat_reg[23:16]};
+          2'b11:   load_to_reg = {{24{1'b0}}, dmem_rdat_reg[31:24]};
+          default: ;
         endcase
       end
       LHU: begin
         unique case (dmem_addr[1])
-          1'b0: load_to_reg = {{16{1'b0}}, dmem_rdat_reg[15:0]};
-          1'b1: load_to_reg = {{16{1'b0}}, dmem_rdat_reg[31:16]};
+          1'b0:    load_to_reg = {{16{1'b0}}, dmem_rdat_reg[15:0]};
+          1'b1:    load_to_reg = {{16{1'b0}}, dmem_rdat_reg[31:16]};
+          default: ;
         endcase
       end
       default: load_to_reg = dmem_rdat_reg;
