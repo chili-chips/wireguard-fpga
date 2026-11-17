@@ -109,7 +109,8 @@ module dpe_multiplexer (
 
       S0: begin
         if (from_cpu.tlast && from_cpu.tvalid && to_dpe_sbuff.tready) begin
-          next_state = pause ? IDLE : R1;
+          if (pause) next_state = IDLE;
+          else next_state = R1;
         end
       end
 
@@ -127,7 +128,8 @@ module dpe_multiplexer (
 
       S1: begin
         if (from_eth_1.tlast && from_eth_1.tvalid && to_dpe_sbuff.tready) begin
-          next_state = pause ? IDLE : R2;
+          if (pause) next_state = IDLE;
+          else next_state = R2;
         end
       end
 
@@ -145,7 +147,8 @@ module dpe_multiplexer (
 
       S2: begin
         if (from_eth_2.tlast && from_eth_2.tvalid && to_dpe_sbuff.tready) begin
-          next_state = pause ? IDLE : R3;
+          if (pause) next_state = IDLE;
+          else next_state = R3;
         end
       end
 
@@ -163,7 +166,8 @@ module dpe_multiplexer (
 
       S3: begin
         if (from_eth_3.tlast && from_eth_3.tvalid && to_dpe_sbuff.tready) begin
-          next_state = pause ? IDLE : R4;
+          if (pause) next_state = IDLE;
+          else next_state = R4;
         end
       end
 
@@ -181,7 +185,8 @@ module dpe_multiplexer (
 
       S4: begin
         if (from_eth_4.tlast && from_eth_4.tvalid && to_dpe_sbuff.tready) begin
-          next_state = pause ? IDLE : R0;
+          if (pause) next_state = IDLE;
+          else next_state = R0;
         end
       end
 

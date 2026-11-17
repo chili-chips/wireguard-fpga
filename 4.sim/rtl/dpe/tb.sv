@@ -43,17 +43,13 @@
 
 module tb;
    import dpe_pkg::*;
-   import csr_pkg::*;
+   import dpe_tb_pkg::*;
 
-   // Constants
-   
-   // Clock and reset signals
    logic clk;
    logic rst;
+   logic out_ready;  // tready of every output
 
-   // Interfaces
    csr_pkg::csr__out_t from_csr;
-   //csr_pkg::csr__in_t to_csr;
    dpe_if from_cpu(.clk(clk), .rst(rst));
    dpe_if from_eth_1(.clk(clk), .rst(rst));
    dpe_if from_eth_2(.clk(clk), .rst(rst));
@@ -65,16 +61,24 @@ module tb;
    dpe_if to_eth_3(.clk(clk), .rst(rst));
    dpe_if to_eth_4(.clk(clk), .rst(rst));
 
-   // Test data type and constants
-   typedef logic [7:0] test_data_t [6];
-   typedef test_data_t packet_data_t [5];
+   // One test packet per input port. dst is where the DPE delivers it: its
+   // dpe_dummy_switch picks the output from the source port (CPU to ETH 1,
+   // ETH 1 and ETH 2 to the CPU, ETH 3 and ETH 4 to each other).
+   typedef struct packed {
+      test_pkt_t cpu;
+      test_pkt_t eth_1;
+      test_pkt_t eth_2;
+      test_pkt_t eth_3;
+      test_pkt_t eth_4;
+   } packet_data_t;
 
-   const packet_data_t packet_data = '{
-      '{8'h01, 8'h02, 8'h03, 8'h04, 8'h05, 8'h06},  // Input 0
-      '{8'h0B, 8'h0C, 8'h0D, 8'h0E, 8'h00, 8'h00},  // Input 1
-      '{8'h15, 8'h16, 8'h17, 8'h18, 8'h19, 8'h00},  // Input 2
-      '{8'h1F, 8'h20, 8'h21, 8'h22, 8'h00, 8'h00},  // Input 3
-      '{8'h29, 8'h2A, 8'h2B, 8'h2C, 8'h00, 8'h00}   // Input 4
+   packet_data_t packet_data;  // set below: JanusHDL 0.17 has no const variables
+   initial packet_data = '{
+      cpu:   '{dst: DPE_ADDR_ETH_1, len: 6, data: '{8'h01, 8'h02, 8'h03, 8'h04, 8'h05, 8'h06}},
+      eth_1: '{dst: DPE_ADDR_CPU,   len: 4, data: '{8'h0B, 8'h0C, 8'h0D, 8'h0E, 8'h00, 8'h00}},
+      eth_2: '{dst: DPE_ADDR_CPU,   len: 5, data: '{8'h15, 8'h16, 8'h17, 8'h18, 8'h19, 8'h00}},
+      eth_3: '{dst: DPE_ADDR_ETH_4, len: 4, data: '{8'h1F, 8'h20, 8'h21, 8'h22, 8'h00, 8'h00}},
+      eth_4: '{dst: DPE_ADDR_ETH_3, len: 4, data: '{8'h29, 8'h2A, 8'h2B, 8'h2C, 8'h00, 8'h00}}
    };
 
    // Clock generation
@@ -107,276 +111,88 @@ module tb;
       .to_eth_4(to_eth_4)
    );
 
+   // Sources and sinks
+   dpe_tb_src #(.SRC(DPE_ADDR_CPU))   src_cpu   (.outp(from_cpu));
+   dpe_tb_src #(.SRC(DPE_ADDR_ETH_1)) src_eth_1 (.outp(from_eth_1));
+   dpe_tb_src #(.SRC(DPE_ADDR_ETH_2)) src_eth_2 (.outp(from_eth_2));
+   dpe_tb_src #(.SRC(DPE_ADDR_ETH_3)) src_eth_3 (.outp(from_eth_3));
+   dpe_tb_src #(.SRC(DPE_ADDR_ETH_4)) src_eth_4 (.outp(from_eth_4));
+
+   dpe_tb_sink #(.NAME("to_cpu"))   snk_cpu   (.ready(out_ready), .inp(to_cpu));
+   dpe_tb_sink #(.NAME("to_eth_1")) snk_eth_1 (.ready(out_ready), .inp(to_eth_1));
+   dpe_tb_sink #(.NAME("to_eth_2")) snk_eth_2 (.ready(out_ready), .inp(to_eth_2));
+   dpe_tb_sink #(.NAME("to_eth_3")) snk_eth_3 (.ready(out_ready), .inp(to_eth_3));
+   dpe_tb_sink #(.NAME("to_eth_4")) snk_eth_4 (.ready(out_ready), .inp(to_eth_4));
+
+   // Each output must receive p (from src) when p's dst selects it
+   task automatic expect_on(input test_pkt_t p, input logic [2:0] src);
+      ports_t ports;
+      ports = ports_of(p.dst);
+      if (ports[0]) snk_cpu.expect_pkt(p, src);
+      if (ports[1]) snk_eth_1.expect_pkt(p, src);
+      if (ports[2]) snk_eth_2.expect_pkt(p, src);
+      if (ports[3]) snk_eth_3.expect_pkt(p, src);
+      if (ports[4]) snk_eth_4.expect_pkt(p, src);
+   endtask
+
    // Main stimulus process
    initial begin
+      int errors;
       rst = 1;
       from_csr.dpe.fcr.pause.value = 0;
 
-      // Initialize all input interfaces
-      from_cpu.tvalid = 0;
-      from_cpu.tlast = 0;
-      from_cpu.tkeep = '0;
-      from_cpu.tdata = '0;
-      from_cpu.tuser_bypass_all = 0;
-      from_cpu.tuser_bypass_stage = 0;
-      from_cpu.tuser_src = '0;
-      from_cpu.tuser_dst = '0;
-
-      from_eth_1.tvalid = 0;
-      from_eth_1.tlast = 0;
-      from_eth_1.tkeep = '0;
-      from_eth_1.tdata = '0;
-      from_eth_1.tuser_bypass_all = 0;
-      from_eth_1.tuser_bypass_stage = 0;
-      from_eth_1.tuser_src = '0;
-      from_eth_1.tuser_dst = '0;
-
-      from_eth_2.tvalid = 0;
-      from_eth_2.tlast = 0;
-      from_eth_2.tkeep = '0;
-      from_eth_2.tdata = '0;
-      from_eth_2.tuser_bypass_all = 0;
-      from_eth_2.tuser_bypass_stage = 0;
-      from_eth_2.tuser_src = '0;
-      from_eth_2.tuser_dst = '0;
-
-      from_eth_3.tvalid = 0;
-      from_eth_3.tlast = 0;
-      from_eth_3.tkeep = '0;
-      from_eth_3.tdata = '0;
-      from_eth_3.tuser_bypass_all = 0;
-      from_eth_3.tuser_bypass_stage = 0;
-      from_eth_3.tuser_src = '0;
-      from_eth_3.tuser_dst = '0;
-
-      from_eth_4.tvalid = 0;
-      from_eth_4.tlast = 0;
-      from_eth_4.tkeep = '0;
-      from_eth_4.tdata = '0;
-      from_eth_4.tuser_bypass_all = 0;
-      from_eth_4.tuser_bypass_stage = 0;
-      from_eth_4.tuser_src = '0;
-      from_eth_4.tuser_dst = '0;
-
-      // Reset assertion
-      repeat (4) @(negedge clk);
-      @(posedge clk);
-      @(negedge clk);
+      repeat (5) @(negedge clk);
       rst = 0;
       @(negedge clk);
 
-      // Start all stimulus processes in parallel
+      // All inputs at once
       fork
-         // Input 0 stimulus
-         begin
-            @(posedge clk);
-            @(negedge clk);
-            from_cpu.tvalid = 1;
-            from_cpu.tkeep = '1;
-            from_cpu.tuser_dst = DPE_ADDR_ETH_1;
-            for (int i = 0; i < 6; i++) begin
-               from_cpu.tdata[7:0] = packet_data[0][i];
-               from_cpu.tlast = (i == 5);
-               @(posedge clk);
-               while (!from_cpu.tready) @(posedge clk);
-               @(negedge clk);
-            end
-            from_cpu.tvalid = 0;
-            from_cpu.tlast = 0;
-         end
-
-         // Input 1 stimulus
-         begin
-            @(posedge clk);
-            @(negedge clk);
-            from_eth_1.tvalid = 1;
-            from_eth_1.tkeep = '1;
-            from_eth_1.tuser_dst = DPE_ADDR_CPU;
-            for (int i = 0; i < 4; i++) begin
-               from_eth_1.tdata[7:0] = packet_data[1][i];
-               from_eth_1.tlast = (i == 3);
-               @(posedge clk);
-               while (!from_eth_1.tready) @(posedge clk);
-               @(negedge clk);
-            end
-            from_eth_1.tvalid = 0;
-            from_eth_1.tlast = 0;
-         end
-
-         // Input 2 stimulus
-         begin
-            @(posedge clk);
-            @(negedge clk);
-            from_eth_2.tvalid = 1;
-            from_eth_2.tkeep = '1;
-            from_eth_2.tuser_dst = DPE_ADDR_ETH_3;
-            for (int i = 0; i < 5; i++) begin
-               from_eth_2.tdata[7:0] = packet_data[2][i];
-               from_eth_2.tlast = (i == 4);
-               @(posedge clk);
-               while (!from_eth_2.tready) @(posedge clk);
-               @(negedge clk);
-            end
-            from_eth_2.tvalid = 0;
-            from_eth_2.tlast = 0;
-         end
-
-         // Input 3 stimulus
-         begin
-            @(posedge clk);
-            @(negedge clk);
-            from_eth_3.tvalid = 1;
-            from_eth_3.tkeep = '1;
-            from_eth_3.tuser_dst = DPE_ADDR_ETH_2;
-            for (int i = 0; i < 4; i++) begin
-               from_eth_3.tdata[7:0] = packet_data[3][i];
-               from_eth_3.tlast = (i == 3);
-               @(posedge clk);
-               while (!from_eth_3.tready) @(posedge clk);
-               @(negedge clk);
-            end
-            from_eth_3.tvalid = 0;
-            from_eth_3.tlast = 0;
-         end
-
-         // Input 4 stimulus
-         begin
-            @(posedge clk);
-            @(negedge clk);
-            from_eth_4.tvalid = 1;
-            from_eth_4.tkeep = '1;
-            from_eth_4.tuser_dst = DPE_ADDR_BCAST;
-            for (int i = 0; i < 4; i++) begin
-               from_eth_4.tdata[7:0] = packet_data[4][i];
-               from_eth_4.tlast = (i == 3);
-               @(posedge clk);
-               while (!from_eth_4.tready) @(posedge clk);
-               @(negedge clk);
-            end
-            from_eth_4.tvalid = 0;
-            from_eth_4.tlast = 0;
-         end
+         src_cpu.send(packet_data.cpu);
+         src_eth_1.send(packet_data.eth_1);
+         src_eth_2.send(packet_data.eth_2);
+         src_eth_3.send(packet_data.eth_3);
+         src_eth_4.send(packet_data.eth_4);
       join
 
-      repeat (7) @(negedge clk);
-      $display("Stimulus completed successfully");
-   $finish(2);
+      repeat (20) @(negedge clk);  // drain
+
+      expect_on(packet_data.cpu,   DPE_ADDR_CPU);
+      expect_on(packet_data.eth_1, DPE_ADDR_ETH_1);
+      expect_on(packet_data.eth_2, DPE_ADDR_ETH_2);
+      expect_on(packet_data.eth_3, DPE_ADDR_ETH_3);
+      expect_on(packet_data.eth_4, DPE_ADDR_ETH_4);
+      snk_cpu.report();
+      snk_eth_1.report();
+      snk_eth_2.report();
+      snk_eth_3.report();
+      snk_eth_4.report();
+      errors = snk_cpu.errors + snk_eth_1.errors + snk_eth_2.errors + snk_eth_3.errors
+             + snk_eth_4.errors;
+      if (errors == 0) $display("RESULT: PASS");
+      else             $display("RESULT: FAIL (%0d errors)", errors);
+      $finish(2);
    end
 
-   // Outputs ready control process
+   // Output back-pressure: tready low now and then
    initial begin
-      @(posedge clk);
+      out_ready = 0;
       @(negedge clk);
-      to_cpu.tready = 1;
-      to_eth_1.tready = 1;
-      to_eth_2.tready = 1;
-      to_eth_3.tready = 1;
-      to_eth_4.tready = 1;
+      out_ready = 1;
       repeat (7) @(negedge clk);
-      to_cpu.tready = 0;
-      to_eth_1.tready = 0;
-      to_eth_2.tready = 0;
-      to_eth_3.tready = 0;
-      to_eth_4.tready = 0;
+      out_ready = 0;
       @(negedge clk);
-      to_cpu.tready = 1;
-      to_eth_1.tready = 1;
-      to_eth_2.tready = 1;
-      to_eth_3.tready = 1;
-      to_eth_4.tready = 1;
+      out_ready = 1;
       repeat (4) @(negedge clk);
-      to_cpu.tready = 0;
-      to_eth_1.tready = 0;
-      to_eth_2.tready = 0;
-      to_eth_3.tready = 0;
-      to_eth_4.tready = 0;
+      out_ready = 0;
       repeat (3) @(negedge clk);
-      to_cpu.tready = 1;
-      to_eth_1.tready = 1;
-      to_eth_2.tready = 1;
-      to_eth_3.tready = 1;
-      to_eth_4.tready = 1;
+      out_ready = 1;
       repeat (4) @(negedge clk);
-      to_cpu.tready = 0;
-      to_eth_1.tready = 0;
-      to_eth_2.tready = 0;
-      to_eth_3.tready = 0;
-      to_eth_4.tready = 0;
+      out_ready = 0;
       repeat (2) @(negedge clk);
-      to_cpu.tready = 1;
-      to_eth_1.tready = 1;
-      to_eth_2.tready = 1;
-      to_eth_3.tready = 1;
-      to_eth_4.tready = 1;
+      out_ready = 1;
       repeat (6) @(negedge clk);
-      to_cpu.tready = 0;
-      to_eth_1.tready = 0;
-      to_eth_2.tready = 0;
-      to_eth_3.tready = 0;
-      to_eth_4.tready = 0;
+      out_ready = 0;
       repeat (2) @(negedge clk);
-      to_cpu.tready = 1;
-      to_eth_1.tready = 1;
-      to_eth_2.tready = 1;
-      to_eth_3.tready = 1;
-      to_eth_4.tready = 1;
-   end
-
-   // Monitor process
-   int expected_data_count0;
-   int expected_data_count1;
-   int expected_data_count2;
-   int expected_data_count3;
-   int expected_data_count4;
-
-   always @(posedge clk) begin
-      if (rst) begin
-         expected_data_count0 <= 0;
-         expected_data_count1 <= 0;
-         expected_data_count2 <= 0;
-         expected_data_count3 <= 0;
-         expected_data_count4 <= 0;
-      end else begin
-         if (to_cpu.tvalid && to_cpu.tready) begin
-            expected_data_count0 <= expected_data_count0 + 1;
-
-            if (to_cpu.tlast) begin
-               $display("Packet received with %0d words at port 0", expected_data_count0);
-               expected_data_count0 <= 0;
-            end
-         end
-         if (to_eth_1.tvalid && to_eth_1.tready) begin
-            expected_data_count1 <= expected_data_count1 + 1;
-
-            if (to_eth_1.tlast) begin
-               $display("Packet received with %0d words at port 1", expected_data_count1);
-               expected_data_count1 <= 0;
-            end
-         end
-         if (to_eth_2.tvalid && to_eth_2.tready) begin
-            expected_data_count2 <= expected_data_count2 + 1;
-
-            if (to_eth_2.tlast) begin
-               $display("Packet received with %0d words at port 2", expected_data_count2);
-               expected_data_count2 <= 0;
-            end
-         end
-         if (to_eth_3.tvalid && to_eth_3.tready) begin
-            expected_data_count3 <= expected_data_count3 + 1;
-
-            if (to_eth_3.tlast) begin
-               $display("Packet received with %0d words at port 3", expected_data_count3);
-               expected_data_count3 <= 0;
-            end
-         end
-         if (to_eth_4.tvalid && to_eth_4.tready) begin
-            expected_data_count4 <= expected_data_count4 + 1;
-
-            if (to_eth_4.tlast) begin
-               $display("Packet received with %0d words at port 4", expected_data_count4);
-               expected_data_count4 <= 0;
-            end
-         end
-      end
+      out_ready = 1;
    end
 endmodule

@@ -1,71 +1,11 @@
 # SPDX-FileCopyrightText: 2026 Chili.CHIPS*ba
-# 
+#
 # SPDX-License-Identifier: BSD-3-Clause
 
-SHELL   := /bin/bash
+# dpe_wg_encryptor block-level bench: make [SIM=verilator|icarus|janushdl], see ../sim.mk
 
-BLD_DIR := $(CURDIR)/../../../3.build
-HW_SRC  := $(CURDIR)/../../../1.hw
-SIM_SRC := $(CURDIR)/../../../4.sim
-TB_NAME := tb
+VFLAGS = -Wno-PINCONNECTEMPTY -Wno-UNUSEDPARAM -Wno-UNUSEDSIGNAL -Wno-GENUNNAMED -Wno-DECLFILENAME -Wno-UNOPTFLAT
+SRC_F  = tb.filelist
+SRC    = tb.sv
 
-COLOR_YELLOW=\033[1;33m
-COLOR_RESET=\033[0m
-
-export BLD_DIR HW_SRC SIM_SRC TB_NAME
-
-#------------------------
-.PHONY: all
-all: clean sim
-
-#------------------------
-clean:
-	rm -rf output
-
-compile:
-	verilator \
-		-Wno-PINCONNECTEMPTY \
-		-Wno-UNUSEDPARAM \
-		-Wno-UNUSEDSIGNAL \
-		-Wno-GENUNNAMED \
-		-Wno-DECLFILENAME \
-		-Wno-UNOPTFLAT \
-		--cc \
-		--timing \
-		--trace-fst \
-		--trace-structs \
-		--timescale 1ns/1ns          \
-		--exe versimSV.cpp \
-		--Mdir ./output \
-		../waivers.vlt \
-		+define+SIM_ONLY \
-		$(ARE_TESTS) \
-		-f ${TB_NAME}.filelist \
-		${TB_NAME}.sv \
-		--top-module ${TB_NAME}
-
-#------------------------
-sim: compile
-	cd output; \
-	make -f V${TB_NAME}.mk  V${TB_NAME}; \
-	./V${TB_NAME} | tee sim.log
-
-#------------------------
-wave:
-	cd output; \
-	gtkwave --saveonexit \
-		--slider-zoom \
-		--logfile sim.log \
-		--dump    wave.fst &
-
-#------------------------
-wave-alt:
-	cd output; \
-	surfer.exe -s ../wave.surfer.ron wave.fst &
-
-#------------------------
-
-#=============================================================
-# End-of-File
-#=============================================================
-
+include ../sim.mk

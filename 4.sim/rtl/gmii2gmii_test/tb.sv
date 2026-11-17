@@ -68,7 +68,8 @@ module tb;
    typedef logic [127:0] test_data_t [11];
    typedef test_data_t packet_data_t [4];
 
-   const packet_data_t packet_data = '{
+   packet_data_t packet_data;  // set below: JanusHDL 0.17 has no const variables
+   initial packet_data = '{
       '{128'h00050008F85ABFE5363A83B59434E6A2,
         128'h090A0100090A26631140000017039C00,
         128'hF40600000001AE1488006CCAC6A90200,

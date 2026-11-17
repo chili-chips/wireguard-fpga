@@ -40,8 +40,9 @@
 //   DPE wrapper for PCAP packet reader
 //==========================================================================
 
-module dpe_pcapreader#
-(
+module dpe_pcapreader
+   import dpe_pkg::*;
+#(
    parameter PCAP_FILENAME = "none",
    parameter TUSER_BYPASS_ALL = 1'b0,
    parameter TUSER_BYPASS_STAGE = 1'b0,
@@ -52,7 +53,6 @@ module dpe_pcapreader#
    dpe_if.m_axis outp,
    output logic  pcapfinished
 );
-   import dpe_pkg::*;
 
    avalon_if #(.DATA_WIDTH(128)) avalon_int(.clk(outp.clk),.rst(outp.rst));
    axis_if #(.DATA_WIDTH(128)) axis_int(.clk(outp.clk),.rst(outp.rst));
