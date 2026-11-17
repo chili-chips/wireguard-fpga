@@ -124,9 +124,9 @@
           <Attr Name="UsedIn" Val="simulation"/>
         </FileInfo>
       </File>
-      <File Path="$PPRDIR/../../1.hw/ip.infra/dpe_if.sv">
+      <File Path="$PPRDIR/../../1.hw/ip.dpe/dpe_if.sv">
         <FileInfo>
-          <Attr Name="ImportPath" Val="$PPRDIR/../../1.hw/ip.infra/dpe_if.sv"/>
+          <Attr Name="ImportPath" Val="$PPRDIR/../../1.hw/ip.dpe/dpe_if.sv"/>
           <Attr Name="ImportTime" Val="1739172905"/>
           <Attr Name="UsedIn" Val="synthesis"/>
           <Attr Name="UsedIn" Val="implementation"/>
@@ -232,9 +232,9 @@
           <Attr Name="UsedIn" Val="simulation"/>
         </FileInfo>
       </File>
-      <File Path="$PPRDIR/../../1.hw/ip.infra/dpe_pkg.sv">
+      <File Path="$PPRDIR/../../1.hw/ip.dpe/dpe_pkg.sv">
         <FileInfo>
-          <Attr Name="ImportPath" Val="$PPRDIR/../../1.hw/ip.infra/dpe_pkg.sv"/>
+          <Attr Name="ImportPath" Val="$PPRDIR/../../1.hw/ip.dpe/dpe_pkg.sv"/>
           <Attr Name="ImportTime" Val="1739172929"/>
           <Attr Name="UsedIn" Val="synthesis"/>
           <Attr Name="UsedIn" Val="implementation"/>
@@ -295,9 +295,9 @@
           <Attr Name="UsedIn" Val="simulation"/>
         </FileInfo>
       </File>
-      <File Path="$PPRDIR/../../1.hw/ip.infra/dpe_if_skid_buffer.sv">
+      <File Path="$PPRDIR/../../1.hw/ip.dpe/dpe_if_skid_buffer.sv">
         <FileInfo>
-          <Attr Name="ImportPath" Val="$PPRDIR/../../1.hw/ip.infra/dpe_if_skid_buffer.sv"/>
+          <Attr Name="ImportPath" Val="$PPRDIR/../../1.hw/ip.dpe/dpe_if_skid_buffer.sv"/>
           <Attr Name="ImportTime" Val="1739272381"/>
           <Attr Name="UsedIn" Val="synthesis"/>
           <Attr Name="UsedIn" Val="implementation"/>

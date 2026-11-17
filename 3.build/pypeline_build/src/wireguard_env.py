@@ -49,7 +49,7 @@ DEFAULT_PROFILE = {
     "prologue_cap": 44,
     "epilogue_cap": 45,
 }
-# --soc: the SoC's DPE stream is 128-bit (1.hw/ip.infra/dpe_if.sv) on an 80 MHz
+# --soc: the SoC's DPE stream is 128-bit (1.hw/ip.dpe/dpe_if.sv) on an 80 MHz
 # clock (clk_80p0); other settings keep their defaults.
 SOC_PROFILE = {"data_bitwidth": 128, "target_mhz": 80}
 DEFAULT_MULT_IMPL = DEFAULT_PROFILE["multiplier"]

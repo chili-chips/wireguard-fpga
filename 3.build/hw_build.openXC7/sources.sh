@@ -37,7 +37,7 @@ own_rtl() {
     # the DPE blocks top does not instantiate yet (run-leq.sh proves them too)
     ls "$1"/ip.dpe/dpe_wg_encryptor.sv "$1"/ip.dpe/dpe_wg_decryptor.sv "$1"/ip.dpe/dpe_wg_disassembler.sv
     ls "$1"/ip.dpe/dpe_egress_ip_lookup.sv "$1"/ip.dpe/dpe_route_mem.sv
-    ls "$1"/ip.infra/dpe_if_pipeline.sv "$1"/ip.infra/net_pkg.sv
+    ls "$1"/ip.dpe/dpe_if_pipeline.sv "$1"/ip.dpe/net_pkg.sv
   } | awk '!seen[$0]++'
 }
 
@@ -46,10 +46,10 @@ BLOCK_TOPS="leq_dpe_wg_encryptor leq_dpe_wg_decryptor leq_dpe_egress_ip_lookup l
 block_rtl() {
   local d=$2
   case $1 in
-    leq_dpe_wg_encryptor) echo "$d/ip.infra/net_pkg.sv $d/ip.dpe/dpe_wg_encryptor.sv $d/ip.infra/dpe_if_pipeline.sv" ;;
-    leq_dpe_wg_decryptor) echo "$d/ip.infra/net_pkg.sv $d/ip.dpe/dpe_wg_decryptor.sv $d/ip.infra/dpe_if_pipeline.sv" ;;
-    leq_dpe_egress_ip_lookup) echo "$d/ip.infra/net_pkg.sv $d/ip.dpe/dpe_egress_ip_lookup.sv $d/ip.dpe/dpe_route_mem.sv" ;;
-    leq_dpe_wg_disassembler) echo "$d/ip.infra/net_pkg.sv $d/ip.dpe/dpe_wg_disassembler.sv" ;;
+    leq_dpe_wg_encryptor) echo "$d/ip.dpe/net_pkg.sv $d/ip.dpe/dpe_wg_encryptor.sv $d/ip.dpe/dpe_if_pipeline.sv" ;;
+    leq_dpe_wg_decryptor) echo "$d/ip.dpe/net_pkg.sv $d/ip.dpe/dpe_wg_decryptor.sv $d/ip.dpe/dpe_if_pipeline.sv" ;;
+    leq_dpe_egress_ip_lookup) echo "$d/ip.dpe/net_pkg.sv $d/ip.dpe/dpe_egress_ip_lookup.sv $d/ip.dpe/dpe_route_mem.sv" ;;
+    leq_dpe_wg_disassembler) echo "$d/ip.dpe/net_pkg.sv $d/ip.dpe/dpe_wg_disassembler.sv" ;;
     *) echo "block_rtl: no files for top $1" >&2; return 1 ;;
   esac
 }

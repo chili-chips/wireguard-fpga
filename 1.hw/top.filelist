@@ -11,7 +11,7 @@ ${HW_SRC}/fpgatech_lib/XILINX/fpga_pll_80M.sv
 ${HW_SRC}/fpgatech_lib/XILINX/fpga_pll_125M.sv
 
 #---DPE package: the widths of dpe_if, also for the AXIS library
-${HW_SRC}/ip.infra/dpe_pkg.sv
+${HW_SRC}/ip.dpe/dpe_pkg.sv
 
 #---External AXIS library
 ${HW_SRC}/external_lib/axis/axis_register.sv
@@ -37,7 +37,7 @@ ${HW_SRC}/external_lib/ethernet/oddr.sv
 #---Common packages and interfaces
 ${HW_SRC}/ip.infra/soc_pkg.sv
 ${HW_SRC}/ip.infra/soc_if.sv
-${HW_SRC}/ip.infra/dpe_if.sv
+${HW_SRC}/ip.dpe/dpe_if.sv
 ${HW_SRC}/ip.infra/gmii_if.sv
 
 #---PeakRDL-generated CSR + SOC CSR wrapper
@@ -56,7 +56,7 @@ ${HW_SRC}/ip.infra/uart.sv
 #${HW_SRC}/ip.infra/debounce.sv
 ${HW_SRC}/ip.infra/sync_fifo_ram.sv
 #${HW_SRC}/ip.infra/sync_fifo_srl.sv
-${HW_SRC}/ip.infra/dpe_if_skid_buffer.sv
+${HW_SRC}/ip.dpe/dpe_if_skid_buffer.sv
 ${HW_SRC}/ip.infra/tdp_ram.sv
 
 #---CPU

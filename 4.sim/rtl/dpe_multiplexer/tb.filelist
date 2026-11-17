@@ -3,8 +3,8 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 # dpe_multiplexer and what it uses: no CPU, no CSR (Icarus has no unpacked structs)
-${HW_SRC}/ip.infra/dpe_pkg.sv
+${HW_SRC}/ip.dpe/dpe_pkg.sv
 ${HW_SRC}/external_lib/axis/axis_register.sv
-${HW_SRC}/ip.infra/dpe_if.sv
-${HW_SRC}/ip.infra/dpe_if_skid_buffer.sv
+${HW_SRC}/ip.dpe/dpe_if.sv
+${HW_SRC}/ip.dpe/dpe_if_skid_buffer.sv
 ${HW_SRC}/ip.dpe/dpe_multiplexer.sv

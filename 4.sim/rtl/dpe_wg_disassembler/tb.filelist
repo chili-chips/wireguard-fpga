@@ -3,8 +3,8 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 # dpe_wg_disassembler and what it uses
-${HW_SRC}/ip.infra/dpe_pkg.sv
+${HW_SRC}/ip.dpe/dpe_pkg.sv
 ${HW_SRC}/external_lib/axis/axis_fifo.sv
-${HW_SRC}/ip.infra/net_pkg.sv
-${HW_SRC}/ip.infra/dpe_if.sv
+${HW_SRC}/ip.dpe/net_pkg.sv
+${HW_SRC}/ip.dpe/dpe_if.sv
 ${HW_SRC}/ip.dpe/dpe_wg_disassembler.sv
