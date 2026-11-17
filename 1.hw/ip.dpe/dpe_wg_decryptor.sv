@@ -129,9 +129,13 @@ module dpe_wg_decryptor
   len16_t packet_ip_len, packet_ip_len_next;
   len16_t packet_udp_len, packet_udp_len_next;
 
-  // The headers of the outgoing frame. The routing table holds MAC, IP and
-  // UDP port in bus byte order (wire byte 0 in [7:0]): bswap*() gives their
-  // natural values
+  // The headers this block puts on its output. NOT A DECRYPTOR YET: it is
+  // still a copy of dpe_wg_encryptor. It wraps the payload in a new
+  // WireGuard data frame, takes the ciphertext from byte 14 (not
+  // WG_PAYLOAD_OFFSET), its nonce from the peer's send counter (not the
+  // packet's, at WG_COUNTER_OFFSET), and writes send_cnt+1 back.
+  // The routing table holds MAC, IP and UDP port in bus byte order (wire
+  // byte 0 in [7:0]): bswap*() gives their natural values
   wg_frame_bytes_t hdr;
   assign hdr = wg_frame_bytes(
       '{

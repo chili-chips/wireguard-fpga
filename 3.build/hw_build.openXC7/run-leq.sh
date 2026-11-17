@@ -75,7 +75,8 @@ CORES="chacha20poly1305_encrypt chacha20poly1305_decrypt"
 # (leq_tops.sv wraps each, a top cannot have interface ports)
 # A change to a wrapped block's ports: LEQ_TOPS_GOLD names the gold side's
 # wrappers, with the same top ports as the gate's (adapting the old ports)
-WRAP_GOLD=${LEQ_TOPS_GOLD:-$HERE/leq_tops.sv}
+WRAP_GOLD=$HERE/leq_tops.sv
+[ -n "${LEQ_TOPS_GOLD:-}" ] && WRAP_GOLD=$(cd "$(dirname "$LEQ_TOPS_GOLD")" && pwd)/$(basename "$LEQ_TOPS_GOLD")
 TOPS=${LEQ_TOPS:-top leq_dpe_wg_encryptor leq_dpe_wg_decryptor leq_dpe_egress_ip_lookup leq_dpe_wg_disassembler}
 W=$(mktemp -d); cd "$W"
 
@@ -83,7 +84,7 @@ W=$(mktemp -d); cd "$W"
 for c in $CORES; do "$PYTHON" "$HERE/gen_core_bb.py" "$GEN/$c.v" $c >> bb.sv; done
 PRIMS="$PRIMS $CORES"
 
-files() {  # $1 = 1.hw dir; the design, and what $TOP adds to it
+files() {  # $1 = 1.hw dir, $2 = gold|gate; the design, and what $TOP adds to it
   local x=""
   case $TOP in
     top) ;;
@@ -94,7 +95,7 @@ files() {  # $1 = 1.hw dir; the design, and what $TOP adds to it
     *) echo "run-leq.sh: no files for top $TOP" >&2 ;;
   esac
   local wrap=$HERE/leq_tops.sv
-  [ "$1" = "$GOLD" ] && wrap=$WRAP_GOLD
+  [ "$2" = gold ] && wrap=$WRAP_GOLD
   [ "$TOP" = top ] || x="$x $wrap"
   echo bb.sv $(design_rtl "$1" "$BLD" | tr '\n' ' ') \
     $(for f in $x; do case $f in /*) printf '%s ' "$f" ;; *) printf '%s ' "$1/$f" ;; esac; done)
@@ -109,7 +110,7 @@ PREP="hierarchy -top $TOP; proc; flatten; memory -nomap; memory_map t:\$mem_v2 r
 REN=""
 if [ -n "$MAP" ]; then   # rename gold objects to their gate names (skip names the gold already has)
   cat > names.ys <<EOF
-$READ $(files $GOLD)
+$READ $(files $GOLD gold)
 $PREP
 tee -q -o names.txt select -list $TOP/w:* $TOP/c:*
 EOF
@@ -126,11 +127,11 @@ EXTRA=""
 
 flat() {
   cat > eq.ys <<EOF
-$READ $(files $GOLD)
+$READ $(files $GOLD gold)
 $PREP
 $REN
 expose -evert $BB; opt_clean; rename $TOP gold; design -stash gold
-$READ $(files $GATE)
+$READ $(files $GATE gate)
 $PREP
 expose -evert $BB; opt_clean; rename $TOP gate; design -stash gate
 design -copy-from gold -as gold gold
@@ -160,7 +161,7 @@ hier() {
   local m mods
   for v in gold gate; do  # the modules, by their instance path names
     local d=$GOLD; [ $v = gate ] && d=$GATE
-    "$YOSYS" $YOSYS_ARGS -q -p "$HREAD $(files $d); $HPREP; tee -q -o mods_$v.txt ls" >/dev/null
+    "$YOSYS" $YOSYS_ARGS -q -p "$HREAD $(files $d $v); $HPREP; tee -q -o mods_$v.txt ls" >/dev/null
     sed -n 's/^  //p' mods_$v.txt | sort > mods_$v.lst
   done
   if ! cmp -s mods_gold.lst mods_gate.lst; then
@@ -170,8 +171,8 @@ hier() {
   fi
   mods=$(grep -v -x -F -f <(printf '%s\n' $PRIMS) mods_gold.lst)
   {
-    echo "$HREAD $(files $GOLD)"; echo "$HPREP"; echo "$EVERT"; echo "design -stash gold"
-    echo "$HREAD $(files $GATE)"; echo "$HPREP"; echo "$EVERT"; echo "design -stash gate"
+    echo "$HREAD $(files $GOLD gold)"; echo "$HPREP"; echo "$EVERT"; echo "design -stash gold"
+    echo "$HREAD $(files $GATE gate)"; echo "$HPREP"; echo "$EVERT"; echo "design -stash gate"
     for m in $mods; do
       echo "log LEQ-MODULE $m"
       echo "design -reset"

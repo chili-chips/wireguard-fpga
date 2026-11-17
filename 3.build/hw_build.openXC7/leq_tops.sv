@@ -13,21 +13,21 @@
 
 // the ports of a dpe_if sink (s_axis) or source (m_axis) named n
 `define LEQ_DPE_S(n) \
-    input  logic                n``_tvalid, \
-    output logic                n``_tready, \
-    input  logic [127:0]        n``_tdata, \
-    input  logic                n``_tlast, \
-    input  logic [ 15:0]        n``_tkeep, \
-    input  dpe_pkg::dpe_tuser_t n``_tuser, \
-    input  logic [  7:0]        n``_tid
+    input  logic          n``_tvalid, \
+    output logic          n``_tready, \
+    input  dpe_data_t     n``_tdata, \
+    input  logic          n``_tlast, \
+    input  dpe_keep_t     n``_tkeep, \
+    input  dpe_tuser_t    n``_tuser, \
+    input  dpe_peer_idx_t n``_tid
 `define LEQ_DPE_M(n) \
-    output logic                n``_tvalid, \
-    input  logic                n``_tready, \
-    output logic [127:0]        n``_tdata, \
-    output logic                n``_tlast, \
-    output logic [ 15:0]        n``_tkeep, \
-    output dpe_pkg::dpe_tuser_t n``_tuser, \
-    output logic [  7:0]        n``_tid
+    output logic          n``_tvalid, \
+    input  logic          n``_tready, \
+    output dpe_data_t     n``_tdata, \
+    output logic          n``_tlast, \
+    output dpe_keep_t     n``_tkeep, \
+    output dpe_tuser_t    n``_tuser, \
+    output dpe_peer_idx_t n``_tid
 // the dpe_if named n, driven from those ports
 `define LEQ_DPE_S_IF(n) \
   dpe_if n (.clk(clk), .rst(rst)); \
@@ -91,13 +91,16 @@ endmodule
 `endif
 
 `ifdef LEQ_TOP_leq_dpe_egress_ip_lookup
-module leq_dpe_egress_ip_lookup (
+module leq_dpe_egress_ip_lookup
+  import csr_pkg::*;
+  import dpe_pkg::*;
+(
     input logic clk,
     input logic rst,
     `LEQ_DPE_S(s_axis),
     `LEQ_DPE_M(m_axis),
-    input  csr_pkg::csr__routing_table__external__out_t hwif_out,
-    output csr_pkg::csr__routing_table__external__in_t  hwif_in
+    input  csr__routing_table__external__out_t hwif_out,
+    output csr__routing_table__external__in_t  hwif_in
 );
   `LEQ_DPE_S_IF(s_axis)
   `LEQ_DPE_M_IF(m_axis)

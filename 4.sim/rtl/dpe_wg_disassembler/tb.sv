@@ -66,7 +66,7 @@ module tb;
    dpe_if outp(.clk(clk), .rst(rst));
 
    logic        fcr_idle;
-   logic [31:0] wg_rcv;
+   wg_receiver_t wg_rcv;
    dpe_peer_idx_t wg_idx;
    logic        wg_idx_match;
 
@@ -209,7 +209,7 @@ module tb;
          automatic beat_t     d;
          automatic logic [15:0] k;
          automatic dpe_tuser_t u;
-         automatic logic [7:0] t;
+         automatic dpe_peer_idx_t t;
          for (int i = 0; i < BEAT_BYTES; i++) begin
             d[8*i+:8] = rx_beat * BEAT_BYTES + i < len[p] ? frame[p][rx_beat*BEAT_BYTES+i] : 8'h00;
             k[i]      = rx_beat * BEAT_BYTES + i < len[p];

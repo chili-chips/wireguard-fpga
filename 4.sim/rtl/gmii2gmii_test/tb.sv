@@ -43,7 +43,6 @@
 
 module tb;
    // Constants
-   localparam DATA_WIDTH = 128;
 
    // Clock and reset signals
    logic clk;
@@ -129,7 +128,6 @@ module tb;
       .TARGET("GENERIC"),
       .IODDR_STYLE("IODDR"),
       .CLOCK_INPUT_STYLE("BUFR"),
-      .AXIS_DATA_WIDTH(DATA_WIDTH),
       .ENABLE_PADDING(1),
       .MIN_FRAME_LENGTH(64),
       .TX_FIFO_DEPTH(4096),
@@ -139,22 +137,8 @@ module tb;
    ) DUT (
       .gtx_clk(clk),
       .gtx_rst(rst),
-      .logic_clk(clk),
-      .logic_rst(rst),
-
-      .tx_axis_tdata(inp.tdata),
-      .tx_axis_tkeep(inp.tkeep),
-      .tx_axis_tvalid(inp.tvalid),
-      .tx_axis_tready(inp.tready),
-      .tx_axis_tlast(inp.tlast),
-      .tx_axis_tuser(0),
-
-      .rx_axis_tdata(outp.tdata),
-      .rx_axis_tkeep(outp.tkeep),
-      .rx_axis_tvalid(outp.tvalid),
-      .rx_axis_tready(outp.tready),
-      .rx_axis_tlast(outp.tlast),
-      .rx_axis_tuser(),
+      .tx_axis(inp),
+      .rx_axis(outp),
 
       .gmii_rx_clk(gmii_rx_clk),
       .gmii_rxd(gmii_rxd),

@@ -126,8 +126,8 @@ package net_pkg;
   typedef logic [8*WG_FRAME_HDR_LEN-1:0] wg_frame_bytes_t;  // frame byte 0 in the top bits
   localparam int WG_HDR_TAIL_BYTES = WG_FRAME_HDR_LEN % BEAT_BYTES;  // 10, in the last header beat
 
-  // What a WireGuard data frame adds to its padded plaintext: the IPv4
-  // total length and the UDP length are the padded plaintext plus these
+  // What a WireGuard data frame adds to its padded plaintext: the UDP
+  // length and the IPv4 total length are the padded plaintext plus these
   // (40 and 60 bytes)
   localparam len16_t WG_UDP_OVERHEAD = len16_t'(UDP_HDR_LEN + WG_DATA_HDR_LEN + POLY1305_TAG_LEN);
   localparam len16_t WG_IPV4_OVERHEAD = len16_t'(IPV4_HDR_LEN) + WG_UDP_OVERHEAD;
