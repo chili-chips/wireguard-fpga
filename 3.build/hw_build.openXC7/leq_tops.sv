@@ -49,28 +49,23 @@
   assign n``_tid    = n.tid;
 
 // the peer table ports of the encryptor and the decryptor
-`define LEQ_PEER_PORTS(key) \
-    output logic         fcr_idle, \
-    output logic [  7:0] ram_peer_idx, \
-    input  logic [ 47:0] ram_local_mac, \
-    input  logic [ 31:0] ram_local_ip, \
-    input  logic [ 15:0] ram_local_port, \
-    input  logic [ 47:0] ram_remote_mac, \
-    input  logic [ 31:0] ram_remote_ip, \
-    input  logic [ 15:0] ram_remote_port, \
-    input  logic [ 31:0] ram_remote_id, \
-    input  logic [255:0] key, \
-    input  logic [ 63:0] ram_send_cnt, \
-    output logic [ 63:0] ram_new_send_cnt, \
-    output logic         ram_update_send_cnt
+`define LEQ_PEER_PORTS \
+    output logic          fcr_idle, \
+    output dpe_peer_idx_t ram_peer_idx, \
+    input  wg_peer_cfg_t  ram_peer, \
+    output wg_counter_t   ram_new_send_cnt, \
+    output logic          ram_update_send_cnt
 
 `ifdef LEQ_TOP_leq_dpe_wg_encryptor
-module leq_dpe_wg_encryptor (
+module leq_dpe_wg_encryptor
+  import dpe_pkg::*;
+  import net_pkg::*;
+(
     input logic clk,
     input logic rst,
     `LEQ_DPE_S(inp),
     `LEQ_DPE_M(outp),
-    `LEQ_PEER_PORTS(ram_encrypt_key)
+    `LEQ_PEER_PORTS
 );
   `LEQ_DPE_S_IF(inp)
   `LEQ_DPE_M_IF(outp)
@@ -79,12 +74,15 @@ endmodule
 `endif
 
 `ifdef LEQ_TOP_leq_dpe_wg_decryptor
-module leq_dpe_wg_decryptor (
+module leq_dpe_wg_decryptor
+  import dpe_pkg::*;
+  import net_pkg::*;
+(
     input logic clk,
     input logic rst,
     `LEQ_DPE_S(inp),
     `LEQ_DPE_M(outp),
-    `LEQ_PEER_PORTS(ram_decrypt_key)
+    `LEQ_PEER_PORTS
 );
   `LEQ_DPE_S_IF(inp)
   `LEQ_DPE_M_IF(outp)
@@ -108,15 +106,18 @@ endmodule
 `endif
 
 `ifdef LEQ_TOP_leq_dpe_wg_disassembler
-module leq_dpe_wg_disassembler (
+module leq_dpe_wg_disassembler
+  import dpe_pkg::*;
+  import net_pkg::*;
+(
     input logic clk,
     input logic rst,
     `LEQ_DPE_S(inp),
     `LEQ_DPE_M(outp),
-    output logic        fcr_idle,
-    output logic [31:0] wg_rcv,
-    input  logic [ 6:0] wg_idx,
-    input  logic        wg_idx_match
+    output logic          fcr_idle,
+    output wg_receiver_t  wg_rcv,
+    input  dpe_peer_idx_t wg_idx,
+    input  logic          wg_idx_match
 );
   `LEQ_DPE_S_IF(inp)
   `LEQ_DPE_M_IF(outp)

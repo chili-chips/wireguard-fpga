@@ -96,15 +96,7 @@ module dpe_wg_decryptor
     dpe_if.m_axis         outp,
     output logic          fcr_idle,
     output dpe_peer_idx_t ram_peer_idx,
-    input  mac_addr_t     ram_local_mac,
-    input  ipv4_addr_t    ram_local_ip,
-    input  udp_port_t     ram_local_port,
-    input  mac_addr_t     ram_remote_mac,
-    input  ipv4_addr_t    ram_remote_ip,
-    input  udp_port_t     ram_remote_port,
-    input  wg_receiver_t  ram_remote_id,
-    input  wg_key_t       ram_decrypt_key,
-    input  wg_counter_t   ram_send_cnt,
+    input  wg_peer_cfg_t  ram_peer,
     output wg_counter_t   ram_new_send_cnt,
     output logic          ram_update_send_cnt
 );
@@ -127,15 +119,7 @@ module dpe_wg_decryptor
   dpe_addr_t tuser_dst, tuser_dst_next;
   dpe_addr_t tuser_src, tuser_src_next;
   dpe_peer_idx_t peer_idx, peer_idx_next;
-  mac_addr_t local_mac, local_mac_next;
-  ipv4_addr_t local_ip, local_ip_next;
-  udp_port_t local_port, local_port_next;
-  mac_addr_t remote_mac, remote_mac_next;
-  ipv4_addr_t remote_ip, remote_ip_next;
-  udp_port_t remote_port, remote_port_next;
-  wg_receiver_t remote_id, remote_id_next;
-  wg_key_t decrypt_key, decrypt_key_next;
-  wg_counter_t send_cnt, send_cnt_next;
+  wg_peer_cfg_t peer, peer_next;  // the packet's peer, from the routing table
   wg_counter_t new_send_cnt, new_send_cnt_next;
   logic update_send_cnt, update_send_cnt_next;
   logic [DPE_DATA_W-1:0] plaintext_data, plaintext_data_next;
@@ -151,7 +135,11 @@ module dpe_wg_decryptor
   wg_frame_bytes_t hdr;
   assign hdr = wg_frame_bytes(
       '{
-          eth: '{dst: bswap48(remote_mac), src: bswap48(local_mac), ethertype: ETHERTYPE_IPV4},
+          eth: '{
+              dst: bswap48(peer.remote_mac),
+              src: bswap48(peer.local_mac),
+              ethertype: ETHERTYPE_IPV4
+          },
           ipv4: '{
               version: IPV4_VERSION,
               ihl: IPV4_IHL,
@@ -162,16 +150,16 @@ module dpe_wg_decryptor
               ttl: IPV4_TTL,
               proto: IP_PROTO_UDP,
               checksum: '0,
-              src: bswap32(local_ip),
-              dst: bswap32(remote_ip)
+              src: bswap32(peer.local_ip),
+              dst: bswap32(peer.remote_ip)
           },
           udp: '{
-              src_port: bswap16(local_port),
-              dst_port: bswap16(remote_port),
+              src_port: bswap16(peer.local_port),
+              dst_port: bswap16(peer.remote_port),
               len: packet_udp_len,
               checksum: '0
           },
-          wg: '{msg_type: WG_TYPE_DATA, receiver: remote_id, counter: send_cnt}
+          wg: '{msg_type: WG_TYPE_DATA, receiver: peer.remote_id, counter: peer.send_cnt}
       }
   );
 
@@ -262,15 +250,7 @@ module dpe_wg_decryptor
       tuser_dst       <= DPE_ADDR_CPU;
       tuser_src       <= DPE_ADDR_CPU;
       peer_idx        <= '0;
-      local_mac       <= '0;
-      local_ip        <= '0;
-      local_port      <= '0;
-      remote_mac      <= '0;
-      remote_ip       <= '0;
-      remote_port     <= '0;
-      remote_id       <= '0;
-      decrypt_key     <= '0;
-      send_cnt        <= '0;
+      peer            <= '0;
       new_send_cnt    <= '0;
       update_send_cnt <= '0;
       plaintext_data  <= '0;
@@ -285,15 +265,7 @@ module dpe_wg_decryptor
       tuser_dst       <= tuser_dst_next;
       tuser_src       <= tuser_src_next;
       peer_idx        <= peer_idx_next;
-      local_mac       <= local_mac_next;
-      local_ip        <= local_ip_next;
-      local_port      <= local_port_next;
-      remote_mac      <= remote_mac_next;
-      remote_ip       <= remote_ip_next;
-      remote_port     <= remote_port_next;
-      remote_id       <= remote_id_next;
-      decrypt_key     <= decrypt_key_next;
-      send_cnt        <= send_cnt_next;
+      peer            <= peer_next;
       new_send_cnt    <= new_send_cnt_next;
       update_send_cnt <= update_send_cnt_next;
       plaintext_data  <= plaintext_data_next;
@@ -311,15 +283,7 @@ module dpe_wg_decryptor
     tuser_dst_next       = tuser_dst;
     tuser_src_next       = tuser_src;
     peer_idx_next        = peer_idx;
-    local_mac_next       = local_mac;
-    local_ip_next        = local_ip;
-    local_port_next      = local_port;
-    remote_mac_next      = remote_mac;
-    remote_ip_next       = remote_ip;
-    remote_port_next     = remote_port;
-    remote_id_next       = remote_id;
-    decrypt_key_next     = decrypt_key;
-    send_cnt_next        = send_cnt;
+    peer_next            = peer;
     new_send_cnt_next    = new_send_cnt;
     update_send_cnt_next = update_send_cnt;
     plaintext_data_next  = plaintext_data;
@@ -351,15 +315,7 @@ module dpe_wg_decryptor
       end
 
       WAIT_RAM: begin
-        local_mac_next   = ram_local_mac;
-        local_ip_next    = ram_local_ip;
-        local_port_next  = ram_local_port;
-        remote_mac_next  = ram_remote_mac;
-        remote_ip_next   = ram_remote_ip;
-        remote_port_next = ram_remote_port;
-        remote_id_next   = ram_remote_id;
-        decrypt_key_next = ram_decrypt_key;
-        send_cnt_next    = ram_send_cnt;
+        peer_next = ram_peer;
         if (piped.tvalid && piped.tready) begin
           plaintext_data_next = piped.tdata;
         end
@@ -434,7 +390,7 @@ module dpe_wg_decryptor
         if (!fifo_full && from_decrypt.tvalid) begin
           decrypted_data_next = from_decrypt.tdata;
           if (from_decrypt.tlast) begin
-            new_send_cnt_next    = send_cnt + 1;
+            new_send_cnt_next    = peer.send_cnt + 1;
             update_send_cnt_next = 1'b1;
             state_next           = PAYLOAD_LAST;
           end
@@ -584,8 +540,8 @@ module dpe_wg_decryptor
 
   chacha20poly1305_decrypt decrypt (
       .clk_80p0              (inp.clk),
-      .decrypt_key           (decrypt_key),
-      .decrypt_nonce         ({32'd0, send_cnt}),
+      .decrypt_key           (peer.key),
+      .decrypt_nonce         ({32'd0, peer.send_cnt}),
       .decrypt_aad           (256'd0),
       .decrypt_aad_len       (8'd0),
       .decrypt_s_axis_tdata  (to_decrypt.tdata),

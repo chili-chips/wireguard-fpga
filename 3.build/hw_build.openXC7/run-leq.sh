@@ -73,6 +73,9 @@ GEN=$BLD/pipelinec_build/generated-files
 CORES="chacha20poly1305_encrypt chacha20poly1305_decrypt"
 # The tops: the design, and the DPE blocks it does not instantiate yet
 # (leq_tops.sv wraps each, a top cannot have interface ports)
+# A change to a wrapped block's ports: LEQ_TOPS_GOLD names the gold side's
+# wrappers, with the same top ports as the gate's (adapting the old ports)
+WRAP_GOLD=${LEQ_TOPS_GOLD:-$HERE/leq_tops.sv}
 TOPS=${LEQ_TOPS:-top leq_dpe_wg_encryptor leq_dpe_wg_decryptor leq_dpe_egress_ip_lookup leq_dpe_wg_disassembler}
 W=$(mktemp -d); cd "$W"
 
@@ -90,7 +93,9 @@ files() {  # $1 = 1.hw dir; the design, and what $TOP adds to it
     leq_dpe_wg_disassembler) x="ip.infra/net_pkg.sv ip.dpe/dpe_wg_disassembler.sv" ;;
     *) echo "run-leq.sh: no files for top $TOP" >&2 ;;
   esac
-  [ "$TOP" = top ] || x="$x $HERE/leq_tops.sv"
+  local wrap=$HERE/leq_tops.sv
+  [ "$1" = "$GOLD" ] && wrap=$WRAP_GOLD
+  [ "$TOP" = top ] || x="$x $wrap"
   echo bb.sv $(design_rtl "$1" "$BLD" | tr '\n' ' ') \
     $(for f in $x; do case $f in /*) printf '%s ' "$f" ;; *) printf '%s ' "$1/$f" ;; esac; done)
 }

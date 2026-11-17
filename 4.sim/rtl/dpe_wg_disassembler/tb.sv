@@ -55,10 +55,10 @@ module tb;
    localparam int MAXBEAT = (MAXLEN + BEAT_BYTES - 1) / BEAT_BYTES;
 
    // The lookup: receiver index -> peer
-   localparam logic [31:0] RCV_A  = 32'hCAFE_0001;
-   localparam logic [ 6:0] PEER_A = 7'd5;
-   localparam logic [31:0] RCV_B  = 32'h0000_0002;
-   localparam logic [ 6:0] PEER_B = 7'd9;
+   localparam wg_receiver_t RCV_A  = 32'hCAFE_0001;
+   localparam dpe_peer_idx_t PEER_A = 5;
+   localparam wg_receiver_t RCV_B  = 32'h0000_0002;
+   localparam dpe_peer_idx_t PEER_B = 9;
 
    logic clk;
    logic rst;
@@ -67,7 +67,7 @@ module tb;
 
    logic        fcr_idle;
    logic [31:0] wg_rcv;
-   logic [ 6:0] wg_idx;
+   dpe_peer_idx_t wg_idx;
    logic        wg_idx_match;
 
    always_comb begin
@@ -105,9 +105,9 @@ module tb;
    logic [7:0]  frame   [NPKT][MAXLEN];
    int          len     [NPKT];
    dpe_tuser_t  user_in [NPKT];
-   logic [7:0]  tid_in  [NPKT];
+   dpe_peer_idx_t tid_in  [NPKT];
    logic        exp_peer[NPKT];  // tid = peer, bypass_stage clear
-   logic [6:0]  peer    [NPKT];
+   dpe_peer_idx_t peer    [NPKT];
    logic        exp_same[NPKT];  // comes out unchanged (came in with a bypass)
 
    // verilator lint_off UNUSEDSIGNAL
@@ -133,7 +133,7 @@ module tb;
       put_le32(p, WG_TYPE_OFFSET, kind == NOT_WG_TYPE ? 32'd1 : WG_TYPE_DATA);
       put_le32(p, WG_RECEIVER_OFFSET, rcv);
       user_in[p] = '{bypass_all: 1'b0, bypass_stage: 1'b0, src: DPE_ADDR_ETH_1, dst: DPE_ADDR_CPU};
-      tid_in[p]   = 8'hA0 + 8'(p);
+      tid_in[p]   = dpe_peer_idx_t'('hA0 + p);
       exp_peer[p] = 1'b0;
       peer[p]     = '0;
       exp_same[p] = 1'b0;
@@ -218,7 +218,7 @@ module tb;
          t = tid_in[p];
          if (!exp_same[p]) begin
             u.bypass_stage = !exp_peer[p];
-            if (exp_peer[p]) t = {1'b0, peer[p]};
+            if (exp_peer[p]) t = peer[p];
          end
          if (p >= NPKT) begin
             errors++;

@@ -63,12 +63,12 @@ module dpe_wg_disassembler
   import dpe_pkg::*;
   import net_pkg::*;
 (
-    output logic        fcr_idle,      // no packet in the disassembler
-    output logic [31:0] wg_rcv,        // receiver index of the packet just parsed
-    input  logic [ 6:0] wg_idx,        // its peer (lookup, combinational on wg_rcv)
-    input  logic        wg_idx_match,  // the lookup knows that receiver index
-    dpe_if.s_axis       inp,
-    dpe_if.m_axis       outp
+    output logic                 fcr_idle,      // no packet in the disassembler
+    output logic          [31:0] wg_rcv,        // receiver index of the packet just parsed
+    input  dpe_peer_idx_t        wg_idx,        // its peer (lookup, combinational on wg_rcv)
+    input  logic                 wg_idx_match,  // the lookup knows that receiver index
+    dpe_if.s_axis                inp,
+    dpe_if.m_axis                outp
 );
   // The parser looks at beats 0 to HDR_LAST_BEAT: the last one holds the end
   // of the receiver index (the counter is not needed here)
@@ -185,14 +185,8 @@ module dpe_wg_disassembler
 
   always_ff @(posedge inp.clk) begin
     if (dec_pending) begin
-      dec_mem[dec_wr[$clog2(
-          DEC_DEPTH
-      )-1:0]] <=
-      '{
-          to_peer: dec_is_wg & wg_idx_match & !dec_pass_on,
-          pass_on: dec_pass_on,
-          peer: dpe_peer_idx_t'(wg_idx)
-      };
+      dec_mem[dec_wr[$clog2(DEC_DEPTH)-1:0]] <=
+          '{to_peer: dec_is_wg & wg_idx_match & !dec_pass_on, pass_on: dec_pass_on, peer: wg_idx};
     end
   end
 

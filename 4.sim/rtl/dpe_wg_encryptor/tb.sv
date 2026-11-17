@@ -43,6 +43,7 @@
 `define NULL 0
 
 module tb;
+   import net_pkg::*;
    // Inputs
    logic clk;
    logic rst;
@@ -60,6 +61,19 @@ module tb;
       .pcapfinished(pcapfinished)
    );
 
+   // The peer's routing-table entry; MAC, IP and port in bus byte order
+   localparam wg_peer_cfg_t PEER = '{
+      local_mac:   48'hAABBCCDDEEFF,
+      local_ip:    32'h0100A8C0,  // 192.168.0.1
+      local_port:  16'h6DCA,
+      remote_mac:  48'hFFEEDDCCBBAA,
+      remote_ip:   32'h0200A8C0,  // 192.168.0.2
+      remote_port: 16'h6CCA,
+      remote_id:   32'hAABBCCDD,
+      key:         256'h0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF,
+      send_cnt:    64'd1
+   };
+
    dpe_wg_encryptor encryptor (
       .inp(to_encryptor),
       .outp(from_encryptor),
@@ -67,15 +81,7 @@ module tb;
       .fcr_idle(fcr_idle),
 
       .ram_peer_idx(),
-      .ram_local_mac(48'hAABBCCDDEEFF),
-      .ram_local_ip(32'h0100A8C0),
-      .ram_local_port(16'h6DCA),
-      .ram_remote_mac(48'hFFEEDDCCBBAA),
-      .ram_remote_ip(32'h0200A8C0),
-      .ram_remote_port(16'h6CCA),
-      .ram_remote_id(32'hAABBCCDD),
-      .ram_encrypt_key(256'h0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF),
-      .ram_send_cnt(64'd1),
+      .ram_peer(PEER),
       .ram_new_send_cnt(),
       .ram_update_send_cnt()
    );
