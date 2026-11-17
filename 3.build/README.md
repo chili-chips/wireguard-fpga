@@ -11,6 +11,26 @@ The build process for the WireGuard project consists of three steps:
 - Compilation of the software application for the RISC-V hardware target
 - Compilation of SystemVerilog designs into bitstream for the hardware target
 
+## Tool Versions
+
+Build and lint tools as used locally (WSL, 2026-11-17). CI installs the latest OSS CAD Suite nightly instead ([`lint.yml`](../.github/workflows/lint.yml)). Simulation tools: [`4.sim` Tool Versions](../4.sim/README.md#tool-versions).
+
+| Tool | In use | Use | Source |
+|---|---|---|---|
+| Vivado | 2026.1 (Artix-7) | reference flow, Pypeline core synthesis | [AMD](https://www.amd.com/en/products/software/adaptive-socs-and-fpgas/vivado.html) |
+| openXC7 | v1.0.0: Yosys 0.70, nextpnr-himbaechel 1.0.0-41-g3e5c2cdd | open-source flow | [openXC7](https://github.com/openXC7) |
+| yosys-slang | OSS CAD Suite 2026-11-12 | `read_slang` front end, lint | [povik/yosys-slang](https://github.com/povik/yosys-slang) |
+| sv2v | 0.0.13 | `FRONTEND=sv2v` | [zachjs/sv2v](https://github.com/zachjs/sv2v) |
+| Verible | v0.0-4296-g0f262651 | format, lint | [chipsalliance/verible](https://github.com/chipsalliance/verible) |
+| Verilator | 5.055 devel (`v5.054-260-gb9f22851`) | lint | [verilator.org](https://verilator.org) |
+| GHDL | 7.0.0-dev (`6.0.0.r729.g8e642a9a5`, OSS CAD Suite 2026-11-12; latest release v6.0.0) | Pypeline VHDL lint, cocotb sim | [ghdl/ghdl](https://github.com/ghdl/ghdl) |
+| Yosys + GHDL plugin | 0.70+385 (OSS CAD Suite 2026-11-12) | Pypeline VHDL to Verilog | [YosysHQ/oss-cad-suite-build](https://github.com/YosysHQ/oss-cad-suite-build) |
+| PipelineC (Pypeline) | the commit in [`pipelinec.ref`](pypeline_build/pipelinec.ref) | crypto core | [JulianKemmerer/PipelineC](https://github.com/JulianKemmerer/PipelineC) |
+| cocotb | 2.1.0 | Pypeline generated-VHDL sim | [cocotb.org](https://www.cocotb.org) |
+| PeakRDL | 1.5.0 (systemrdl-compiler 1.33) | CSR HAL | [peakrdl.readthedocs.io](https://peakrdl.readthedocs.io) |
+| RISC-V GCC | xPack riscv-none-elf-gcc 15.2.0-1 | firmware | [xPack](https://xpack-dev-tools.github.io/riscv-none-elf-gcc-xpack/) |
+| Python | 3.12.3 | scripts, Pypeline | |
+
 ## CSR HAL Compilation
 
 The CSR RTL and the firmware's register header come from one SystemRDL file, `csr_build/csr.rdl`, through `peakrdl`. `make -f MakefileCSR` writes, to `3.build/csr_build/generated-files`:
