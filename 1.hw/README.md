@@ -5,7 +5,7 @@ SPDX-License-Identifier: BSD-3-Clause
 -->
 
 ## Hardware Architecture and Theory of Operation
-![HWArchitecture](../0.doc/Wireguard/wireguard-fpga-Architecture-HW.webp)
+![HWArchitecture](../0.doc/Wireguard/wireguard-fpga-Architecture-HW.png)
 
 The hardware architecture essentially follows the HW/SW partitioning and consists of two domains: a soft CPU for the control plane and RTL for the data plane.
 
@@ -112,7 +112,7 @@ The example is based on a capture of real Wireguard traffic, recorded and decode
 - 10.9.0.2 - WireGuard peer B
 - 10.10.0.1 - the end-user host at site B
 
-![ExampleToplogy](../0.doc/Wireguard/wireguard-fpga-muxed-Example-Topology.webp)
+![ExampleToplogy](../0.doc/Wireguard/wireguard-fpga-muxed-Example-Topology.png)
 
 To illustrate the operation of the system as a whole, we will follow the step-by-step passage of packets through the system in several phases:
 - Sending a Handshake Initiation from peer A

@@ -5,7 +5,7 @@ SPDX-License-Identifier: BSD-3-Clause
 -->
 
 # Software Architecture and Theory of Operation
-![SWArchitecture](../0.doc/Wireguard/wireguard-fpga-muxed-Architecture-SW.webp)
+![SWArchitecture](../0.doc/Wireguard/wireguard-fpga-muxed-Architecture-SW.png)
 
 The conceptual class diagram provides an overview of the components in the software part of the system without delving into implementation details. The focus is on the WireGuard Agent, which implements the protocol's handshake procedures, along with the following supplementary components:
 - [Curve25519](http://cr.yp.to/ecdh.html) - an ECDH algorithm implementation for establishing a shared secret using a public-private key pair between two remote parties connected via an insecure channel, such as the Internet

@@ -10,7 +10,7 @@ After connecting the Alinx AX7201 boards with cables according to the topology, 
 [build process](../3.build/README.md#hw-compilation---vivado).
 
 <div align="center">
-  <img width="70%" src="../0.doc/Wireguard/wireguard-fpga-Test-Topology.webp">
+  <img width="70%" src="../0.doc/Wireguard/wireguard-fpga-Test-Topology.png">
 </div>
 
 The AX7201 board provides a USB UART interface, which is used as the WireGuard CLI. A connection to the CLI can be established using a serial terminal application such as minicom:

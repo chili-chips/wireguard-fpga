@@ -121,7 +121,7 @@ The Phase2 continuation project is therefore also in the plans, to maximize effi
 Since the WireGuard node essentially functions as an IP router with WireGuard protocol support, we have decided to design the system according to a two-layer architecture: a control plane responsible for managing IP routing processes and executing the WireGuard protocol (managing remote peers, sessions, and keys), and a data plane that will perform IP routing and cryptography processes at wire speed. The control plane will be implemented as software running on a soft CPU, while the data plane will be fully implemented in RTL on an FPGA.
 
 <div align="center">
-  <img width="80%" src="0.doc/Wireguard/wireguard-fpga-muxed-Architecture-HW-SW-Partitioning.webp">
+  <img width="80%" src="0.doc/Wireguard/wireguard-fpga-muxed-Architecture-HW-SW-Partitioning.png">
 </div>
  
 In the HW/SW partitioning diagram, we can observe two types of network traffic: control traffic, which originates from the control plane and goes toward the external network (and vice versa), and data traffic, which arrives from the external network and, after processing in the data plane, returns to the external network. Specifically, control traffic represents WireGuard protocol handshake messages, while data traffic consists of end-user traffic, either encrypted or in plaintext, depending on the perspective.
@@ -129,7 +129,7 @@ In the HW/SW partitioning diagram, we can observe two types of network traffic: 
 ## Hardware Architecture and Theory of Operation
 
 <div align="center">
-  <img width="90%" src="0.doc/Wireguard/wireguard-fpga-Architecture-HW.webp">
+  <img width="90%" src="0.doc/Wireguard/wireguard-fpga-Architecture-HW.png">
 </div>
 
 The hardware architecture essentially follows the HW/SW partitioning and consists of two domains: a soft CPU for the control plane and RTL for the data plane.
@@ -157,7 +157,7 @@ The details of hardware architecture can be found in the [README.md](./1.hw/READ
 ## Software Architecture and Theory of Operation
 
 <div align="center">
-  <img width="60%" src="0.doc/Wireguard/wireguard-fpga-muxed-Architecture-SW.webp">
+  <img width="60%" src="0.doc/Wireguard/wireguard-fpga-muxed-Architecture-SW.png">
 </div>
 
 The conceptual class diagram provides an overview of the components in the software part of the system without delving into implementation details. The focus is on the WireGuard Agent, which implements the protocol's handshake procedures, along with the following supplementary components:
@@ -185,7 +185,7 @@ To illustrate the operation of the system as a whole, we have prepared a step-by
 - 10.10.0.1 - the end-user host at site B
 
 <div align="center">
-  <img width="70%" src="0.doc/Wireguard/wireguard-fpga-muxed-Example-Topology.webp">
+  <img width="70%" src="0.doc/Wireguard/wireguard-fpga-muxed-Example-Topology.png">
 </div>
 
 The detailed analysis can be found in the [README.md](./1.hw/README.md#hwsw-working-together-as-a-coherent-system) in the `1.hw/` directory.
@@ -245,7 +245,7 @@ The details of the build process can be found in the [README.md](3.build/README.
 The figure illustrates a test topology consisting of two remote hosts, A and B, connected in a VPN implemented using two WireGuard-FPGA nodes interconnected over a public network. An additional node in the public network is included to demonstrate traffic encryption. Detailed instructions for configuring the WireGuard-FPGA nodes are provided in [README.md](5.test/README.md) in the `5.test/` directory.
 
 <div align="center">
-  <img width="70%" src="0.doc/Wireguard/wireguard-fpga-Test-Topology.webp">
+  <img width="70%" src="0.doc/Wireguard/wireguard-fpga-Test-Topology.png">
 </div>
 
 ---
