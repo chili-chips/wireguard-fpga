@@ -13,6 +13,7 @@
 //==========================================================================
 
 module dpe_tb_sink
+  import dpe_pkg::*;
   import dpe_tb_pkg::*;
 #(
     parameter string NAME   = "sink",
@@ -60,7 +61,7 @@ module dpe_tb_sink
       n_byte++;
       if (inp.tlast) begin
         cur.data = cur_bytes;
-        cur.len = 4'(n_byte);
+        cur.len = len_t'(n_byte);
         $display("%t %s: packet from src %0d, dst %0d, %0d bytes", $time, NAME, cur_src, cur.dst,
                  n_byte);
         if (n_byte > MAX_BYTES) begin
@@ -81,7 +82,7 @@ module dpe_tb_sink
   end
 
   // This output must have received p, sent by src: once, intact
-  task automatic expect_pkt(input test_pkt_t p, input logic [2:0] src);
+  task automatic expect_pkt(input test_pkt_t p, input dpe_addr_t src);
     for (int i = 0; i < n_rx; i++) begin
       if (!rx_used[i] && rx_pkt[i] == p && rx_src[i] == src) begin
         rx_used[i] = 1'b1;

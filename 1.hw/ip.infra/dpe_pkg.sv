@@ -43,22 +43,38 @@
 `ifndef _DPE_PKG
 `define _DPE_PKG
 package dpe_pkg;
-  localparam logic [2:0] DPE_ADDR_CPU      = 3'h0;
-  localparam logic [2:0] DPE_ADDR_ETH_1    = 3'h1;
-  localparam logic [2:0] DPE_ADDR_ETH_2    = 3'h2;
-  localparam logic [2:0] DPE_ADDR_ETH_3    = 3'h3;
-  localparam logic [2:0] DPE_ADDR_ETH_4    = 3'h4;
-  localparam logic [2:0] DPE_ADDR_MCAST_13 = 3'h5;
-  localparam logic [2:0] DPE_ADDR_MCAST_24 = 3'h6;
-  localparam logic [2:0] DPE_ADDR_BCAST    = 3'h7;
+  // The widths of dpe_if, in one place: the interface, the blocks that use it
+  // and the AXI-Stream modules they instantiate all take them from here
+  localparam int DPE_DATA_BYTES = 16;                  // a beat: 16 bytes
+  localparam int DPE_DATA_W     = 8 * DPE_DATA_BYTES;  // tdata, 128 bits
+  localparam int DPE_KEEP_W     = DPE_DATA_BYTES;      // tkeep, a bit per byte
+  localparam int DPE_ID_W       = 8;                   // tid, the peer index
+
+  typedef logic [DPE_DATA_W-1:0] dpe_data_t;  // a beat
+  typedef logic [DPE_KEEP_W-1:0] dpe_keep_t;
+  typedef logic [DPE_ID_W-1:0] dpe_peer_idx_t;  // a WireGuard peer (tid)
+
+  // A DPE port, or a group of them: where a packet comes from or goes
+  typedef enum logic [2:0] {
+    DPE_ADDR_CPU      = 3'h0,
+    DPE_ADDR_ETH_1    = 3'h1,
+    DPE_ADDR_ETH_2    = 3'h2,
+    DPE_ADDR_ETH_3    = 3'h3,
+    DPE_ADDR_ETH_4    = 3'h4,
+    DPE_ADDR_MCAST_13 = 3'h5,  // ETH 1 and 3
+    DPE_ADDR_MCAST_24 = 3'h6,  // ETH 2 and 4
+    DPE_ADDR_BCAST    = 3'h7   // every port
+  } dpe_addr_t;
 
   // AXI-Stream TUSER of the DPE: TUSER[7] bypass_all, [6] bypass_stage,
   // [5:3] src, [2:0] dst (the order of the fields)
   typedef struct packed {
-    logic       bypass_all;    // skip the whole DPE
-    logic       bypass_stage;  // skip the next DPE stage
-    logic [2:0] src;           // DPE_ADDR_*: where the packet came from
-    logic [2:0] dst;           // DPE_ADDR_*: where it goes
+    logic      bypass_all;    // skip the whole DPE
+    logic      bypass_stage;  // skip the next DPE stage
+    dpe_addr_t src;           // where the packet came from
+    dpe_addr_t dst;           // where it goes
   } dpe_tuser_t;
+
+  localparam int DPE_USER_W = $bits(dpe_tuser_t);  // tuser, 8 bits
 endpackage : dpe_pkg
 `endif

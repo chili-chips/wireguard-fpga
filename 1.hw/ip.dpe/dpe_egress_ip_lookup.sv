@@ -54,16 +54,19 @@
 //==========================================================================
 
 
-module dpe_egress_ip_lookup #(
-  parameter int ENTRY_COUNT = 64,
-  parameter bit USE_BYPASS_FROM_MEM = 1'b0
+module dpe_egress_ip_lookup
+  import csr_pkg::*;
+  import dpe_pkg::*;
+#(
+    parameter int ENTRY_COUNT         = 64,
+    parameter bit USE_BYPASS_FROM_MEM = 1'b0
 ) (
-  dpe_if.s_axis  s_axis,
-  dpe_if.m_axis  m_axis,
+    dpe_if.s_axis                              s_axis,
+    dpe_if.m_axis                              m_axis,
 
-  // the CSR routing_table regfile (csr.rdl): one port for the whole table
-  input  csr_pkg::csr__routing_table__external__out_t hwif_out,
-  output csr_pkg::csr__routing_table__external__in_t  hwif_in
+    // the CSR routing_table regfile (csr.rdl): one port for the whole table
+    input  csr__routing_table__external__out_t hwif_out,
+    output csr__routing_table__external__in_t  hwif_in
 );
 
   // -----------------------------------------------------------
@@ -76,10 +79,10 @@ module dpe_egress_ip_lookup #(
     FIELD_DST  = 2'd3   // entry.dst      (offset 0xC)
   } rt_field_e;
 
-  logic        csr_wr, csr_rd;
-  logic [5:0]  mem_idx;
-  rt_field_e   field;
-  logic [31:0] wr_data;
+  logic csr_wr, csr_rd;
+  logic      [ 5:0] mem_idx;
+  rt_field_e        field;
+  logic      [31:0] wr_data;
 
   assign csr_wr  = hwif_out.req & hwif_out.req_is_wr;
   assign csr_rd  = hwif_out.req & ~hwif_out.req_is_wr;
@@ -89,13 +92,13 @@ module dpe_egress_ip_lookup #(
 
   logic we_prefix, we_mask, we_peer, we_dst;
   logic [31:0] rdata_prefix, rdata_mask;
-  logic [7:0]  rdata_peer;
-  logic [2:0]  rdata_dst;
+  dpe_peer_idx_t rdata_peer;
+  dpe_addr_t     rdata_dst;
 
-  assign we_prefix = csr_wr && field == FIELD_IP;
-  assign we_mask   = csr_wr && field == FIELD_MASK;
-  assign we_peer   = csr_wr && field == FIELD_PEER;
-  assign we_dst    = csr_wr && field == FIELD_DST;
+  assign we_prefix      = csr_wr && field == FIELD_IP;
+  assign we_mask        = csr_wr && field == FIELD_MASK;
+  assign we_peer        = csr_wr && field == FIELD_PEER;
+  assign we_dst         = csr_wr && field == FIELD_DST;
 
   // The answer in the request's cycle, as the table is in registers
   assign hwif_in.wr_ack = csr_wr;
@@ -104,103 +107,114 @@ module dpe_egress_ip_lookup #(
     unique case (field)
       FIELD_IP:   hwif_in.rd_data = rdata_prefix;
       FIELD_MASK: hwif_in.rd_data = rdata_mask;
-      FIELD_PEER: hwif_in.rd_data = {24'd0, rdata_peer};
-      FIELD_DST:  hwif_in.rd_data = {29'd0, rdata_dst};
+      FIELD_PEER: hwif_in.rd_data = CSR_DATA_WIDTH'(rdata_peer);
+      FIELD_DST:  hwif_in.rd_data = CSR_DATA_WIDTH'(rdata_dst);
     endcase
   end
 
-  logic        route_hit;
-  logic [5:0]  route_idx;
-  logic [2:0]  route_dst;
-  logic [7:0]  route_peer;
-  logic        route_bypass;
-  logic [31:0] route_req_ip;
-  logic        route_req_valid;
+  logic                 route_hit;
+  logic          [ 5:0] route_idx;
+  dpe_addr_t            route_dst;
+  dpe_peer_idx_t        route_peer;
+  logic                 route_bypass;
+  logic          [31:0] route_req_ip;
+  logic                 route_req_valid;
 
   dpe_route_mem #(
-    .ENTRY_COUNT(ENTRY_COUNT)
+      .ENTRY_COUNT (ENTRY_COUNT)
   ) u_mem (
-    .clk        (s_axis.clk),
-    .rst        (s_axis.rst),
+      .clk (s_axis.clk),
+      .rst (s_axis.rst),
 
-    .waddr      (mem_idx),
-    .we_prefix  (we_prefix), .wdata_prefix(wr_data),
-    .we_mask    (we_mask),   .wdata_mask (wr_data),
-    .we_peer    (we_peer),   .wdata_peer (wr_data[7:0]),
-    .we_dst     (we_dst),    .wdata_dst  (wr_data[2:0]),
+      .waddr        (mem_idx),
+      .we_prefix    (we_prefix),
+      .wdata_prefix (wr_data),
+      .we_mask      (we_mask),
+      .wdata_mask   (wr_data),
+      .we_peer      (we_peer),
+      .wdata_peer   (dpe_peer_idx_t'(wr_data)),
+      .we_dst       (we_dst),
+      .wdata_dst    (dpe_addr_t'(wr_data[$bits(dpe_addr_t)-1:0])),
 
-    .raddr      (mem_idx),
-    .rdata_prefix(rdata_prefix), .rdata_mask(rdata_mask),
-    .rdata_peer(rdata_peer),     .rdata_dst(rdata_dst),
+      .raddr        (mem_idx),
+      .rdata_prefix (rdata_prefix),
+      .rdata_mask   (rdata_mask),
+      .rdata_peer   (rdata_peer),
+      .rdata_dst    (rdata_dst),
 
-    .req_ip     (route_req_ip),
-    .req_valid  (route_req_valid),
-    .resp_hit   (route_hit),
-    .resp_route_idx(route_idx),
-    .resp_dst   (route_dst),
-    .resp_peer  (route_peer),
-    .resp_bypass(route_bypass)
+      .req_ip         (route_req_ip),
+      .req_valid      (route_req_valid),
+      .resp_hit       (route_hit),
+      .resp_route_idx (route_idx),
+      .resp_dst       (route_dst),
+      .resp_peer      (route_peer),
+      .resp_bypass    (route_bypass)
   );
 
   // --------------------------------------------------------------------------
   // 3. DATA PLANE LOGIC (Packet Processing FSM)
   // --------------------------------------------------------------------------
 
-  typedef enum logic [2:0] {S_IDLE, S_COLLECT, S_DECIDE, S_FLUSH, S_FWD} state_e;
+  typedef enum logic [2:0] {
+    S_IDLE,
+    S_COLLECT,
+    S_DECIDE,
+    S_FLUSH,
+    S_FWD
+  } state_e;
   state_e state, state_next;
 
-  logic [1:0]  beat;          
+  logic [ 1:0] beat;
   logic [31:0] ipv4_da;
 
   typedef struct packed {
-    logic [127:0] data;
-    logic [15:0]  keep;
-    logic         last;
+    dpe_data_t data;
+    dpe_keep_t keep;
+    logic      last;
   } beat_t;
 
-  beat_t beat_buf  [0:2];  // the buffered beats (no reset)
-  logic  beat_valid[0:2];  // which of them hold a beat
-  logic [1:0] buf_rd_ptr;
+  beat_t       beat_buf   [0:2];  // the buffered beats (no reset)
+  logic        beat_valid [0:2];  // which of them hold a beat
+  logic  [1:0] buf_rd_ptr;
 
-  logic [2:0] decided_dst, decided_dst_n;
-  logic [7:0] decided_peer, decided_peer_n;
-  logic       decided_bypass, decided_bypass_n;
+  dpe_addr_t decided_dst, decided_dst_n;
+  dpe_peer_idx_t decided_peer, decided_peer_n;
+  logic decided_bypass, decided_bypass_n;
 
   logic [1:0] flush_limit, flush_limit_n;
 
-  logic in_hs;
+  logic  in_hs;
   assign in_hs = s_axis.tvalid && s_axis.tready;
 
   always_comb begin
     unique case (state)
-      S_IDLE,
-      S_COLLECT:  s_axis.tready = 1'b1;                
-      S_DECIDE,
-      S_FLUSH:    s_axis.tready = 1'b0;                
-      S_FWD:      s_axis.tready = m_axis.tready;       
-      default:    s_axis.tready = 1'b0;
+      S_IDLE, S_COLLECT: s_axis.tready = 1'b1;
+      S_DECIDE, S_FLUSH: s_axis.tready = 1'b0;
+      S_FWD:             s_axis.tready = m_axis.tready;
+      default:           s_axis.tready = 1'b0;
     endcase
   end
 
   always_comb begin
-    state_next        = state;
-    decided_dst_n     = decided_dst;
-    decided_peer_n    = decided_peer;
-    decided_bypass_n  = decided_bypass;
-    flush_limit_n     = flush_limit;
-    route_req_valid   = 1'b0;
+    state_next       = state;
+    decided_dst_n    = decided_dst;
+    decided_peer_n   = decided_peer;
+    decided_bypass_n = decided_bypass;
+    flush_limit_n    = flush_limit;
+    route_req_valid  = 1'b0;
 
     case (state)
       S_IDLE: begin
         if (in_hs) begin
           if (s_axis.tuser.bypass_all) begin
-            decided_dst_n     = s_axis.tuser.dst;
-            decided_peer_n    = s_axis.tid;
-            decided_bypass_n  = s_axis.tuser.bypass_stage;
-            flush_limit_n     = 2'd0;
-            state_next        = S_FLUSH;
-          end else begin
-            state_next        = S_COLLECT;
+            decided_dst_n    = s_axis.tuser.dst;
+            decided_peer_n   = s_axis.tid;
+            decided_bypass_n = s_axis.tuser.bypass_stage;
+            flush_limit_n    = 2'd0;
+            state_next       = S_FLUSH;
+          end
+          else begin
+            state_next = S_COLLECT;
           end
         end
       end
@@ -210,36 +224,37 @@ module dpe_egress_ip_lookup #(
           case (beat)
             // Beat 1 corresponds to Beat 2 in waveforms (contains IP:DA3, IP:DA2)
             2'd1: begin
-              ipv4_da[31:24] = s_axis.tdata[119:112]; 
-              ipv4_da[23:16] = s_axis.tdata[127:120]; 
+              ipv4_da[31:24] = s_axis.tdata[119:112];
+              ipv4_da[23:16] = s_axis.tdata[127:120];
             end
 
             // Beat 2 corresponds to Beat 3 in waveforms (contains IP:DA1, IP:DA0)
             2'd2: begin
-              ipv4_da[15: 8] = s_axis.tdata[  7:  0]; 
-              ipv4_da[ 7: 0] = s_axis.tdata[ 15:  8]; 
-              state_next      = S_DECIDE;
+              ipv4_da[15:8] = s_axis.tdata[7:0];
+              ipv4_da[7:0]  = s_axis.tdata[15:8];
+              state_next    = S_DECIDE;
             end
-            
+
             default: ;
           endcase
         end
       end
 
       S_DECIDE: begin
-        route_req_valid   = 1'b1;
-        decided_dst_n     = route_dst;
-        decided_peer_n    = route_peer;
-        decided_bypass_n  = (USE_BYPASS_FROM_MEM) ? route_bypass : s_axis.tuser.bypass_stage;
-        flush_limit_n     = 2'd2;
-        state_next        = S_FLUSH;
+        route_req_valid  = 1'b1;
+        decided_dst_n    = route_dst;
+        decided_peer_n   = route_peer;
+        decided_bypass_n = (USE_BYPASS_FROM_MEM) ? route_bypass : s_axis.tuser.bypass_stage;
+        flush_limit_n    = 2'd2;
+        state_next       = S_FLUSH;
       end
 
       S_FLUSH: begin
         if (m_axis.tready && beat_valid[buf_rd_ptr]) begin
           if (beat_buf[buf_rd_ptr].last) begin
             state_next = S_IDLE;
-          end else if (buf_rd_ptr == flush_limit) begin
+          end
+          else if (buf_rd_ptr == flush_limit) begin
             state_next = S_FWD;
           end
         end
@@ -260,59 +275,71 @@ module dpe_egress_ip_lookup #(
 
   always_ff @(posedge s_axis.clk or posedge s_axis.rst) begin
     if (s_axis.rst) begin
-      state <= S_IDLE;
-      beat  <= 2'd0;
-      buf_rd_ptr <= 2'd0;
-      beat_valid[0] <= 1'b0; beat_valid[1] <= 1'b0; beat_valid[2] <= 1'b0;
-      decided_dst <= 3'd0;
-      decided_peer<= 8'd0;
+      state          <= S_IDLE;
+      beat           <= 2'd0;
+      buf_rd_ptr     <= 2'd0;
+      beat_valid[0]  <= 1'b0;
+      beat_valid[1]  <= 1'b0;
+      beat_valid[2]  <= 1'b0;
+      decided_dst    <= DPE_ADDR_CPU;
+      decided_peer   <= '0;
       decided_bypass <= 1'b0;
-      route_req_ip <= 32'd0;
-      flush_limit  <= 2'd0;
-    end else begin
-      state <= state_next;
+      route_req_ip   <= 32'd0;
+      flush_limit    <= 2'd0;
+    end
+    else begin
+      state       <= state_next;
       flush_limit <= flush_limit_n;
 
       if (state == S_IDLE) begin
-        if (in_hs && !s_axis.tuser.bypass_all) beat <= 2'd1;
-        else                                    beat <= 2'd0;
-      end else if (state == S_COLLECT && in_hs) begin
-        beat <= beat + 2'd1; 
-      end else if (state == S_FWD && in_hs && s_axis.tlast) begin
+        if (in_hs && !s_axis.tuser.bypass_all) begin
+          beat <= 2'd1;
+        end
+        else begin
+          beat <= 2'd0;
+        end
+      end
+      else if (state == S_COLLECT && in_hs) begin
+        beat <= beat + 2'd1;
+      end
+      else if (state == S_FWD && in_hs && s_axis.tlast) begin
         beat <= 2'd0;
       end
 
       if (state == S_IDLE && in_hs) begin
-         beat_valid[0] <= 1'b1;
+        beat_valid[0] <= 1'b1;
       end
 
       if (state == S_COLLECT && in_hs) begin
         beat_valid[beat] <= 1'b1;
 
         if (beat == 2'd1) begin
-            route_req_ip[31:24] <= s_axis.tdata[119:112];
-            route_req_ip[23:16] <= s_axis.tdata[127:120];
+          route_req_ip[31:24] <= s_axis.tdata[119:112];
+          route_req_ip[23:16] <= s_axis.tdata[127:120];
         end
         if (beat == 2'd2) begin
-            route_req_ip[15: 8] <= s_axis.tdata[  7:  0];
-            route_req_ip[ 7: 0] <= s_axis.tdata[ 15:  8];
+          route_req_ip[15:8] <= s_axis.tdata[7:0];
+          route_req_ip[7:0]  <= s_axis.tdata[15:8];
         end
       end
-      
+
       // (FLUSH)
       if (state == S_FLUSH && m_axis.tready && beat_valid[buf_rd_ptr]) begin
         beat_valid[buf_rd_ptr] <= 1'b0;
         if (!beat_buf[buf_rd_ptr].last && (buf_rd_ptr < flush_limit)) begin
           buf_rd_ptr <= buf_rd_ptr + 2'd1;
-        end else begin
-          buf_rd_ptr <= 2'd0; 
+        end
+        else begin
+          buf_rd_ptr <= 2'd0;
         end
       end
 
       // Buffer reset after IDLE
       if (state_next == S_IDLE) begin
-        beat_valid[0] <= 1'b0; beat_valid[1] <= 1'b0; beat_valid[2] <= 1'b0;
-        buf_rd_ptr   <= 2'd0;
+        beat_valid[0] <= 1'b0;
+        beat_valid[1] <= 1'b0;
+        beat_valid[2] <= 1'b0;
+        buf_rd_ptr    <= 2'd0;
       end
 
       decided_dst    <= decided_dst_n;
@@ -337,30 +364,27 @@ module dpe_egress_ip_lookup #(
   end
 
 
-  logic [127:0] flush_tdata;
-  logic [15:0]  flush_tkeep;
-  logic         flush_tlast;
-  logic         flush_tvalid;
+  dpe_data_t        flush_tdata;
+  logic      [15:0] flush_tkeep;
+  logic             flush_tlast;
+  logic             flush_tvalid;
 
-  assign flush_tdata  = beat_buf[buf_rd_ptr].data;
-  assign flush_tkeep  = beat_buf[buf_rd_ptr].keep;
-  assign flush_tlast  = beat_buf[buf_rd_ptr].last;
+  assign flush_tdata = beat_buf[buf_rd_ptr].data;
+  assign flush_tkeep = beat_buf[buf_rd_ptr].keep;
+  assign flush_tlast = beat_buf[buf_rd_ptr].last;
   assign flush_tvalid = (state == S_FLUSH) && beat_valid[buf_rd_ptr];
 
   assign m_axis.tvalid = (state == S_FLUSH) ? flush_tvalid :
                          (state == S_FWD)   ? s_axis.tvalid : 1'b0;
-  assign m_axis.tdata  = (state == S_FLUSH) ? flush_tdata  :
-                         (state == S_FWD)   ? s_axis.tdata  : '0;
-  assign m_axis.tkeep  = (state == S_FLUSH) ? flush_tkeep  :
-                         (state == S_FWD)   ? s_axis.tkeep  : '0;
-  assign m_axis.tlast  = (state == S_FLUSH) ? flush_tlast  :
-                         (state == S_FWD)   ? s_axis.tlast  : 1'b0;
+  assign m_axis.tdata = (state == S_FLUSH) ? flush_tdata : (state == S_FWD) ? s_axis.tdata : '0;
+  assign m_axis.tkeep = (state == S_FLUSH) ? flush_tkeep : (state == S_FWD) ? s_axis.tkeep : '0;
+  assign m_axis.tlast = (state == S_FLUSH) ? flush_tlast : (state == S_FWD) ? s_axis.tlast : 1'b0;
 
-  assign m_axis.tuser.bypass_all   = s_axis.tuser.bypass_all;
-  assign m_axis.tuser.src          = s_axis.tuser.src;
+  assign m_axis.tuser.bypass_all = s_axis.tuser.bypass_all;
+  assign m_axis.tuser.src = s_axis.tuser.src;
   assign m_axis.tuser.bypass_stage = decided_bypass;
-  assign m_axis.tuser.dst          = decided_dst;
-  assign m_axis.tid                = decided_peer;
+  assign m_axis.tuser.dst = decided_dst;
+  assign m_axis.tid = decided_peer;
 
 endmodule
 

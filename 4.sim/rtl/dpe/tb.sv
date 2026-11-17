@@ -125,7 +125,7 @@ module tb;
    dpe_tb_sink #(.NAME("to_eth_4")) snk_eth_4 (.ready(out_ready), .inp(to_eth_4));
 
    // Each output must receive p (from src) when p's dst selects it
-   task automatic expect_on(input test_pkt_t p, input logic [2:0] src);
+   task automatic expect_on(input test_pkt_t p, input dpe_addr_t src);
       ports_t ports;
       ports = ports_of(p.dst);
       if (ports[0]) snk_cpu.expect_pkt(p, src);

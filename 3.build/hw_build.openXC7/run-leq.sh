@@ -84,8 +84,8 @@ files() {  # $1 = 1.hw dir; the design, and what $TOP adds to it
   local x=""
   case $TOP in
     top) ;;
-    leq_dpe_wg_encryptor) x="ip.dpe/dpe_wg_encryptor.sv ip.infra/dpe_if_pipeline.sv" ;;
-    leq_dpe_wg_decryptor) x="ip.dpe/dpe_wg_decryptor.sv ip.infra/dpe_if_pipeline.sv" ;;
+    leq_dpe_wg_encryptor) x="ip.infra/net_pkg.sv ip.dpe/dpe_wg_encryptor.sv ip.infra/dpe_if_pipeline.sv" ;;
+    leq_dpe_wg_decryptor) x="ip.infra/net_pkg.sv ip.dpe/dpe_wg_decryptor.sv ip.infra/dpe_if_pipeline.sv" ;;
     leq_dpe_egress_ip_lookup) x="ip.dpe/dpe_egress_ip_lookup.sv ip.dpe/dpe_route_mem.sv" ;;
     leq_dpe_wg_disassembler) x="ip.infra/net_pkg.sv ip.dpe/dpe_wg_disassembler.sv" ;;
     *) echo "run-leq.sh: no files for top $TOP" >&2 ;;

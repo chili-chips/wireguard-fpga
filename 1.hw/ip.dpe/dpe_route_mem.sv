@@ -47,56 +47,58 @@
 //     where the most specific route is at Index 0.
 //==========================================================================
 
-module dpe_route_mem #(
-  parameter int ENTRY_COUNT     = 64,
-  parameter int ROUTE_IDX_W     = $clog2(ENTRY_COUNT),
-  parameter logic [2:0]  DEFAULT_DST_PORT = 3'd0,
-  parameter logic [7:0]  DEFAULT_PEER_IDX = 8'd0,
-  parameter bit          DEFAULT_BYPASS   = 1'b0
+module dpe_route_mem
+  import dpe_pkg::*;
+#(
+    parameter int            ENTRY_COUNT      = 64,
+    parameter int            ROUTE_IDX_W      = $clog2(ENTRY_COUNT),
+    parameter dpe_addr_t     DEFAULT_DST_PORT = DPE_ADDR_CPU,
+    parameter dpe_peer_idx_t DEFAULT_PEER_IDX = '0,
+    parameter bit            DEFAULT_BYPASS   = 1'b0
 ) (
-  input  logic                     clk,
-  input  logic                     rst,
+    input  logic                            clk,
+    input  logic                            rst,
 
-  // Write Interface
-  input  logic [ROUTE_IDX_W-1:0]   waddr,
-  input  logic                     we_prefix,
-  input  logic [31:0]              wdata_prefix,
-  input  logic                     we_mask,
-  input  logic [31:0]              wdata_mask,
-  input  logic                     we_peer,
-  input  logic [7:0]               wdata_peer,
-  input  logic                     we_dst,
-  input  logic [2:0]               wdata_dst,
+    // Write Interface
+    input  logic          [ROUTE_IDX_W-1:0] waddr,
+    input  logic                            we_prefix,
+    input  logic          [           31:0] wdata_prefix,
+    input  logic                            we_mask,
+    input  logic          [           31:0] wdata_mask,
+    input  logic                            we_peer,
+    input  dpe_peer_idx_t                   wdata_peer,
+    input  logic                            we_dst,
+    input  dpe_addr_t                       wdata_dst,
 
-  // Read Interface
-  input  logic [ROUTE_IDX_W-1:0]   raddr,
-  output logic [31:0]              rdata_prefix,
-  output logic [31:0]              rdata_mask,
-  output logic [7:0]               rdata_peer,
-  output logic [2:0]               rdata_dst,
+    // Read Interface
+    input  logic          [ROUTE_IDX_W-1:0] raddr,
+    output logic          [           31:0] rdata_prefix,
+    output logic          [           31:0] rdata_mask,
+    output dpe_peer_idx_t                   rdata_peer,
+    output dpe_addr_t                       rdata_dst,
 
-  // Lookup Interface
-  input  logic [31:0]              req_ip,
-  input  logic                     req_valid,     
-  output logic                     resp_hit,
-  output logic [ROUTE_IDX_W-1:0]   resp_route_idx,
-  output logic [2:0]               resp_dst,
-  output logic [7:0]               resp_peer,
-  output logic                     resp_bypass
+    // Lookup Interface
+    input  logic          [           31:0] req_ip,
+    input  logic                            req_valid,
+    output logic                            resp_hit,
+    output logic          [ROUTE_IDX_W-1:0] resp_route_idx,
+    output dpe_addr_t                       resp_dst,
+    output dpe_peer_idx_t                   resp_peer,
+    output logic                            resp_bypass
 );
 
   // Debug signals
-  logic [31:0] debug_mask_0;
-  logic [31:0] debug_mask_1;
-  
-  // Storage arrays
-  logic [31:0] cam_prefix [ENTRY_COUNT];
-  logic [31:0] cam_mask   [ENTRY_COUNT];
-  
+  logic          [31:0] debug_mask_0;
+  logic          [31:0] debug_mask_1;
 
-  logic [2:0]  ram_dst    [ENTRY_COUNT];
-  logic [7:0]  ram_peer   [ENTRY_COUNT];
-  logic        ram_bypass [ENTRY_COUNT];
+  // Storage arrays
+  logic          [31:0] cam_prefix   [ENTRY_COUNT];
+  logic          [31:0] cam_mask     [ENTRY_COUNT];
+
+
+  dpe_addr_t            ram_dst      [ENTRY_COUNT];
+  dpe_peer_idx_t        ram_peer     [ENTRY_COUNT];
+  logic                 ram_bypass   [ENTRY_COUNT];
 
   assign debug_mask_0 = cam_mask[0];
   assign debug_mask_1 = cam_mask[1];
@@ -105,10 +107,18 @@ module dpe_route_mem #(
   // WRITE LOGIC
   // ---------------------------
   always_ff @(posedge clk) begin
-    if (we_prefix) cam_prefix[waddr] <= wdata_prefix;
-    if (we_mask)   cam_mask  [waddr] <= wdata_mask;       
-    if (we_peer)   ram_peer  [waddr] <= wdata_peer;
-    if (we_dst)    ram_dst   [waddr] <= wdata_dst;
+    if (we_prefix) begin
+      cam_prefix[waddr] <= wdata_prefix;
+    end
+    if (we_mask) begin
+      cam_mask[waddr] <= wdata_mask;
+    end
+    if (we_peer) begin
+      ram_peer[waddr] <= wdata_peer;
+    end
+    if (we_dst) begin
+      ram_dst[waddr] <= wdata_dst;
+    end
   end
 
   // ---------------------------
@@ -116,9 +126,9 @@ module dpe_route_mem #(
   // ---------------------------
   always_ff @(posedge clk) begin
     rdata_prefix <= cam_prefix[raddr];
-    rdata_mask   <= cam_mask  [raddr];
-    rdata_peer   <= ram_peer  [raddr];
-    rdata_dst    <= ram_dst   [raddr];
+    rdata_mask   <= cam_mask[raddr];
+    rdata_peer   <= ram_peer[raddr];
+    rdata_dst    <= ram_dst[raddr];
   end
 
   // ---------------------------
@@ -133,9 +143,9 @@ module dpe_route_mem #(
     end
   endgenerate
 
-  logic [ROUTE_IDX_W-1:0] best_idx;
-  logic                   hit_found;
-  integer i;
+  logic   [ROUTE_IDX_W-1:0] best_idx;
+  logic                     hit_found;
+  integer                   i;
 
   always_comb begin
     best_idx  = '0;
@@ -143,9 +153,9 @@ module dpe_route_mem #(
 
     for (i = 0; i < ENTRY_COUNT; i++) begin
       if (hit_vec[i]) begin
-        if (!hit_found) begin 
-            hit_found = 1'b1;
-            best_idx  = i[ROUTE_IDX_W-1:0];
+        if (!hit_found) begin
+          hit_found = 1'b1;
+          best_idx  = i[ROUTE_IDX_W-1:0];
         end
       end
     end
@@ -153,7 +163,7 @@ module dpe_route_mem #(
 
   assign resp_hit       = hit_found;
   assign resp_route_idx = hit_found ? best_idx : '0;
-  
+
   assign resp_dst       = hit_found ? ram_dst[best_idx]    : DEFAULT_DST_PORT;
   assign resp_peer      = hit_found ? ram_peer[best_idx]   : DEFAULT_PEER_IDX;
   assign resp_bypass    = hit_found ? ram_bypass[best_idx] : DEFAULT_BYPASS;

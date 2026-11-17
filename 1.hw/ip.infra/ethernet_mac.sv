@@ -40,7 +40,9 @@
 //   Triple-Speed Ethernet Wrapper
 //==========================================================================
 
-module ethernet_mac (
+module ethernet_mac
+  import dpe_pkg::*;
+(
     input  logic       gtx_clk,
     input  logic       gtx_rst,
     input  logic       gmii_rx_clk,
@@ -60,9 +62,9 @@ module ethernet_mac (
       .TARGET            ("XILINX"),
       .IODDR_STYLE       ("IODDR"),
       .CLOCK_INPUT_STYLE ("BUFG"),
-      .AXIS_DATA_WIDTH   (128),
+      .AXIS_DATA_WIDTH   (DPE_DATA_W),
       .AXIS_KEEP_ENABLE  (1),
-      .AXIS_KEEP_WIDTH   (16),
+      .AXIS_KEEP_WIDTH   (DPE_KEEP_W),
       .ENABLE_PADDING    (1),
       .MIN_FRAME_LENGTH  (64),
       .TX_FIFO_DEPTH     (4096),

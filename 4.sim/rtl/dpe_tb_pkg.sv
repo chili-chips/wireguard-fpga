@@ -12,13 +12,15 @@ package dpe_tb_pkg;
   import dpe_pkg::*;
 
   localparam int MAX_BYTES = 6;
+  typedef logic [7:0] byte_t;
+  typedef logic [$clog2(MAX_BYTES+1)-1:0] len_t;  // a packet length, 0 to MAX_BYTES
 
   // One packet: one byte per beat, in tdata[7:0]
   typedef struct packed {
-    logic [2:0]                    dst;   // tuser_dst: DPE_ADDR_*
-    logic [3:0]                    len;   // bytes used, 1 to MAX_BYTES
+    dpe_addr_t                     dst;   // tuser_dst
+    len_t                          len;   // bytes used, 1 to MAX_BYTES
     // verilator lint_off ASCRANGE
-    logic [0:MAX_BYTES-1][7:0]     data;  // data[0] goes first
+    byte_t [0:MAX_BYTES-1]         data;  // data[0] goes first
     // verilator lint_on ASCRANGE
   } test_pkt_t;
 
@@ -26,7 +28,7 @@ package dpe_tb_pkg;
   typedef logic [4:0] ports_t;
 
   // The outputs a destination selects (dpe_demultiplexer.sv)
-  function automatic ports_t ports_of(logic [2:0] dst);
+  function automatic ports_t ports_of(dpe_addr_t dst);
     ports_of[0] = (dst == DPE_ADDR_CPU)   || (dst == DPE_ADDR_BCAST);
     ports_of[1] = (dst == DPE_ADDR_ETH_1) || (dst == DPE_ADDR_MCAST_13) || (dst == DPE_ADDR_BCAST);
     ports_of[2] = (dst == DPE_ADDR_ETH_2) || (dst == DPE_ADDR_MCAST_24) || (dst == DPE_ADDR_BCAST);

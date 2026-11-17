@@ -22,7 +22,7 @@
 `define _NET_PKG
 package net_pkg;
 
-  localparam int BEAT_BYTES = 16;  // dpe_if tdata: 128 bits
+  localparam int BEAT_BYTES = dpe_pkg::DPE_DATA_BYTES;  // dpe_if tdata: 128 bits
   typedef logic [8*BEAT_BYTES-1:0] beat_t;
 
   //------------------------------------------------------------------
@@ -55,11 +55,21 @@ package net_pkg;
   localparam int WG_COUNTER_OFFSET = WG_OFFSET + 8;  // 8 bytes, little-endian
 
   //------------------------------------------------------------------
+  // Field types
+  typedef logic [47:0] mac_addr_t;
+  typedef logic [31:0] ipv4_addr_t;
+  typedef logic [15:0] udp_port_t;
+  typedef logic [15:0] len16_t;  // an IPv4 or UDP length
+  typedef logic [31:0] wg_receiver_t;  // WireGuard receiver (and sender) index
+  typedef logic [63:0] wg_counter_t;  // WireGuard nonce counter
+  typedef logic [255:0] wg_key_t;  // ChaCha20-Poly1305 key
+
+  //------------------------------------------------------------------
   // Protocol constants (natural values)
   localparam logic [15:0] ETHERTYPE_IPV4 = 16'h0800;
-  localparam logic [3:0] IPV4_VERSION = 4'd4;
-  localparam logic [7:0] IP_PROTO_UDP = 8'd17;
-  localparam logic [31:0] WG_TYPE_DATA = 32'd4;  // transport data message
+  localparam logic [ 3:0] IPV4_VERSION   = 4'd4;
+  localparam logic [ 7:0] IP_PROTO_UDP   = 8'd17;
+  localparam logic [31:0] WG_TYPE_DATA   = 32'd4;     // transport data message
 
   //------------------------------------------------------------------
   // Which beat holds frame byte `offset`, and where in it

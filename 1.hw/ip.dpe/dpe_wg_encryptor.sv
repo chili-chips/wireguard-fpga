@@ -41,445 +41,479 @@
 //==========================================================================
 
 module dpe_wg_encryptor (
-   dpe_if.s_axis        inp,
-   dpe_if.m_axis        outp,
+    dpe_if.s_axis        inp,
+    dpe_if.m_axis        outp,
 
-   output logic         fcr_idle,
+    output logic         fcr_idle,
 
-   output logic [7:0]   ram_peer_idx,
-   input  logic [47:0]  ram_local_mac,
-   input  logic [31:0]  ram_local_ip,
-   input  logic [15:0]  ram_local_port,
-   input  logic [47:0]  ram_remote_mac,
-   input  logic [31:0]  ram_remote_ip,
-   input  logic [15:0]  ram_remote_port,
-   input  logic [31:0]  ram_remote_id,
-   input  logic [255:0] ram_encrypt_key,
-   input  logic [63:0]  ram_send_cnt,
-   output logic [63:0]  ram_new_send_cnt,
-   output logic         ram_update_send_cnt
+    output logic [  7:0] ram_peer_idx,
+    input  logic [ 47:0] ram_local_mac,
+    input  logic [ 31:0] ram_local_ip,
+    input  logic [ 15:0] ram_local_port,
+    input  logic [ 47:0] ram_remote_mac,
+    input  logic [ 31:0] ram_remote_ip,
+    input  logic [ 15:0] ram_remote_port,
+    input  logic [ 31:0] ram_remote_id,
+    input  logic [255:0] ram_encrypt_key,
+    input  logic [ 63:0] ram_send_cnt,
+    output logic [ 63:0] ram_new_send_cnt,
+    output logic         ram_update_send_cnt
 );
-   import dpe_pkg::*;
+  import dpe_pkg::*;
+  import net_pkg::*;
 
-   typedef enum logic [3:0] {
-      IDLE,
-      BYPASS,
-      WAIT_RAM,
-      HEADER_1,
-      HEADER_2,
-      HEADER_3,
-      HEADER_4,
-      PAYLOAD,
-      PAYLOAD_LAST
-   } state_t;
+  typedef enum logic [3:0] {
+    IDLE,
+    BYPASS,
+    WAIT_RAM,
+    HEADER_1,
+    HEADER_2,
+    HEADER_3,
+    HEADER_4,
+    PAYLOAD,
+    PAYLOAD_LAST
+  } state_t;
 
-// Internal states
-   state_t state, state_next;
-   logic [2:0] tuser_dst, tuser_dst_next;
-   logic [2:0] tuser_src, tuser_src_next;
-   logic [7:0] peer_idx, peer_idx_next;
-   logic [47:0] local_mac, local_mac_next;
-   logic [31:0] local_ip, local_ip_next;
-   logic [15:0] local_port, local_port_next;
-   logic [47:0] remote_mac, remote_mac_next;
-   logic [31:0] remote_ip, remote_ip_next;
-   logic [15:0] remote_port, remote_port_next;
-   logic [31:0] remote_id, remote_id_next;
-   logic [255:0] encrypt_key, encrypt_key_next;
-   logic [63:0] send_cnt, send_cnt_next;
-   logic [63:0] new_send_cnt, new_send_cnt_next;
-   logic update_send_cnt, update_send_cnt_next;
-   logic [127:0] plaintext_data, plaintext_data_next;
-   logic plaintext_valid, plaintext_valid_next;
-   logic [127:0] encrypted_data, encrypted_data_next;
-   logic input_finished, input_finished_next;
-   logic [15:0] packet_ip_len, packet_ip_len_next;
-   logic [15:0] packet_udp_len, packet_udp_len_next;
+  // Internal states
+  state_t state, state_next;
+  dpe_addr_t tuser_dst, tuser_dst_next;
+  dpe_addr_t tuser_src, tuser_src_next;
+  dpe_peer_idx_t peer_idx, peer_idx_next;
+  mac_addr_t local_mac, local_mac_next;
+  ipv4_addr_t local_ip, local_ip_next;
+  udp_port_t local_port, local_port_next;
+  mac_addr_t remote_mac, remote_mac_next;
+  ipv4_addr_t remote_ip, remote_ip_next;
+  udp_port_t remote_port, remote_port_next;
+  wg_receiver_t remote_id, remote_id_next;
+  wg_key_t encrypt_key, encrypt_key_next;
+  wg_counter_t send_cnt, send_cnt_next;
+  wg_counter_t new_send_cnt, new_send_cnt_next;
+  logic update_send_cnt, update_send_cnt_next;
+  logic [DPE_DATA_W-1:0] plaintext_data, plaintext_data_next;
+  logic plaintext_valid, plaintext_valid_next;
+  logic [DPE_DATA_W-1:0] encrypted_data, encrypted_data_next;
+  logic input_finished, input_finished_next;
+  len16_t packet_ip_len, packet_ip_len_next;
+  len16_t packet_udp_len, packet_udp_len_next;
 
-// Internal signals
-   dpe_if to_encrypt (.clk(inp.clk), .rst(inp.rst));
-   dpe_if from_encrypt (.clk(inp.clk), .rst(inp.rst));
-   dpe_if piped (.clk(inp.clk), .rst(inp.rst));
-   dpe_if muxed (.clk(inp.clk), .rst(inp.rst));
+  // Internal signals
+  dpe_if to_encrypt (
+      .clk (inp.clk),
+      .rst (inp.rst)
+  );
+  dpe_if from_encrypt (
+      .clk (inp.clk),
+      .rst (inp.rst)
+  );
+  dpe_if piped (
+      .clk (inp.clk),
+      .rst (inp.rst)
+  );
+  dpe_if muxed (
+      .clk (inp.clk),
+      .rst (inp.rst)
+  );
 
-// FSM registers
-   always_ff @(posedge inp.clk) begin
-      if (inp.rst) begin
-         state <= IDLE;
-         tuser_dst <= '0;
-         tuser_src <= '0;
-         peer_idx <= '0;
-         local_mac <= '0;
-         local_ip <= '0;
-         local_port <= '0;
-         remote_ip <= '0;
-         remote_port <= '0;
-         remote_id <= '0;
-         encrypt_key <= '0;
-         send_cnt <= '0;
-         new_send_cnt <= '0;
-         update_send_cnt <= '0;
-         plaintext_data <= '0;
-         plaintext_valid <= 1'b0;
-         encrypted_data <= '0;
-         input_finished <= 1'b0;
-         packet_ip_len <= '0;
-         packet_udp_len <= '0;
-      end else begin
-         state <= state_next;
-         tuser_dst <= tuser_dst_next;
-         tuser_src <= tuser_src_next;
-         peer_idx <= peer_idx_next;
-         local_mac <= local_mac_next;
-         local_ip <= local_ip_next;
-         local_port <= local_port_next;
-         remote_mac <= remote_mac_next;
-         remote_ip <= remote_ip_next;
-         remote_port <= remote_port_next;
-         remote_id <= remote_id_next;
-         encrypt_key <= encrypt_key_next;
-         send_cnt <= send_cnt_next;
-         new_send_cnt <= new_send_cnt_next;
-         update_send_cnt <= update_send_cnt_next;
-         plaintext_data <= plaintext_data_next;
-         plaintext_valid <= plaintext_valid_next;
-         encrypted_data <= encrypted_data_next;
-         input_finished <= input_finished_next;
-         packet_ip_len <= packet_ip_len_next;
-         packet_udp_len <= packet_udp_len_next;
+  // FSM registers
+  always_ff @(posedge inp.clk) begin
+    if (inp.rst) begin
+      state           <= IDLE;
+      tuser_dst       <= DPE_ADDR_CPU;
+      tuser_src       <= DPE_ADDR_CPU;
+      peer_idx        <= '0;
+      local_mac       <= '0;
+      local_ip        <= '0;
+      local_port      <= '0;
+      remote_ip       <= '0;
+      remote_port     <= '0;
+      remote_id       <= '0;
+      encrypt_key     <= '0;
+      send_cnt        <= '0;
+      new_send_cnt    <= '0;
+      update_send_cnt <= '0;
+      plaintext_data  <= '0;
+      plaintext_valid <= 1'b0;
+      encrypted_data  <= '0;
+      input_finished  <= 1'b0;
+      packet_ip_len   <= '0;
+      packet_udp_len  <= '0;
+    end
+    else begin
+      state           <= state_next;
+      tuser_dst       <= tuser_dst_next;
+      tuser_src       <= tuser_src_next;
+      peer_idx        <= peer_idx_next;
+      local_mac       <= local_mac_next;
+      local_ip        <= local_ip_next;
+      local_port      <= local_port_next;
+      remote_mac      <= remote_mac_next;
+      remote_ip       <= remote_ip_next;
+      remote_port     <= remote_port_next;
+      remote_id       <= remote_id_next;
+      encrypt_key     <= encrypt_key_next;
+      send_cnt        <= send_cnt_next;
+      new_send_cnt    <= new_send_cnt_next;
+      update_send_cnt <= update_send_cnt_next;
+      plaintext_data  <= plaintext_data_next;
+      plaintext_valid <= plaintext_valid_next;
+      encrypted_data  <= encrypted_data_next;
+      input_finished  <= input_finished_next;
+      packet_ip_len   <= packet_ip_len_next;
+      packet_udp_len  <= packet_udp_len_next;
+    end
+  end
+
+  // FSM transition logic
+  always_comb begin
+    state_next           = state;
+    tuser_dst_next       = tuser_dst;
+    tuser_src_next       = tuser_src;
+    peer_idx_next        = peer_idx;
+    local_mac_next       = local_mac;
+    local_ip_next        = local_ip;
+    local_port_next      = local_port;
+    remote_mac_next      = remote_mac;
+    remote_ip_next       = remote_ip;
+    remote_port_next     = remote_port;
+    remote_id_next       = remote_id;
+    encrypt_key_next     = encrypt_key;
+    send_cnt_next        = send_cnt;
+    new_send_cnt_next    = new_send_cnt;
+    update_send_cnt_next = update_send_cnt;
+    plaintext_data_next  = plaintext_data;
+    plaintext_valid_next = plaintext_valid;
+    encrypted_data_next  = encrypted_data;
+    input_finished_next  = input_finished;
+    packet_ip_len_next   = packet_ip_len;
+    packet_udp_len_next  = packet_udp_len;
+
+    unique case (state)
+      IDLE: begin
+        if (inp.tvalid && inp.tready) begin
+          if (inp.tuser.bypass_stage || inp.tuser.bypass_all) begin
+            state_next = BYPASS;
+          end
+          else begin
+            tuser_dst_next = inp.tuser.dst;
+            tuser_src_next = inp.tuser.src;
+            peer_idx_next  = inp.tid;
+            state_next     = WAIT_RAM;
+          end
+        end
       end
-   end
 
-// FSM transition logic
-   always_comb begin
-      state_next = state;
-      tuser_dst_next = tuser_dst;
-      tuser_src_next = tuser_src;
-      peer_idx_next = peer_idx;
-      local_mac_next = local_mac;
-      local_ip_next = local_ip;
-      local_port_next = local_port;
-      remote_mac_next = remote_mac;
-      remote_ip_next = remote_ip;
-      remote_port_next = remote_port;
-      remote_id_next = remote_id;
-      encrypt_key_next = encrypt_key;
-      send_cnt_next = send_cnt;
-      new_send_cnt_next = new_send_cnt;
-      update_send_cnt_next = update_send_cnt;
-      plaintext_data_next = plaintext_data;
-      plaintext_valid_next = plaintext_valid;
-      encrypted_data_next = encrypted_data;
-      input_finished_next = input_finished;
-      packet_ip_len_next = packet_ip_len;
-      packet_udp_len_next = packet_udp_len;
+      BYPASS: begin
+        if (inp.tlast && inp.tvalid) begin
+          state_next = IDLE;
+        end
+      end
 
-      unique case (state)
-         IDLE: begin
-            if (inp.tvalid && inp.tready) begin
-               if (inp.tuser.bypass_stage || inp.tuser.bypass_all) begin
-                  state_next = BYPASS;
-               end else begin
-                  tuser_dst_next = inp.tuser.dst;
-                  tuser_src_next = inp.tuser.src;
-                  peer_idx_next = inp.tid;
-                  state_next = WAIT_RAM;
-               end
-            end
-         end
+      WAIT_RAM: begin
+        local_mac_next   = ram_local_mac;
+        local_ip_next    = ram_local_ip;
+        local_port_next  = ram_local_port;
+        remote_mac_next  = ram_remote_mac;
+        remote_ip_next   = ram_remote_ip;
+        remote_port_next = ram_remote_port;
+        remote_id_next   = ram_remote_id;
+        encrypt_key_next = ram_encrypt_key;
+        send_cnt_next    = ram_send_cnt;
 
-         BYPASS: begin
-            if (inp.tlast && inp.tvalid) begin
-               state_next = IDLE;
-            end
-         end
+        if (piped.tvalid && piped.tready) begin
+          plaintext_data_next = piped.tdata;
+        end
+        plaintext_valid_next = piped.tvalid;
 
-         WAIT_RAM: begin
-            local_mac_next = ram_local_mac;
-            local_ip_next = ram_local_ip;
-            local_port_next = ram_local_port;
-            remote_mac_next = ram_remote_mac;
-            remote_ip_next = ram_remote_ip;
-            remote_port_next = ram_remote_port;
-            remote_id_next = ram_remote_id;
-            encrypt_key_next = ram_encrypt_key;
-            send_cnt_next = ram_send_cnt;
+        if (muxed.tready) begin
+          state_next = HEADER_1;
+        end
+      end
 
-            if (piped.tvalid && piped.tready) begin
-               plaintext_data_next = piped.tdata;
-            end
-            plaintext_valid_next = piped.tvalid;
+      HEADER_1: begin
+        if (piped.tvalid && piped.tready) begin
+          plaintext_data_next       = piped.tdata;
+          /* verilator lint_off WIDTHEXPAND */
+          /* verilator lint_off WIDTHTRUNC */
+          packet_ip_len_next[15:0]  = {piped.tdata[7:0], piped.tdata[15:12], 4'd0} + 16'd76;
+          packet_udp_len_next[15:0] = {piped.tdata[7:0], piped.tdata[15:12], 4'd0} + 16'd56;
+          /* verilator lint_on WIDTHEXPAND */
+          /* verilator lint_on WIDTHTRUNC */
+          state_next                = HEADER_2;
+        end
+        plaintext_valid_next = piped.tvalid;
+      end
 
-            if (muxed.tready) begin
-               state_next = HEADER_1;
-            end
-         end
+      HEADER_2: begin
+        if (piped.tvalid && piped.tready) begin
+          plaintext_data_next = piped.tdata;
+          if (piped.tlast) begin
+            input_finished_next = 1'b1;
+          end
+          state_next = HEADER_3;
+        end
+        plaintext_valid_next = piped.tvalid;
+      end
 
-         HEADER_1: begin
-            if (piped.tvalid && piped.tready) begin
-               plaintext_data_next = piped.tdata;
-               /* verilator lint_off WIDTHEXPAND */
-               /* verilator lint_off WIDTHTRUNC */
-               packet_ip_len_next[15:0] = {piped.tdata[7:0], piped.tdata[15:12], 4'd0} + 16'd76;
-               packet_udp_len_next[15:0] = {piped.tdata[7:0], piped.tdata[15:12], 4'd0} + 16'd56;
-               /* verilator lint_on WIDTHEXPAND */
-               /* verilator lint_on WIDTHTRUNC */
-               state_next = HEADER_2;
-            end
-            plaintext_valid_next = piped.tvalid;
-         end
+      HEADER_3: begin
+        if (piped.tvalid && piped.tready) begin
+          plaintext_data_next = piped.tdata;
+          if (piped.tlast) begin
+            input_finished_next = 1'b1;
+          end
+          state_next = HEADER_4;
+        end
+        plaintext_valid_next = piped.tvalid;
+      end
 
-         HEADER_2: begin
-            if (piped.tvalid && piped.tready) begin
-               plaintext_data_next = piped.tdata;
-               if (piped.tlast) begin
-                  input_finished_next = 1'b1;
-               end
-               state_next = HEADER_3;
-            end
-            plaintext_valid_next = piped.tvalid;
-         end
+      HEADER_4: begin
+        if (piped.tvalid && piped.tready) begin
+          plaintext_data_next = piped.tdata;
+          if (piped.tlast) begin
+            input_finished_next = 1'b1;
+          end
+        end
+        plaintext_valid_next = piped.tvalid;
 
-         HEADER_3: begin
-            if (piped.tvalid && piped.tready) begin
-               plaintext_data_next = piped.tdata;
-               if (piped.tlast) begin
-                  input_finished_next = 1'b1;
-               end
-               state_next = HEADER_4;
-            end
-            plaintext_valid_next = piped.tvalid;
-         end
+        if (muxed.tready && from_encrypt.tvalid) begin
+          encrypted_data_next = from_encrypt.tdata;
+          state_next          = PAYLOAD;
+        end
+      end
 
-         HEADER_4: begin
-            if (piped.tvalid && piped.tready) begin
-               plaintext_data_next = piped.tdata;
-               if (piped.tlast) begin
-                  input_finished_next = 1'b1;
-               end
-            end
-            plaintext_valid_next = piped.tvalid;
+      PAYLOAD: begin
+        if (piped.tvalid && piped.tready) begin
+          plaintext_data_next = piped.tdata;
+          if (piped.tlast) begin
+            input_finished_next = 1'b1;
+          end
+        end
+        plaintext_valid_next = piped.tvalid;
 
-            if (muxed.tready && from_encrypt.tvalid) begin
-               encrypted_data_next = from_encrypt.tdata;
-               state_next = PAYLOAD;
-            end
-         end
+        if (muxed.tready && from_encrypt.tvalid) begin
+          encrypted_data_next = from_encrypt.tdata;
+          if (from_encrypt.tlast) begin
+            new_send_cnt_next    = send_cnt + 1;
+            update_send_cnt_next = 1'b1;
+            state_next           = PAYLOAD_LAST;
+          end
+        end
+      end
 
-         PAYLOAD: begin
-            if (piped.tvalid && piped.tready) begin
-               plaintext_data_next = piped.tdata;
-               if (piped.tlast) begin
-                  input_finished_next = 1'b1;
-               end
-            end
-            plaintext_valid_next = piped.tvalid;
+      PAYLOAD_LAST: begin
+        update_send_cnt_next = 1'b0;
+        if (muxed.tready) begin
+          input_finished_next = 1'b0;
+          state_next          = IDLE;
+        end
+      end
 
-            if (muxed.tready && from_encrypt.tvalid) begin
-               encrypted_data_next = from_encrypt.tdata;
-               if (from_encrypt.tlast) begin
-                  new_send_cnt_next = send_cnt + 1;
-                  update_send_cnt_next = 1'b1;
-                  state_next = PAYLOAD_LAST;
-               end
-            end
-         end
+      default: state_next = IDLE;
+    endcase
+  end
 
-         PAYLOAD_LAST: begin
-            update_send_cnt_next = 1'b0;
-            if (muxed.tready) begin
-               input_finished_next = 1'b0;
-               state_next = IDLE;
-            end
-         end
+  // Outputs logic
+  always_comb begin
+    to_encrypt.tvalid = 1'b0;
+    to_encrypt.tdata  = '0;
+    to_encrypt.tlast  = 1'b0;
+    to_encrypt.tkeep  = '0;
 
-         default: state_next = IDLE;
-      endcase
-   end
+    muxed.tvalid      = 1'b0;
+    muxed.tdata       = '0;
+    muxed.tlast       = 1'b0;
+    muxed.tkeep       = '0;
+    muxed.tuser       = '0;
+    muxed.tid         = '0;
 
-// Outputs logic
-   always_comb begin
-      to_encrypt.tvalid = 1'b0;
-      to_encrypt.tdata = '0;
-      to_encrypt.tlast = 1'b0;
-      to_encrypt.tkeep = '0;
+    unique case (state)
+      IDLE, BYPASS: begin
+        muxed.tvalid = piped.tvalid;
+        muxed.tdata  = piped.tdata;
+        muxed.tlast  = piped.tlast;
+        muxed.tkeep  = piped.tkeep;
+        muxed.tuser  = piped.tuser;
+        muxed.tid    = piped.tid;
+      end
 
-      muxed.tvalid = 1'b0;
-      muxed.tdata = '0;
-      muxed.tlast = 1'b0;
-      muxed.tkeep = '0;
-      muxed.tuser = '0;
-      muxed.tid = '0;
+      WAIT_RAM: begin
+        //NOP
+      end
 
-      unique case (state)
-         IDLE, BYPASS: begin
-            muxed.tvalid = piped.tvalid;
-            muxed.tdata = piped.tdata;
-            muxed.tlast = piped.tlast;
-            muxed.tkeep = piped.tkeep;
-            muxed.tuser = piped.tuser;
-            muxed.tid = piped.tid;
-         end
+      HEADER_1: begin
+        to_encrypt.tvalid        = piped.tvalid;
+        to_encrypt.tdata         = {piped.tdata[111:0], plaintext_data[127:112]};
+        to_encrypt.tlast         = 1'b0;
+        to_encrypt.tkeep         = 16'hFFFF;
 
-         WAIT_RAM: begin
-            //NOP
-         end
+        muxed.tvalid             = 1'b1;
+        // most significant first: IP DSCP, IP version/IHL, EtherType, src MAC, dst MAC
+        muxed.tdata              = {8'h00, 8'h45, 16'h0008, local_mac, remote_mac};
+        muxed.tlast              = 1'b0;
+        muxed.tkeep              = 16'hFFFF;
+        muxed.tuser.bypass_all   = 1'b0;
+        muxed.tuser.bypass_stage = 1'b0;
+        muxed.tuser.dst          = tuser_dst;
+        muxed.tuser.src          = tuser_src;
+        muxed.tid                = peer_idx;
+      end
 
-         HEADER_1: begin
-            to_encrypt.tvalid = piped.tvalid;
-            to_encrypt.tdata = {piped.tdata[111:0], plaintext_data[127:112]};
-            to_encrypt.tlast = 1'b0;
-            to_encrypt.tkeep = 16'hFFFF;
+      HEADER_2: begin
+        to_encrypt.tvalid = piped.tvalid;
+        to_encrypt.tdata = {piped.tdata[111:0], plaintext_data[127:112]};
+        to_encrypt.tlast = 1'b0;
+        to_encrypt.tkeep = 16'hFFFF;
 
-            muxed.tvalid = 1'b1;
-            //             IP:DSCP IP:VER ETH:TL    ETH:SA     ETH:DA
-            muxed.tdata = {8'h00, 8'h45, 16'h0008, local_mac, remote_mac};
-            muxed.tlast = 1'b0;
-            muxed.tkeep = 16'hFFFF;
-            muxed.tuser.bypass_all = 1'b0;
-            muxed.tuser.bypass_stage = 1'b0;
-            muxed.tuser.dst = tuser_dst;
-            muxed.tuser.src = tuser_src;
-            muxed.tid = peer_idx;
-         end
+        muxed.tvalid = 1'b1;
+        // most significant first
+        muxed.tdata = {
+          remote_ip[15:0],  // IP dst address [15:0]
+          local_ip[31:0],  // IP src address
+          16'h0000,  // IP header checksum
+          8'h11,  // IP protocol: UDP
+          8'd64,  // IP TTL
+          16'h0000,  // IP flags, fragment offset
+          16'h0000,  // IP identification
+          packet_ip_len[7:0],  // IP total length (big-endian)
+          packet_ip_len[15:8]
+        };
+        muxed.tlast = 1'b0;
+        muxed.tkeep = 16'hFFFF;
+        muxed.tuser.bypass_all = 1'b0;
+        muxed.tuser.bypass_stage = 1'b0;
+        muxed.tuser.dst = tuser_dst;
+        muxed.tuser.src = tuser_src;
+        muxed.tid = peer_idx;
+      end
 
-         HEADER_2: begin
-            to_encrypt.tvalid = piped.tvalid;
-            to_encrypt.tdata = {piped.tdata[111:0], plaintext_data[127:112]};
-            to_encrypt.tlast = 1'b0;
-            to_encrypt.tkeep = 16'hFFFF;
+      HEADER_3: begin
+        to_encrypt.tvalid = (piped.tkeep[15:14] == 2'b00) ? plaintext_valid : piped.tvalid;
+        to_encrypt.tdata = {piped.tdata[111:0], plaintext_data[127:112]};
+        to_encrypt.tlast = (piped.tkeep[15:14] == 2'b00) ? 1'b1 : 1'b0;
+        to_encrypt.tkeep = 16'hFFFF;
 
-            muxed.tvalid = 1'b1;
-            //             IP:DA            IP:SA           IP:HCHK  IP:PROT IP:TTL IP:FLG    IP:ID     IP:TL
-            muxed.tdata = {remote_ip[15:0], local_ip[31:0], 16'h0000, 8'h11, 8'd64, 16'h0000, 16'h0000, packet_ip_len[7:0], packet_ip_len[15:8]};
-            muxed.tlast = 1'b0;
-            muxed.tkeep = 16'hFFFF;
-            muxed.tuser.bypass_all = 1'b0;
-            muxed.tuser.bypass_stage = 1'b0;
-            muxed.tuser.dst = tuser_dst;
-            muxed.tuser.src = tuser_src;
-            muxed.tid = peer_idx;
-         end
+        muxed.tvalid = 1'b1;
+        // most significant first
+        muxed.tdata = {
+          remote_id[15:0],  // WireGuard receiver index [15:0]
+          32'h00000004,  // WireGuard type: transport data
+          16'h0000,  // UDP checksum
+          packet_udp_len[7:0],  // UDP length (big-endian)
+          packet_udp_len[15:8],
+          remote_port,  // UDP dst port
+          local_port,  // UDP src port
+          remote_ip[31:16]  // IP dst address [31:16]
+        };
+        muxed.tlast = 1'b0;
+        muxed.tkeep = 16'hFFFF;
+        muxed.tuser.bypass_all = 1'b0;
+        muxed.tuser.bypass_stage = 1'b0;
+        muxed.tuser.dst = tuser_dst;
+        muxed.tuser.src = tuser_src;
+        muxed.tid = peer_idx;
+      end
 
-         HEADER_3: begin
-            to_encrypt.tvalid = (piped.tkeep[15:14] == 2'b00) ? plaintext_valid : piped.tvalid;
-            to_encrypt.tdata = {piped.tdata[111:0], plaintext_data[127:112]};
-            to_encrypt.tlast = (piped.tkeep[15:14] == 2'b00) ? 1'b1 : 1'b0;
-            to_encrypt.tkeep = 16'hFFFF;
+      HEADER_4: begin
+        to_encrypt.tvalid        = (piped.tkeep[15:14] == 2'b00) ? plaintext_valid : piped.tvalid;
+        to_encrypt.tdata         = {piped.tdata[111:0], plaintext_data[127:112]};
+        to_encrypt.tlast         = (piped.tkeep[15:14] == 2'b00) ? 1'b1 : 1'b0;
+        to_encrypt.tkeep         = 16'hFFFF;
 
-            muxed.tvalid = 1'b1;
-            //             WG:RCV           WG:TYPE       UDP:CHK   UDP:LEN                                    UDP:DP       UDP:SP      IP:DA
-            muxed.tdata = {remote_id[15:0], 32'h00000004, 16'h0000, packet_udp_len[7:0], packet_udp_len[15:8], remote_port, local_port, remote_ip[31:16]};
-            muxed.tlast = 1'b0;
-            muxed.tkeep = 16'hFFFF;
-            muxed.tuser.bypass_all = 1'b0;
-            muxed.tuser.bypass_stage = 1'b0;
-            muxed.tuser.dst = tuser_dst;
-            muxed.tuser.src = tuser_src;
-            muxed.tid = peer_idx;
-         end
+        muxed.tvalid             = from_encrypt.tvalid;
+        // most significant first: encrypted payload, WireGuard counter, receiver [31:16]
+        muxed.tdata              = {from_encrypt.tdata[47:0], send_cnt, remote_id[31:16]};
+        muxed.tlast              = 1'b0;
+        muxed.tkeep              = 16'hFFFF;
+        muxed.tuser.bypass_all   = 1'b0;
+        muxed.tuser.bypass_stage = 1'b0;
+        muxed.tuser.dst          = tuser_dst;
+        muxed.tuser.src          = tuser_src;
+        muxed.tid                = peer_idx;
+      end
 
-         HEADER_4: begin
-            to_encrypt.tvalid = (piped.tkeep[15:14] == 2'b00) ? plaintext_valid : piped.tvalid;
-            to_encrypt.tdata = {piped.tdata[111:0], plaintext_data[127:112]};
-            to_encrypt.tlast = (piped.tkeep[15:14] == 2'b00) ? 1'b1 : 1'b0;
-            to_encrypt.tkeep = 16'hFFFF;
+      PAYLOAD: begin
+        to_encrypt.tvalid        = (piped.tkeep[15:14] == 2'b00) ? plaintext_valid : piped.tvalid;
+        to_encrypt.tdata         = {piped.tdata[111:0], plaintext_data[127:112]};
+        to_encrypt.tlast         = (piped.tkeep[15:14] == 2'b00) ? 1'b1 : 1'b0;
+        to_encrypt.tkeep         = 16'hFFFF;
 
-            muxed.tvalid = from_encrypt.tvalid;
-            //             WG:ENP WG:CNT    WG:RCV
-            muxed.tdata = {from_encrypt.tdata[47:0], send_cnt, remote_id[31:16]};
-            muxed.tlast = 1'b0;
-            muxed.tkeep = 16'hFFFF;
-            muxed.tuser.bypass_all = 1'b0;
-            muxed.tuser.bypass_stage = 1'b0;
-            muxed.tuser.dst = tuser_dst;
-            muxed.tuser.src = tuser_src;
-            muxed.tid = peer_idx;
-         end
+        muxed.tvalid             = from_encrypt.tvalid;
+        // the encrypted payload
+        muxed.tdata              = {from_encrypt.tdata[47:0], encrypted_data[127:48]};
+        muxed.tlast              = 1'b0;
+        muxed.tkeep              = 16'hFFFF;
+        muxed.tuser.bypass_all   = 1'b0;
+        muxed.tuser.bypass_stage = 1'b0;
+        muxed.tuser.dst          = tuser_dst;
+        muxed.tuser.src          = tuser_src;
+        muxed.tid                = peer_idx;
+      end
 
-         PAYLOAD: begin
-            to_encrypt.tvalid = (piped.tkeep[15:14] == 2'b00) ? plaintext_valid : piped.tvalid;
-            to_encrypt.tdata = {piped.tdata[111:0], plaintext_data[127:112]};
-            to_encrypt.tlast = (piped.tkeep[15:14] == 2'b00) ? 1'b1 : 1'b0;
-            to_encrypt.tkeep = 16'hFFFF;
+      PAYLOAD_LAST: begin
+        muxed.tvalid             = 1'b1;
+        // the encrypted payload
+        muxed.tdata              = {48'd0, encrypted_data[127:48]};
+        muxed.tlast              = 1'b1;
+        muxed.tkeep              = 16'h03FF;
+        muxed.tuser.bypass_all   = 1'b0;
+        muxed.tuser.bypass_stage = 1'b0;
+        muxed.tuser.dst          = tuser_dst;
+        muxed.tuser.src          = tuser_src;
+        muxed.tid                = peer_idx;
+      end
 
-            muxed.tvalid = from_encrypt.tvalid;
-            //             WG:ENP
-            muxed.tdata = {from_encrypt.tdata[47:0], encrypted_data[127:48]};
-            muxed.tlast = 1'b0;
-            muxed.tkeep = 16'hFFFF;
-            muxed.tuser.bypass_all = 1'b0;
-            muxed.tuser.bypass_stage = 1'b0;
-            muxed.tuser.dst = tuser_dst;
-            muxed.tuser.src = tuser_src;
-            muxed.tid = peer_idx;
-         end
+      default: begin
+        to_encrypt.tdata  = '0;
+        to_encrypt.tkeep  = '0;
+        to_encrypt.tlast  = '0;
+        to_encrypt.tvalid = '0;
 
-         PAYLOAD_LAST: begin
-            muxed.tvalid = 1'b1;
-            //             WG:ENP
-            muxed.tdata = {48'd0, encrypted_data[127:48]};
-            muxed.tlast = 1'b1;
-            muxed.tkeep = 16'h03FF;
-            muxed.tuser.bypass_all = 1'b0;
-            muxed.tuser.bypass_stage = 1'b0;
-            muxed.tuser.dst = tuser_dst;
-            muxed.tuser.src = tuser_src;
-            muxed.tid = peer_idx;
-         end
+        muxed.tdata       = '0;
+        muxed.tkeep       = '0;
+        muxed.tlast       = '0;
+        muxed.tvalid      = '0;
+        muxed.tuser       = '0;
+        muxed.tid         = '0;
+      end
+    endcase
+  end
+  assign piped.tready        = muxed.tready & to_encrypt.tready & ~input_finished;
+  assign from_encrypt.tready = muxed.tready;
+  assign fcr_idle            = ((state == IDLE) ? 1'b1 : 1'b0) & ~outp.tvalid;
+  assign ram_peer_idx        = peer_idx;
+  assign ram_new_send_cnt    = new_send_cnt;
+  assign ram_update_send_cnt = update_send_cnt;
 
-         default: begin
-            to_encrypt.tdata = '0;
-            to_encrypt.tkeep = '0;
-            to_encrypt.tlast = '0;
-            to_encrypt.tvalid = '0;
+  // Encryptor core
+  chacha20poly1305_encrypt u_chacha20poly1305_encrypt (
+      .clk_80p0              (inp.clk),
+      .encrypt_key           (encrypt_key),
+      .encrypt_nonce         ({32'd0, send_cnt}),
+      .encrypt_aad           (256'd0),
+      .encrypt_aad_len       (8'd0),
+      .encrypt_s_axis_tdata  (to_encrypt.tdata),
+      .encrypt_s_axis_tkeep  (to_encrypt.tkeep),
+      .encrypt_s_axis_tlast  (to_encrypt.tlast),
+      .encrypt_s_axis_tvalid (to_encrypt.tvalid),
+      .encrypt_m_axis_tready (from_encrypt.tready),
+      .encrypt_s_axis_tready (to_encrypt.tready),
+      .encrypt_m_axis_tdata  (from_encrypt.tdata),
+      .encrypt_m_axis_tkeep  (from_encrypt.tkeep),
+      .encrypt_m_axis_tlast  (from_encrypt.tlast),
+      .encrypt_m_axis_tvalid (from_encrypt.tvalid)
+  );
 
-            muxed.tdata = '0;
-            muxed.tkeep = '0;
-            muxed.tlast = '0;
-            muxed.tvalid = '0;
-            muxed.tuser = '0;
-            muxed.tid = '0;
-         end
-      endcase
-   end
-   assign piped.tready = muxed.tready & to_encrypt.tready & ~input_finished;
-   assign from_encrypt.tready = muxed.tready;
-   assign fcr_idle = ((state == IDLE) ? 1'b1 : 1'b0) & ~outp.tvalid;
-   assign ram_peer_idx = peer_idx;
-   assign ram_new_send_cnt = new_send_cnt;
-   assign ram_update_send_cnt = update_send_cnt;
+  // Input pipeline
+  dpe_if_pipeline #(
+      .LENGTH (1)
+  ) u_dpe_if_pipeline_input (
+      .inp  (inp),
+      .outp (piped)
+  );
 
-// Encryptor core
-   chacha20poly1305_encrypt u_chacha20poly1305_encrypt (
-      .clk_80p0(inp.clk),
-      .encrypt_key(encrypt_key),
-      .encrypt_nonce({32'd0, send_cnt}),
-      .encrypt_aad(256'd0),
-      .encrypt_aad_len(8'd0),
-      .encrypt_s_axis_tdata(to_encrypt.tdata),
-      .encrypt_s_axis_tkeep(to_encrypt.tkeep),
-      .encrypt_s_axis_tlast(to_encrypt.tlast),
-      .encrypt_s_axis_tvalid(to_encrypt.tvalid),
-      .encrypt_m_axis_tready(from_encrypt.tready),
-      .encrypt_s_axis_tready(to_encrypt.tready),
-      .encrypt_m_axis_tdata(from_encrypt.tdata),
-      .encrypt_m_axis_tkeep(from_encrypt.tkeep),
-      .encrypt_m_axis_tlast(from_encrypt.tlast),
-      .encrypt_m_axis_tvalid(from_encrypt.tvalid)
-   );
-
-// Input pipeline
-   dpe_if_pipeline #(
-      .LENGTH(1)
-   ) u_dpe_if_pipeline_input (
-      .inp(inp),
-      .outp(piped)
-   );
-
-// Output skid buffer
-   dpe_if_skid_buffer u_dpe_if_skid_buffer_output (
-      .inp(muxed),
-      .outp(outp)
-   );
+  // Output skid buffer
+  dpe_if_skid_buffer u_dpe_if_skid_buffer_output (
+      .inp  (muxed),
+      .outp (outp)
+  );
 endmodule

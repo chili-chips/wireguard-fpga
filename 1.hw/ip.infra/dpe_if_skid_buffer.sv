@@ -40,14 +40,16 @@
 //   DPE AXIS skid buffer
 //==========================================================================
 
-module dpe_if_skid_buffer (
+module dpe_if_skid_buffer
+  import dpe_pkg::*;
+(
     dpe_if.s_axis inp,
     dpe_if.m_axis outp
 );
   axis_register #(
-      .DATA_WIDTH (128),
-      .USER_WIDTH (8),
-      .ID_WIDTH   (8)
+      .DATA_WIDTH (DPE_DATA_W),
+      .USER_WIDTH (DPE_USER_W),
+      .ID_WIDTH   (DPE_ID_W)
   ) sbuff (
       .clk           (inp.clk),
       .rst           (inp.rst),

@@ -42,6 +42,7 @@
 
 module cpu_fifo
   import csr_pkg::*;
+  import dpe_pkg::*;
 (
     input  csr_pkg::csr__out_t          from_csr,
     output csr_pkg::csr__cpu_fifo__in_t to_csr,
@@ -50,8 +51,8 @@ module cpu_fifo
 );
   axis_fifo #(
       .DEPTH          (4096),
-      .DATA_WIDTH     (128),
-      .USER_WIDTH     (8),
+      .DATA_WIDTH     (DPE_DATA_W),
+      .USER_WIDTH     (DPE_USER_W),
       .FRAME_FIFO     (1),
       .DROP_WHEN_FULL (1)
   ) tx_fifo (
@@ -97,8 +98,8 @@ module cpu_fifo
 
   axis_fifo #(
       .DEPTH          (4096),
-      .DATA_WIDTH     (128),
-      .USER_WIDTH     (8),
+      .DATA_WIDTH     (DPE_DATA_W),
+      .USER_WIDTH     (DPE_USER_W),
       .FRAME_FIFO     (1),
       .DROP_WHEN_FULL (1)
   ) rx_fifo (

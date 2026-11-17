@@ -10,9 +10,10 @@
 //==========================================================================
 
 module dpe_tb_src
+  import dpe_pkg::*;
   import dpe_tb_pkg::*;
 #(
-    parameter logic [2:0] SRC = '0
+    parameter dpe_addr_t SRC = DPE_ADDR_CPU
 ) (
     dpe_if.m_axis outp
 );
@@ -24,7 +25,7 @@ module dpe_tb_src
     outp.tuser.bypass_all   = 1'b0;
     outp.tuser.bypass_stage = 1'b0;
     outp.tuser.src          = SRC;
-    outp.tuser.dst          = '0;
+    outp.tuser.dst          = DPE_ADDR_CPU;
     outp.tid                = '0;
   end
 

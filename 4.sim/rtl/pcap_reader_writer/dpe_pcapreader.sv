@@ -46,8 +46,8 @@ module dpe_pcapreader
    parameter PCAP_FILENAME = "none",
    parameter TUSER_BYPASS_ALL = 1'b0,
    parameter TUSER_BYPASS_STAGE = 1'b0,
-   parameter TUSER_SRC = DPE_ADDR_CPU,
-   parameter TUSER_DST = DPE_ADDR_ETH_1,
+   parameter dpe_addr_t TUSER_SRC = DPE_ADDR_CPU,
+   parameter dpe_addr_t TUSER_DST = DPE_ADDR_ETH_1,
    parameter TID = 8'd0
 ) (
    dpe_if.m_axis outp,

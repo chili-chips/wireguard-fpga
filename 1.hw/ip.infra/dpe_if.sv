@@ -37,21 +37,25 @@
 //              https://opensource.org/license/bsd-3-clause
 //--------------------------------------------------------------------------
 // Description:
-//   DPE AXI-Stream Interface
+//   DPE AXI-Stream Interface. Its widths are dpe_pkg's (DPE_DATA_W, ...),
+//   declared there once: a module with a dpe_if port uses the same constants
+//   and types, and never states a width itself.
 //==========================================================================
 
-interface dpe_if (
+interface dpe_if
+  import dpe_pkg::*;
+(
     // verilator lint_off UNUSED
     input logic clk,
     input logic rst
 );
-  logic                        tready;
-  logic                        tvalid;
-  logic                [127:0] tdata;
-  logic                        tlast;
-  logic                [ 15:0] tkeep;
-  dpe_pkg::dpe_tuser_t         tuser;
-  logic                [  7:0] tid;
+  logic          tready;
+  logic          tvalid;
+  dpe_data_t     tdata;
+  logic          tlast;
+  dpe_keep_t     tkeep;
+  dpe_tuser_t    tuser;
+  dpe_peer_idx_t tid;
   // verilator lint_on UNUSED
 
   modport m_axis(

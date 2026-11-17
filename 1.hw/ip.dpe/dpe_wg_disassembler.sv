@@ -76,35 +76,40 @@ module dpe_wg_disassembler
   localparam int FIFO_BEATS = 8;  // more than the header's beats: no deadlock
   localparam int DEC_DEPTH = 16;  // a decision for every packet the data FIFO can hold
 
-  logic in_hs;
+  logic  in_hs;
   assign in_hs = inp.tvalid & inp.tready;
 
   //------------------------------------------------------------------
   // Parser: one check per header beat, as the beats come in
-  logic [1:0] in_beat;  // beat number in the packet, held at HDR_LAST_BEAT
-  logic       decided;  // this packet's decision is made
-  logic       hdr_ok;  // every check so far passed
-  logic       pass_on;  // came in with bypass_all or bypass_stage: no change
+  logic [ 1:0] in_beat;  // beat number in the packet, held at HDR_LAST_BEAT
+  logic        decided;  // this packet's decision is made
+  logic        hdr_ok;  // every check so far passed
+  logic        pass_on;  // came in with bypass_all or bypass_stage: no change
   logic [15:0] rcv_lo;  // receiver index, the bytes in beat 2
 
-  logic beat_ok;  // the check of this beat
+  logic        beat_ok;  // the check of this beat
   always_comb begin
     beat_ok = 1'b1;
     case (in_beat)
-      2'(beat_of(ETH_TYPE_OFFSET)):
+      2'(beat_of(
+          ETH_TYPE_OFFSET
+      )):
       beat_ok = be16(inp.tdata, ETH_TYPE_OFFSET) == ETHERTYPE_IPV4 &&
-                byte_at(inp.tdata, IPV4_VER_IHL_OFFSET) >> 4 == 8'(IPV4_VERSION);
-      2'(beat_of(IPV4_PROTO_OFFSET)): beat_ok = byte_at(inp.tdata, IPV4_PROTO_OFFSET) == IP_PROTO_UDP;
+          byte_at(inp.tdata, IPV4_VER_IHL_OFFSET) >> 4 == 8'(IPV4_VERSION);
+      2'(beat_of(
+          IPV4_PROTO_OFFSET
+      )):
+      beat_ok = byte_at(inp.tdata, IPV4_PROTO_OFFSET) == IP_PROTO_UDP;
       2'(beat_of(WG_TYPE_OFFSET)): beat_ok = le32(inp.tdata, WG_TYPE_OFFSET) == WG_TYPE_DATA;
       default: beat_ok = 1'b1;
     endcase
   end
 
   // This beat completes the packet's header (or the packet ends before)
-  logic decide, is_wg, first_pass_on;
+  logic  decide, is_wg, first_pass_on;
   assign first_pass_on = inp.tuser.bypass_all | inp.tuser.bypass_stage;
-  assign decide = in_hs && !decided && (in_beat == 2'(HDR_LAST_BEAT) || inp.tlast);
-  assign is_wg  = in_beat == 2'(HDR_LAST_BEAT) && hdr_ok && beat_ok && !pass_on;
+  assign decide        = in_hs && !decided && (in_beat == 2'(HDR_LAST_BEAT) || inp.tlast);
+  assign is_wg         = in_beat == 2'(HDR_LAST_BEAT) && hdr_ok && beat_ok && !pass_on;
 
   always_ff @(posedge inp.clk) begin
     if (inp.rst) begin
@@ -113,17 +118,27 @@ module dpe_wg_disassembler
       hdr_ok  <= 1'b0;
       pass_on <= 1'b0;
       rcv_lo  <= '0;
-    end else if (in_hs) begin
+    end
+    else if (in_hs) begin
       if (inp.tlast) begin
         in_beat <= '0;
         decided <= 1'b0;
-      end else begin
-        if (in_beat != 2'(HDR_LAST_BEAT)) in_beat <= in_beat + 2'd1;
-        if (decide) decided <= 1'b1;
+      end
+      else begin
+        if (in_beat != 2'(HDR_LAST_BEAT)) begin
+          in_beat <= in_beat + 2'd1;
+        end
+        if (decide) begin
+          decided <= 1'b1;
+        end
       end
       hdr_ok <= (in_beat == '0) ? beat_ok : hdr_ok & beat_ok;
-      if (in_beat == '0) pass_on <= first_pass_on;
-      if (in_beat == 2'(beat_of(WG_RECEIVER_OFFSET))) rcv_lo <= le16(inp.tdata, WG_RECEIVER_OFFSET);
+      if (in_beat == '0) begin
+        pass_on <= first_pass_on;
+      end
+      if (in_beat == 2'(beat_of(WG_RECEIVER_OFFSET))) begin
+        rcv_lo <= le16(inp.tdata, WG_RECEIVER_OFFSET);
+      end
     end
   end
 
@@ -139,12 +154,15 @@ module dpe_wg_disassembler
       dec_is_wg   <= 1'b0;
       dec_pass_on <= 1'b0;
       wg_rcv      <= '0;
-    end else begin
+    end
+    else begin
       dec_pending <= decide;
       if (decide) begin
         dec_is_wg   <= is_wg;
         dec_pass_on <= (in_beat == '0) ? first_pass_on : pass_on;
-        if (is_wg) wg_rcv <= {le16(inp.tdata, WG_RECEIVER_OFFSET + 2), rcv_lo};
+        if (is_wg) begin
+          wg_rcv <= {le16(inp.tdata, WG_RECEIVER_OFFSET + 2), rcv_lo};
+        end
       end
     end
   end
@@ -157,21 +175,18 @@ module dpe_wg_disassembler
     logic [6:0] peer;
   } decision_t;
 
-  decision_t                       dec_mem[DEC_DEPTH];
-  logic      [$clog2(DEC_DEPTH):0] dec_wr, dec_rd;  // one bit more: full and empty
-  logic                            dec_avail, dec_pop;
-  decision_t                       dec;
+  decision_t dec_mem[DEC_DEPTH];
+  logic [$clog2(DEC_DEPTH):0] dec_wr, dec_rd;  // one bit more: full and empty
+  logic dec_avail, dec_pop;
+  decision_t dec;
 
   assign dec_avail = dec_wr != dec_rd;
   assign dec       = dec_mem[dec_rd[$clog2(DEC_DEPTH)-1:0]];
 
   always_ff @(posedge inp.clk) begin
     if (dec_pending) begin
-      dec_mem[dec_wr[$clog2(DEC_DEPTH)-1:0]] <= '{
-          to_peer: dec_is_wg & wg_idx_match & !dec_pass_on,
-          pass_on: dec_pass_on,
-          peer: wg_idx
-      };
+      dec_mem[dec_wr[$clog2(DEC_DEPTH)-1:0]] <=
+          '{to_peer: dec_is_wg & wg_idx_match & !dec_pass_on, pass_on: dec_pass_on, peer: wg_idx};
     end
   end
 
@@ -179,47 +194,52 @@ module dpe_wg_disassembler
     if (inp.rst) begin
       dec_wr <= '0;
       dec_rd <= '0;
-    end else begin
-      if (dec_pending) dec_wr <= dec_wr + 1'b1;
-      if (dec_pop) dec_rd <= dec_rd + 1'b1;
+    end
+    else begin
+      if (dec_pending) begin
+        dec_wr <= dec_wr + 1'b1;
+      end
+      if (dec_pop) begin
+        dec_rd <= dec_rd + 1'b1;
+      end
     end
   end
 
   //------------------------------------------------------------------
   // Data FIFO: the packet waits for its decision
-  logic       buf_tvalid, buf_tready, buf_tlast;
-  beat_t      buf_tdata;
-  logic [15:0] buf_tkeep;
-  dpe_tuser_t buf_tuser;
-  logic [7:0] buf_tid;
+  logic buf_tvalid, buf_tready, buf_tlast;
+  beat_t             buf_tdata;
+  logic       [15:0] buf_tkeep;
+  dpe_tuser_t        buf_tuser;
+  logic       [ 7:0] buf_tid;
 
   axis_fifo #(
-      .DEPTH      (FIFO_BEATS * BEAT_BYTES),
-      .DATA_WIDTH (8 * BEAT_BYTES),
+      .DEPTH      (FIFO_BEATS * DPE_DATA_BYTES),  // bytes
+      .DATA_WIDTH (DPE_DATA_W),
       .ID_ENABLE  (1),
-      .ID_WIDTH   (8),
-      .USER_WIDTH ($bits(dpe_tuser_t))
+      .ID_WIDTH   (DPE_ID_W),
+      .USER_WIDTH (DPE_USER_W)
   ) u_fifo (
-      .clk               (inp.clk),
-      .rst               (inp.rst),
-      .s_axis_tdata      (inp.tdata),
-      .s_axis_tkeep      (inp.tkeep),
-      .s_axis_tvalid     (inp.tvalid),
-      .s_axis_tready     (inp.tready),
-      .s_axis_tlast      (inp.tlast),
-      .s_axis_tid        (inp.tid),
-      .s_axis_tdest      ('0),
-      .s_axis_tuser      (inp.tuser),
-      .m_axis_tdata      (buf_tdata),
-      .m_axis_tkeep      (buf_tkeep),
-      .m_axis_tvalid     (buf_tvalid),
-      .m_axis_tready     (buf_tready),
-      .m_axis_tlast      (buf_tlast),
-      .m_axis_tid        (buf_tid),
-      .m_axis_tdest      (  /*LINT:OK*/),  // no TDEST: s_axis_tdest is tied to 0
-      .m_axis_tuser      (buf_tuser),
-      .pause_req         (1'b0),
-      .pause_ack         (  /*LINT:OK*/),  // no pause
+      .clk                 (inp.clk),
+      .rst                 (inp.rst),
+      .s_axis_tdata        (inp.tdata),
+      .s_axis_tkeep        (inp.tkeep),
+      .s_axis_tvalid       (inp.tvalid),
+      .s_axis_tready       (inp.tready),
+      .s_axis_tlast        (inp.tlast),
+      .s_axis_tid          (inp.tid),
+      .s_axis_tdest        ('0),
+      .s_axis_tuser        (inp.tuser),
+      .m_axis_tdata        (buf_tdata),
+      .m_axis_tkeep        (buf_tkeep),
+      .m_axis_tvalid       (buf_tvalid),
+      .m_axis_tready       (buf_tready),
+      .m_axis_tlast        (buf_tlast),
+      .m_axis_tid          (buf_tid),
+      .m_axis_tdest        (  /*LINT:OK*/),  // no TDEST: s_axis_tdest is tied to 0
+      .m_axis_tuser        (buf_tuser),
+      .pause_req           (1'b0),
+      .pause_ack           (  /*LINT:OK*/),  // no pause
       .status_depth        (  /*LINT:OK*/),  // status not used
       .status_depth_commit (  /*LINT:OK*/),  // status not used
       .status_overflow     (  /*LINT:OK*/),  // status not used
@@ -242,7 +262,9 @@ module dpe_wg_disassembler
     outp.tid   = buf_tid;
     if (!dec.pass_on) begin
       outp.tuser.bypass_stage = !dec.to_peer;
-      if (dec.to_peer) outp.tid = {1'b0, dec.peer};
+      if (dec.to_peer) begin
+        outp.tid = {1'b0, dec.peer};
+      end
     end
   end
 
