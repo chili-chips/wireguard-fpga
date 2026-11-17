@@ -1,0 +1,138 @@
+// SPDX-FileCopyrightText: 2026 Chili.CHIPS
+//
+// SPDX-License-Identifier: BSD-3-Clause
+
+//==========================================================================
+// Wireguard-1GE FPGA * NLnet-sponsored open-source implementation
+//--------------------------------------------------------------------------
+// Description:
+//   dpe_wg_decryptor bench, as a loopback: plaintext frames into
+//   dpe_wg_encryptor, its WireGuard frames into dpe_wg_decryptor, its
+//   output to a pcap. Every link stalls (dpe_tb_throttle). One bit of frame
+//   CORRUPT_FRAME's ciphertext is flipped on the way: the decryptor must
+//   drop that frame (its tag fails) and give back all others.
+//   ../wg_check.py checks the output (see the Makefile).
+//==========================================================================
+
+module tb;
+  import dpe_pkg::*;
+  import net_pkg::*;
+
+  localparam int CORRUPT_FRAME = 3;  // the Makefile's check knows it too
+  localparam int CORRUPT_BEAT = 6;  // in the ciphertext of that frame
+
+  logic clk, rst;
+  logic pcapfinished, enc_idle, dec_idle;
+
+  dpe_if from_pcap (.clk(clk), .rst(rst));
+  dpe_if to_enc    (.clk(clk), .rst(rst));
+  dpe_if from_enc  (.clk(clk), .rst(rst));
+  dpe_if wire_in   (.clk(clk), .rst(rst));  // the WireGuard frames, stalled
+  dpe_if to_dec    (.clk(clk), .rst(rst));  // the same, one frame corrupted
+  dpe_if from_dec  (.clk(clk), .rst(rst));
+  dpe_if to_pcap   (.clk(clk), .rst(rst));
+
+  // The peer's routing-table entry; MAC, IP and port in bus byte order
+  localparam wg_peer_cfg_t PEER = '{
+      local_mac: 48'hAABBCCDDEEFF,
+      local_ip: 32'h0100A8C0,  // 192.168.0.1
+      local_port: 16'h6DCA,
+      remote_mac: 48'hFFEEDDCCBBAA,
+      remote_ip: 32'h0200A8C0,  // 192.168.0.2
+      remote_port: 16'h6CCA,
+      remote_id: 32'hAABBCCDD,
+      key: 256'h0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF,
+      send_cnt: 64'd1
+  };
+
+  dpe_pcapreader #(
+      .PCAP_FILENAME     ("../../dpe_wg_encryptor/plaintext_mix.pcap"),
+      .TUSER_BYPASS_STAGE(1'b0)
+  ) pcaprd (
+      .outp        (from_pcap),
+      .pcapfinished(pcapfinished)
+  );
+
+  dpe_tb_throttle #(.PASS_PCT(60), .SEED(16'hACE1)) stall_in (.inp(from_pcap), .outp(to_enc));
+
+  dpe_wg_encryptor encryptor (
+      .inp                (to_enc),
+      .outp               (from_enc),
+      .fcr_idle           (enc_idle),
+      .ram_peer_idx       (),
+      .ram_peer           (PEER),
+      .ram_new_send_cnt   (),
+      .ram_update_send_cnt()
+  );
+
+  dpe_tb_throttle #(.PASS_PCT(60), .SEED(16'h5A5A)) stall_mid (.inp(from_enc), .outp(wire_in));
+
+  // the link: passes everything, but flips bit 0 of beat CORRUPT_BEAT of
+  // frame CORRUPT_FRAME
+  int link_frame = 0, link_beat = 0;
+  always_ff @(posedge clk) begin
+    if (rst) begin
+      link_frame <= 0;
+      link_beat  <= 0;
+    end
+    else if (wire_in.tvalid && wire_in.tready) begin
+      if (wire_in.tlast) begin
+        link_frame <= link_frame + 1;
+        link_beat  <= 0;
+      end
+      else begin
+        link_beat <= link_beat + 1;
+      end
+    end
+  end
+  assign to_dec.tvalid  = wire_in.tvalid;
+  assign wire_in.tready = to_dec.tready;
+  assign to_dec.tdata   = wire_in.tdata ^ dpe_data_t'(link_frame == CORRUPT_FRAME &&
+                                                      link_beat == CORRUPT_BEAT);
+  assign to_dec.tkeep   = wire_in.tkeep;
+  assign to_dec.tlast   = wire_in.tlast;
+  assign to_dec.tuser   = wire_in.tuser;
+  assign to_dec.tid     = wire_in.tid;
+
+  dpe_wg_decryptor decryptor (
+      .inp                (to_dec),
+      .outp               (from_dec),
+      .fcr_idle           (dec_idle),
+      .ram_peer_idx       (),
+      .ram_peer           (PEER),
+      .ram_new_send_cnt   (),
+      .ram_update_send_cnt()
+  );
+
+  dpe_tb_throttle #(.PASS_PCT(60), .SEED(16'h1D2C)) stall_out (.inp(from_dec), .outp(to_pcap));
+
+  dpe_pcapwriter #(
+      .PCAP_FILENAME("decrypted_mix.pcap")  // in output/
+  ) pcapwr (
+      .inp(to_pcap)
+  );
+
+  // 80 MHz at 1 ns precision: halves of 6, 6, 7, 6 ns, 12.5 ns on average
+  initial begin
+    clk = 1'b0;
+    forever begin
+      #6ns clk = 1'b1;
+      #6ns clk = 1'b0;
+      #7ns clk = 1'b1;
+      #6ns clk = 1'b0;
+    end
+  end
+
+  // done: all frames read, both blocks idle, and nothing on the links
+  initial begin
+    rst = 1'b1;
+    @(negedge clk);
+    rst = 1'b0;
+    while (!pcapfinished) @(negedge clk);
+    do begin
+      repeat (64) @(negedge clk);
+    end while (!enc_idle || !dec_idle || to_dec.tvalid || from_enc.tvalid || to_pcap.tvalid);
+    repeat (2) @(negedge clk);
+    $finish;
+  end
+endmodule
