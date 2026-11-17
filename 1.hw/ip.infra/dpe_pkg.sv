@@ -51,5 +51,14 @@ package dpe_pkg;
   localparam logic [2:0] DPE_ADDR_MCAST_13 = 3'h5;
   localparam logic [2:0] DPE_ADDR_MCAST_24 = 3'h6;
   localparam logic [2:0] DPE_ADDR_BCAST    = 3'h7;
+
+  // AXI-Stream TUSER of the DPE: TUSER[7] bypass_all, [6] bypass_stage,
+  // [5:3] src, [2:0] dst (the order of the fields)
+  typedef struct packed {
+    logic       bypass_all;    // skip the whole DPE
+    logic       bypass_stage;  // skip the next DPE stage
+    logic [2:0] src;           // DPE_ADDR_*: where the packet came from
+    logic [2:0] dst;           // DPE_ADDR_*: where it goes
+  } dpe_tuser_t;
 endpackage : dpe_pkg
 `endif

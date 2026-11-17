@@ -177,11 +177,11 @@ module dpe_wg_encryptor (
       unique case (state)
          IDLE: begin
             if (inp.tvalid && inp.tready) begin
-               if (inp.tuser_bypass_stage || inp.tuser_bypass_all) begin
+               if (inp.tuser.bypass_stage || inp.tuser.bypass_all) begin
                   state_next = BYPASS;
                end else begin
-                  tuser_dst_next = inp.tuser_dst;
-                  tuser_src_next = inp.tuser_src;
+                  tuser_dst_next = inp.tuser.dst;
+                  tuser_src_next = inp.tuser.src;
                   peer_idx_next = inp.tid;
                   state_next = WAIT_RAM;
                end
@@ -308,10 +308,7 @@ module dpe_wg_encryptor (
       muxed.tdata = '0;
       muxed.tlast = 1'b0;
       muxed.tkeep = '0;
-      muxed.tuser_bypass_all = 1'b0;
-      muxed.tuser_bypass_stage = 1'b0;
-      muxed.tuser_src = '0;
-      muxed.tuser_dst = '0;
+      muxed.tuser = '0;
       muxed.tid = '0;
 
       unique case (state)
@@ -320,10 +317,7 @@ module dpe_wg_encryptor (
             muxed.tdata = piped.tdata;
             muxed.tlast = piped.tlast;
             muxed.tkeep = piped.tkeep;
-            muxed.tuser_bypass_all = piped.tuser_bypass_all;
-            muxed.tuser_bypass_stage = piped.tuser_bypass_stage;
-            muxed.tuser_src = piped.tuser_src;
-            muxed.tuser_dst = piped.tuser_dst;
+            muxed.tuser = piped.tuser;
             muxed.tid = piped.tid;
          end
 
@@ -342,10 +336,10 @@ module dpe_wg_encryptor (
             muxed.tdata = {8'h00, 8'h45, 16'h0008, local_mac, remote_mac};
             muxed.tlast = 1'b0;
             muxed.tkeep = 16'hFFFF;
-            muxed.tuser_bypass_all = 1'b0;
-            muxed.tuser_bypass_stage = 1'b0;
-            muxed.tuser_dst = tuser_dst;
-            muxed.tuser_src = tuser_src;
+            muxed.tuser.bypass_all = 1'b0;
+            muxed.tuser.bypass_stage = 1'b0;
+            muxed.tuser.dst = tuser_dst;
+            muxed.tuser.src = tuser_src;
             muxed.tid = peer_idx;
          end
 
@@ -360,10 +354,10 @@ module dpe_wg_encryptor (
             muxed.tdata = {remote_ip[15:0], local_ip[31:0], 16'h0000, 8'h11, 8'd64, 16'h0000, 16'h0000, packet_ip_len[7:0], packet_ip_len[15:8]};
             muxed.tlast = 1'b0;
             muxed.tkeep = 16'hFFFF;
-            muxed.tuser_bypass_all = 1'b0;
-            muxed.tuser_bypass_stage = 1'b0;
-            muxed.tuser_dst = tuser_dst;
-            muxed.tuser_src = tuser_src;
+            muxed.tuser.bypass_all = 1'b0;
+            muxed.tuser.bypass_stage = 1'b0;
+            muxed.tuser.dst = tuser_dst;
+            muxed.tuser.src = tuser_src;
             muxed.tid = peer_idx;
          end
 
@@ -378,10 +372,10 @@ module dpe_wg_encryptor (
             muxed.tdata = {remote_id[15:0], 32'h00000004, 16'h0000, packet_udp_len[7:0], packet_udp_len[15:8], remote_port, local_port, remote_ip[31:16]};
             muxed.tlast = 1'b0;
             muxed.tkeep = 16'hFFFF;
-            muxed.tuser_bypass_all = 1'b0;
-            muxed.tuser_bypass_stage = 1'b0;
-            muxed.tuser_dst = tuser_dst;
-            muxed.tuser_src = tuser_src;
+            muxed.tuser.bypass_all = 1'b0;
+            muxed.tuser.bypass_stage = 1'b0;
+            muxed.tuser.dst = tuser_dst;
+            muxed.tuser.src = tuser_src;
             muxed.tid = peer_idx;
          end
 
@@ -396,10 +390,10 @@ module dpe_wg_encryptor (
             muxed.tdata = {from_encrypt.tdata[47:0], send_cnt, remote_id[31:16]};
             muxed.tlast = 1'b0;
             muxed.tkeep = 16'hFFFF;
-            muxed.tuser_bypass_all = 1'b0;
-            muxed.tuser_bypass_stage = 1'b0;
-            muxed.tuser_dst = tuser_dst;
-            muxed.tuser_src = tuser_src;
+            muxed.tuser.bypass_all = 1'b0;
+            muxed.tuser.bypass_stage = 1'b0;
+            muxed.tuser.dst = tuser_dst;
+            muxed.tuser.src = tuser_src;
             muxed.tid = peer_idx;
          end
 
@@ -414,10 +408,10 @@ module dpe_wg_encryptor (
             muxed.tdata = {from_encrypt.tdata[47:0], encrypted_data[127:48]};
             muxed.tlast = 1'b0;
             muxed.tkeep = 16'hFFFF;
-            muxed.tuser_bypass_all = 1'b0;
-            muxed.tuser_bypass_stage = 1'b0;
-            muxed.tuser_dst = tuser_dst;
-            muxed.tuser_src = tuser_src;
+            muxed.tuser.bypass_all = 1'b0;
+            muxed.tuser.bypass_stage = 1'b0;
+            muxed.tuser.dst = tuser_dst;
+            muxed.tuser.src = tuser_src;
             muxed.tid = peer_idx;
          end
 
@@ -427,10 +421,10 @@ module dpe_wg_encryptor (
             muxed.tdata = {48'd0, encrypted_data[127:48]};
             muxed.tlast = 1'b1;
             muxed.tkeep = 16'h03FF;
-            muxed.tuser_bypass_all = 1'b0;
-            muxed.tuser_bypass_stage = 1'b0;
-            muxed.tuser_dst = tuser_dst;
-            muxed.tuser_src = tuser_src;
+            muxed.tuser.bypass_all = 1'b0;
+            muxed.tuser.bypass_stage = 1'b0;
+            muxed.tuser.dst = tuser_dst;
+            muxed.tuser.src = tuser_src;
             muxed.tid = peer_idx;
          end
 
@@ -444,10 +438,7 @@ module dpe_wg_encryptor (
             muxed.tkeep = '0;
             muxed.tlast = '0;
             muxed.tvalid = '0;
-            muxed.tuser_bypass_all = 1'b0;
-            muxed.tuser_bypass_stage = 1'b0;
-            muxed.tuser_src = '0;
-            muxed.tuser_dst = '0;
+            muxed.tuser = '0;
             muxed.tid = '0;
          end
       endcase

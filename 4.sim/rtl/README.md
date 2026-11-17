@@ -31,8 +31,8 @@ The rules are in [`sim.mk`](sim.mk): timescale `1ns/1ns`, `output/sim.log` and `
 | Bench | Verilator | Icarus | JanusHDL |
 |---|---|---|---|
 | `dpe` | PASS | no: PeakRDL `csr_pkg.sv` uses unpacked structs | no: `tdp_ram.sv` written by two `always_ff` ([#1](https://github.com/chili-chips/wireguard-fpga/issues/1)) |
-| `dpe_multiplexer` | PASS | PASS | PASS |
-| `dpe_demultiplexer` | PASS | PASS | PASS |
+| `dpe_multiplexer` | PASS | PASS | no: a member of a struct in an interface (`x.tuser.src`) |
+| `dpe_demultiplexer` | PASS | PASS | no: a member of a struct in an interface (`x.tuser.dst`) |
 | `pcap_reader_writer` | runs | runs | no: `$fread` into a memory |
 | `gmii2gmii_test` | runs | no: compiles all of `top.filelist` (`csr_pkg.sv`) | runs |
 | `chacha20poly1305_encrypt` | runs | no: nested unpacked array pattern (`tb.sv:62`) | runs |

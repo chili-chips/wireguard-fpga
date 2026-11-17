@@ -58,16 +58,14 @@ module cpu_fifo
       .clk (to_cpu.clk),
       .rst (to_cpu.rst),
 
-      .s_axis_tdata (to_cpu.tdata),
-      .s_axis_tkeep (to_cpu.tkeep),
+      .s_axis_tdata  (to_cpu.tdata),
+      .s_axis_tkeep  (to_cpu.tkeep),
       .s_axis_tvalid (to_cpu.tvalid),
       .s_axis_tready (to_cpu.tready),
-      .s_axis_tlast (to_cpu.tlast),
-      .s_axis_tuser ({
-        to_cpu.tuser_bypass_all, to_cpu.tuser_bypass_stage, to_cpu.tuser_src, to_cpu.tuser_dst
-      }),
-      .s_axis_tid ('0),
-      .s_axis_tdest ('0),
+      .s_axis_tlast  (to_cpu.tlast),
+      .s_axis_tuser  (to_cpu.tuser),
+      .s_axis_tid    ('0),
+      .s_axis_tdest  ('0),
 
       .m_axis_tdata ({
         to_csr.tx.data_127_96.tdata.next,
@@ -126,19 +124,14 @@ module cpu_fifo
       .s_axis_tid ('0),
       .s_axis_tdest ('0),
 
-      .m_axis_tdata (from_cpu.tdata),
-      .m_axis_tkeep (from_cpu.tkeep),
+      .m_axis_tdata  (from_cpu.tdata),
+      .m_axis_tkeep  (from_cpu.tkeep),
       .m_axis_tvalid (from_cpu.tvalid),
       .m_axis_tready (from_cpu.tready),
-      .m_axis_tlast (from_cpu.tlast),
-      .m_axis_tuser ({
-        from_cpu.tuser_bypass_all,
-        from_cpu.tuser_bypass_stage,
-        from_cpu.tuser_src,
-        from_cpu.tuser_dst
-      }),
-      .m_axis_tid (  /*LINT:OK*/),  // ID_ENABLE is 0
-      .m_axis_tdest (  /*LINT:OK*/),  // DEST_ENABLE is 0: dpe_if carries no tdest
+      .m_axis_tlast  (from_cpu.tlast),
+      .m_axis_tuser  (from_cpu.tuser),
+      .m_axis_tid    (  /*LINT:OK*/),    // ID_ENABLE is 0
+      .m_axis_tdest  (  /*LINT:OK*/),    // DEST_ENABLE is 0: dpe_if carries no tdest
 
       .pause_req           (1'b0),
       .pause_ack           (  /*LINT:OK*/),  // PAUSE_ENABLE is 0

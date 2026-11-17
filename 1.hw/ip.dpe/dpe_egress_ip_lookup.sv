@@ -220,10 +220,10 @@ module dpe_egress_ip_lookup #(
     case (state)
       S_IDLE: begin
         if (in_hs) begin
-          if (s_axis.tuser_bypass_all) begin
-            decided_dst_n     = s_axis.tuser_dst;
+          if (s_axis.tuser.bypass_all) begin
+            decided_dst_n     = s_axis.tuser.dst;
             decided_peer_n    = s_axis.tid;
-            decided_bypass_n  = s_axis.tuser_bypass_stage;
+            decided_bypass_n  = s_axis.tuser.bypass_stage;
             flush_limit_n     = 2'd0;
             state_next        = S_FLUSH;
           end else begin
@@ -257,7 +257,7 @@ module dpe_egress_ip_lookup #(
         route_req_valid   = 1'b1;
         decided_dst_n     = route_dst;
         decided_peer_n    = route_peer;
-        decided_bypass_n  = (USE_BYPASS_FROM_MEM) ? route_bypass : s_axis.tuser_bypass_stage;
+        decided_bypass_n  = (USE_BYPASS_FROM_MEM) ? route_bypass : s_axis.tuser.bypass_stage;
         flush_limit_n     = 2'd2;
         state_next        = S_FLUSH;
       end
@@ -301,7 +301,7 @@ module dpe_egress_ip_lookup #(
       flush_limit <= flush_limit_n;
 
       if (state == S_IDLE) begin
-        if (in_hs && !s_axis.tuser_bypass_all) beat <= 2'd1;
+        if (in_hs && !s_axis.tuser.bypass_all) beat <= 2'd1;
         else                                    beat <= 2'd0;
       end else if (state == S_COLLECT && in_hs) begin
         beat <= beat + 2'd1; 
@@ -374,10 +374,10 @@ module dpe_egress_ip_lookup #(
   assign m_axis.tlast  = (state == S_FLUSH) ? flush_tlast  :
                          (state == S_FWD)   ? s_axis.tlast  : 1'b0;
 
-  assign m_axis.tuser_bypass_all   = s_axis.tuser_bypass_all;
-  assign m_axis.tuser_src          = s_axis.tuser_src;
-  assign m_axis.tuser_bypass_stage = decided_bypass;
-  assign m_axis.tuser_dst          = decided_dst;
+  assign m_axis.tuser.bypass_all   = s_axis.tuser.bypass_all;
+  assign m_axis.tuser.src          = s_axis.tuser.src;
+  assign m_axis.tuser.bypass_stage = decided_bypass;
+  assign m_axis.tuser.dst          = decided_dst;
   assign m_axis.tid                = decided_peer;
 
 endmodule

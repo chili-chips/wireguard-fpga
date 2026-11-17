@@ -21,10 +21,10 @@ module dpe_tb_src
     outp.tlast              = 1'b0;
     outp.tkeep              = '0;
     outp.tdata              = '0;
-    outp.tuser_bypass_all   = 1'b0;
-    outp.tuser_bypass_stage = 1'b0;
-    outp.tuser_src          = SRC;
-    outp.tuser_dst          = '0;
+    outp.tuser.bypass_all   = 1'b0;
+    outp.tuser.bypass_stage = 1'b0;
+    outp.tuser.src          = SRC;
+    outp.tuser.dst          = '0;
     outp.tid                = '0;
   end
 
@@ -35,7 +35,7 @@ module dpe_tb_src
     bytes          = p.data;
     outp.tvalid    = 1'b1;
     outp.tkeep     = 16'h0001;
-    outp.tuser_dst = p.dst;
+    outp.tuser.dst = p.dst;
     for (int i = 0; i < int'(p.len); i++) begin
       outp.tdata      = {120'b0, bytes[8*(MAX_BYTES-1-i)+:8]};
       outp.tlast      = (i == int'(p.len) - 1);

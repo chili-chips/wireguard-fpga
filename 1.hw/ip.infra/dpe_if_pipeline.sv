@@ -60,10 +60,7 @@ module dpe_if_pipeline #(
       .s_axis_tdata(inp.tdata),
       .s_axis_tkeep(inp.tkeep),
       .s_axis_tlast(inp.tlast),
-      .s_axis_tuser({inp.tuser_bypass_all,
-                     inp.tuser_bypass_stage,
-                     inp.tuser_src,
-                     inp.tuser_dst}),
+      .s_axis_tuser(inp.tuser),
       .s_axis_tid(inp.tid),
       .s_axis_tdest('0),
       .m_axis_tvalid(outp.tvalid),
@@ -71,10 +68,7 @@ module dpe_if_pipeline #(
       .m_axis_tdata(outp.tdata),
       .m_axis_tkeep(outp.tkeep),
       .m_axis_tlast(outp.tlast),
-      .m_axis_tuser({outp.tuser_bypass_all,
-                     outp.tuser_bypass_stage,
-                     outp.tuser_src,
-                     outp.tuser_dst}),
+      .m_axis_tuser(outp.tuser),
       .m_axis_tid(outp.tid),
       .m_axis_tdest(  /*LINT:OK*/)   // no TDEST: s_axis_tdest is tied to 0
    );

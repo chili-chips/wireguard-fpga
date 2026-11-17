@@ -62,10 +62,10 @@ module dpe_pcapreader
    assign outp.tlast = axis_int.last;
    assign outp.tkeep = axis_int.keep;
    assign axis_int.ready = outp.tready;
-   assign outp.tuser_bypass_all = TUSER_BYPASS_ALL;
-   assign outp.tuser_bypass_stage = TUSER_BYPASS_STAGE;
-   assign outp.tuser_src = TUSER_SRC;
-   assign outp.tuser_dst = TUSER_DST;
+   assign outp.tuser.bypass_all = TUSER_BYPASS_ALL;
+   assign outp.tuser.bypass_stage = TUSER_BYPASS_STAGE;
+   assign outp.tuser.src = TUSER_SRC;
+   assign outp.tuser.dst = TUSER_DST;
    assign outp.tid = TID;
    assign avalon_int.ready = 1'b0;
 

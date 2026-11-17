@@ -159,8 +159,8 @@ module dpe_wg_decryptor (
 
    assign fifo_din = {
       muxed.tid,             // [158:151]
-      muxed.tuser_src,       // [150:148]
-      muxed.tuser_dst,       // [147:145]
+      muxed.tuser.src,       // [150:148]
+      muxed.tuser.dst,       // [147:145]
       muxed.tlast,           // [144]
       muxed.tkeep,           // [143:128]
       muxed.tdata            // [127:0]
@@ -238,10 +238,10 @@ module dpe_wg_decryptor (
       unique case (state)
          IDLE: begin
             if (inp.tvalid && inp.tready) begin
-               if (inp.tuser_bypass_stage || inp.tuser_bypass_all) state_next = BYPASS;
+               if (inp.tuser.bypass_stage || inp.tuser.bypass_all) state_next = BYPASS;
                else begin
-                  tuser_dst_next = inp.tuser_dst;
-                  tuser_src_next = inp.tuser_src;
+                  tuser_dst_next = inp.tuser.dst;
+                  tuser_src_next = inp.tuser.src;
                   peer_idx_next = inp.tid;
                   state_next = WAIT_RAM;
                end
@@ -362,10 +362,10 @@ module dpe_wg_decryptor (
       muxed.tdata = '0; 
       muxed.tlast = 1'b0; 
       muxed.tkeep = '0;
-      muxed.tuser_bypass_all = 1'b0; 
-      muxed.tuser_bypass_stage = 1'b0;
-      muxed.tuser_src = tuser_src; 
-      muxed.tuser_dst = tuser_dst; 
+      muxed.tuser.bypass_all = 1'b0; 
+      muxed.tuser.bypass_stage = 1'b0;
+      muxed.tuser.src = tuser_src; 
+      muxed.tuser.dst = tuser_dst; 
       muxed.tid = peer_idx;
 
 
@@ -376,10 +376,7 @@ module dpe_wg_decryptor (
             muxed.tdata = piped.tdata; 
             muxed.tlast = piped.tlast;
             muxed.tkeep = piped.tkeep; 
-            muxed.tuser_bypass_all = piped.tuser_bypass_all;
-            muxed.tuser_bypass_stage = piped.tuser_bypass_stage; 
-            muxed.tuser_src = piped.tuser_src;
-            muxed.tuser_dst = piped.tuser_dst; 
+            muxed.tuser = piped.tuser; 
             muxed.tid = piped.tid;
          end
 
@@ -463,8 +460,8 @@ module dpe_wg_decryptor (
    assign outp.tkeep  = fifo_out_tkeep;
    assign outp.tdata  = fifo_out_tdata;
    assign outp.tid    = fifo_out_tid;
-   assign outp.tuser_dst = fifo_out_tuser_dst;
-   assign outp.tuser_src = fifo_out_tuser_src;
+   assign outp.tuser.dst = fifo_out_tuser_dst;
+   assign outp.tuser.src = fifo_out_tuser_src;
 
    // Sub-module instantiations
 

@@ -45,16 +45,13 @@ interface dpe_if (
     input logic clk,
     input logic rst
 );
-  logic         tready;
-  logic         tvalid;
-  logic [127:0] tdata;
-  logic         tlast;
-  logic [ 15:0] tkeep;
-  logic         tuser_bypass_all;
-  logic         tuser_bypass_stage;
-  logic [  2:0] tuser_src;
-  logic [  2:0] tuser_dst;
-  logic [  7:0] tid;
+  logic                        tready;
+  logic                        tvalid;
+  logic                [127:0] tdata;
+  logic                        tlast;
+  logic                [ 15:0] tkeep;
+  dpe_pkg::dpe_tuser_t         tuser;
+  logic                [  7:0] tid;
   // verilator lint_on UNUSED
 
   modport m_axis(
@@ -65,10 +62,7 @@ interface dpe_if (
       output tdata,
       output tlast,
       output tkeep,
-      output tuser_bypass_all,
-      output tuser_bypass_stage,
-      output tuser_src,
-      output tuser_dst,
+      output tuser,
       output tid
   );
 
@@ -80,10 +74,7 @@ interface dpe_if (
       input tdata,
       input tlast,
       input tkeep,
-      input tuser_bypass_all,
-      input tuser_bypass_stage,
-      input tuser_src,
-      input tuser_dst,
+      input tuser,
       input tid
   );
 endinterface

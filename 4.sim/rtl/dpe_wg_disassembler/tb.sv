@@ -149,10 +149,10 @@ module tb;
          @(negedge clk);
          inp.tvalid = 1;
          for (int i = 0; i < 11; i++) begin
-            inp.tuser_bypass_all = 0;
-            inp.tuser_bypass_stage = 0;
-            inp.tuser_src = DPE_ADDR_ETH_1;
-            inp.tuser_dst = DPE_ADDR_CPU;
+            inp.tuser.bypass_all = 0;
+            inp.tuser.bypass_stage = 0;
+            inp.tuser.src = DPE_ADDR_ETH_1;
+            inp.tuser.dst = DPE_ADDR_CPU;
             inp.tdata = packet_data[0][i];
             inp.tkeep = (i == 10)?16'h03FF:16'hFFFF;
             inp.tlast = (i == 10);
@@ -167,10 +167,10 @@ module tb;
          // Send packet 1
          inp.tvalid = 1;
          for (int i = 0; i < 11; i++) begin
-            inp.tuser_bypass_all = 0;
-            inp.tuser_bypass_stage = 0;
-            inp.tuser_src = DPE_ADDR_ETH_2;
-            inp.tuser_dst = DPE_ADDR_CPU;
+            inp.tuser.bypass_all = 0;
+            inp.tuser.bypass_stage = 0;
+            inp.tuser.src = DPE_ADDR_ETH_2;
+            inp.tuser.dst = DPE_ADDR_CPU;
             inp.tdata = packet_data[1][i];
             inp.tkeep = (i == 10)?16'h03FF:16'hFFFF;
             inp.tlast = (i == 10);
@@ -185,10 +185,10 @@ module tb;
          // Send packet 2
          inp.tvalid = 1;
          for (int i = 0; i < 11; i++) begin
-            inp.tuser_bypass_all = 0;
-            inp.tuser_bypass_stage = 0;
-            inp.tuser_src = DPE_ADDR_ETH_3;
-            inp.tuser_dst = DPE_ADDR_CPU;
+            inp.tuser.bypass_all = 0;
+            inp.tuser.bypass_stage = 0;
+            inp.tuser.src = DPE_ADDR_ETH_3;
+            inp.tuser.dst = DPE_ADDR_CPU;
             inp.tdata = packet_data[2][i];
             inp.tkeep = (i == 10)?16'h03FF:16'hFFFF;
             inp.tlast = (i == 10);
@@ -203,10 +203,10 @@ module tb;
          // Send packet 3
          inp.tvalid = 1;
          for (int i = 0; i < 5; i++) begin
-            inp.tuser_bypass_all = 0;
-            inp.tuser_bypass_stage = 0;
-            inp.tuser_src = DPE_ADDR_ETH_4;
-            inp.tuser_dst = DPE_ADDR_CPU;
+            inp.tuser.bypass_all = 0;
+            inp.tuser.bypass_stage = 0;
+            inp.tuser.src = DPE_ADDR_ETH_4;
+            inp.tuser.dst = DPE_ADDR_CPU;
             inp.tdata = packet_data[3][i];
             inp.tkeep = (i == 4)?16'h03FF:16'hFFFF;
             inp.tlast = (i == 4);

@@ -79,7 +79,7 @@ module dpe_demultiplexer (
   logic [2:0] dst;
   logic sel_cpu, sel_eth_1, sel_eth_2, sel_eth_3, sel_eth_4;
   always_comb begin
-    dst       = from_dpe_sbuff.tuser_dst;
+    dst       = from_dpe_sbuff.tuser.dst;
     sel_cpu   = (dst == DPE_ADDR_CPU) || (dst == DPE_ADDR_BCAST);
     sel_eth_1 = (dst == DPE_ADDR_ETH_1) || (dst == DPE_ADDR_MCAST_13) || (dst == DPE_ADDR_BCAST);
     sel_eth_2 = (dst == DPE_ADDR_ETH_2) || (dst == DPE_ADDR_MCAST_24) || (dst == DPE_ADDR_BCAST);
@@ -97,104 +97,74 @@ module dpe_demultiplexer (
   // Demultiplexer
   always_comb begin
     if (sel_cpu) begin
-      to_cpu_sbuff.tvalid             = from_dpe_sbuff.tvalid;
-      to_cpu_sbuff.tdata              = from_dpe_sbuff.tdata;
-      to_cpu_sbuff.tkeep              = from_dpe_sbuff.tkeep;
-      to_cpu_sbuff.tlast              = from_dpe_sbuff.tlast;
-      to_cpu_sbuff.tuser_bypass_all   = from_dpe_sbuff.tuser_bypass_all;
-      to_cpu_sbuff.tuser_bypass_stage = from_dpe_sbuff.tuser_bypass_stage;
-      to_cpu_sbuff.tuser_src          = from_dpe_sbuff.tuser_src;
-      to_cpu_sbuff.tuser_dst          = from_dpe_sbuff.tuser_dst;
+      to_cpu_sbuff.tvalid = from_dpe_sbuff.tvalid;
+      to_cpu_sbuff.tdata  = from_dpe_sbuff.tdata;
+      to_cpu_sbuff.tkeep  = from_dpe_sbuff.tkeep;
+      to_cpu_sbuff.tlast  = from_dpe_sbuff.tlast;
+      to_cpu_sbuff.tuser  = from_dpe_sbuff.tuser;
     end
     else begin
-      to_cpu_sbuff.tvalid             = 1'b0;
-      to_cpu_sbuff.tdata              = '0;
-      to_cpu_sbuff.tkeep              = '0;
-      to_cpu_sbuff.tlast              = '0;
-      to_cpu_sbuff.tuser_bypass_all   = 1'b0;
-      to_cpu_sbuff.tuser_bypass_stage = 1'b0;
-      to_cpu_sbuff.tuser_src          = '0;
-      to_cpu_sbuff.tuser_dst          = '0;
+      to_cpu_sbuff.tvalid = 1'b0;
+      to_cpu_sbuff.tdata  = '0;
+      to_cpu_sbuff.tkeep  = '0;
+      to_cpu_sbuff.tlast  = '0;
+      to_cpu_sbuff.tuser  = '0;
     end
     if (sel_eth_1) begin
-      to_eth_1_sbuff.tvalid             = from_dpe_sbuff.tvalid;
-      to_eth_1_sbuff.tdata              = from_dpe_sbuff.tdata;
-      to_eth_1_sbuff.tkeep              = from_dpe_sbuff.tkeep;
-      to_eth_1_sbuff.tlast              = from_dpe_sbuff.tlast;
-      to_eth_1_sbuff.tuser_bypass_all   = from_dpe_sbuff.tuser_bypass_all;
-      to_eth_1_sbuff.tuser_bypass_stage = from_dpe_sbuff.tuser_bypass_stage;
-      to_eth_1_sbuff.tuser_src          = from_dpe_sbuff.tuser_src;
-      to_eth_1_sbuff.tuser_dst          = from_dpe_sbuff.tuser_dst;
+      to_eth_1_sbuff.tvalid = from_dpe_sbuff.tvalid;
+      to_eth_1_sbuff.tdata  = from_dpe_sbuff.tdata;
+      to_eth_1_sbuff.tkeep  = from_dpe_sbuff.tkeep;
+      to_eth_1_sbuff.tlast  = from_dpe_sbuff.tlast;
+      to_eth_1_sbuff.tuser  = from_dpe_sbuff.tuser;
     end
     else begin
-      to_eth_1_sbuff.tvalid             = 1'b0;
-      to_eth_1_sbuff.tdata              = '0;
-      to_eth_1_sbuff.tkeep              = '0;
-      to_eth_1_sbuff.tlast              = '0;
-      to_eth_1_sbuff.tuser_bypass_all   = 1'b0;
-      to_eth_1_sbuff.tuser_bypass_stage = 1'b0;
-      to_eth_1_sbuff.tuser_src          = '0;
-      to_eth_1_sbuff.tuser_dst          = '0;
+      to_eth_1_sbuff.tvalid = 1'b0;
+      to_eth_1_sbuff.tdata  = '0;
+      to_eth_1_sbuff.tkeep  = '0;
+      to_eth_1_sbuff.tlast  = '0;
+      to_eth_1_sbuff.tuser  = '0;
     end
     if (sel_eth_2) begin
-      to_eth_2_sbuff.tvalid             = from_dpe_sbuff.tvalid;
-      to_eth_2_sbuff.tdata              = from_dpe_sbuff.tdata;
-      to_eth_2_sbuff.tkeep              = from_dpe_sbuff.tkeep;
-      to_eth_2_sbuff.tlast              = from_dpe_sbuff.tlast;
-      to_eth_2_sbuff.tuser_bypass_all   = from_dpe_sbuff.tuser_bypass_all;
-      to_eth_2_sbuff.tuser_bypass_stage = from_dpe_sbuff.tuser_bypass_stage;
-      to_eth_2_sbuff.tuser_src          = from_dpe_sbuff.tuser_src;
-      to_eth_2_sbuff.tuser_dst          = from_dpe_sbuff.tuser_dst;
+      to_eth_2_sbuff.tvalid = from_dpe_sbuff.tvalid;
+      to_eth_2_sbuff.tdata  = from_dpe_sbuff.tdata;
+      to_eth_2_sbuff.tkeep  = from_dpe_sbuff.tkeep;
+      to_eth_2_sbuff.tlast  = from_dpe_sbuff.tlast;
+      to_eth_2_sbuff.tuser  = from_dpe_sbuff.tuser;
     end
     else begin
-      to_eth_2_sbuff.tvalid             = 1'b0;
-      to_eth_2_sbuff.tdata              = '0;
-      to_eth_2_sbuff.tkeep              = '0;
-      to_eth_2_sbuff.tlast              = '0;
-      to_eth_2_sbuff.tuser_bypass_all   = 1'b0;
-      to_eth_2_sbuff.tuser_bypass_stage = 1'b0;
-      to_eth_2_sbuff.tuser_src          = '0;
-      to_eth_2_sbuff.tuser_dst          = '0;
+      to_eth_2_sbuff.tvalid = 1'b0;
+      to_eth_2_sbuff.tdata  = '0;
+      to_eth_2_sbuff.tkeep  = '0;
+      to_eth_2_sbuff.tlast  = '0;
+      to_eth_2_sbuff.tuser  = '0;
     end
     if (sel_eth_3) begin
-      to_eth_3_sbuff.tvalid             = from_dpe_sbuff.tvalid;
-      to_eth_3_sbuff.tdata              = from_dpe_sbuff.tdata;
-      to_eth_3_sbuff.tkeep              = from_dpe_sbuff.tkeep;
-      to_eth_3_sbuff.tlast              = from_dpe_sbuff.tlast;
-      to_eth_3_sbuff.tuser_bypass_all   = from_dpe_sbuff.tuser_bypass_all;
-      to_eth_3_sbuff.tuser_bypass_stage = from_dpe_sbuff.tuser_bypass_stage;
-      to_eth_3_sbuff.tuser_src          = from_dpe_sbuff.tuser_src;
-      to_eth_3_sbuff.tuser_dst          = from_dpe_sbuff.tuser_dst;
+      to_eth_3_sbuff.tvalid = from_dpe_sbuff.tvalid;
+      to_eth_3_sbuff.tdata  = from_dpe_sbuff.tdata;
+      to_eth_3_sbuff.tkeep  = from_dpe_sbuff.tkeep;
+      to_eth_3_sbuff.tlast  = from_dpe_sbuff.tlast;
+      to_eth_3_sbuff.tuser  = from_dpe_sbuff.tuser;
     end
     else begin
-      to_eth_3_sbuff.tvalid             = 1'b0;
-      to_eth_3_sbuff.tdata              = '0;
-      to_eth_3_sbuff.tkeep              = '0;
-      to_eth_3_sbuff.tlast              = '0;
-      to_eth_3_sbuff.tuser_bypass_all   = 1'b0;
-      to_eth_3_sbuff.tuser_bypass_stage = 1'b0;
-      to_eth_3_sbuff.tuser_src          = '0;
-      to_eth_3_sbuff.tuser_dst          = '0;
+      to_eth_3_sbuff.tvalid = 1'b0;
+      to_eth_3_sbuff.tdata  = '0;
+      to_eth_3_sbuff.tkeep  = '0;
+      to_eth_3_sbuff.tlast  = '0;
+      to_eth_3_sbuff.tuser  = '0;
     end
     if (sel_eth_4) begin
-      to_eth_4_sbuff.tvalid             = from_dpe_sbuff.tvalid;
-      to_eth_4_sbuff.tdata              = from_dpe_sbuff.tdata;
-      to_eth_4_sbuff.tkeep              = from_dpe_sbuff.tkeep;
-      to_eth_4_sbuff.tlast              = from_dpe_sbuff.tlast;
-      to_eth_4_sbuff.tuser_bypass_all   = from_dpe_sbuff.tuser_bypass_all;
-      to_eth_4_sbuff.tuser_bypass_stage = from_dpe_sbuff.tuser_bypass_stage;
-      to_eth_4_sbuff.tuser_src          = from_dpe_sbuff.tuser_src;
-      to_eth_4_sbuff.tuser_dst          = from_dpe_sbuff.tuser_dst;
+      to_eth_4_sbuff.tvalid = from_dpe_sbuff.tvalid;
+      to_eth_4_sbuff.tdata  = from_dpe_sbuff.tdata;
+      to_eth_4_sbuff.tkeep  = from_dpe_sbuff.tkeep;
+      to_eth_4_sbuff.tlast  = from_dpe_sbuff.tlast;
+      to_eth_4_sbuff.tuser  = from_dpe_sbuff.tuser;
     end
     else begin
-      to_eth_4_sbuff.tvalid             = 1'b0;
-      to_eth_4_sbuff.tdata              = '0;
-      to_eth_4_sbuff.tkeep              = '0;
-      to_eth_4_sbuff.tlast              = '0;
-      to_eth_4_sbuff.tuser_bypass_all   = 1'b0;
-      to_eth_4_sbuff.tuser_bypass_stage = 1'b0;
-      to_eth_4_sbuff.tuser_src          = '0;
-      to_eth_4_sbuff.tuser_dst          = '0;
+      to_eth_4_sbuff.tvalid = 1'b0;
+      to_eth_4_sbuff.tdata  = '0;
+      to_eth_4_sbuff.tkeep  = '0;
+      to_eth_4_sbuff.tlast  = '0;
+      to_eth_4_sbuff.tuser  = '0;
     end
   end
 

@@ -109,8 +109,12 @@ module dpe_multiplexer (
 
       S0: begin
         if (from_cpu.tlast && from_cpu.tvalid && to_dpe_sbuff.tready) begin
-          if (pause) next_state = IDLE;
-          else next_state = R1;
+          if (pause) begin
+            next_state = IDLE;
+          end
+          else begin
+            next_state = R1;
+          end
         end
       end
 
@@ -128,8 +132,12 @@ module dpe_multiplexer (
 
       S1: begin
         if (from_eth_1.tlast && from_eth_1.tvalid && to_dpe_sbuff.tready) begin
-          if (pause) next_state = IDLE;
-          else next_state = R2;
+          if (pause) begin
+            next_state = IDLE;
+          end
+          else begin
+            next_state = R2;
+          end
         end
       end
 
@@ -147,8 +155,12 @@ module dpe_multiplexer (
 
       S2: begin
         if (from_eth_2.tlast && from_eth_2.tvalid && to_dpe_sbuff.tready) begin
-          if (pause) next_state = IDLE;
-          else next_state = R3;
+          if (pause) begin
+            next_state = IDLE;
+          end
+          else begin
+            next_state = R3;
+          end
         end
       end
 
@@ -166,8 +178,12 @@ module dpe_multiplexer (
 
       S3: begin
         if (from_eth_3.tlast && from_eth_3.tvalid && to_dpe_sbuff.tready) begin
-          if (pause) next_state = IDLE;
-          else next_state = R4;
+          if (pause) begin
+            next_state = IDLE;
+          end
+          else begin
+            next_state = R4;
+          end
         end
       end
 
@@ -185,8 +201,12 @@ module dpe_multiplexer (
 
       S4: begin
         if (from_eth_4.tlast && from_eth_4.tvalid && to_dpe_sbuff.tready) begin
-          if (pause) next_state = IDLE;
-          else next_state = R0;
+          if (pause) begin
+            next_state = IDLE;
+          end
+          else begin
+            next_state = R0;
+          end
         end
       end
 
@@ -197,20 +217,17 @@ module dpe_multiplexer (
   // Outputs logic
   always_comb begin
     // Default assignments
-    is_idle                         = 1'b0;
-    to_dpe_sbuff.tvalid             = 1'b0;
-    to_dpe_sbuff.tdata              = '0;
-    to_dpe_sbuff.tlast              = 1'b0;
-    to_dpe_sbuff.tkeep              = '0;
-    to_dpe_sbuff.tuser_bypass_all   = 1'b0;
-    to_dpe_sbuff.tuser_bypass_stage = 1'b0;
-    to_dpe_sbuff.tuser_src          = '0;
-    to_dpe_sbuff.tuser_dst          = '0;
-    from_cpu.tready                 = 1'b0;
-    from_eth_1.tready               = 1'b0;
-    from_eth_2.tready               = 1'b0;
-    from_eth_3.tready               = 1'b0;
-    from_eth_4.tready               = 1'b0;
+    is_idle             = 1'b0;
+    to_dpe_sbuff.tvalid = 1'b0;
+    to_dpe_sbuff.tdata  = '0;
+    to_dpe_sbuff.tlast  = 1'b0;
+    to_dpe_sbuff.tkeep  = '0;
+    to_dpe_sbuff.tuser  = '0;
+    from_cpu.tready     = 1'b0;
+    from_eth_1.tready   = 1'b0;
+    from_eth_2.tready   = 1'b0;
+    from_eth_3.tready   = 1'b0;
+    from_eth_4.tready   = 1'b0;
 
     case (state)
       IDLE: begin
@@ -218,68 +235,58 @@ module dpe_multiplexer (
       end
 
       R0, S0: begin
-        is_idle                         = 1'b0;
-        to_dpe_sbuff.tvalid             = from_cpu.tvalid;
-        to_dpe_sbuff.tdata              = from_cpu.tdata;
-        to_dpe_sbuff.tlast              = from_cpu.tlast;
-        to_dpe_sbuff.tkeep              = from_cpu.tkeep;
-        to_dpe_sbuff.tuser_bypass_all   = from_cpu.tuser_bypass_all;
-        to_dpe_sbuff.tuser_bypass_stage = from_cpu.tuser_bypass_stage;
-        to_dpe_sbuff.tuser_src          = DPE_ADDR_CPU;
-        to_dpe_sbuff.tuser_dst          = from_cpu.tuser_dst;
-        from_cpu.tready                 = to_dpe_sbuff.tready;
+        is_idle                = 1'b0;
+        to_dpe_sbuff.tvalid    = from_cpu.tvalid;
+        to_dpe_sbuff.tdata     = from_cpu.tdata;
+        to_dpe_sbuff.tlast     = from_cpu.tlast;
+        to_dpe_sbuff.tkeep     = from_cpu.tkeep;
+        to_dpe_sbuff.tuser     = from_cpu.tuser;
+        to_dpe_sbuff.tuser.src = DPE_ADDR_CPU;
+        from_cpu.tready        = to_dpe_sbuff.tready;
       end
 
       R1, S1: begin
-        is_idle                         = 1'b0;
-        to_dpe_sbuff.tvalid             = from_eth_1.tvalid;
-        to_dpe_sbuff.tdata              = from_eth_1.tdata;
-        to_dpe_sbuff.tlast              = from_eth_1.tlast;
-        to_dpe_sbuff.tkeep              = from_eth_1.tkeep;
-        to_dpe_sbuff.tuser_bypass_all   = from_eth_1.tuser_bypass_all;
-        to_dpe_sbuff.tuser_bypass_stage = from_eth_1.tuser_bypass_stage;
-        to_dpe_sbuff.tuser_src          = DPE_ADDR_ETH_1;
-        to_dpe_sbuff.tuser_dst          = from_eth_1.tuser_dst;
-        from_eth_1.tready               = to_dpe_sbuff.tready;
+        is_idle                = 1'b0;
+        to_dpe_sbuff.tvalid    = from_eth_1.tvalid;
+        to_dpe_sbuff.tdata     = from_eth_1.tdata;
+        to_dpe_sbuff.tlast     = from_eth_1.tlast;
+        to_dpe_sbuff.tkeep     = from_eth_1.tkeep;
+        to_dpe_sbuff.tuser     = from_eth_1.tuser;
+        to_dpe_sbuff.tuser.src = DPE_ADDR_ETH_1;
+        from_eth_1.tready      = to_dpe_sbuff.tready;
       end
 
       R2, S2: begin
-        is_idle                         = 1'b0;
-        to_dpe_sbuff.tvalid             = from_eth_2.tvalid;
-        to_dpe_sbuff.tdata              = from_eth_2.tdata;
-        to_dpe_sbuff.tlast              = from_eth_2.tlast;
-        to_dpe_sbuff.tkeep              = from_eth_2.tkeep;
-        to_dpe_sbuff.tuser_bypass_all   = from_eth_2.tuser_bypass_all;
-        to_dpe_sbuff.tuser_bypass_stage = from_eth_2.tuser_bypass_stage;
-        to_dpe_sbuff.tuser_src          = DPE_ADDR_ETH_2;
-        to_dpe_sbuff.tuser_dst          = from_eth_2.tuser_dst;
-        from_eth_2.tready               = to_dpe_sbuff.tready;
+        is_idle                = 1'b0;
+        to_dpe_sbuff.tvalid    = from_eth_2.tvalid;
+        to_dpe_sbuff.tdata     = from_eth_2.tdata;
+        to_dpe_sbuff.tlast     = from_eth_2.tlast;
+        to_dpe_sbuff.tkeep     = from_eth_2.tkeep;
+        to_dpe_sbuff.tuser     = from_eth_2.tuser;
+        to_dpe_sbuff.tuser.src = DPE_ADDR_ETH_2;
+        from_eth_2.tready      = to_dpe_sbuff.tready;
       end
 
       R3, S3: begin
-        is_idle                         = 1'b0;
-        to_dpe_sbuff.tvalid             = from_eth_3.tvalid;
-        to_dpe_sbuff.tdata              = from_eth_3.tdata;
-        to_dpe_sbuff.tlast              = from_eth_3.tlast;
-        to_dpe_sbuff.tkeep              = from_eth_3.tkeep;
-        to_dpe_sbuff.tuser_bypass_all   = from_eth_3.tuser_bypass_all;
-        to_dpe_sbuff.tuser_bypass_stage = from_eth_3.tuser_bypass_stage;
-        to_dpe_sbuff.tuser_src          = DPE_ADDR_ETH_3;
-        to_dpe_sbuff.tuser_dst          = from_eth_3.tuser_dst;
-        from_eth_3.tready               = to_dpe_sbuff.tready;
+        is_idle                = 1'b0;
+        to_dpe_sbuff.tvalid    = from_eth_3.tvalid;
+        to_dpe_sbuff.tdata     = from_eth_3.tdata;
+        to_dpe_sbuff.tlast     = from_eth_3.tlast;
+        to_dpe_sbuff.tkeep     = from_eth_3.tkeep;
+        to_dpe_sbuff.tuser     = from_eth_3.tuser;
+        to_dpe_sbuff.tuser.src = DPE_ADDR_ETH_3;
+        from_eth_3.tready      = to_dpe_sbuff.tready;
       end
 
       R4, S4: begin
-        is_idle                         = 1'b0;
-        to_dpe_sbuff.tvalid             = from_eth_4.tvalid;
-        to_dpe_sbuff.tdata              = from_eth_4.tdata;
-        to_dpe_sbuff.tlast              = from_eth_4.tlast;
-        to_dpe_sbuff.tkeep              = from_eth_4.tkeep;
-        to_dpe_sbuff.tuser_bypass_all   = from_eth_4.tuser_bypass_all;
-        to_dpe_sbuff.tuser_bypass_stage = from_eth_4.tuser_bypass_stage;
-        to_dpe_sbuff.tuser_src          = DPE_ADDR_ETH_4;
-        to_dpe_sbuff.tuser_dst          = from_eth_4.tuser_dst;
-        from_eth_4.tready               = to_dpe_sbuff.tready;
+        is_idle                = 1'b0;
+        to_dpe_sbuff.tvalid    = from_eth_4.tvalid;
+        to_dpe_sbuff.tdata     = from_eth_4.tdata;
+        to_dpe_sbuff.tlast     = from_eth_4.tlast;
+        to_dpe_sbuff.tkeep     = from_eth_4.tkeep;
+        to_dpe_sbuff.tuser     = from_eth_4.tuser;
+        to_dpe_sbuff.tuser.src = DPE_ADDR_ETH_4;
+        from_eth_4.tready      = to_dpe_sbuff.tready;
       end
 
       default: is_idle = !to_dpe.tvalid;

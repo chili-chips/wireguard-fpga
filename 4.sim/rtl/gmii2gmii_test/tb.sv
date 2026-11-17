@@ -194,10 +194,7 @@ module tb;
       inp.tlast = 0;
       inp.tkeep = '0;
       inp.tdata = '0;
-      inp.tuser_bypass_all = 0;
-      inp.tuser_bypass_stage = 0;
-      inp.tuser_src = '0;
-      inp.tuser_dst = '0;
+      inp.tuser = '0;
 
       // Reset assertion
       rst = 1;

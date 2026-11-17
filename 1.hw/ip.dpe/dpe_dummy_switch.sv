@@ -89,33 +89,33 @@ module dpe_dummy_switch (
     outp_sbuff.tdata              = inp.tdata;
     outp_sbuff.tkeep              = inp.tkeep;
     outp_sbuff.tlast              = inp.tlast;
-    outp_sbuff.tuser_bypass_all   = inp.tuser_bypass_all;
-    outp_sbuff.tuser_bypass_stage = 1'b0;
-    outp_sbuff.tuser_src          = inp.tuser_src;
-    if (inp.tuser_bypass_all == 1'b0 && inp.tuser_bypass_stage == 1'b0) begin
-      case (inp.tuser_src)
+    outp_sbuff.tuser.bypass_all   = inp.tuser.bypass_all;
+    outp_sbuff.tuser.bypass_stage = 1'b0;
+    outp_sbuff.tuser.src          = inp.tuser.src;
+    if (inp.tuser.bypass_all == 1'b0 && inp.tuser.bypass_stage == 1'b0) begin
+      case (inp.tuser.src)
         DPE_ADDR_CPU: begin
-          outp_sbuff.tuser_dst = DPE_ADDR_ETH_1;
+          outp_sbuff.tuser.dst = DPE_ADDR_ETH_1;
         end
         DPE_ADDR_ETH_1: begin
-          outp_sbuff.tuser_dst = DPE_ADDR_CPU;
+          outp_sbuff.tuser.dst = DPE_ADDR_CPU;
         end
         DPE_ADDR_ETH_2: begin
-          outp_sbuff.tuser_dst = DPE_ADDR_CPU;
+          outp_sbuff.tuser.dst = DPE_ADDR_CPU;
         end
         DPE_ADDR_ETH_3: begin
-          outp_sbuff.tuser_dst = DPE_ADDR_ETH_4;
+          outp_sbuff.tuser.dst = DPE_ADDR_ETH_4;
         end
         DPE_ADDR_ETH_4: begin
-          outp_sbuff.tuser_dst = DPE_ADDR_ETH_3;
+          outp_sbuff.tuser.dst = DPE_ADDR_ETH_3;
         end
         default: begin
-          outp_sbuff.tuser_dst = inp.tuser_dst;
+          outp_sbuff.tuser.dst = inp.tuser.dst;
         end
       endcase
     end
     else begin
-      outp_sbuff.tuser_dst = inp.tuser_dst;
+      outp_sbuff.tuser.dst = inp.tuser.dst;
     end
   end
 

@@ -48,8 +48,8 @@ module dpe_tb_sink
       if (n_byte == 0) begin
         cur     = '0;
         cur_bytes = '0;
-        cur.dst = inp.tuser_dst;
-        cur_src = inp.tuser_src;
+        cur.dst = inp.tuser.dst;
+        cur_src = inp.tuser.src;
       end
       if (inp.tkeep !== 16'h0001) begin
         errors++;

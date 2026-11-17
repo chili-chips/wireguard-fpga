@@ -115,10 +115,10 @@ module tb;
       inp.tlast = 0;
       inp.tkeep = '0;
       inp.tdata = '0;
-      inp.tuser_bypass_all = 0;
-      inp.tuser_bypass_stage = 0;
-      inp.tuser_src = DPE_ADDR_ETH_1;
-      inp.tuser_dst = DPE_ADDR_ETH_2;
+      inp.tuser.bypass_all = 0;
+      inp.tuser.bypass_stage = 0;
+      inp.tuser.src = DPE_ADDR_ETH_1;
+      inp.tuser.dst = DPE_ADDR_ETH_2;
       outp.tready = 1;
 
       // Reset assertion

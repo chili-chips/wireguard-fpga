@@ -29,7 +29,7 @@ The entries are scanned in ascending index order, and the first matching index i
 The top-level module `dpe_egress_ip_lookup` instantiates `dpe_route_mem` and coordinates control-plane configuration with data-plane packet processing. Its responsibilities include:
 - CSR Interface (Control Plane): decodes incoming transactions (`hwif_out`) to determine which routing table entry is being accessed. Read responses and acknowledgements are returned on `hwif_in`.
 - Packet Buffering: Incoming packets arrive on an AXI-Stream interface (`s_axis`). The IPv4 destination address spans the second and third 128-bit beats of the packet header. To support store-and-forward operation and decouple header parsing from routing decisions, the module uses a small circular buffer. This allows packet data to continue streaming while the routing lookup is performed.
-- Metadata Assignment: On the outgoing AXI-Stream interface (`m_axis`), the module sets `m_axis.tuser_dst`, `m_axis.tid`, and `m_axis.tuser_bypass_stage` based on the routing table lookup result. This ensures that the selected forwarding path and peer association are applied consistently to all beats of the packet.
+- Metadata Assignment: On the outgoing AXI-Stream interface (`m_axis`), the module sets `m_axis.tuser.dst`, `m_axis.tid`, and `m_axis.tuser.bypass_stage` based on the routing table lookup result. This ensures that the selected forwarding path and peer association are applied consistently to all beats of the packet.
 
 ### Lookup Table Format:
 The lookup table contains ENTRY_COUNT entries (default: 64). Each entry consists of:
