@@ -29,8 +29,8 @@
 #
 # Needs python3 and Verible (VERIBLE_FORMAT, VERIBLE_SYNTAX, VERIBLE_LINT can
 # override the commands). Generated code (the PeakRDL csr.sv / csr_pkg.sv in
-# 3.build/csr_build) is left as the generator writes it; third-party code
-# (external_lib, PicoRV32) keeps its own style.
+# 3.build/csr_build) is left as the generator writes it. Our forks of
+# third-party code (external_lib, PicoRV32) are formatted like our own RTL.
 
 set -u
 HERE=$(cd "$(dirname "$0")" && pwd)

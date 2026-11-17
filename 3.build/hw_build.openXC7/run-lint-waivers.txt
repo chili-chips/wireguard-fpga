@@ -77,3 +77,11 @@ slang ^1\.hw/ip\.cpu/cpu\.EDUBOS5/edubos5(_alu)?\.sv:[0-9]+:[0-9]+: warning: .ca
 # simulates it and Vivado synthesizes it. PipelineC#395, tracked in #36: drop
 # this waiver when fixed
 ghdl ^pypeline/c_structs_pkg\.pkg\.vhd:[0-9]+:[0-9]+:warning: function "bank_state_t_from_poly1305_mac_paired_[A-Z0-9_]+_to_slv" is called before elaborated of its body \[-Welaboration\]$
+
+# Our forks of third-party RTL (Alex Forencich's external_lib, the PicoRV32
+# pcpi units) are Verible-formatted like our own, but are still Verilog 2001:
+# untyped parameters, always @*, unlabelled generate blocks, [N] unpacked
+# dimensions, functions without a lifetime. These SystemVerilog style rules
+# come with their conversion to SystemVerilog (and to axis_if interfaces);
+# until then, waived for these files only
+verible ^1\.hw/(external_lib/(axis|ethernet)/[a-z0-9_]+\.v|ip\.cpu/cpu\.PICORV32/picorv32_pcpi_[a-z_]+\.sv):[0-9]+:[0-9-]+: .*\[(explicit-parameter-storage-type|unpacked-dimensions-range-ordering|generate-label|generate-label-prefix|always-comb|explicit-function-task-parameter-type|explicit-function-lifetime|case-missing-default)\]$

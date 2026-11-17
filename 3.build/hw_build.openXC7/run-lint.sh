@@ -42,8 +42,9 @@
 # plugin: YOSYS_ARGS="-m slang". The Xilinx primitives come from the Yosys
 # library (yosys-config --datdir), as blackboxes (gen_xilinx_bb.py).
 #
-# Third-party code keeps its own style and is not changed here: external_lib
-# (Alex Forencich's verilog-ethernet and verilog-axis) and PicoRV32. Their
+# Our forks of third-party code, formatted like ours but linted as theirs:
+# external_lib (Alex Forencich's verilog-ethernet and verilog-axis) and
+# PicoRV32. Their
 # Verilator and slang findings are not shown; the Yosys check findings, which
 # can be bugs (latches, undriven wires), stay. The PeakRDL CSR is linted, with
 # waivers for its generated constructs.
@@ -208,8 +209,8 @@ lint_off -file "*bb.sv"
 lint_off -file "*/external_lib/*"
 lint_off -file "*/cpu.PICORV32/*"
 VLT
-  # --timescale: external_lib sets one, our RTL does not (no delays)
-  "$VERILATOR" --lint-only -Wall -Wno-fatal --timing --timescale 1ns/1ps --top-module $TOP $VL_DEFS \
+  # --timescale: none of the RTL sets one (no delays)
+  "$VERILATOR" --lint-only -Wall -Wno-fatal --timing --timescale 1ns/1ns --top-module $TOP $VL_DEFS \
     -I$INC waive.vlt bb.sv $SV > verilator.log 2>&1
   local rc=$?
   found verilator < <(grep -E '^%(Warning|Error)' verilator.log)

@@ -10,9 +10,10 @@
 #   own_rtl <1.hw> <3.build>      our own RTL: the design's, plus both soc_cpu
 #                                 wrappers and eduBOS5, whichever CPU is in;
 #                                 what run-format.sh formats and the verible
-#                                 phase lints. Not ours: external_lib (Alex
-#                                 Forencich's verilog-ethernet and verilog-axis),
-#                                 PicoRV32 (YosysHQ), the PeakRDL-generated CSR.
+#                                 phase lints, also our forks of third-party
+#                                 RTL: external_lib (Alex Forencich's
+#                                 verilog-ethernet and verilog-axis) and
+#                                 PicoRV32. Not the PeakRDL-generated CSR.
 #   cpu_select <top.filelist> <picorv32|edubos5>
 #                                 switch the CPU in a copy of top.filelist: the
 #                                 PicoRV32 lines or the eduBOS5 lines (commented
@@ -25,8 +26,9 @@ design_rtl() {
 }
 
 own_rtl() {
-  { design_rtl "$1" "$2" | grep -v -e '/external_lib/' -e '/cpu.PICORV32/' -e '/csr_build/'
-    ls "$1"/ip.cpu/soc_cpu.*.sv "$1"/ip.cpu/cpu.EDUBOS5/*.sv
+  { design_rtl "$1" "$2" | grep -v -e '/csr_build/'
+    ls "$1"/ip.cpu/soc_cpu.*.sv "$1"/ip.cpu/cpu.EDUBOS5/*.sv "$1"/ip.cpu/cpu.PICORV32/*.sv
+    ls "$1"/external_lib/*/*.v
   } | awk '!seen[$0]++'
 }
 

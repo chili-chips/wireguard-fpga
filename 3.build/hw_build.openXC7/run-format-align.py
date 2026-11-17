@@ -182,14 +182,19 @@ def ternaries(src):
                 break
             block.append((j, m.group(1), t, cmt))
             j += 1
-        wc = max(len(b[2][0]) for b in block)
-        wa = max(len(b[2][1]) for b in block)
+        # A line that does not fit even unpadded is stacked; the '?' and ':'
+        # columns come from the others only, so the result is stable
+        def fits(pre, c, a, b, cmt):
+            return len(pre + c + ' ? ' + a + ' : ' + b + ';' + cmt.rstrip()) <= LIMIT
+        flat = [x for x in block if fits(x[1], *x[2], x[3])]
+        wc = max((len(x[2][0]) for x in flat), default=0)
+        wa = max((len(x[2][1]) for x in flat), default=0)
         added = 0
         for k, pre, (c, a, b), cmt in reversed(block):  # bottom up: inserts shift what follows
             one = pre + c.ljust(wc) + ' ? ' + a.ljust(wa) + ' : ' + b + ';'
-            if len(block) == 1:
+            if len(flat) == 1:
                 one = pre + c + ' ? ' + a + ' : ' + b + ';'
-            if len(one + cmt.rstrip()) <= LIMIT:
+            if fits(pre, c, a, b, cmt) and len(one + cmt.rstrip()) <= LIMIT:
                 src[k] = one + cmt
             else:  # stacked: '?' and ':' under the '='
                 ind = ' ' * (len(pre) - 2)

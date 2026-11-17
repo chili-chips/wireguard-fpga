@@ -1,3 +1,9 @@
+// SPDX-FileCopyrightText: 2026 Chili.CHIPS
+//
+// Enhanced by Chili.CHIPS with NLnet-sponsored project
+// wireguard-fpga (https://github.com/chili-chips/wireguard-fpga).
+// The original header follows.
+
 // verilator lint_off GENUNNAMED
 // verilator lint_off UNUSED
 
@@ -8,24 +14,21 @@
 // Language: Verilog 2001
 
 `resetall
-`timescale 1ns / 1ps
 `default_nettype none
 
 /*
  * Generic ODDR module
  */
-module oddr #
-(
+module oddr #(
     // target ("SIM", "GENERIC", "XILINX", "ALTERA")
-    parameter TARGET = "GENERIC",
+    parameter TARGET      = "GENERIC",
     // IODDR style ("IODDR", "IODDR2")
     // Use IODDR for Virtex-4, Virtex-5, Virtex-6, 7 Series, Ultrascale
     // Use IODDR2 for Spartan-6
     parameter IODDR_STYLE = "IODDR2",
     // Width of register in bits
-    parameter WIDTH = 1
-)
-(
+    parameter WIDTH       = 1
+) (
     input  wire             clk,
 
     input  wire [WIDTH-1:0] d1,
@@ -34,7 +37,7 @@ module oddr #
     output wire [WIDTH-1:0] q
 );
 
-/*
+  /*
 
 Provides a consistent output DDR flip flop across multiple FPGA families
               _____       _____       _____       _____
@@ -48,88 +51,89 @@ Provides a consistent output DDR flip flop across multiple FPGA families
 
 */
 
-genvar n;
+  genvar n;
 
-generate
+  generate
 
-if (TARGET == "XILINX") begin
-    for (n = 0; n < WIDTH; n = n + 1) begin : oddr
+    if (TARGET == "XILINX") begin
+      for (n = 0; n < WIDTH; n = n + 1) begin : oddr
         if (IODDR_STYLE == "IODDR") begin
-            ODDR #(
-                .DDR_CLK_EDGE("SAME_EDGE"),
-                .SRTYPE("ASYNC")
-            )
-            oddr_inst (
-                .Q(q[n]),
-                .C(clk),
-                .CE(1'b1),
-                .D1(d1[n]),
-                .D2(d2[n]),
-                .R(1'b0),
-                .S(1'b0)
-            );
-        end else if (IODDR_STYLE == "IODDR2") begin
-            ODDR2 #(
-                .DDR_ALIGNMENT("C0"),
-                .SRTYPE("ASYNC")
-            )
-            oddr_inst (
-                .Q(q[n]),
-                .C0(clk),
-                .C1(~clk),
-                .CE(1'b1),
-                .D0(d1[n]),
-                .D1(d2[n]),
-                .R(1'b0),
-                .S(1'b0)
-            );
+          ODDR #(
+              .DDR_CLK_EDGE ("SAME_EDGE"),
+              .SRTYPE       ("ASYNC")
+          ) oddr_inst (
+              .Q  (q[n]),
+              .C  (clk),
+              .CE (1'b1),
+              .D1 (d1[n]),
+              .D2 (d2[n]),
+              .R  (1'b0),
+              .S  (1'b0)
+          );
         end
+        else if (IODDR_STYLE == "IODDR2") begin
+          ODDR2 #(
+              .DDR_ALIGNMENT ("C0"),
+              .SRTYPE        ("ASYNC")
+          ) oddr_inst (
+              .Q  (q[n]),
+              .C0 (clk),
+              .C1 (~clk),
+              .CE (1'b1),
+              .D0 (d1[n]),
+              .D1 (d2[n]),
+              .R  (1'b0),
+              .S  (1'b0)
+          );
+        end
+      end
     end
-end else if (TARGET == "ALTERA") begin
-    altddio_out #(
-        .WIDTH(WIDTH),
-        .POWER_UP_HIGH("OFF"),
-        .OE_REG("UNUSED")
-    )
-    altddio_out_inst (
-        .aset(1'b0),
-        .datain_h(d1),
-        .datain_l(d2),
-        .outclocken(1'b1),
-        .outclock(clk),
-        .aclr(1'b0),
-        .dataout(q)
-    );
-end else begin
-    reg [WIDTH-1:0] d_reg_1 = {WIDTH{1'b0}};
-    reg [WIDTH-1:0] d_reg_2 = {WIDTH{1'b0}};
+    else if (TARGET == "ALTERA") begin
+      altddio_out #(
+          .WIDTH         (WIDTH),
+          .POWER_UP_HIGH ("OFF"),
+          .OE_REG        ("UNUSED")
+      ) altddio_out_inst (
+          .aset       (1'b0),
+          .datain_h   (d1),
+          .datain_l   (d2),
+          .outclocken (1'b1),
+          .outclock   (clk),
+          .aclr       (1'b0),
+          .dataout    (q)
+      );
+    end
+    else begin
+      reg [WIDTH-1:0] d_reg_1 = {WIDTH{1'b0}};
+      reg [WIDTH-1:0] d_reg_2 = {WIDTH{1'b0}};
 
-    reg [WIDTH-1:0] q_reg = {WIDTH{1'b0}};
+      reg [WIDTH-1:0] q_reg = {WIDTH{1'b0}};
 
-    always @(posedge clk) begin
+      always @(posedge clk) begin
         d_reg_1 <= d1;
         d_reg_2 <= d2;
-    end
+      end
 
-    /*always @(posedge clk) begin
+      /*always @(posedge clk) begin
         q_reg <= d1;
     end
 
     always @(negedge clk) begin
         q_reg <= d_reg_2;
     end*/
-    always @(clk) begin
+      always @(clk) begin
         if (clk) begin
-            q_reg <= d_reg_1;
-        end else begin
-            q_reg <= d_reg_2;
+          q_reg <= d_reg_1;
         end
+        else begin
+          q_reg <= d_reg_2;
+        end
+      end
+
+      assign q = q_reg;
     end
 
-    assign q = q_reg;
-end
-
-endgenerate
+  endgenerate
 
 endmodule
 
