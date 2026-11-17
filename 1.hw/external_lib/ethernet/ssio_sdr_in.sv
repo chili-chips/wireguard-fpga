@@ -29,17 +29,17 @@ module ssio_sdr_in #(
     // Width of register in bits
     parameter WIDTH             = 1
 ) (
-    input  wire             input_clk,
+    input  logic             input_clk,
 
-    input  wire [WIDTH-1:0] input_d,
+    input  logic [WIDTH-1:0] input_d,
 
-    output wire             output_clk,
+    output logic             output_clk,
 
-    output wire [WIDTH-1:0] output_q
+    output logic [WIDTH-1:0] output_q
 );
 
-  wire clk_int;
-  wire clk_io;
+  logic clk_int;
+  logic clk_io;
 
   generate
 
@@ -136,11 +136,11 @@ module ssio_sdr_in #(
   endgenerate
 
   (* IOB = "TRUE" *)
-  reg [WIDTH-1:0] output_q_reg = {WIDTH{1'b0}};
+  logic [WIDTH-1:0] output_q_reg = {WIDTH{1'b0}};
 
   assign output_q = output_q_reg;
 
-  always @(posedge clk_io) begin
+  always_ff @(posedge clk_io) begin
     output_q_reg <= input_d;
   end
 

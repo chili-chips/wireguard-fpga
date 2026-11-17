@@ -80,52 +80,52 @@ module axis_async_fifo #(
     /*
      * AXI input
      */
-    input  wire                   s_clk,
-    input  wire                   s_rst,
-    input  wire [DATA_WIDTH-1:0]  s_axis_tdata,
-    input  wire [KEEP_WIDTH-1:0]  s_axis_tkeep,
-    input  wire                   s_axis_tvalid,
-    output wire                   s_axis_tready,
-    input  wire                   s_axis_tlast,
-    input  wire [  ID_WIDTH-1:0]  s_axis_tid,
-    input  wire [DEST_WIDTH-1:0]  s_axis_tdest,
-    input  wire [USER_WIDTH-1:0]  s_axis_tuser,
+    input  logic                   s_clk,
+    input  logic                   s_rst,
+    input  logic [DATA_WIDTH-1:0]  s_axis_tdata,
+    input  logic [KEEP_WIDTH-1:0]  s_axis_tkeep,
+    input  logic                   s_axis_tvalid,
+    output logic                   s_axis_tready,
+    input  logic                   s_axis_tlast,
+    input  logic [  ID_WIDTH-1:0]  s_axis_tid,
+    input  logic [DEST_WIDTH-1:0]  s_axis_tdest,
+    input  logic [USER_WIDTH-1:0]  s_axis_tuser,
 
     /*
      * AXI output
      */
-    input  wire                   m_clk,
-    input  wire                   m_rst,
-    output wire [DATA_WIDTH-1:0]  m_axis_tdata,
-    output wire [KEEP_WIDTH-1:0]  m_axis_tkeep,
-    output wire                   m_axis_tvalid,
-    input  wire                   m_axis_tready,
-    output wire                   m_axis_tlast,
-    output wire [  ID_WIDTH-1:0]  m_axis_tid,
-    output wire [DEST_WIDTH-1:0]  m_axis_tdest,
-    output wire [USER_WIDTH-1:0]  m_axis_tuser,
+    input  logic                   m_clk,
+    input  logic                   m_rst,
+    output logic [DATA_WIDTH-1:0]  m_axis_tdata,
+    output logic [KEEP_WIDTH-1:0]  m_axis_tkeep,
+    output logic                   m_axis_tvalid,
+    input  logic                   m_axis_tready,
+    output logic                   m_axis_tlast,
+    output logic [  ID_WIDTH-1:0]  m_axis_tid,
+    output logic [DEST_WIDTH-1:0]  m_axis_tdest,
+    output logic [USER_WIDTH-1:0]  m_axis_tuser,
 
     /*
      * Pause
      */
-    input  wire                   s_pause_req,
-    output wire                   s_pause_ack,
-    input  wire                   m_pause_req,
-    output wire                   m_pause_ack,
+    input  logic                   s_pause_req,
+    output logic                   s_pause_ack,
+    input  logic                   m_pause_req,
+    output logic                   m_pause_ack,
 
     /*
      * Status
      */
-    output wire [$clog2(DEPTH):0] s_status_depth,
-    output wire [$clog2(DEPTH):0] s_status_depth_commit,
-    output wire                   s_status_overflow,
-    output wire                   s_status_bad_frame,
-    output wire                   s_status_good_frame,
-    output wire [$clog2(DEPTH):0] m_status_depth,
-    output wire [$clog2(DEPTH):0] m_status_depth_commit,
-    output wire                   m_status_overflow,
-    output wire                   m_status_bad_frame,
-    output wire                   m_status_good_frame
+    output logic [$clog2(DEPTH):0] s_status_depth,
+    output logic [$clog2(DEPTH):0] s_status_depth_commit,
+    output logic                   s_status_overflow,
+    output logic                   s_status_bad_frame,
+    output logic                   s_status_good_frame,
+    output logic [$clog2(DEPTH):0] m_status_depth,
+    output logic [$clog2(DEPTH):0] m_status_depth_commit,
+    output logic                   m_status_overflow,
+    output logic                   m_status_bad_frame,
+    output logic                   m_status_good_frame
 );
 
   // verilator lint_off WIDTHTRUNC
@@ -186,127 +186,134 @@ module axis_async_fifo #(
   localparam USER_OFFSET = DEST_OFFSET + (DEST_ENABLE ? DEST_WIDTH : 0);
   localparam WIDTH       = USER_OFFSET + (USER_ENABLE ? USER_WIDTH : 0);
 
-  function [ADDR_WIDTH:0] bin2gray(input [ADDR_WIDTH:0] b);
+  function automatic [ADDR_WIDTH:0] bin2gray(input [ADDR_WIDTH:0] b);
     bin2gray = b ^ (b >> 1);
   endfunction
 
-  function [ADDR_WIDTH:0] gray2bin(input [ADDR_WIDTH:0] g);
+  function automatic [ADDR_WIDTH:0] gray2bin(input [ADDR_WIDTH:0] g);
     integer i;
     for (i = 0; i <= ADDR_WIDTH; i = i + 1) begin
       gray2bin[i] = ^(g >> i);
     end
   endfunction
 
-  reg [ADDR_WIDTH:0] wr_ptr_reg = {ADDR_WIDTH + 1{1'b0}};
-  reg [ADDR_WIDTH:0] wr_ptr_commit_reg = {ADDR_WIDTH + 1{1'b0}};
-  reg [ADDR_WIDTH:0] wr_ptr_gray_reg = {ADDR_WIDTH + 1{1'b0}};
-  reg [ADDR_WIDTH:0] wr_ptr_sync_commit_reg = {ADDR_WIDTH + 1{1'b0}};
-  reg [ADDR_WIDTH:0] rd_ptr_reg = {ADDR_WIDTH + 1{1'b0}};
-  reg [ADDR_WIDTH:0] rd_ptr_gray_reg = {ADDR_WIDTH + 1{1'b0}};
-  reg [ADDR_WIDTH:0] wr_ptr_conv_reg = {ADDR_WIDTH + 1{1'b0}};
-  reg [ADDR_WIDTH:0] rd_ptr_conv_reg = {ADDR_WIDTH + 1{1'b0}};
+  logic [ADDR_WIDTH:0] wr_ptr_reg = {ADDR_WIDTH + 1{1'b0}};
+  logic [ADDR_WIDTH:0] wr_ptr_commit_reg = {ADDR_WIDTH + 1{1'b0}};
+  logic [ADDR_WIDTH:0] wr_ptr_gray_reg = {ADDR_WIDTH + 1{1'b0}};
+  logic [ADDR_WIDTH:0] wr_ptr_sync_commit_reg = {ADDR_WIDTH + 1{1'b0}};
+  logic [ADDR_WIDTH:0] rd_ptr_reg = {ADDR_WIDTH + 1{1'b0}};
+  logic [ADDR_WIDTH:0] rd_ptr_gray_reg = {ADDR_WIDTH + 1{1'b0}};
+  logic [ADDR_WIDTH:0] wr_ptr_conv_reg = {ADDR_WIDTH + 1{1'b0}};
+  logic [ADDR_WIDTH:0] rd_ptr_conv_reg = {ADDR_WIDTH + 1{1'b0}};
 
-  reg [ADDR_WIDTH:0] wr_ptr_temp;
-  reg [ADDR_WIDTH:0] rd_ptr_temp;
-
-  (* SHREG_EXTRACT = "NO" *)
-  reg [ADDR_WIDTH:0] wr_ptr_gray_sync1_reg = {ADDR_WIDTH + 1{1'b0}};
-  (* SHREG_EXTRACT = "NO" *)
-  reg [ADDR_WIDTH:0] wr_ptr_gray_sync2_reg = {ADDR_WIDTH + 1{1'b0}};
-  (* SHREG_EXTRACT = "NO" *)
-  reg [ADDR_WIDTH:0] wr_ptr_commit_sync_reg = {ADDR_WIDTH + 1{1'b0}};
-  (* SHREG_EXTRACT = "NO" *)
-  reg [ADDR_WIDTH:0] rd_ptr_gray_sync1_reg = {ADDR_WIDTH + 1{1'b0}};
-  (* SHREG_EXTRACT = "NO" *)
-  reg [ADDR_WIDTH:0] rd_ptr_gray_sync2_reg = {ADDR_WIDTH + 1{1'b0}};
-
-  reg wr_ptr_update_valid_reg = 1'b0;
-  reg wr_ptr_update_reg = 1'b0;
-  (* SHREG_EXTRACT = "NO" *)
-  reg wr_ptr_update_sync1_reg = 1'b0;
-  (* SHREG_EXTRACT = "NO" *)
-  reg wr_ptr_update_sync2_reg = 1'b0;
-  (* SHREG_EXTRACT = "NO" *)
-  reg wr_ptr_update_sync3_reg = 1'b0;
-  (* SHREG_EXTRACT = "NO" *)
-  reg wr_ptr_update_ack_sync1_reg = 1'b0;
-  (* SHREG_EXTRACT = "NO" *)
-  reg wr_ptr_update_ack_sync2_reg = 1'b0;
+  // the pointers plus one (Chili.CHIPS: in place of blocking temporaries in the always_ff)
+  logic [ADDR_WIDTH:0] wr_ptr_inc;
+  assign               wr_ptr_inc = wr_ptr_reg + 1;
+  logic [ADDR_WIDTH:0] rd_ptr_inc;
+  assign               rd_ptr_inc = rd_ptr_reg + 1;
 
   (* SHREG_EXTRACT = "NO" *)
-  reg s_rst_sync1_reg = 1'b1;
+  logic [      ADDR_WIDTH:0] wr_ptr_gray_sync1_reg = {ADDR_WIDTH + 1{1'b0}};
   (* SHREG_EXTRACT = "NO" *)
-  reg s_rst_sync2_reg = 1'b1;
+  logic [      ADDR_WIDTH:0] wr_ptr_gray_sync2_reg = {ADDR_WIDTH + 1{1'b0}};
   (* SHREG_EXTRACT = "NO" *)
-  reg s_rst_sync3_reg = 1'b1;
+  logic [      ADDR_WIDTH:0] wr_ptr_commit_sync_reg = {ADDR_WIDTH + 1{1'b0}};
   (* SHREG_EXTRACT = "NO" *)
-  reg m_rst_sync1_reg = 1'b1;
+  logic [      ADDR_WIDTH:0] rd_ptr_gray_sync1_reg = {ADDR_WIDTH + 1{1'b0}};
   (* SHREG_EXTRACT = "NO" *)
-  reg m_rst_sync2_reg = 1'b1;
+  logic [      ADDR_WIDTH:0] rd_ptr_gray_sync2_reg = {ADDR_WIDTH + 1{1'b0}};
+
+  logic                      wr_ptr_update_valid_reg = 1'b0;
+  logic                      wr_ptr_update_reg = 1'b0;
   (* SHREG_EXTRACT = "NO" *)
-  reg m_rst_sync3_reg = 1'b1;
+  logic                      wr_ptr_update_sync1_reg = 1'b0;
+  (* SHREG_EXTRACT = "NO" *)
+  logic                      wr_ptr_update_sync2_reg = 1'b0;
+  (* SHREG_EXTRACT = "NO" *)
+  logic                      wr_ptr_update_sync3_reg = 1'b0;
+  (* SHREG_EXTRACT = "NO" *)
+  logic                      wr_ptr_update_ack_sync1_reg = 1'b0;
+  (* SHREG_EXTRACT = "NO" *)
+  logic                      wr_ptr_update_ack_sync2_reg = 1'b0;
+
+  (* SHREG_EXTRACT = "NO" *)
+  logic                      s_rst_sync1_reg = 1'b1;
+  (* SHREG_EXTRACT = "NO" *)
+  logic                      s_rst_sync2_reg = 1'b1;
+  (* SHREG_EXTRACT = "NO" *)
+  logic                      s_rst_sync3_reg = 1'b1;
+  (* SHREG_EXTRACT = "NO" *)
+  logic                      m_rst_sync1_reg = 1'b1;
+  (* SHREG_EXTRACT = "NO" *)
+  logic                      m_rst_sync2_reg = 1'b1;
+  (* SHREG_EXTRACT = "NO" *)
+  logic                      m_rst_sync3_reg = 1'b1;
 
   (* ramstyle = "no_rw_check" *)
-  reg [WIDTH-1:0] mem[(2**ADDR_WIDTH)-1:0];
-  reg mem_read_data_valid_reg = 1'b0;
+  logic [         WIDTH-1:0] mem                                             [(2**ADDR_WIDTH)-1:0];
+  logic                      mem_read_data_valid_reg = 1'b0;
 
   (* shreg_extract = "no" *)
-  reg [WIDTH-1:0] m_axis_pipe_reg[RAM_PIPELINE+1-1:0];
-  reg [RAM_PIPELINE+1-1:0] m_axis_tvalid_pipe_reg = 0;
+  logic [         WIDTH-1:0] m_axis_pipe_reg                                 [ RAM_PIPELINE+1-1:0];
+  logic [RAM_PIPELINE+1-1:0] m_axis_tvalid_pipe_reg = 0;
 
   // full when first TWO MSBs do NOT match, but rest matches
   // (gray code equivalent of first MSB different but rest same)
-  wire full = wr_ptr_gray_reg == (rd_ptr_gray_sync2_reg ^ {2'b11, {ADDR_WIDTH - 1{1'b0}}});
+  logic  full;
+  assign full = wr_ptr_gray_reg == (rd_ptr_gray_sync2_reg ^ {2'b11, {ADDR_WIDTH - 1{1'b0}}});
   // empty when pointers match exactly
-  wire empty = FRAME_FIFO
+  logic  empty;
+  assign empty = FRAME_FIFO
              ? (rd_ptr_reg == wr_ptr_commit_sync_reg)
              : (rd_ptr_gray_reg == wr_ptr_gray_sync2_reg);
   // overflow within packet
-  wire full_wr = wr_ptr_reg == (wr_ptr_commit_reg ^ {1'b1, {ADDR_WIDTH{1'b0}}});
+  logic  full_wr;
+  assign full_wr = wr_ptr_reg == (wr_ptr_commit_reg ^ {1'b1, {ADDR_WIDTH{1'b0}}});
 
   // control signals
-  reg write;
-  reg read;
-  reg store_output;
+  logic                write;
+  logic                read;
+  logic                store_output;
 
-  reg s_frame_reg = 1'b0;
-  reg m_frame_reg = 1'b0;
+  logic                s_frame_reg = 1'b0;
+  logic                m_frame_reg = 1'b0;
 
-  reg drop_frame_reg = 1'b0;
-  reg mark_frame_reg = 1'b0;
-  reg send_frame_reg = 1'b0;
-  reg overflow_reg = 1'b0;
-  reg bad_frame_reg = 1'b0;
-  reg good_frame_reg = 1'b0;
+  logic                drop_frame_reg = 1'b0;
+  logic                mark_frame_reg = 1'b0;
+  logic                send_frame_reg = 1'b0;
+  logic                overflow_reg = 1'b0;
+  logic                bad_frame_reg = 1'b0;
+  logic                good_frame_reg = 1'b0;
 
-  reg m_drop_frame_reg = 1'b0;
-  reg m_terminate_frame_reg = 1'b0;
+  logic                m_drop_frame_reg = 1'b0;
+  logic                m_terminate_frame_reg = 1'b0;
 
-  reg [ADDR_WIDTH:0] s_depth_reg = 0;
-  reg [ADDR_WIDTH:0] s_depth_commit_reg = 0;
-  reg [ADDR_WIDTH:0] m_depth_reg = 0;
-  reg [ADDR_WIDTH:0] m_depth_commit_reg = 0;
+  logic [ADDR_WIDTH:0] s_depth_reg = 0;
+  logic [ADDR_WIDTH:0] s_depth_commit_reg = 0;
+  logic [ADDR_WIDTH:0] m_depth_reg = 0;
+  logic [ADDR_WIDTH:0] m_depth_commit_reg = 0;
 
-  reg overflow_sync1_reg = 1'b0;
-  reg overflow_sync2_reg = 1'b0;
-  reg overflow_sync3_reg = 1'b0;
-  reg overflow_sync4_reg = 1'b0;
-  reg bad_frame_sync1_reg = 1'b0;
-  reg bad_frame_sync2_reg = 1'b0;
-  reg bad_frame_sync3_reg = 1'b0;
-  reg bad_frame_sync4_reg = 1'b0;
-  reg good_frame_sync1_reg = 1'b0;
-  reg good_frame_sync2_reg = 1'b0;
-  reg good_frame_sync3_reg = 1'b0;
-  reg good_frame_sync4_reg = 1'b0;
+  logic                overflow_sync1_reg = 1'b0;
+  logic                overflow_sync2_reg = 1'b0;
+  logic                overflow_sync3_reg = 1'b0;
+  logic                overflow_sync4_reg = 1'b0;
+  logic                bad_frame_sync1_reg = 1'b0;
+  logic                bad_frame_sync2_reg = 1'b0;
+  logic                bad_frame_sync3_reg = 1'b0;
+  logic                bad_frame_sync4_reg = 1'b0;
+  logic                good_frame_sync1_reg = 1'b0;
+  logic                good_frame_sync2_reg = 1'b0;
+  logic                good_frame_sync3_reg = 1'b0;
+  logic                good_frame_sync4_reg = 1'b0;
 
   // ready by the FIFO's fill, before the reset
-  wire s_axis_ready_fifo = FRAME_FIFO
+  logic                s_axis_ready_fifo;
+  assign s_axis_ready_fifo = FRAME_FIFO
                          ? (!full || (full_wr && DROP_OVERSIZE_FRAME) || DROP_WHEN_FULL)
                          : (!full || MARK_WHEN_FULL);
   assign s_axis_tready = s_axis_ready_fifo && !s_rst_sync3_reg;
 
-  wire [WIDTH-1:0] s_axis;
+  logic [WIDTH-1:0] s_axis;
 
   generate
     assign s_axis[DATA_WIDTH-1:0] = s_axis_tdata;
@@ -329,41 +336,46 @@ module axis_async_fifo #(
     end
   endgenerate
 
-  wire [     WIDTH-1:0] m_axis = m_axis_pipe_reg[RAM_PIPELINE+1-1];
+  logic [WIDTH-1:0] m_axis;
+  assign            m_axis = m_axis_pipe_reg[RAM_PIPELINE+1-1];
 
-  wire                  m_axis_tready_pipe;
-  wire                  m_axis_tvalid_pipe = m_axis_tvalid_pipe_reg[RAM_PIPELINE+1-1];
+  logic  m_axis_tready_pipe;
+  logic  m_axis_tvalid_pipe;
+  assign m_axis_tvalid_pipe = m_axis_tvalid_pipe_reg[RAM_PIPELINE+1-1];
 
-  wire [DATA_WIDTH-1:0] m_axis_tdata_pipe = m_axis[DATA_WIDTH-1:0];
+  logic [DATA_WIDTH-1:0] m_axis_tdata_pipe;
+  assign m_axis_tdata_pipe = m_axis[DATA_WIDTH-1:0];
   // verilator lint_off WIDTHTRUNC
-  wire [KEEP_WIDTH-1:0] m_axis_tkeep_pipe;
+  logic [KEEP_WIDTH-1:0] m_axis_tkeep_pipe;
   assign m_axis_tkeep_pipe = KEEP_ENABLE ? m_axis[KEEP_OFFSET+:KEEP_WIDTH] : {KEEP_WIDTH{1'b1}};
   // verilator lint_on WIDTHTRUNC
-  wire m_axis_tlast_pipe = LAST_ENABLE ? m_axis[LAST_OFFSET] | m_terminate_frame_reg : 1'b1;
+  logic m_axis_tlast_pipe;
+  assign m_axis_tlast_pipe = LAST_ENABLE ? m_axis[LAST_OFFSET] | m_terminate_frame_reg : 1'b1;
   // verilator lint_off SELRANGE
-  wire [ID_WIDTH-1:0] m_axis_tid_pipe = ID_ENABLE ? m_axis[ID_OFFSET+:ID_WIDTH] : {ID_WIDTH{1'b0}};
-  wire [DEST_WIDTH-1:0] m_axis_tdest_pipe;
+  logic [ID_WIDTH-1:0] m_axis_tid_pipe;
+  assign m_axis_tid_pipe = ID_ENABLE ? m_axis[ID_OFFSET+:ID_WIDTH] : {ID_WIDTH{1'b0}};
+  logic [DEST_WIDTH-1:0] m_axis_tdest_pipe;
   assign m_axis_tdest_pipe = DEST_ENABLE ? m_axis[DEST_OFFSET+:DEST_WIDTH] : {DEST_WIDTH{1'b0}};
   // verilator lint_on SELRANGE
-  wire [USER_WIDTH-1:0] m_axis_tuser_fifo;  // tuser from the FIFO, or the bad-frame value
+  logic [USER_WIDTH-1:0] m_axis_tuser_fifo;  // tuser from the FIFO, or the bad-frame value
   assign m_axis_tuser_fifo = m_terminate_frame_reg
                            ? USER_BAD_FRAME_VALUE
                            : m_axis[USER_OFFSET +: USER_WIDTH];
 
-  wire [USER_WIDTH-1:0] m_axis_tuser_pipe;
-  assign                m_axis_tuser_pipe = USER_ENABLE ? m_axis_tuser_fifo : {USER_WIDTH{1'b0}};
+  logic [USER_WIDTH-1:0] m_axis_tuser_pipe;
+  assign                 m_axis_tuser_pipe = USER_ENABLE ? m_axis_tuser_fifo : {USER_WIDTH{1'b0}};
 
-  wire                  m_axis_tready_out;
-  wire                  m_axis_tvalid_out;
+  logic                  m_axis_tready_out;
+  logic                  m_axis_tvalid_out;
 
-  wire [DATA_WIDTH-1:0] m_axis_tdata_out;
-  wire [KEEP_WIDTH-1:0] m_axis_tkeep_out;
-  wire                  m_axis_tlast_out;
-  wire [  ID_WIDTH-1:0] m_axis_tid_out;
-  wire [DEST_WIDTH-1:0] m_axis_tdest_out;
-  wire [USER_WIDTH-1:0] m_axis_tuser_out;
+  logic [DATA_WIDTH-1:0] m_axis_tdata_out;
+  logic [KEEP_WIDTH-1:0] m_axis_tkeep_out;
+  logic                  m_axis_tlast_out;
+  logic [  ID_WIDTH-1:0] m_axis_tid_out;
+  logic [DEST_WIDTH-1:0] m_axis_tdest_out;
+  logic [USER_WIDTH-1:0] m_axis_tuser_out;
 
-  wire                  pipe_ready;
+  logic                  pipe_ready;
 
   // verilator lint_off WIDTHEXPAND
   // verilator lint_off WIDTHTRUNC
@@ -394,7 +406,7 @@ module axis_async_fifo #(
   assign m_status_good_frame = good_frame_sync3_reg ^ good_frame_sync4_reg;
 
   // reset synchronization
-  always @(posedge m_clk or posedge m_rst) begin
+  always_ff @(posedge m_clk or posedge m_rst) begin
     if (m_rst) begin
       s_rst_sync1_reg <= 1'b1;
     end
@@ -403,12 +415,12 @@ module axis_async_fifo #(
     end
   end
 
-  always @(posedge s_clk) begin
+  always_ff @(posedge s_clk) begin
     s_rst_sync2_reg <= s_rst_sync1_reg;
     s_rst_sync3_reg <= s_rst_sync2_reg;
   end
 
-  always @(posedge s_clk or posedge s_rst) begin
+  always_ff @(posedge s_clk or posedge s_rst) begin
     if (s_rst) begin
       m_rst_sync1_reg <= 1'b1;
     end
@@ -417,18 +429,18 @@ module axis_async_fifo #(
     end
   end
 
-  always @(posedge m_clk) begin
+  always_ff @(posedge m_clk) begin
     m_rst_sync2_reg <= m_rst_sync1_reg;
     m_rst_sync3_reg <= m_rst_sync2_reg;
   end
 
   // the tuser of a beat marks a bad frame
-  wire s_axis_tuser_bad;
+  logic s_axis_tuser_bad;
   assign s_axis_tuser_bad =
       DROP_BAD_FRAME && |(USER_BAD_FRAME_MASK & ~(s_axis_tuser ^ USER_BAD_FRAME_VALUE));
 
   // Write logic
-  always @(posedge s_clk) begin
+  always_ff @(posedge s_clk) begin
     overflow_reg   <= 1'b0;
     bad_frame_reg  <= 1'b0;
     good_frame_reg <= 1'b0;
@@ -468,47 +480,35 @@ module axis_async_fifo #(
           drop_frame_reg <= 1'b1;
           if (s_axis_tlast) begin
             // end of frame, reset write pointer
-            // verilator lint_off BLKSEQ
-            wr_ptr_temp = wr_ptr_commit_reg;
-            // verilator lint_on BLKSEQ
-            wr_ptr_reg      <= wr_ptr_temp;
-            wr_ptr_gray_reg <= bin2gray(wr_ptr_temp);
+            wr_ptr_reg      <= wr_ptr_commit_reg;
+            wr_ptr_gray_reg <= bin2gray(wr_ptr_commit_reg);
             drop_frame_reg  <= 1'b0;
             overflow_reg    <= 1'b1;
           end
         end
         else begin
           mem[wr_ptr_reg[ADDR_WIDTH-1:0]] <= s_axis;
-          // verilator lint_off BLKSEQ
-          wr_ptr_temp = wr_ptr_reg + 1;
-          // verilator lint_off BLKSEQ
-          wr_ptr_reg      <= wr_ptr_temp;
-          wr_ptr_gray_reg <= bin2gray(wr_ptr_temp);
+          wr_ptr_reg                      <= wr_ptr_inc;
+          wr_ptr_gray_reg                 <= bin2gray(wr_ptr_inc);
           if (s_axis_tlast || (!DROP_OVERSIZE_FRAME && (full_wr || send_frame_reg))) begin
             // end of frame or send frame
             send_frame_reg <= !s_axis_tlast;
             if (s_axis_tlast && s_axis_tuser_bad) begin
               // bad packet, reset write pointer
-              // verilator lint_off BLKSEQ
-              wr_ptr_temp = wr_ptr_commit_reg;
-              // verilator lint_off BLKSEQ
-              wr_ptr_reg      <= wr_ptr_temp;
-              wr_ptr_gray_reg <= bin2gray(wr_ptr_temp);
+              wr_ptr_reg      <= wr_ptr_commit_reg;
+              wr_ptr_gray_reg <= bin2gray(wr_ptr_commit_reg);
               bad_frame_reg   <= 1'b1;
             end
             else begin
               // good packet or packet overflow, update write pointer
-              // verilator lint_off BLKSEQ
-              wr_ptr_temp = wr_ptr_reg + 1;
-              // verilator lint_off BLKSEQ
-              wr_ptr_reg        <= wr_ptr_temp;
-              wr_ptr_commit_reg <= wr_ptr_temp;
-              wr_ptr_gray_reg   <= bin2gray(wr_ptr_temp);
+              wr_ptr_reg        <= wr_ptr_inc;
+              wr_ptr_commit_reg <= wr_ptr_inc;
+              wr_ptr_gray_reg   <= bin2gray(wr_ptr_inc);
 
               if (wr_ptr_update_reg == wr_ptr_update_ack_sync2_reg) begin
                 // no sync in progress; sync update
                 wr_ptr_update_valid_reg <= 1'b0;
-                wr_ptr_sync_commit_reg  <= wr_ptr_temp;
+                wr_ptr_sync_commit_reg  <= wr_ptr_inc;
                 wr_ptr_update_reg       <= !wr_ptr_update_ack_sync2_reg;
               end
               else begin
@@ -524,18 +524,15 @@ module axis_async_fifo #(
       else if (s_axis_tvalid && full_wr && FRAME_FIFO && !DROP_OVERSIZE_FRAME) begin
         // data valid with packet overflow
         // update write pointer
-        send_frame_reg <= 1'b1;
-        // verilator lint_off BLKSEQ
-        wr_ptr_temp = wr_ptr_reg;
-        // verilator lint_off BLKSEQ
-        wr_ptr_reg        <= wr_ptr_temp;
-        wr_ptr_commit_reg <= wr_ptr_temp;
-        wr_ptr_gray_reg   <= bin2gray(wr_ptr_temp);
+        send_frame_reg    <= 1'b1;
+        wr_ptr_reg        <= wr_ptr_reg;
+        wr_ptr_commit_reg <= wr_ptr_reg;
+        wr_ptr_gray_reg   <= bin2gray(wr_ptr_reg);
 
         if (wr_ptr_update_reg == wr_ptr_update_ack_sync2_reg) begin
           // no sync in progress; sync update
           wr_ptr_update_valid_reg <= 1'b0;
-          wr_ptr_sync_commit_reg  <= wr_ptr_temp;
+          wr_ptr_sync_commit_reg  <= wr_ptr_reg;
           wr_ptr_update_reg       <= !wr_ptr_update_ack_sync2_reg;
         end
         else begin
@@ -555,10 +552,9 @@ module axis_async_fifo #(
               // terminate marked frame
               mark_frame_reg                  <= 1'b0;
               mem[wr_ptr_reg[ADDR_WIDTH-1:0]] <= s_axis;
-              wr_ptr_temp = wr_ptr_reg + 1;
-              wr_ptr_reg        <= wr_ptr_temp;
-              wr_ptr_commit_reg <= wr_ptr_temp;
-              wr_ptr_gray_reg   <= bin2gray(wr_ptr_temp);
+              wr_ptr_reg                      <= wr_ptr_inc;
+              wr_ptr_commit_reg               <= wr_ptr_inc;
+              wr_ptr_gray_reg                 <= bin2gray(wr_ptr_inc);
             end
             // end of frame, clear drop flag
             drop_frame_reg <= 1'b0;
@@ -578,24 +574,18 @@ module axis_async_fifo #(
         else begin
           // transfer in
           mem[wr_ptr_reg[ADDR_WIDTH-1:0]] <= s_axis;
-          // verilator lint_off BLKSEQ
-          wr_ptr_temp = wr_ptr_reg + 1;
-          // verilator lint_off BLKSEQ
-          wr_ptr_reg        <= wr_ptr_temp;
-          wr_ptr_commit_reg <= wr_ptr_temp;
-          wr_ptr_gray_reg   <= bin2gray(wr_ptr_temp);
+          wr_ptr_reg                      <= wr_ptr_inc;
+          wr_ptr_commit_reg               <= wr_ptr_inc;
+          wr_ptr_gray_reg                 <= bin2gray(wr_ptr_inc);
         end
       end
       else if ((!full && !drop_frame_reg && mark_frame_reg) && MARK_WHEN_FULL) begin
         // terminate marked frame
         mark_frame_reg                  <= 1'b0;
         mem[wr_ptr_reg[ADDR_WIDTH-1:0]] <= s_axis;
-        // verilator lint_off BLKSEQ
-        wr_ptr_temp = wr_ptr_reg + 1;
-        // verilator lint_off BLKSEQ
-        wr_ptr_reg        <= wr_ptr_temp;
-        wr_ptr_commit_reg <= wr_ptr_temp;
-        wr_ptr_gray_reg   <= bin2gray(wr_ptr_temp);
+        wr_ptr_reg                      <= wr_ptr_inc;
+        wr_ptr_commit_reg               <= wr_ptr_inc;
+        wr_ptr_gray_reg                 <= bin2gray(wr_ptr_inc);
       end
     end
 
@@ -630,14 +620,14 @@ module axis_async_fifo #(
   end
 
   // Write-side status
-  always @(posedge s_clk) begin
+  always_ff @(posedge s_clk) begin
     rd_ptr_conv_reg    <= gray2bin(rd_ptr_gray_sync2_reg);
     s_depth_reg        <= wr_ptr_reg - rd_ptr_conv_reg;
     s_depth_commit_reg <= wr_ptr_commit_reg - rd_ptr_conv_reg;
   end
 
   // pointer synchronization
-  always @(posedge s_clk) begin
+  always_ff @(posedge s_clk) begin
     rd_ptr_gray_sync1_reg       <= rd_ptr_gray_reg;
     rd_ptr_gray_sync2_reg       <= rd_ptr_gray_sync1_reg;
     wr_ptr_update_ack_sync1_reg <= wr_ptr_update_sync3_reg;
@@ -651,7 +641,7 @@ module axis_async_fifo #(
     end
   end
 
-  always @(posedge m_clk) begin
+  always_ff @(posedge m_clk) begin
     wr_ptr_gray_sync1_reg <= wr_ptr_gray_reg;
     wr_ptr_gray_sync2_reg <= wr_ptr_gray_sync1_reg;
     if (FRAME_FIFO && wr_ptr_update_sync2_reg ^ wr_ptr_update_sync3_reg) begin
@@ -676,7 +666,7 @@ module axis_async_fifo #(
   end
 
   // status synchronization
-  always @(posedge s_clk) begin
+  always_ff @(posedge s_clk) begin
     overflow_sync1_reg   <= overflow_sync1_reg ^ overflow_reg;
     bad_frame_sync1_reg  <= bad_frame_sync1_reg ^ bad_frame_reg;
     good_frame_sync1_reg <= good_frame_sync1_reg ^ good_frame_reg;
@@ -688,7 +678,7 @@ module axis_async_fifo #(
     end
   end
 
-  always @(posedge m_clk) begin
+  always_ff @(posedge m_clk) begin
     overflow_sync2_reg   <= overflow_sync1_reg;
     overflow_sync3_reg   <= overflow_sync2_reg;
     overflow_sync4_reg   <= overflow_sync3_reg;
@@ -713,20 +703,18 @@ module axis_async_fifo #(
   end
 
   // Read logic
-  integer j;
-
   // the output side takes a beat: the output FIFO, or the pipeline's last stage
-  wire   m_out_ready;
+  logic  m_out_ready;
   assign m_out_ready = OUTPUT_FIFO_ENABLE ? pipe_ready : m_axis_tready_pipe || !m_axis_tvalid_pipe;
 
-  always @(posedge m_clk) begin
+  always_ff @(posedge m_clk) begin
     if (m_axis_tready_pipe) begin
       // output ready; invalidate stage
       m_axis_tvalid_pipe_reg[RAM_PIPELINE+1-1] <= 1'b0;
       m_terminate_frame_reg                    <= 1'b0;
     end
 
-    for (j = RAM_PIPELINE + 1 - 1; j > 0; j = j - 1) begin
+    for (int j = RAM_PIPELINE + 1 - 1; j > 0; j = j - 1) begin
       // verilator lint_off WIDTHTRUNC
       if (m_axis_tready_pipe || ((~m_axis_tvalid_pipe_reg) >> j)) begin
         // verilator lint_on WIDTHTRUNC
@@ -746,9 +734,8 @@ module axis_async_fifo #(
       if (!empty && !m_rst_sync3_reg && !m_drop_frame_reg && pipe_ready) begin
         // not empty, increment pointer
         m_axis_tvalid_pipe_reg[0] <= 1'b1;
-        rd_ptr_temp = rd_ptr_reg + 1;
-        rd_ptr_reg      <= rd_ptr_temp;
-        rd_ptr_gray_reg <= rd_ptr_temp ^ (rd_ptr_temp >> 1);
+        rd_ptr_reg                <= rd_ptr_inc;
+        rd_ptr_gray_reg           <= rd_ptr_inc ^ (rd_ptr_inc >> 1);
       end
     end
 
@@ -801,7 +788,7 @@ module axis_async_fifo #(
   end
 
   // Read-side status
-  always @(posedge m_clk) begin
+  always_ff @(posedge m_clk) begin
     wr_ptr_conv_reg <= gray2bin(wr_ptr_gray_sync2_reg);
     m_depth_reg <= wr_ptr_conv_reg - rd_ptr_reg;
     m_depth_commit_reg <= FRAME_FIFO
@@ -829,36 +816,37 @@ module axis_async_fifo #(
     else begin : output_fifo
 
       // output datapath logic
-      reg  [              DATA_WIDTH-1:0] m_axis_tdata_reg = {DATA_WIDTH{1'b0}};
-      reg  [              KEEP_WIDTH-1:0] m_axis_tkeep_reg = {KEEP_WIDTH{1'b0}};
-      reg                                 m_axis_tvalid_reg = 1'b0;
-      reg                                 m_axis_tlast_reg = 1'b0;
-      reg  [                ID_WIDTH-1:0] m_axis_tid_reg = {ID_WIDTH{1'b0}};
-      reg  [              DEST_WIDTH-1:0] m_axis_tdest_reg = {DEST_WIDTH{1'b0}};
-      reg  [              USER_WIDTH-1:0] m_axis_tuser_reg = {USER_WIDTH{1'b0}};
+      logic [              DATA_WIDTH-1:0] m_axis_tdata_reg = {DATA_WIDTH{1'b0}};
+      logic [              KEEP_WIDTH-1:0] m_axis_tkeep_reg = {KEEP_WIDTH{1'b0}};
+      logic                                m_axis_tvalid_reg = 1'b0;
+      logic                                m_axis_tlast_reg = 1'b0;
+      logic [                ID_WIDTH-1:0] m_axis_tid_reg = {ID_WIDTH{1'b0}};
+      logic [              DEST_WIDTH-1:0] m_axis_tdest_reg = {DEST_WIDTH{1'b0}};
+      logic [              USER_WIDTH-1:0] m_axis_tuser_reg = {USER_WIDTH{1'b0}};
 
-      reg  [OUTPUT_FIFO_ADDR_WIDTH+1-1:0] out_fifo_wr_ptr_reg = 0;
-      reg  [OUTPUT_FIFO_ADDR_WIDTH+1-1:0] out_fifo_rd_ptr_reg = 0;
-      reg                                 out_fifo_half_full_reg = 1'b0;
+      logic [OUTPUT_FIFO_ADDR_WIDTH+1-1:0] out_fifo_wr_ptr_reg = 0;
+      logic [OUTPUT_FIFO_ADDR_WIDTH+1-1:0] out_fifo_rd_ptr_reg = 0;
+      logic                                out_fifo_half_full_reg = 1'b0;
 
-      wire                                out_fifo_full;
+      logic                                out_fifo_full;
 
       assign out_fifo_full =
           out_fifo_wr_ptr_reg == (out_fifo_rd_ptr_reg ^ {1'b1, {OUTPUT_FIFO_ADDR_WIDTH{1'b0}}});
-      wire out_fifo_empty = out_fifo_wr_ptr_reg == out_fifo_rd_ptr_reg;
+      logic  out_fifo_empty;
+      assign out_fifo_empty = out_fifo_wr_ptr_reg == out_fifo_rd_ptr_reg;
 
       (* ram_style = "distributed", ramstyle = "no_rw_check, mlab" *)
-      reg [DATA_WIDTH-1:0] out_fifo_tdata[2**OUTPUT_FIFO_ADDR_WIDTH-1:0];
+      logic [DATA_WIDTH-1:0] out_fifo_tdata[2**OUTPUT_FIFO_ADDR_WIDTH-1:0];
       (* ram_style = "distributed", ramstyle = "no_rw_check, mlab" *)
-      reg [KEEP_WIDTH-1:0] out_fifo_tkeep[2**OUTPUT_FIFO_ADDR_WIDTH-1:0];
+      logic [KEEP_WIDTH-1:0] out_fifo_tkeep[2**OUTPUT_FIFO_ADDR_WIDTH-1:0];
       (* ram_style = "distributed", ramstyle = "no_rw_check, mlab" *)
-      reg out_fifo_tlast[2**OUTPUT_FIFO_ADDR_WIDTH-1:0];
+      logic                  out_fifo_tlast[2**OUTPUT_FIFO_ADDR_WIDTH-1:0];
       (* ram_style = "distributed", ramstyle = "no_rw_check, mlab" *)
-      reg [ID_WIDTH-1:0] out_fifo_tid[2**OUTPUT_FIFO_ADDR_WIDTH-1:0];
+      logic [  ID_WIDTH-1:0] out_fifo_tid  [2**OUTPUT_FIFO_ADDR_WIDTH-1:0];
       (* ram_style = "distributed", ramstyle = "no_rw_check, mlab" *)
-      reg [DEST_WIDTH-1:0] out_fifo_tdest[2**OUTPUT_FIFO_ADDR_WIDTH-1:0];
+      logic [DEST_WIDTH-1:0] out_fifo_tdest[2**OUTPUT_FIFO_ADDR_WIDTH-1:0];
       (* ram_style = "distributed", ramstyle = "no_rw_check, mlab" *)
-      reg [USER_WIDTH-1:0] out_fifo_tuser[2**OUTPUT_FIFO_ADDR_WIDTH-1:0];
+      logic [USER_WIDTH-1:0] out_fifo_tuser[2**OUTPUT_FIFO_ADDR_WIDTH-1:0];
 
       assign pipe_ready         = !out_fifo_half_full_reg;
 
@@ -872,7 +860,7 @@ module axis_async_fifo #(
       assign m_axis_tdest_out   = DEST_ENABLE ? m_axis_tdest_reg : {DEST_WIDTH{1'b0}};
       assign m_axis_tuser_out   = USER_ENABLE ? m_axis_tuser_reg : {USER_WIDTH{1'b0}};
 
-      always @(posedge m_clk) begin
+      always_ff @(posedge m_clk) begin
         m_axis_tvalid_reg <= m_axis_tvalid_reg && !m_axis_tready_out;
 
         out_fifo_half_full_reg <= $unsigned(
@@ -912,23 +900,23 @@ module axis_async_fifo #(
     if (PAUSE_ENABLE) begin : pause
 
       // Pause logic
-      reg pause_reg = 1'b0;
-      reg pause_frame_reg = 1'b0;
+      logic pause_reg = 1'b0;
+      logic pause_frame_reg = 1'b0;
 
-      reg s_pause_req_sync1_reg;
-      reg s_pause_req_sync2_reg;
-      reg s_pause_req_sync3_reg;
-      reg s_pause_ack_sync1_reg;
-      reg s_pause_ack_sync2_reg;
-      reg s_pause_ack_sync3_reg;
+      logic s_pause_req_sync1_reg;
+      logic s_pause_req_sync2_reg;
+      logic s_pause_req_sync3_reg;
+      logic s_pause_ack_sync1_reg;
+      logic s_pause_ack_sync2_reg;
+      logic s_pause_ack_sync3_reg;
 
-      always @(posedge s_clk) begin
+      always_ff @(posedge s_clk) begin
         s_pause_req_sync1_reg <= s_pause_req;
         s_pause_ack_sync2_reg <= s_pause_ack_sync1_reg;
         s_pause_ack_sync3_reg <= s_pause_ack_sync2_reg;
       end
 
-      always @(posedge m_clk) begin
+      always_ff @(posedge m_clk) begin
         s_pause_req_sync2_reg <= s_pause_req_sync1_reg;
         s_pause_req_sync3_reg <= s_pause_req_sync2_reg;
         s_pause_ack_sync1_reg <= pause_reg;
@@ -947,7 +935,7 @@ module axis_async_fifo #(
       assign s_pause_ack       = s_pause_ack_sync3_reg;
       assign m_pause_ack       = pause_reg;
 
-      always @(posedge m_clk) begin
+      always_ff @(posedge m_clk) begin
         if (FRAME_PAUSE) begin
           if (pause_reg) begin
             // paused; update pause status

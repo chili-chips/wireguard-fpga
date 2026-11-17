@@ -31,40 +31,40 @@ module gmii_phy_if #(
     // Use BUFIO2 for Spartan-6
     parameter CLOCK_INPUT_STYLE = "BUFIO2"
 ) (
-    input  wire       clk,
-    input  wire       rst,
+    input  logic       clk,
+    input  logic       rst,
 
     /*
      * GMII interface to MAC
      */
-    output wire       mac_gmii_rx_clk,
-    output wire       mac_gmii_rx_rst,
-    output wire [7:0] mac_gmii_rxd,
-    output wire       mac_gmii_rx_dv,
-    output wire       mac_gmii_rx_er,
-    output wire       mac_gmii_tx_clk,
-    output wire       mac_gmii_tx_rst,
-    input  wire [7:0] mac_gmii_txd,
-    input  wire       mac_gmii_tx_en,
-    input  wire       mac_gmii_tx_er,
+    output logic       mac_gmii_rx_clk,
+    output logic       mac_gmii_rx_rst,
+    output logic [7:0] mac_gmii_rxd,
+    output logic       mac_gmii_rx_dv,
+    output logic       mac_gmii_rx_er,
+    output logic       mac_gmii_tx_clk,
+    output logic       mac_gmii_tx_rst,
+    input  logic [7:0] mac_gmii_txd,
+    input  logic       mac_gmii_tx_en,
+    input  logic       mac_gmii_tx_er,
 
     /*
      * GMII interface to PHY
      */
-    input  wire       phy_gmii_rx_clk,
-    input  wire [7:0] phy_gmii_rxd,
-    input  wire       phy_gmii_rx_dv,
-    input  wire       phy_gmii_rx_er,
-    input  wire       phy_mii_tx_clk,
-    output wire       phy_gmii_tx_clk,
-    output wire [7:0] phy_gmii_txd,
-    output wire       phy_gmii_tx_en,
-    output wire       phy_gmii_tx_er,
+    input  logic       phy_gmii_rx_clk,
+    input  logic [7:0] phy_gmii_rxd,
+    input  logic       phy_gmii_rx_dv,
+    input  logic       phy_gmii_rx_er,
+    input  logic       phy_mii_tx_clk,
+    output logic       phy_gmii_tx_clk,
+    output logic [7:0] phy_gmii_txd,
+    output logic       phy_gmii_tx_en,
+    output logic       phy_gmii_tx_er,
 
     /*
      * Control
      */
-    input  wire       mii_select
+    input  logic       mii_select
 );
 
   ssio_sdr_in #(
@@ -106,10 +106,10 @@ module gmii_phy_if #(
   endgenerate
 
   // reset sync
-  reg [3:0] tx_rst_reg = 4'hf;
-  assign mac_gmii_tx_rst = tx_rst_reg[0];
+  logic [3:0] tx_rst_reg = 4'hf;
+  assign      mac_gmii_tx_rst = tx_rst_reg[0];
 
-  always @(posedge mac_gmii_tx_clk or posedge rst) begin
+  always_ff @(posedge mac_gmii_tx_clk or posedge rst) begin
     if (rst) begin
       tx_rst_reg <= 4'hf;
     end
@@ -118,10 +118,10 @@ module gmii_phy_if #(
     end
   end
 
-  reg [3:0] rx_rst_reg = 4'hf;
-  assign mac_gmii_rx_rst = rx_rst_reg[0];
+  logic [3:0] rx_rst_reg = 4'hf;
+  assign      mac_gmii_rx_rst = rx_rst_reg[0];
 
-  always @(posedge mac_gmii_rx_clk or posedge rst) begin
+  always_ff @(posedge mac_gmii_rx_clk or posedge rst) begin
     if (rst) begin
       rx_rst_reg <= 4'hf;
     end

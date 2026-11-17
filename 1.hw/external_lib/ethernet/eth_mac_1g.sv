@@ -35,144 +35,144 @@ module eth_mac_1g #(
     parameter PFC_ENABLE = 0,
     parameter PAUSE_ENABLE = PFC_ENABLE
 ) (
-    input  wire                        rx_clk,
-    input  wire                        rx_rst,
-    input  wire                        tx_clk,
-    input  wire                        tx_rst,
+    input  logic                        rx_clk,
+    input  logic                        rx_rst,
+    input  logic                        tx_clk,
+    input  logic                        tx_rst,
 
     /*
      * AXI input
      */
-    input  wire [   DATA_WIDTH-1:0]    tx_axis_tdata,
-    input  wire                        tx_axis_tvalid,
-    output wire                        tx_axis_tready,
-    input  wire                        tx_axis_tlast,
-    input  wire [TX_USER_WIDTH-1:0]    tx_axis_tuser,
+    input  logic [   DATA_WIDTH-1:0]    tx_axis_tdata,
+    input  logic                        tx_axis_tvalid,
+    output logic                        tx_axis_tready,
+    input  logic                        tx_axis_tlast,
+    input  logic [TX_USER_WIDTH-1:0]    tx_axis_tuser,
 
     /*
      * AXI output
      */
-    output wire [   DATA_WIDTH-1:0]    rx_axis_tdata,
-    output wire                        rx_axis_tvalid,
-    output wire                        rx_axis_tlast,
-    output wire [RX_USER_WIDTH-1:0]    rx_axis_tuser,
+    output logic [   DATA_WIDTH-1:0]    rx_axis_tdata,
+    output logic                        rx_axis_tvalid,
+    output logic                        rx_axis_tlast,
+    output logic [RX_USER_WIDTH-1:0]    rx_axis_tuser,
 
     /*
      * GMII interface
      */
-    input  wire [DATA_WIDTH-1:0]       gmii_rxd,
-    input  wire                        gmii_rx_dv,
-    input  wire                        gmii_rx_er,
-    output wire [DATA_WIDTH-1:0]       gmii_txd,
-    output wire                        gmii_tx_en,
-    output wire                        gmii_tx_er,
+    input  logic [DATA_WIDTH-1:0]       gmii_rxd,
+    input  logic                        gmii_rx_dv,
+    input  logic                        gmii_rx_er,
+    output logic [DATA_WIDTH-1:0]       gmii_txd,
+    output logic                        gmii_tx_en,
+    output logic                        gmii_tx_er,
 
     /*
      * PTP
      */
-    input  wire [    PTP_TS_WIDTH-1:0] tx_ptp_ts,
-    input  wire [    PTP_TS_WIDTH-1:0] rx_ptp_ts,
-    output wire [    PTP_TS_WIDTH-1:0] tx_axis_ptp_ts,
-    output wire [TX_PTP_TAG_WIDTH-1:0] tx_axis_ptp_ts_tag,
-    output wire                        tx_axis_ptp_ts_valid,
+    input  logic [    PTP_TS_WIDTH-1:0] tx_ptp_ts,
+    input  logic [    PTP_TS_WIDTH-1:0] rx_ptp_ts,
+    output logic [    PTP_TS_WIDTH-1:0] tx_axis_ptp_ts,
+    output logic [TX_PTP_TAG_WIDTH-1:0] tx_axis_ptp_ts_tag,
+    output logic                        tx_axis_ptp_ts_valid,
 
     /*
      * Link-level Flow Control (LFC) (IEEE 802.3 annex 31B PAUSE)
      */
-    input  wire                        tx_lfc_req,
-    input  wire                        tx_lfc_resend,
-    input  wire                        rx_lfc_en,
-    output wire                        rx_lfc_req,
-    input  wire                        rx_lfc_ack,
+    input  logic                        tx_lfc_req,
+    input  logic                        tx_lfc_resend,
+    input  logic                        rx_lfc_en,
+    output logic                        rx_lfc_req,
+    input  logic                        rx_lfc_ack,
 
     /*
      * Priority Flow Control (PFC) (IEEE 802.3 annex 31D PFC)
      */
-    input  wire [7:0]                  tx_pfc_req,
-    input  wire                        tx_pfc_resend,
-    input  wire [7:0]                  rx_pfc_en,
-    output wire [7:0]                  rx_pfc_req,
-    input  wire [7:0]                  rx_pfc_ack,
+    input  logic [7:0]                  tx_pfc_req,
+    input  logic                        tx_pfc_resend,
+    input  logic [7:0]                  rx_pfc_en,
+    output logic [7:0]                  rx_pfc_req,
+    input  logic [7:0]                  rx_pfc_ack,
 
     /*
      * Pause interface
      */
-    input  wire                        tx_lfc_pause_en,
-    input  wire                        tx_pause_req,
-    output wire                        tx_pause_ack,
+    input  logic                        tx_lfc_pause_en,
+    input  logic                        tx_pause_req,
+    output logic                        tx_pause_ack,
 
     /*
      * Control
      */
-    input  wire                        rx_clk_enable,
-    input  wire                        tx_clk_enable,
-    input  wire                        rx_mii_select,
-    input  wire                        tx_mii_select,
+    input  logic                        rx_clk_enable,
+    input  logic                        tx_clk_enable,
+    input  logic                        rx_mii_select,
+    input  logic                        tx_mii_select,
 
     /*
      * Status
      */
-    output wire                        tx_start_packet,
-    output wire                        tx_error_underflow,
-    output wire                        rx_start_packet,
-    output wire                        rx_error_bad_frame,
-    output wire                        rx_error_bad_fcs,
-    output wire                        stat_tx_mcf,
-    output wire                        stat_rx_mcf,
-    output wire                        stat_tx_lfc_pkt,
-    output wire                        stat_tx_lfc_xon,
-    output wire                        stat_tx_lfc_xoff,
-    output wire                        stat_tx_lfc_paused,
-    output wire                        stat_tx_pfc_pkt,
-    output wire [7:0]                  stat_tx_pfc_xon,
-    output wire [7:0]                  stat_tx_pfc_xoff,
-    output wire [7:0]                  stat_tx_pfc_paused,
-    output wire                        stat_rx_lfc_pkt,
-    output wire                        stat_rx_lfc_xon,
-    output wire                        stat_rx_lfc_xoff,
-    output wire                        stat_rx_lfc_paused,
-    output wire                        stat_rx_pfc_pkt,
-    output wire [7:0]                  stat_rx_pfc_xon,
-    output wire [7:0]                  stat_rx_pfc_xoff,
-    output wire [7:0]                  stat_rx_pfc_paused,
+    output logic                        tx_start_packet,
+    output logic                        tx_error_underflow,
+    output logic                        rx_start_packet,
+    output logic                        rx_error_bad_frame,
+    output logic                        rx_error_bad_fcs,
+    output logic                        stat_tx_mcf,
+    output logic                        stat_rx_mcf,
+    output logic                        stat_tx_lfc_pkt,
+    output logic                        stat_tx_lfc_xon,
+    output logic                        stat_tx_lfc_xoff,
+    output logic                        stat_tx_lfc_paused,
+    output logic                        stat_tx_pfc_pkt,
+    output logic [7:0]                  stat_tx_pfc_xon,
+    output logic [7:0]                  stat_tx_pfc_xoff,
+    output logic [7:0]                  stat_tx_pfc_paused,
+    output logic                        stat_rx_lfc_pkt,
+    output logic                        stat_rx_lfc_xon,
+    output logic                        stat_rx_lfc_xoff,
+    output logic                        stat_rx_lfc_paused,
+    output logic                        stat_rx_pfc_pkt,
+    output logic [7:0]                  stat_rx_pfc_xon,
+    output logic [7:0]                  stat_rx_pfc_xoff,
+    output logic [7:0]                  stat_rx_pfc_paused,
 
     /*
      * Configuration
      */
-    input  wire [     7:0]             cfg_ifg,
-    input  wire                        cfg_tx_enable,
-    input  wire                        cfg_rx_enable,
-    input  wire [    47:0]             cfg_mcf_rx_eth_dst_mcast,
-    input  wire                        cfg_mcf_rx_check_eth_dst_mcast,
-    input  wire [    47:0]             cfg_mcf_rx_eth_dst_ucast,
-    input  wire                        cfg_mcf_rx_check_eth_dst_ucast,
-    input  wire [    47:0]             cfg_mcf_rx_eth_src,
-    input  wire                        cfg_mcf_rx_check_eth_src,
-    input  wire [    15:0]             cfg_mcf_rx_eth_type,
-    input  wire [    15:0]             cfg_mcf_rx_opcode_lfc,
-    input  wire                        cfg_mcf_rx_check_opcode_lfc,
-    input  wire [    15:0]             cfg_mcf_rx_opcode_pfc,
-    input  wire                        cfg_mcf_rx_check_opcode_pfc,
-    input  wire                        cfg_mcf_rx_forward,
-    input  wire                        cfg_mcf_rx_enable,
-    input  wire [    47:0]             cfg_tx_lfc_eth_dst,
-    input  wire [    47:0]             cfg_tx_lfc_eth_src,
-    input  wire [    15:0]             cfg_tx_lfc_eth_type,
-    input  wire [    15:0]             cfg_tx_lfc_opcode,
-    input  wire                        cfg_tx_lfc_en,
-    input  wire [    15:0]             cfg_tx_lfc_quanta,
-    input  wire [    15:0]             cfg_tx_lfc_refresh,
-    input  wire [    47:0]             cfg_tx_pfc_eth_dst,
-    input  wire [    47:0]             cfg_tx_pfc_eth_src,
-    input  wire [    15:0]             cfg_tx_pfc_eth_type,
-    input  wire [    15:0]             cfg_tx_pfc_opcode,
-    input  wire                        cfg_tx_pfc_en,
-    input  wire [8*16-1:0]             cfg_tx_pfc_quanta,
-    input  wire [8*16-1:0]             cfg_tx_pfc_refresh,
-    input  wire [    15:0]             cfg_rx_lfc_opcode,
-    input  wire                        cfg_rx_lfc_en,
-    input  wire [    15:0]             cfg_rx_pfc_opcode,
-    input  wire                        cfg_rx_pfc_en
+    input  logic [     7:0]             cfg_ifg,
+    input  logic                        cfg_tx_enable,
+    input  logic                        cfg_rx_enable,
+    input  logic [    47:0]             cfg_mcf_rx_eth_dst_mcast,
+    input  logic                        cfg_mcf_rx_check_eth_dst_mcast,
+    input  logic [    47:0]             cfg_mcf_rx_eth_dst_ucast,
+    input  logic                        cfg_mcf_rx_check_eth_dst_ucast,
+    input  logic [    47:0]             cfg_mcf_rx_eth_src,
+    input  logic                        cfg_mcf_rx_check_eth_src,
+    input  logic [    15:0]             cfg_mcf_rx_eth_type,
+    input  logic [    15:0]             cfg_mcf_rx_opcode_lfc,
+    input  logic                        cfg_mcf_rx_check_opcode_lfc,
+    input  logic [    15:0]             cfg_mcf_rx_opcode_pfc,
+    input  logic                        cfg_mcf_rx_check_opcode_pfc,
+    input  logic                        cfg_mcf_rx_forward,
+    input  logic                        cfg_mcf_rx_enable,
+    input  logic [    47:0]             cfg_tx_lfc_eth_dst,
+    input  logic [    47:0]             cfg_tx_lfc_eth_src,
+    input  logic [    15:0]             cfg_tx_lfc_eth_type,
+    input  logic [    15:0]             cfg_tx_lfc_opcode,
+    input  logic                        cfg_tx_lfc_en,
+    input  logic [    15:0]             cfg_tx_lfc_quanta,
+    input  logic [    15:0]             cfg_tx_lfc_refresh,
+    input  logic [    47:0]             cfg_tx_pfc_eth_dst,
+    input  logic [    47:0]             cfg_tx_pfc_eth_src,
+    input  logic [    15:0]             cfg_tx_pfc_eth_type,
+    input  logic [    15:0]             cfg_tx_pfc_opcode,
+    input  logic                        cfg_tx_pfc_en,
+    input  logic [8*16-1:0]             cfg_tx_pfc_quanta,
+    input  logic [8*16-1:0]             cfg_tx_pfc_refresh,
+    input  logic [    15:0]             cfg_rx_lfc_opcode,
+    input  logic                        cfg_rx_lfc_en,
+    input  logic [    15:0]             cfg_rx_pfc_opcode,
+    input  logic                        cfg_rx_pfc_en
 );
 
   parameter MAC_CTRL_ENABLE = PAUSE_ENABLE || PFC_ENABLE;
@@ -182,16 +182,16 @@ module eth_mac_1g #(
   // the TX timestamp control in tuser: always there when the MAC control adds it
   parameter TX_PTP_TS_CTRL_IN_TUSER_INT = MAC_CTRL_ENABLE ? PTP_TS_ENABLE : TX_PTP_TS_CTRL_IN_TUSER;
 
-  wire [       DATA_WIDTH-1:0] tx_axis_tdata_int;
-  wire                         tx_axis_tvalid_int;
-  wire                         tx_axis_tready_int;
-  wire                         tx_axis_tlast_int;
-  wire [TX_USER_WIDTH_INT-1:0] tx_axis_tuser_int;
+  logic [       DATA_WIDTH-1:0] tx_axis_tdata_int;
+  logic                         tx_axis_tvalid_int;
+  logic                         tx_axis_tready_int;
+  logic                         tx_axis_tlast_int;
+  logic [TX_USER_WIDTH_INT-1:0] tx_axis_tuser_int;
 
-  wire [       DATA_WIDTH-1:0] rx_axis_tdata_int;
-  wire                         rx_axis_tvalid_int;
-  wire                         rx_axis_tlast_int;
-  wire [    RX_USER_WIDTH-1:0] rx_axis_tuser_int;
+  logic [       DATA_WIDTH-1:0] rx_axis_tdata_int;
+  logic                         rx_axis_tvalid_int;
+  logic                         rx_axis_tlast_int;
+  logic [    RX_USER_WIDTH-1:0] rx_axis_tuser_int;
 
   axis_gmii_rx #(
       .DATA_WIDTH    (DATA_WIDTH),
@@ -256,30 +256,30 @@ module eth_mac_1g #(
 
       localparam MCF_PARAMS_SIZE = PFC_ENABLE ? 18 : 2;
 
-      wire                         tx_mcf_valid;
-      wire                         tx_mcf_ready;
-      wire [                 47:0] tx_mcf_eth_dst;
-      wire [                 47:0] tx_mcf_eth_src;
-      wire [                 15:0] tx_mcf_eth_type;
-      wire [                 15:0] tx_mcf_opcode;
-      wire [MCF_PARAMS_SIZE*8-1:0] tx_mcf_params;
+      logic                         tx_mcf_valid;
+      logic                         tx_mcf_ready;
+      logic [                 47:0] tx_mcf_eth_dst;
+      logic [                 47:0] tx_mcf_eth_src;
+      logic [                 15:0] tx_mcf_eth_type;
+      logic [                 15:0] tx_mcf_opcode;
+      logic [MCF_PARAMS_SIZE*8-1:0] tx_mcf_params;
 
-      wire                         rx_mcf_valid;
-      wire [                 47:0] rx_mcf_eth_dst;
-      wire [                 47:0] rx_mcf_eth_src;
-      wire [                 15:0] rx_mcf_eth_type;
-      wire [                 15:0] rx_mcf_opcode;
-      wire [MCF_PARAMS_SIZE*8-1:0] rx_mcf_params;
+      logic                         rx_mcf_valid;
+      logic [                 47:0] rx_mcf_eth_dst;
+      logic [                 47:0] rx_mcf_eth_src;
+      logic [                 15:0] rx_mcf_eth_type;
+      logic [                 15:0] rx_mcf_opcode;
+      logic [MCF_PARAMS_SIZE*8-1:0] rx_mcf_params;
 
       // terminate LFC pause requests from RX internally on TX side
-      wire                         tx_pause_req_int;
-      wire                         rx_lfc_ack_int;
+      logic                         tx_pause_req_int;
+      logic                         rx_lfc_ack_int;
 
-      reg                          tx_lfc_req_sync_reg_1 = 1'b0;
-      reg                          tx_lfc_req_sync_reg_2 = 1'b0;
-      reg                          tx_lfc_req_sync_reg_3 = 1'b0;
+      logic                         tx_lfc_req_sync_reg_1 = 1'b0;
+      logic                         tx_lfc_req_sync_reg_2 = 1'b0;
+      logic                         tx_lfc_req_sync_reg_3 = 1'b0;
 
-      always @(posedge rx_clk or posedge rx_rst) begin
+      always_ff @(posedge rx_clk or posedge rx_rst) begin
         if (rx_rst) begin
           tx_lfc_req_sync_reg_1 <= 1'b0;
         end
@@ -288,7 +288,7 @@ module eth_mac_1g #(
         end
       end
 
-      always @(posedge tx_clk or posedge tx_rst) begin
+      always_ff @(posedge tx_clk or posedge tx_rst) begin
         if (tx_rst) begin
           tx_lfc_req_sync_reg_2 <= 1'b0;
           tx_lfc_req_sync_reg_3 <= 1'b0;
@@ -299,11 +299,11 @@ module eth_mac_1g #(
         end
       end
 
-      reg rx_lfc_ack_sync_reg_1 = 1'b0;
-      reg rx_lfc_ack_sync_reg_2 = 1'b0;
-      reg rx_lfc_ack_sync_reg_3 = 1'b0;
+      logic rx_lfc_ack_sync_reg_1 = 1'b0;
+      logic rx_lfc_ack_sync_reg_2 = 1'b0;
+      logic rx_lfc_ack_sync_reg_3 = 1'b0;
 
-      always @(posedge tx_clk or posedge tx_rst) begin
+      always_ff @(posedge tx_clk or posedge tx_rst) begin
         if (tx_rst) begin
           rx_lfc_ack_sync_reg_1 <= 1'b0;
         end
@@ -312,7 +312,7 @@ module eth_mac_1g #(
         end
       end
 
-      always @(posedge rx_clk or posedge rx_rst) begin
+      always_ff @(posedge rx_clk or posedge rx_rst) begin
         if (rx_rst) begin
           rx_lfc_ack_sync_reg_2 <= 1'b0;
           rx_lfc_ack_sync_reg_3 <= 1'b0;
@@ -328,7 +328,7 @@ module eth_mac_1g #(
       assign rx_lfc_ack_int   = rx_lfc_ack || rx_lfc_ack_sync_reg_3;
 
       // handle PTP TS enable bit in tuser
-      wire [TX_USER_WIDTH_INT-1:0] tx_axis_tuser_in;
+      logic [TX_USER_WIDTH_INT-1:0] tx_axis_tuser_in;
 
       if (PTP_TS_ENABLE && !TX_PTP_TS_CTRL_IN_TUSER) begin
         assign tx_axis_tuser_in = {tx_axis_tuser[TX_USER_WIDTH-1:1], 1'b1, tx_axis_tuser[0]};
@@ -473,8 +473,8 @@ module eth_mac_1g #(
       );
 
       // pause quanta (512 bit times) per clock: 4 bits per clock on MII, 8 on GMII
-      wire [9:0] tx_quanta_step;
-      assign     tx_quanta_step = tx_mii_select ? (4 * 256) / 512 : (8 * 256) / 512;
+      logic [9:0] tx_quanta_step;
+      assign      tx_quanta_step = tx_mii_select ? (4 * 256) / 512 : (8 * 256) / 512;
 
       mac_pause_ctrl_tx #(
           .MCF_PARAMS_SIZE (MCF_PARAMS_SIZE),
@@ -539,8 +539,8 @@ module eth_mac_1g #(
           .stat_tx_pfc_paused (stat_tx_pfc_paused)
       );
 
-      wire [9:0] rx_quanta_step;  // as tx_quanta_step
-      assign     rx_quanta_step = rx_mii_select ? (4 * 256) / 512 : (8 * 256) / 512;
+      logic [9:0] rx_quanta_step;  // as tx_quanta_step
+      assign      rx_quanta_step = rx_mii_select ? (4 * 256) / 512 : (8 * 256) / 512;
 
       mac_pause_ctrl_rx #(
           .MCF_PARAMS_SIZE (18),

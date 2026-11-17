@@ -25,33 +25,33 @@ module mii_phy_if #(
     // Use BUFIO2 for Spartan-6
     parameter CLOCK_INPUT_STYLE = "BUFIO2"
 ) (
-    input  wire       rst,
+    input  logic       rst,
 
     /*
      * MII interface to MAC
      */
-    output wire       mac_mii_rx_clk,
-    output wire       mac_mii_rx_rst,
-    output wire [3:0] mac_mii_rxd,
-    output wire       mac_mii_rx_dv,
-    output wire       mac_mii_rx_er,
-    output wire       mac_mii_tx_clk,
-    output wire       mac_mii_tx_rst,
-    input  wire [3:0] mac_mii_txd,
-    input  wire       mac_mii_tx_en,
-    input  wire       mac_mii_tx_er,
+    output logic       mac_mii_rx_clk,
+    output logic       mac_mii_rx_rst,
+    output logic [3:0] mac_mii_rxd,
+    output logic       mac_mii_rx_dv,
+    output logic       mac_mii_rx_er,
+    output logic       mac_mii_tx_clk,
+    output logic       mac_mii_tx_rst,
+    input  logic [3:0] mac_mii_txd,
+    input  logic       mac_mii_tx_en,
+    input  logic       mac_mii_tx_er,
 
     /*
      * MII interface to PHY
      */
-    input  wire       phy_mii_rx_clk,
-    input  wire [3:0] phy_mii_rxd,
-    input  wire       phy_mii_rx_dv,
-    input  wire       phy_mii_rx_er,
-    input  wire       phy_mii_tx_clk,
-    output wire [3:0] phy_mii_txd,
-    output wire       phy_mii_tx_en,
-    output wire       phy_mii_tx_er
+    input  logic       phy_mii_rx_clk,
+    input  logic [3:0] phy_mii_rxd,
+    input  logic       phy_mii_rx_dv,
+    input  logic       phy_mii_rx_er,
+    input  logic       phy_mii_tx_clk,
+    output logic [3:0] phy_mii_txd,
+    output logic       phy_mii_tx_en,
+    output logic       phy_mii_tx_er
 );
 
   ssio_sdr_in #(
@@ -66,15 +66,15 @@ module mii_phy_if #(
   );
 
   (* IOB = "TRUE" *)
-  reg [3:0] phy_mii_txd_reg = 4'd0;
+  logic [3:0] phy_mii_txd_reg = 4'd0;
   (* IOB = "TRUE" *)
-  reg phy_mii_tx_en_reg = 1'b0, phy_mii_tx_er_reg = 1'b0;
+  logic phy_mii_tx_en_reg = 1'b0, phy_mii_tx_er_reg = 1'b0;
 
   assign phy_mii_txd   = phy_mii_txd_reg;
   assign phy_mii_tx_en = phy_mii_tx_en_reg;
   assign phy_mii_tx_er = phy_mii_tx_er_reg;
 
-  always @(posedge mac_mii_tx_clk) begin
+  always_ff @(posedge mac_mii_tx_clk) begin
     phy_mii_txd_reg   <= mac_mii_txd;
     phy_mii_tx_en_reg <= mac_mii_tx_en;
     phy_mii_tx_er_reg <= mac_mii_tx_er;
@@ -95,10 +95,10 @@ module mii_phy_if #(
   endgenerate
 
   // reset sync
-  reg [3:0] tx_rst_reg = 4'hf;
-  assign mac_mii_tx_rst = tx_rst_reg[0];
+  logic [3:0] tx_rst_reg = 4'hf;
+  assign      mac_mii_tx_rst = tx_rst_reg[0];
 
-  always @(posedge mac_mii_tx_clk or posedge rst) begin
+  always_ff @(posedge mac_mii_tx_clk or posedge rst) begin
     if (rst) begin
       tx_rst_reg <= 4'hf;
     end
@@ -107,10 +107,10 @@ module mii_phy_if #(
     end
   end
 
-  reg [3:0] rx_rst_reg = 4'hf;
-  assign mac_mii_rx_rst = rx_rst_reg[0];
+  logic [3:0] rx_rst_reg = 4'hf;
+  assign      mac_mii_rx_rst = rx_rst_reg[0];
 
-  always @(posedge mac_mii_rx_clk or posedge rst) begin
+  always_ff @(posedge mac_mii_rx_clk or posedge rst) begin
     if (rst) begin
       rx_rst_reg <= 4'hf;
     end

@@ -34,10 +34,10 @@ module lfsr #(
     // implementation style: "AUTO", "LOOP", "REDUCTION"
     parameter STYLE             = "AUTO"
 ) (
-    input  wire [DATA_WIDTH-1:0] data_in,
-    input  wire [LFSR_WIDTH-1:0] state_in,
-    output wire [DATA_WIDTH-1:0] data_out,
-    output wire [LFSR_WIDTH-1:0] state_out
+    input  logic [DATA_WIDTH-1:0] data_in,
+    input  logic [LFSR_WIDTH-1:0] state_in,
+    output logic [DATA_WIDTH-1:0] data_out,
+    output logic [LFSR_WIDTH-1:0] state_out
 );
 
   /*
@@ -186,16 +186,16 @@ PRBS31      Fibonacci, inverted    31     31'h10000001   any
 
 */
 
-  function [LFSR_WIDTH+DATA_WIDTH-1:0] lfsr_mask(input [31:0] index);
-    reg [LFSR_WIDTH-1:0] lfsr_mask_state  [LFSR_WIDTH-1:0];
-    reg [DATA_WIDTH-1:0] lfsr_mask_data   [LFSR_WIDTH-1:0];
-    reg [LFSR_WIDTH-1:0] output_mask_state[DATA_WIDTH-1:0];
-    reg [DATA_WIDTH-1:0] output_mask_data [DATA_WIDTH-1:0];
+  function automatic [LFSR_WIDTH+DATA_WIDTH-1:0] lfsr_mask(input [31:0] index);
+    logic [LFSR_WIDTH-1:0] lfsr_mask_state  [LFSR_WIDTH-1:0];
+    logic [DATA_WIDTH-1:0] lfsr_mask_data   [LFSR_WIDTH-1:0];
+    logic [LFSR_WIDTH-1:0] output_mask_state[DATA_WIDTH-1:0];
+    logic [DATA_WIDTH-1:0] output_mask_data [DATA_WIDTH-1:0];
 
-    reg [LFSR_WIDTH-1:0] state_val;
-    reg [DATA_WIDTH-1:0] data_val;
+    logic [LFSR_WIDTH-1:0] state_val;
+    logic [DATA_WIDTH-1:0] data_val;
 
-    reg [DATA_WIDTH-1:0] data_mask;
+    logic [DATA_WIDTH-1:0] data_mask;
 
     integer i, j;
 
@@ -371,12 +371,14 @@ PRBS31      Fibonacci, inverted    31     31'h10000001   any
       // --> better for simulation
 
       for (n = 0; n < LFSR_WIDTH; n = n + 1) begin : lfsr_state
-        wire [LFSR_WIDTH+DATA_WIDTH-1:0] mask = lfsr_mask(n);
-        assign                           state_out[n] = ^({data_in, state_in} & mask);
+        logic [LFSR_WIDTH+DATA_WIDTH-1:0] mask;
+        assign                            mask         = lfsr_mask(n);
+        assign                            state_out[n] = ^({data_in, state_in} & mask);
       end
       for (n = 0; n < DATA_WIDTH; n = n + 1) begin : lfsr_data
-        wire [LFSR_WIDTH+DATA_WIDTH-1:0] mask = lfsr_mask(n + LFSR_WIDTH);
-        assign                           data_out[n] = ^({data_in, state_in} & mask);
+        logic [LFSR_WIDTH+DATA_WIDTH-1:0] mask;
+        assign                            mask        = lfsr_mask(n + LFSR_WIDTH);
+        assign                            data_out[n] = ^({data_in, state_in} & mask);
       end
 
     end
@@ -389,15 +391,16 @@ PRBS31      Fibonacci, inverted    31     31'h10000001   any
       // --> better for synthesis
 
       for (n = 0; n < LFSR_WIDTH; n = n + 1) begin : lfsr_state
-        wire [LFSR_WIDTH+DATA_WIDTH-1:0] mask = lfsr_mask(n);
+        logic [LFSR_WIDTH+DATA_WIDTH-1:0] mask;
+        assign                            mask = lfsr_mask(n);
 
-        reg                              state_reg;
+        logic state_reg;
 
         assign state_out[n] = state_reg;
 
         integer i;
 
-        always @* begin
+        always_comb begin
           state_reg = 1'b0;
           for (i = 0; i < LFSR_WIDTH; i = i + 1) begin
             if (mask[i]) begin
@@ -412,15 +415,16 @@ PRBS31      Fibonacci, inverted    31     31'h10000001   any
         end
       end
       for (n = 0; n < DATA_WIDTH; n = n + 1) begin : lfsr_data
-        wire [LFSR_WIDTH+DATA_WIDTH-1:0] mask = lfsr_mask(n + LFSR_WIDTH);
+        logic [LFSR_WIDTH+DATA_WIDTH-1:0] mask;
+        assign                            mask = lfsr_mask(n + LFSR_WIDTH);
 
-        reg                              data_reg;
+        logic data_reg;
 
         assign data_out[n] = data_reg;
 
         integer i;
 
-        always @* begin
+        always_comb begin
           data_reg = 1'b0;
           for (i = 0; i < LFSR_WIDTH; i = i + 1) begin
             if (mask[i]) begin

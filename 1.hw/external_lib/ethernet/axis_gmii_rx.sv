@@ -24,46 +24,46 @@ module axis_gmii_rx #(
     parameter PTP_TS_WIDTH  = 96,
     parameter USER_WIDTH    = (PTP_TS_ENABLE ? PTP_TS_WIDTH : 0) + 1
 ) (
-    input  wire                    clk,
-    input  wire                    rst,
+    input  logic                    clk,
+    input  logic                    rst,
 
     /*
      * GMII input
      */
-    input  wire [DATA_WIDTH-1:0]   gmii_rxd,
-    input  wire                    gmii_rx_dv,
-    input  wire                    gmii_rx_er,
+    input  logic [DATA_WIDTH-1:0]   gmii_rxd,
+    input  logic                    gmii_rx_dv,
+    input  logic                    gmii_rx_er,
 
     /*
      * AXI output
      */
-    output wire [DATA_WIDTH-1:0]   m_axis_tdata,
-    output wire                    m_axis_tvalid,
-    output wire                    m_axis_tlast,
-    output wire [USER_WIDTH-1:0]   m_axis_tuser,
+    output logic [DATA_WIDTH-1:0]   m_axis_tdata,
+    output logic                    m_axis_tvalid,
+    output logic                    m_axis_tlast,
+    output logic [USER_WIDTH-1:0]   m_axis_tuser,
 
     /*
      * PTP
      */
-    input  wire [PTP_TS_WIDTH-1:0] ptp_ts,
+    input  logic [PTP_TS_WIDTH-1:0] ptp_ts,
 
     /*
      * Control
      */
-    input  wire                    clk_enable,
-    input  wire                    mii_select,
+    input  logic                    clk_enable,
+    input  logic                    mii_select,
 
     /*
      * Configuration
      */
-    input  wire                    cfg_rx_enable,
+    input  logic                    cfg_rx_enable,
 
     /*
      * Status
      */
-    output wire                    start_packet,
-    output wire                    error_bad_frame,
-    output wire                    error_bad_fcs
+    output logic                    start_packet,
+    output logic                    error_bad_frame,
+    output logic                    error_bad_fcs
 );
 
   // bus width assertions
@@ -80,47 +80,47 @@ module axis_gmii_rx #(
 
   localparam [2:0] STATE_IDLE = 3'd0, STATE_PAYLOAD = 3'd1, STATE_WAIT_LAST = 3'd2;
 
-  reg [2:0] state_reg = STATE_IDLE, state_next;
+  logic [2:0] state_reg = STATE_IDLE, state_next;
 
   // datapath control signals
-  reg                  reset_crc;
-  reg                  update_crc;
+  logic                  reset_crc;
+  logic                  update_crc;
 
-  reg                  mii_odd = 1'b0;
-  reg                  in_frame = 1'b0;
+  logic                  mii_odd = 1'b0;
+  logic                  in_frame = 1'b0;
 
-  reg [DATA_WIDTH-1:0] gmii_rxd_d0 = {DATA_WIDTH{1'b0}};
-  reg [DATA_WIDTH-1:0] gmii_rxd_d1 = {DATA_WIDTH{1'b0}};
-  reg [DATA_WIDTH-1:0] gmii_rxd_d2 = {DATA_WIDTH{1'b0}};
-  reg [DATA_WIDTH-1:0] gmii_rxd_d3 = {DATA_WIDTH{1'b0}};
-  reg [DATA_WIDTH-1:0] gmii_rxd_d4 = {DATA_WIDTH{1'b0}};
+  logic [DATA_WIDTH-1:0] gmii_rxd_d0 = {DATA_WIDTH{1'b0}};
+  logic [DATA_WIDTH-1:0] gmii_rxd_d1 = {DATA_WIDTH{1'b0}};
+  logic [DATA_WIDTH-1:0] gmii_rxd_d2 = {DATA_WIDTH{1'b0}};
+  logic [DATA_WIDTH-1:0] gmii_rxd_d3 = {DATA_WIDTH{1'b0}};
+  logic [DATA_WIDTH-1:0] gmii_rxd_d4 = {DATA_WIDTH{1'b0}};
 
-  reg                  gmii_rx_dv_d0 = 1'b0;
-  reg                  gmii_rx_dv_d1 = 1'b0;
-  reg                  gmii_rx_dv_d2 = 1'b0;
-  reg                  gmii_rx_dv_d3 = 1'b0;
-  reg                  gmii_rx_dv_d4 = 1'b0;
+  logic                  gmii_rx_dv_d0 = 1'b0;
+  logic                  gmii_rx_dv_d1 = 1'b0;
+  logic                  gmii_rx_dv_d2 = 1'b0;
+  logic                  gmii_rx_dv_d3 = 1'b0;
+  logic                  gmii_rx_dv_d4 = 1'b0;
 
-  reg                  gmii_rx_er_d0 = 1'b0;
-  reg                  gmii_rx_er_d1 = 1'b0;
-  reg                  gmii_rx_er_d2 = 1'b0;
-  reg                  gmii_rx_er_d3 = 1'b0;
-  reg                  gmii_rx_er_d4 = 1'b0;
+  logic                  gmii_rx_er_d0 = 1'b0;
+  logic                  gmii_rx_er_d1 = 1'b0;
+  logic                  gmii_rx_er_d2 = 1'b0;
+  logic                  gmii_rx_er_d3 = 1'b0;
+  logic                  gmii_rx_er_d4 = 1'b0;
 
-  reg [DATA_WIDTH-1:0] m_axis_tdata_reg = {DATA_WIDTH{1'b0}}, m_axis_tdata_next;
-  reg m_axis_tvalid_reg = 1'b0, m_axis_tvalid_next;
-  reg m_axis_tlast_reg = 1'b0, m_axis_tlast_next;
-  reg m_axis_tuser_reg = 1'b0, m_axis_tuser_next;
+  logic [DATA_WIDTH-1:0] m_axis_tdata_reg = {DATA_WIDTH{1'b0}}, m_axis_tdata_next;
+  logic m_axis_tvalid_reg = 1'b0, m_axis_tvalid_next;
+  logic m_axis_tlast_reg = 1'b0, m_axis_tlast_next;
+  logic m_axis_tuser_reg = 1'b0, m_axis_tuser_next;
 
-  reg start_packet_int_reg = 1'b0;
-  reg start_packet_reg = 1'b0;
-  reg error_bad_frame_reg = 1'b0, error_bad_frame_next;
-  reg error_bad_fcs_reg = 1'b0, error_bad_fcs_next;
+  logic start_packet_int_reg = 1'b0;
+  logic start_packet_reg = 1'b0;
+  logic error_bad_frame_reg = 1'b0, error_bad_frame_next;
+  logic error_bad_fcs_reg = 1'b0, error_bad_fcs_next;
 
-  reg  [PTP_TS_WIDTH-1:0] ptp_ts_reg = 0;
+  logic [PTP_TS_WIDTH-1:0] ptp_ts_reg = 0;
 
-  reg  [            31:0] crc_state = 32'hFFFFFFFF;
-  wire [            31:0] crc_next;
+  logic [            31:0] crc_state = 32'hFFFFFFFF;
+  logic [            31:0] crc_next;
 
   assign m_axis_tdata    = m_axis_tdata_reg;
   assign m_axis_tvalid   = m_axis_tvalid_reg;
@@ -150,7 +150,7 @@ module axis_gmii_rx #(
       .state_out (crc_next)
   );
 
-  always @* begin
+  always_comb begin
     state_next           = STATE_IDLE;
 
     reset_crc            = 1'b0;
@@ -173,8 +173,7 @@ module axis_gmii_rx #(
       state_next = state_reg;
     end
     else begin
-      // verilator lint_off CASEINCOMPLETE
-      case (state_reg)
+      unique case (state_reg)
         STATE_IDLE: begin
           // idle state - wait for packet
           reset_crc = 1'b1;
@@ -234,12 +233,12 @@ module axis_gmii_rx #(
             state_next = STATE_WAIT_LAST;
           end
         end
+        default: state_next = STATE_IDLE;  // not a state: back to idle
       endcase
-      // verilator lint_on CASEINCOMPLETE
     end
   end
 
-  always @(posedge clk) begin
+  always_ff @(posedge clk) begin
     state_reg            <= state_next;
 
     m_axis_tdata_reg     <= m_axis_tdata_next;

@@ -82,52 +82,52 @@ module axis_async_fifo_adapter #(
     /*
      * AXI input
      */
-    input  wire                    s_clk,
-    input  wire                    s_rst,
-    input  wire [S_DATA_WIDTH-1:0] s_axis_tdata,
-    input  wire [S_KEEP_WIDTH-1:0] s_axis_tkeep,
-    input  wire                    s_axis_tvalid,
-    output wire                    s_axis_tready,
-    input  wire                    s_axis_tlast,
-    input  wire [    ID_WIDTH-1:0] s_axis_tid,
-    input  wire [  DEST_WIDTH-1:0] s_axis_tdest,
-    input  wire [  USER_WIDTH-1:0] s_axis_tuser,
+    input  logic                    s_clk,
+    input  logic                    s_rst,
+    input  logic [S_DATA_WIDTH-1:0] s_axis_tdata,
+    input  logic [S_KEEP_WIDTH-1:0] s_axis_tkeep,
+    input  logic                    s_axis_tvalid,
+    output logic                    s_axis_tready,
+    input  logic                    s_axis_tlast,
+    input  logic [    ID_WIDTH-1:0] s_axis_tid,
+    input  logic [  DEST_WIDTH-1:0] s_axis_tdest,
+    input  logic [  USER_WIDTH-1:0] s_axis_tuser,
 
     /*
      * AXI output
      */
-    input  wire                    m_clk,
-    input  wire                    m_rst,
-    output wire [M_DATA_WIDTH-1:0] m_axis_tdata,
-    output wire [M_KEEP_WIDTH-1:0] m_axis_tkeep,
-    output wire                    m_axis_tvalid,
-    input  wire                    m_axis_tready,
-    output wire                    m_axis_tlast,
-    output wire [    ID_WIDTH-1:0] m_axis_tid,
-    output wire [  DEST_WIDTH-1:0] m_axis_tdest,
-    output wire [  USER_WIDTH-1:0] m_axis_tuser,
+    input  logic                    m_clk,
+    input  logic                    m_rst,
+    output logic [M_DATA_WIDTH-1:0] m_axis_tdata,
+    output logic [M_KEEP_WIDTH-1:0] m_axis_tkeep,
+    output logic                    m_axis_tvalid,
+    input  logic                    m_axis_tready,
+    output logic                    m_axis_tlast,
+    output logic [    ID_WIDTH-1:0] m_axis_tid,
+    output logic [  DEST_WIDTH-1:0] m_axis_tdest,
+    output logic [  USER_WIDTH-1:0] m_axis_tuser,
 
     /*
      * Pause
      */
-    input  wire                    s_pause_req,
-    output wire                    s_pause_ack,
-    input  wire                    m_pause_req,
-    output wire                    m_pause_ack,
+    input  logic                    s_pause_req,
+    output logic                    s_pause_ack,
+    input  logic                    m_pause_req,
+    output logic                    m_pause_ack,
 
     /*
      * Status
      */
-    output wire [$clog2(DEPTH):0]  s_status_depth,
-    output wire [$clog2(DEPTH):0]  s_status_depth_commit,
-    output wire                    s_status_overflow,
-    output wire                    s_status_bad_frame,
-    output wire                    s_status_good_frame,
-    output wire [$clog2(DEPTH):0]  m_status_depth,
-    output wire [$clog2(DEPTH):0]  m_status_depth_commit,
-    output wire                    m_status_overflow,
-    output wire                    m_status_bad_frame,
-    output wire                    m_status_good_frame
+    output logic [$clog2(DEPTH):0]  s_status_depth,
+    output logic [$clog2(DEPTH):0]  s_status_depth_commit,
+    output logic                    s_status_overflow,
+    output logic                    s_status_bad_frame,
+    output logic                    s_status_good_frame,
+    output logic [$clog2(DEPTH):0]  m_status_depth,
+    output logic [$clog2(DEPTH):0]  m_status_depth_commit,
+    output logic                    m_status_overflow,
+    output logic                    m_status_bad_frame,
+    output logic                    m_status_good_frame
 );
 
   // force keep width to 1 when disabled
@@ -163,23 +163,23 @@ module axis_async_fifo_adapter #(
     end
   end
 
-  wire [DATA_WIDTH-1:0] pre_fifo_axis_tdata;
-  wire [KEEP_WIDTH-1:0] pre_fifo_axis_tkeep;
-  wire                  pre_fifo_axis_tvalid;
-  wire                  pre_fifo_axis_tready;
-  wire                  pre_fifo_axis_tlast;
-  wire [  ID_WIDTH-1:0] pre_fifo_axis_tid;
-  wire [DEST_WIDTH-1:0] pre_fifo_axis_tdest;
-  wire [USER_WIDTH-1:0] pre_fifo_axis_tuser;
+  logic [DATA_WIDTH-1:0] pre_fifo_axis_tdata;
+  logic [KEEP_WIDTH-1:0] pre_fifo_axis_tkeep;
+  logic                  pre_fifo_axis_tvalid;
+  logic                  pre_fifo_axis_tready;
+  logic                  pre_fifo_axis_tlast;
+  logic [  ID_WIDTH-1:0] pre_fifo_axis_tid;
+  logic [DEST_WIDTH-1:0] pre_fifo_axis_tdest;
+  logic [USER_WIDTH-1:0] pre_fifo_axis_tuser;
 
-  wire [DATA_WIDTH-1:0] post_fifo_axis_tdata;
-  wire [KEEP_WIDTH-1:0] post_fifo_axis_tkeep;
-  wire                  post_fifo_axis_tvalid;
-  wire                  post_fifo_axis_tready;
-  wire                  post_fifo_axis_tlast;
-  wire [  ID_WIDTH-1:0] post_fifo_axis_tid;
-  wire [DEST_WIDTH-1:0] post_fifo_axis_tdest;
-  wire [USER_WIDTH-1:0] post_fifo_axis_tuser;
+  logic [DATA_WIDTH-1:0] post_fifo_axis_tdata;
+  logic [KEEP_WIDTH-1:0] post_fifo_axis_tkeep;
+  logic                  post_fifo_axis_tvalid;
+  logic                  post_fifo_axis_tready;
+  logic                  post_fifo_axis_tlast;
+  logic [  ID_WIDTH-1:0] post_fifo_axis_tid;
+  logic [DEST_WIDTH-1:0] post_fifo_axis_tdest;
+  logic [USER_WIDTH-1:0] post_fifo_axis_tuser;
 
   generate
 

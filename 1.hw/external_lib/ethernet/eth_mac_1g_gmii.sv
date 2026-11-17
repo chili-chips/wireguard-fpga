@@ -31,101 +31,101 @@ module eth_mac_1g_gmii #(
     parameter ENABLE_PADDING    = 1,
     parameter MIN_FRAME_LENGTH  = 64
 ) (
-    input  wire       gtx_clk,
-    input  wire       gtx_rst,
-    output wire       rx_clk,
-    output wire       rx_rst,
-    output wire       tx_clk,
-    output wire       tx_rst,
+    input  logic       gtx_clk,
+    input  logic       gtx_rst,
+    output logic       rx_clk,
+    output logic       rx_rst,
+    output logic       tx_clk,
+    output logic       tx_rst,
 
     /*
      * AXI input
      */
-    input  wire [7:0] tx_axis_tdata,
-    input  wire       tx_axis_tvalid,
-    output wire       tx_axis_tready,
-    input  wire       tx_axis_tlast,
-    input  wire       tx_axis_tuser,
+    input  logic [7:0] tx_axis_tdata,
+    input  logic       tx_axis_tvalid,
+    output logic       tx_axis_tready,
+    input  logic       tx_axis_tlast,
+    input  logic       tx_axis_tuser,
 
     /*
      * AXI output
      */
-    output wire [7:0] rx_axis_tdata,
-    output wire       rx_axis_tvalid,
-    output wire       rx_axis_tlast,
-    output wire       rx_axis_tuser,
+    output logic [7:0] rx_axis_tdata,
+    output logic       rx_axis_tvalid,
+    output logic       rx_axis_tlast,
+    output logic       rx_axis_tuser,
 
     /*
      * GMII interface
      */
-    input  wire       gmii_rx_clk,
-    input  wire [7:0] gmii_rxd,
-    input  wire       gmii_rx_dv,
-    input  wire       gmii_rx_er,
-    input  wire       mii_tx_clk,
-    output wire       gmii_tx_clk,
-    output wire [7:0] gmii_txd,
-    output wire       gmii_tx_en,
-    output wire       gmii_tx_er,
+    input  logic       gmii_rx_clk,
+    input  logic [7:0] gmii_rxd,
+    input  logic       gmii_rx_dv,
+    input  logic       gmii_rx_er,
+    input  logic       mii_tx_clk,
+    output logic       gmii_tx_clk,
+    output logic [7:0] gmii_txd,
+    output logic       gmii_tx_en,
+    output logic       gmii_tx_er,
 
     /*
      * Status
      */
-    output wire       tx_error_underflow,
-    output wire       rx_error_bad_frame,
-    output wire       rx_error_bad_fcs,
-    output wire [1:0] speed,
+    output logic       tx_error_underflow,
+    output logic       rx_error_bad_frame,
+    output logic       rx_error_bad_fcs,
+    output logic [1:0] speed,
 
     /*
      * Configuration
      */
-    input  wire [7:0] cfg_ifg,
-    input  wire       cfg_tx_enable,
-    input  wire       cfg_rx_enable
+    input  logic [7:0] cfg_ifg,
+    input  logic       cfg_tx_enable,
+    input  logic       cfg_rx_enable
 );
 
-  wire [7:0] mac_gmii_rxd;
-  wire       mac_gmii_rx_dv;
-  wire       mac_gmii_rx_er;
-  wire [7:0] mac_gmii_txd;
-  wire       mac_gmii_tx_en;
-  wire       mac_gmii_tx_er;
+  logic [7:0] mac_gmii_rxd;
+  logic       mac_gmii_rx_dv;
+  logic       mac_gmii_rx_er;
+  logic [7:0] mac_gmii_txd;
+  logic       mac_gmii_tx_en;
+  logic       mac_gmii_tx_er;
 
-  reg  [1:0] speed_reg = 2'b10;
-  reg        mii_select_reg = 1'b0;
+  logic [1:0] speed_reg = 2'b10;
+  logic       mii_select_reg = 1'b0;
 
   (* srl_style = "register" *)
-  reg  [1:0] tx_mii_select_sync = 2'd0;
+  logic [1:0] tx_mii_select_sync = 2'd0;
 
-  always @(posedge tx_clk) begin
+  always_ff @(posedge tx_clk) begin
     tx_mii_select_sync <= {tx_mii_select_sync[0], mii_select_reg};
   end
 
   (* srl_style = "register" *)
-  reg [1:0] rx_mii_select_sync = 2'd0;
+  logic [1:0] rx_mii_select_sync = 2'd0;
 
-  always @(posedge rx_clk) begin
+  always_ff @(posedge rx_clk) begin
     rx_mii_select_sync <= {rx_mii_select_sync[0], mii_select_reg};
   end
 
   // PHY speed detection
-  reg [2:0] rx_prescale = 3'd0;
+  logic [2:0] rx_prescale = 3'd0;
 
-  always @(posedge rx_clk) begin
+  always_ff @(posedge rx_clk) begin
     rx_prescale <= rx_prescale + 3'd1;
   end
 
   (* srl_style = "register" *)
-  reg [2:0] rx_prescale_sync = 3'd0;
+  logic [2:0] rx_prescale_sync = 3'd0;
 
-  always @(posedge gtx_clk) begin
+  always_ff @(posedge gtx_clk) begin
     rx_prescale_sync <= {rx_prescale_sync[1:0], rx_prescale[2]};
   end
 
-  reg [6:0] rx_speed_count_1 = 0;
-  reg [1:0] rx_speed_count_2 = 0;
+  logic [6:0] rx_speed_count_1 = 0;
+  logic [1:0] rx_speed_count_2 = 0;
 
-  always @(posedge gtx_clk) begin
+  always_ff @(posedge gtx_clk) begin
     if (gtx_rst) begin
       rx_speed_count_1 <= 0;
       rx_speed_count_2 <= 0;

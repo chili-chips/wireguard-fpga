@@ -30,50 +30,50 @@ module axis_gmii_tx #(
     parameter USER_WIDTH = (PTP_TS_ENABLE ? (PTP_TAG_ENABLE ? PTP_TAG_WIDTH : 0) +
                             (PTP_TS_CTRL_IN_TUSER ? 1 : 0) : 0) + 1
 ) (
-    input  wire                     clk,
-    input  wire                     rst,
+    input  logic                     clk,
+    input  logic                     rst,
 
     /*
      * AXI input
      */
-    input  wire [DATA_WIDTH-1:0]    s_axis_tdata,
-    input  wire                     s_axis_tvalid,
-    output wire                     s_axis_tready,
-    input  wire                     s_axis_tlast,
-    input  wire [USER_WIDTH-1:0]    s_axis_tuser,
+    input  logic [DATA_WIDTH-1:0]    s_axis_tdata,
+    input  logic                     s_axis_tvalid,
+    output logic                     s_axis_tready,
+    input  logic                     s_axis_tlast,
+    input  logic [USER_WIDTH-1:0]    s_axis_tuser,
 
     /*
      * GMII output
      */
-    output wire [DATA_WIDTH-1:0]    gmii_txd,
-    output wire                     gmii_tx_en,
-    output wire                     gmii_tx_er,
+    output logic [DATA_WIDTH-1:0]    gmii_txd,
+    output logic                     gmii_tx_en,
+    output logic                     gmii_tx_er,
 
     /*
      * PTP
      */
-    input  wire [ PTP_TS_WIDTH-1:0] ptp_ts,
-    output wire [ PTP_TS_WIDTH-1:0] m_axis_ptp_ts,
-    output wire [PTP_TAG_WIDTH-1:0] m_axis_ptp_ts_tag,
-    output wire                     m_axis_ptp_ts_valid,
+    input  logic [ PTP_TS_WIDTH-1:0] ptp_ts,
+    output logic [ PTP_TS_WIDTH-1:0] m_axis_ptp_ts,
+    output logic [PTP_TAG_WIDTH-1:0] m_axis_ptp_ts_tag,
+    output logic                     m_axis_ptp_ts_valid,
 
     /*
      * Control
      */
-    input  wire                     clk_enable,
-    input  wire                     mii_select,
+    input  logic                     clk_enable,
+    input  logic                     mii_select,
 
     /*
      * Configuration
      */
-    input  wire [7:0]               cfg_ifg,
-    input  wire                     cfg_tx_enable,
+    input  logic [7:0]               cfg_ifg,
+    input  logic                     cfg_tx_enable,
 
     /*
      * Status
      */
-    output wire                     start_packet,
-    output wire                     error_underflow
+    output logic                     start_packet,
+    output logic                     error_underflow
 );
 
   parameter MIN_LEN_WIDTH = $clog2(MIN_FRAME_LENGTH - 4 - 1 + 1);
@@ -97,38 +97,38 @@ module axis_gmii_tx #(
     STATE_FCS = 3'd5,
     STATE_IFG = 3'd6;
 
-  reg [2:0] state_reg = STATE_IDLE, state_next;
+  logic [2:0] state_reg = STATE_IDLE, state_next;
 
   // datapath control signals
-  reg reset_crc;
-  reg update_crc;
+  logic reset_crc;
+  logic update_crc;
 
-  reg [7:0] s_tdata_reg = 8'd0, s_tdata_next;
+  logic [7:0] s_tdata_reg = 8'd0, s_tdata_next;
 
-  reg mii_odd_reg = 1'b0, mii_odd_next;
-  reg [3:0] mii_msn_reg = 4'b0, mii_msn_next;
+  logic mii_odd_reg = 1'b0, mii_odd_next;
+  logic [3:0] mii_msn_reg = 4'b0, mii_msn_next;
 
-  reg frame_reg = 1'b0, frame_next;
-  reg frame_error_reg = 1'b0, frame_error_next;
-  reg [7:0] frame_ptr_reg = 0, frame_ptr_next;
-  reg [MIN_LEN_WIDTH-1:0] frame_min_count_reg = 0, frame_min_count_next;
+  logic frame_reg = 1'b0, frame_next;
+  logic frame_error_reg = 1'b0, frame_error_next;
+  logic [7:0] frame_ptr_reg = 0, frame_ptr_next;
+  logic [MIN_LEN_WIDTH-1:0] frame_min_count_reg = 0, frame_min_count_next;
 
-  reg [7:0] gmii_txd_reg = 8'd0, gmii_txd_next;
-  reg gmii_tx_en_reg = 1'b0, gmii_tx_en_next;
-  reg gmii_tx_er_reg = 1'b0, gmii_tx_er_next;
+  logic [7:0] gmii_txd_reg = 8'd0, gmii_txd_next;
+  logic gmii_tx_en_reg = 1'b0, gmii_tx_en_next;
+  logic gmii_tx_er_reg = 1'b0, gmii_tx_er_next;
 
-  reg s_axis_tready_reg = 1'b0, s_axis_tready_next;
+  logic s_axis_tready_reg = 1'b0, s_axis_tready_next;
 
-  reg [PTP_TS_WIDTH-1:0] m_axis_ptp_ts_reg = 0, m_axis_ptp_ts_next;
-  reg [PTP_TAG_WIDTH-1:0] m_axis_ptp_ts_tag_reg = 0, m_axis_ptp_ts_tag_next;
-  reg m_axis_ptp_ts_valid_reg = 1'b0, m_axis_ptp_ts_valid_next;
+  logic [PTP_TS_WIDTH-1:0] m_axis_ptp_ts_reg = 0, m_axis_ptp_ts_next;
+  logic [PTP_TAG_WIDTH-1:0] m_axis_ptp_ts_tag_reg = 0, m_axis_ptp_ts_tag_next;
+  logic m_axis_ptp_ts_valid_reg = 1'b0, m_axis_ptp_ts_valid_next;
 
-  reg start_packet_int_reg = 1'b0, start_packet_int_next;
-  reg start_packet_reg = 1'b0, start_packet_next;
-  reg error_underflow_reg = 1'b0, error_underflow_next;
+  logic start_packet_int_reg = 1'b0, start_packet_int_next;
+  logic start_packet_reg = 1'b0, start_packet_next;
+  logic error_underflow_reg = 1'b0, error_underflow_next;
 
-  reg  [31:0] crc_state = 32'hFFFFFFFF;
-  wire [31:0] crc_next;
+  logic [31:0] crc_state = 32'hFFFFFFFF;
+  logic [31:0] crc_next;
 
   assign s_axis_tready       = s_axis_tready_reg;
 
@@ -158,7 +158,7 @@ module axis_gmii_tx #(
       .state_out (crc_next)
   );
 
-  always @* begin
+  always_comb begin
     state_next               = STATE_IDLE;
 
     reset_crc                = 1'b0;
@@ -230,8 +230,7 @@ module axis_gmii_tx #(
       end
     end
     else begin
-      // verilator lint_off CASEINCOMPLETE
-      case (state_reg)
+      unique case (state_reg)
         STATE_IDLE: begin
           // idle state - wait for packet
           reset_crc            = 1'b1;
@@ -373,12 +372,13 @@ module axis_gmii_tx #(
           frame_ptr_next     = frame_ptr_reg + 1;
 
           // verilator lint_off WIDTHEXPAND
-          case (frame_ptr_reg)
+          unique case (frame_ptr_reg)
             // verilator lint_on WIDTHEXPAND
-            2'd0: gmii_txd_next = ~crc_state[7:0];
-            2'd1: gmii_txd_next = ~crc_state[15:8];
-            2'd2: gmii_txd_next = ~crc_state[23:16];
-            2'd3: gmii_txd_next = ~crc_state[31:24];
+            2'd0:    gmii_txd_next = ~crc_state[7:0];
+            2'd1:    gmii_txd_next = ~crc_state[15:8];
+            2'd2:    gmii_txd_next = ~crc_state[23:16];
+            2'd3:    gmii_txd_next = ~crc_state[31:24];
+            default: ;  // frame_ptr_reg counts 0 to 3 here
           endcase
           gmii_tx_en_next = 1'b1;
           gmii_tx_er_next = frame_error_reg;
@@ -405,8 +405,8 @@ module axis_gmii_tx #(
             state_next = STATE_IDLE;
           end
         end
+        default: state_next = STATE_IDLE;  // not a state: back to idle
       endcase
-      // verilator lint_on CASEINCOMPLETE
 
       if (mii_select) begin
         mii_msn_next       = gmii_txd_next[7:4];
@@ -415,7 +415,7 @@ module axis_gmii_tx #(
     end
   end
 
-  always @(posedge clk) begin
+  always_ff @(posedge clk) begin
     state_reg               <= state_next;
 
     frame_reg               <= frame_next;

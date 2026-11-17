@@ -29,12 +29,12 @@ module oddr #(
     // Width of register in bits
     parameter WIDTH       = 1
 ) (
-    input  wire             clk,
+    input  logic             clk,
 
-    input  wire [WIDTH-1:0] d1,
-    input  wire [WIDTH-1:0] d2,
+    input  logic [WIDTH-1:0] d1,
+    input  logic [WIDTH-1:0] d2,
 
-    output wire [WIDTH-1:0] q
+    output logic [WIDTH-1:0] q
 );
 
   /*
@@ -104,12 +104,12 @@ Provides a consistent output DDR flip flop across multiple FPGA families
       );
     end
     else begin
-      reg [WIDTH-1:0] d_reg_1 = {WIDTH{1'b0}};
-      reg [WIDTH-1:0] d_reg_2 = {WIDTH{1'b0}};
+      logic [WIDTH-1:0] d_reg_1 = {WIDTH{1'b0}};
+      logic [WIDTH-1:0] d_reg_2 = {WIDTH{1'b0}};
 
-      reg [WIDTH-1:0] q_reg = {WIDTH{1'b0}};
+      logic [WIDTH-1:0] q_reg = {WIDTH{1'b0}};
 
-      always @(posedge clk) begin
+      always_ff @(posedge clk) begin
         d_reg_1 <= d1;
         d_reg_2 <= d2;
       end
@@ -121,7 +121,7 @@ Provides a consistent output DDR flip flop across multiple FPGA families
     always @(negedge clk) begin
         q_reg <= d_reg_2;
     end*/
-      always @(clk) begin
+      always_ff @(posedge clk or negedge clk) begin
         if (clk) begin
           q_reg <= d_reg_1;
         end

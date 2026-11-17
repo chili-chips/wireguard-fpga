@@ -65,23 +65,23 @@ module axis_fifo
     // Pause between frames
     parameter FRAME_PAUSE          = FRAME_FIFO
 ) (
-    dpe_if.s_axis                 s_axis,
-    dpe_if.m_axis                 m_axis,
+    dpe_if.s_axis                  s_axis,
+    dpe_if.m_axis                  m_axis,
 
     /*
      * Pause
      */
-    input  wire                   pause_req,
-    output wire                   pause_ack,
+    input  logic                   pause_req,
+    output logic                   pause_ack,
 
     /*
      * Status
      */
-    output wire [$clog2(DEPTH):0] status_depth,
-    output wire [$clog2(DEPTH):0] status_depth_commit,
-    output wire                   status_overflow,
-    output wire                   status_bad_frame,
-    output wire                   status_good_frame
+    output logic [$clog2(DEPTH):0] status_depth,
+    output logic [$clog2(DEPTH):0] status_depth_commit,
+    output logic                   status_overflow,
+    output logic                   status_bad_frame,
+    output logic                   status_good_frame
 );
 
   // Chili.CHIPS: the widths are dpe_if's, from dpe_pkg; the body below keeps
@@ -93,35 +93,45 @@ module axis_fifo
   localparam DEST_WIDTH  = 1;
   localparam USER_WIDTH  = DPE_USER_W;
 
-  wire                  clk = s_axis.clk;
-  wire                  rst = s_axis.rst;
+  logic  clk;
+  assign clk = s_axis.clk;
+  logic  rst;
+  assign rst = s_axis.rst;
 
-  wire [DATA_WIDTH-1:0] s_axis_tdata = s_axis.tdata;
-  wire [KEEP_WIDTH-1:0] s_axis_tkeep = s_axis.tkeep;
-  wire                  s_axis_tvalid = s_axis.tvalid;
-  wire                  s_axis_tready;
-  wire                  s_axis_tlast = s_axis.tlast;
-  wire [ ID_WIDTH-1:0]  s_axis_tid = s_axis.tid;
-  wire [DEST_WIDTH-1:0] s_axis_tdest = '0;
-  wire [USER_WIDTH-1:0] s_axis_tuser = s_axis.tuser;
-  assign                s_axis.tready = s_axis_tready;
+  logic [DATA_WIDTH-1:0] s_axis_tdata;
+  assign                 s_axis_tdata  = s_axis.tdata;
+  logic [KEEP_WIDTH-1:0] s_axis_tkeep;
+  assign                 s_axis_tkeep  = s_axis.tkeep;
+  logic                  s_axis_tvalid;
+  assign                 s_axis_tvalid = s_axis.tvalid;
+  logic                  s_axis_tready;
+  logic                  s_axis_tlast;
+  assign                 s_axis_tlast  = s_axis.tlast;
+  logic [ID_WIDTH-1:0]   s_axis_tid;
+  assign                 s_axis_tid    = s_axis.tid;
+  logic [DEST_WIDTH-1:0] s_axis_tdest;
+  assign                 s_axis_tdest  = '0;
+  logic [USER_WIDTH-1:0] s_axis_tuser;
+  assign                 s_axis_tuser  = s_axis.tuser;
+  assign                 s_axis.tready = s_axis_tready;
 
-  wire [DATA_WIDTH-1:0] m_axis_tdata;
-  wire [KEEP_WIDTH-1:0] m_axis_tkeep;
-  wire                  m_axis_tvalid;
-  wire                  m_axis_tready = m_axis.tready;
-  wire                  m_axis_tlast;
-  wire [ ID_WIDTH-1:0]  m_axis_tid;
+  logic [DATA_WIDTH-1:0] m_axis_tdata;
+  logic [KEEP_WIDTH-1:0] m_axis_tkeep;
+  logic                  m_axis_tvalid;
+  logic                  m_axis_tready;
+  assign                 m_axis_tready = m_axis.tready;
+  logic                  m_axis_tlast;
+  logic [ ID_WIDTH-1:0]  m_axis_tid;
   // verilator lint_off UNUSEDSIGNAL
-  wire [DEST_WIDTH-1:0] m_axis_tdest;  // DEST_ENABLE is 0
+  logic [DEST_WIDTH-1:0] m_axis_tdest;  // DEST_ENABLE is 0
   // verilator lint_on UNUSEDSIGNAL
-  wire [USER_WIDTH-1:0] m_axis_tuser;
-  assign                m_axis.tdata  = m_axis_tdata;
-  assign                m_axis.tkeep  = m_axis_tkeep;
-  assign                m_axis.tvalid = m_axis_tvalid;
-  assign                m_axis.tlast  = m_axis_tlast;
-  assign                m_axis.tid    = m_axis_tid;
-  assign                m_axis.tuser  = m_axis_tuser;
+  logic [USER_WIDTH-1:0] m_axis_tuser;
+  assign                 m_axis.tdata  = m_axis_tdata;
+  assign                 m_axis.tkeep  = m_axis_tkeep;
+  assign                 m_axis.tvalid = m_axis_tvalid;
+  assign                 m_axis.tlast  = m_axis_tlast;
+  assign                 m_axis.tid    = m_axis_tid;
+  assign                 m_axis.tuser  = m_axis_tuser;
 
   parameter ADDR_WIDTH = (KEEP_ENABLE && KEEP_WIDTH > 1) ? $clog2(
       DEPTH / KEEP_WIDTH
@@ -177,41 +187,44 @@ module axis_fifo
   localparam USER_OFFSET = DEST_OFFSET + (DEST_ENABLE ? DEST_WIDTH : 0);
   localparam WIDTH       = USER_OFFSET + (USER_ENABLE ? USER_WIDTH : 0);
 
-  reg [ADDR_WIDTH:0] wr_ptr_reg = {ADDR_WIDTH + 1{1'b0}};
-  reg [ADDR_WIDTH:0] wr_ptr_commit_reg = {ADDR_WIDTH + 1{1'b0}};
-  reg [ADDR_WIDTH:0] rd_ptr_reg = {ADDR_WIDTH + 1{1'b0}};
+  logic [      ADDR_WIDTH:0] wr_ptr_reg = {ADDR_WIDTH + 1{1'b0}};
+  logic [      ADDR_WIDTH:0] wr_ptr_commit_reg = {ADDR_WIDTH + 1{1'b0}};
+  logic [      ADDR_WIDTH:0] rd_ptr_reg = {ADDR_WIDTH + 1{1'b0}};
 
   (* ramstyle = "no_rw_check" *)
-  reg [WIDTH-1:0] mem[(2**ADDR_WIDTH)-1:0];
-  reg mem_read_data_valid_reg = 1'b0;
+  logic [         WIDTH-1:0] mem                                        [(2**ADDR_WIDTH)-1:0];
+  logic                      mem_read_data_valid_reg = 1'b0;
 
   (* shreg_extract = "no" *)
-  reg [WIDTH-1:0] m_axis_pipe_reg[RAM_PIPELINE+1-1:0];
-  reg [RAM_PIPELINE+1-1:0] m_axis_tvalid_pipe_reg = 0;
+  logic [         WIDTH-1:0] m_axis_pipe_reg                            [ RAM_PIPELINE+1-1:0];
+  logic [RAM_PIPELINE+1-1:0] m_axis_tvalid_pipe_reg = 0;
 
   // full when first MSB different but rest same
-  wire full = wr_ptr_reg == (rd_ptr_reg ^ {1'b1, {ADDR_WIDTH{1'b0}}});
+  logic  full;
+  assign full    = wr_ptr_reg == (rd_ptr_reg ^ {1'b1, {ADDR_WIDTH{1'b0}}});
   // empty when pointers match exactly
-  wire empty = wr_ptr_commit_reg == rd_ptr_reg;
+  logic  empty;
+  assign empty   = wr_ptr_commit_reg == rd_ptr_reg;
   // overflow within packet
-  wire full_wr = wr_ptr_reg == (wr_ptr_commit_reg ^ {1'b1, {ADDR_WIDTH{1'b0}}});
+  logic  full_wr;
+  assign full_wr = wr_ptr_reg == (wr_ptr_commit_reg ^ {1'b1, {ADDR_WIDTH{1'b0}}});
 
-  reg s_frame_reg = 1'b0;
+  logic                s_frame_reg = 1'b0;
 
-  reg drop_frame_reg = 1'b0;
-  reg mark_frame_reg = 1'b0;
-  reg send_frame_reg = 1'b0;
-  reg [ADDR_WIDTH:0] depth_reg = 0;
-  reg [ADDR_WIDTH:0] depth_commit_reg = 0;
-  reg overflow_reg = 1'b0;
-  reg bad_frame_reg = 1'b0;
-  reg good_frame_reg = 1'b0;
+  logic                drop_frame_reg = 1'b0;
+  logic                mark_frame_reg = 1'b0;
+  logic                send_frame_reg = 1'b0;
+  logic [ADDR_WIDTH:0] depth_reg = 0;
+  logic [ADDR_WIDTH:0] depth_commit_reg = 0;
+  logic                overflow_reg = 1'b0;
+  logic                bad_frame_reg = 1'b0;
+  logic                good_frame_reg = 1'b0;
 
   assign s_axis_tready = FRAME_FIFO
                        ? (!full || (full_wr && DROP_OVERSIZE_FRAME) || DROP_WHEN_FULL)
                        : (!full || MARK_WHEN_FULL);
 
-  wire [WIDTH-1:0] s_axis_word;
+  logic [WIDTH-1:0] s_axis_word;
 
   generate
     assign s_axis_word[DATA_WIDTH-1:0] = s_axis_tdata;
@@ -234,39 +247,43 @@ module axis_fifo
     end
   endgenerate
 
-  wire [     WIDTH-1:0] m_axis_word = m_axis_pipe_reg[RAM_PIPELINE+1-1];
+  logic [WIDTH-1:0] m_axis_word;
+  assign            m_axis_word = m_axis_pipe_reg[RAM_PIPELINE+1-1];
 
-  wire                  m_axis_tready_pipe;
-  wire                  m_axis_tvalid_pipe = m_axis_tvalid_pipe_reg[RAM_PIPELINE+1-1];
+  logic  m_axis_tready_pipe;
+  logic  m_axis_tvalid_pipe;
+  assign m_axis_tvalid_pipe = m_axis_tvalid_pipe_reg[RAM_PIPELINE+1-1];
 
-  wire [DATA_WIDTH-1:0] m_axis_tdata_pipe = m_axis_word[DATA_WIDTH-1:0];
-  wire [KEEP_WIDTH-1:0] m_axis_tkeep_pipe;
+  logic [DATA_WIDTH-1:0] m_axis_tdata_pipe;
+  assign                 m_axis_tdata_pipe = m_axis_word[DATA_WIDTH-1:0];
+  logic [KEEP_WIDTH-1:0] m_axis_tkeep_pipe;
   assign m_axis_tkeep_pipe = KEEP_ENABLE
                            ? m_axis_word[KEEP_OFFSET+:KEEP_WIDTH]
                            : {KEEP_WIDTH{1'b1}};
-  wire                m_axis_tlast_pipe = LAST_ENABLE ? m_axis_word[LAST_OFFSET] : 1'b1;
-  wire [ID_WIDTH-1:0] m_axis_tid_pipe;
+  logic m_axis_tlast_pipe;
+  assign m_axis_tlast_pipe = LAST_ENABLE ? m_axis_word[LAST_OFFSET] : 1'b1;
+  logic [ID_WIDTH-1:0] m_axis_tid_pipe;
   assign m_axis_tid_pipe = ID_ENABLE ? m_axis_word[ID_OFFSET+:ID_WIDTH] : {ID_WIDTH{1'b0}};
-  wire [DEST_WIDTH-1:0] m_axis_tdest_pipe;
+  logic [DEST_WIDTH-1:0] m_axis_tdest_pipe;
   assign m_axis_tdest_pipe = DEST_ENABLE
                            ? m_axis_word[DEST_OFFSET+:DEST_WIDTH]
                            : {DEST_WIDTH{1'b0}};
-  wire [USER_WIDTH-1:0] m_axis_tuser_pipe;
+  logic [USER_WIDTH-1:0] m_axis_tuser_pipe;
   assign m_axis_tuser_pipe = USER_ENABLE
                            ? m_axis_word[USER_OFFSET+:USER_WIDTH]
                            : {USER_WIDTH{1'b0}};
 
-  wire                  m_axis_tready_out;
-  wire                  m_axis_tvalid_out;
+  logic                  m_axis_tready_out;
+  logic                  m_axis_tvalid_out;
 
-  wire [DATA_WIDTH-1:0] m_axis_tdata_out;
-  wire [KEEP_WIDTH-1:0] m_axis_tkeep_out;
-  wire                  m_axis_tlast_out;
-  wire [  ID_WIDTH-1:0] m_axis_tid_out;
-  wire [DEST_WIDTH-1:0] m_axis_tdest_out;
-  wire [USER_WIDTH-1:0] m_axis_tuser_out;
+  logic [DATA_WIDTH-1:0] m_axis_tdata_out;
+  logic [KEEP_WIDTH-1:0] m_axis_tkeep_out;
+  logic                  m_axis_tlast_out;
+  logic [  ID_WIDTH-1:0] m_axis_tid_out;
+  logic [DEST_WIDTH-1:0] m_axis_tdest_out;
+  logic [USER_WIDTH-1:0] m_axis_tuser_out;
 
-  wire                  pipe_ready;
+  logic                  pipe_ready;
 
   assign status_depth = (KEEP_ENABLE && KEEP_WIDTH > 1)
                       ? {depth_reg, {CL_KEEP_WDITH{1'b0}}}
@@ -279,12 +296,12 @@ module axis_fifo
   assign status_good_frame = good_frame_reg;
 
   // the tuser of a beat marks a bad frame
-  wire s_axis_tuser_bad;
+  logic s_axis_tuser_bad;
   assign s_axis_tuser_bad =
       DROP_BAD_FRAME && |(USER_BAD_FRAME_MASK & ~(s_axis_tuser ^ USER_BAD_FRAME_VALUE));
 
   // Write logic
-  always @(posedge clk) begin
+  always_ff @(posedge clk) begin
     overflow_reg   <= 1'b0;
     bad_frame_reg  <= 1'b0;
     good_frame_reg <= 1'b0;
@@ -397,21 +414,19 @@ module axis_fifo
   end
 
   // Status
-  always @(posedge clk) begin
+  always_ff @(posedge clk) begin
     depth_reg        <= wr_ptr_reg - rd_ptr_reg;
     depth_commit_reg <= wr_ptr_commit_reg - rd_ptr_reg;
   end
 
   // Read logic
-  integer j;
-
-  always @(posedge clk) begin
+  always_ff @(posedge clk) begin
     if (m_axis_tready_pipe) begin
       // output ready; invalidate stage
       m_axis_tvalid_pipe_reg[RAM_PIPELINE+1-1] <= 1'b0;
     end
 
-    for (j = RAM_PIPELINE + 1 - 1; j > 0; j = j - 1) begin
+    for (int j = RAM_PIPELINE + 1 - 1; j > 0; j = j - 1) begin
       if (m_axis_tready_pipe || ((~m_axis_tvalid_pipe_reg) >> j)) begin
         // output ready or bubble in pipeline; transfer down pipeline
         m_axis_tvalid_pipe_reg[j]   <= m_axis_tvalid_pipe_reg[j-1];
@@ -457,36 +472,37 @@ module axis_fifo
     else begin : output_fifo
 
       // output datapath logic
-      reg  [              DATA_WIDTH-1:0] m_axis_tdata_reg = {DATA_WIDTH{1'b0}};
-      reg  [              KEEP_WIDTH-1:0] m_axis_tkeep_reg = {KEEP_WIDTH{1'b0}};
-      reg                                 m_axis_tvalid_reg = 1'b0;
-      reg                                 m_axis_tlast_reg = 1'b0;
-      reg  [                ID_WIDTH-1:0] m_axis_tid_reg = {ID_WIDTH{1'b0}};
-      reg  [              DEST_WIDTH-1:0] m_axis_tdest_reg = {DEST_WIDTH{1'b0}};
-      reg  [              USER_WIDTH-1:0] m_axis_tuser_reg = {USER_WIDTH{1'b0}};
+      logic [              DATA_WIDTH-1:0] m_axis_tdata_reg = {DATA_WIDTH{1'b0}};
+      logic [              KEEP_WIDTH-1:0] m_axis_tkeep_reg = {KEEP_WIDTH{1'b0}};
+      logic                                m_axis_tvalid_reg = 1'b0;
+      logic                                m_axis_tlast_reg = 1'b0;
+      logic [                ID_WIDTH-1:0] m_axis_tid_reg = {ID_WIDTH{1'b0}};
+      logic [              DEST_WIDTH-1:0] m_axis_tdest_reg = {DEST_WIDTH{1'b0}};
+      logic [              USER_WIDTH-1:0] m_axis_tuser_reg = {USER_WIDTH{1'b0}};
 
-      reg  [OUTPUT_FIFO_ADDR_WIDTH+1-1:0] out_fifo_wr_ptr_reg = 0;
-      reg  [OUTPUT_FIFO_ADDR_WIDTH+1-1:0] out_fifo_rd_ptr_reg = 0;
-      reg                                 out_fifo_half_full_reg = 1'b0;
+      logic [OUTPUT_FIFO_ADDR_WIDTH+1-1:0] out_fifo_wr_ptr_reg = 0;
+      logic [OUTPUT_FIFO_ADDR_WIDTH+1-1:0] out_fifo_rd_ptr_reg = 0;
+      logic                                out_fifo_half_full_reg = 1'b0;
 
-      wire                                out_fifo_full;
+      logic                                out_fifo_full;
 
       assign out_fifo_full =
           out_fifo_wr_ptr_reg == (out_fifo_rd_ptr_reg ^ {1'b1, {OUTPUT_FIFO_ADDR_WIDTH{1'b0}}});
-      wire out_fifo_empty = out_fifo_wr_ptr_reg == out_fifo_rd_ptr_reg;
+      logic  out_fifo_empty;
+      assign out_fifo_empty = out_fifo_wr_ptr_reg == out_fifo_rd_ptr_reg;
 
       (* ram_style = "distributed", ramstyle = "no_rw_check, mlab" *)
-      reg [DATA_WIDTH-1:0] out_fifo_tdata[2**OUTPUT_FIFO_ADDR_WIDTH-1:0];
+      logic [DATA_WIDTH-1:0] out_fifo_tdata[2**OUTPUT_FIFO_ADDR_WIDTH-1:0];
       (* ram_style = "distributed", ramstyle = "no_rw_check, mlab" *)
-      reg [KEEP_WIDTH-1:0] out_fifo_tkeep[2**OUTPUT_FIFO_ADDR_WIDTH-1:0];
+      logic [KEEP_WIDTH-1:0] out_fifo_tkeep[2**OUTPUT_FIFO_ADDR_WIDTH-1:0];
       (* ram_style = "distributed", ramstyle = "no_rw_check, mlab" *)
-      reg out_fifo_tlast[2**OUTPUT_FIFO_ADDR_WIDTH-1:0];
+      logic                  out_fifo_tlast[2**OUTPUT_FIFO_ADDR_WIDTH-1:0];
       (* ram_style = "distributed", ramstyle = "no_rw_check, mlab" *)
-      reg [ID_WIDTH-1:0] out_fifo_tid[2**OUTPUT_FIFO_ADDR_WIDTH-1:0];
+      logic [  ID_WIDTH-1:0] out_fifo_tid  [2**OUTPUT_FIFO_ADDR_WIDTH-1:0];
       (* ram_style = "distributed", ramstyle = "no_rw_check, mlab" *)
-      reg [DEST_WIDTH-1:0] out_fifo_tdest[2**OUTPUT_FIFO_ADDR_WIDTH-1:0];
+      logic [DEST_WIDTH-1:0] out_fifo_tdest[2**OUTPUT_FIFO_ADDR_WIDTH-1:0];
       (* ram_style = "distributed", ramstyle = "no_rw_check, mlab" *)
-      reg [USER_WIDTH-1:0] out_fifo_tuser[2**OUTPUT_FIFO_ADDR_WIDTH-1:0];
+      logic [USER_WIDTH-1:0] out_fifo_tuser[2**OUTPUT_FIFO_ADDR_WIDTH-1:0];
 
       assign pipe_ready         = !out_fifo_half_full_reg;
 
@@ -500,7 +516,7 @@ module axis_fifo
       assign m_axis_tdest_out   = DEST_ENABLE ? m_axis_tdest_reg : {DEST_WIDTH{1'b0}};
       assign m_axis_tuser_out   = USER_ENABLE ? m_axis_tuser_reg : {USER_WIDTH{1'b0}};
 
-      always @(posedge clk) begin
+      always_ff @(posedge clk) begin
         m_axis_tvalid_reg <= m_axis_tvalid_reg && !m_axis_tready_out;
 
         out_fifo_half_full_reg <= $unsigned(
@@ -540,8 +556,8 @@ module axis_fifo
     if (PAUSE_ENABLE) begin : pause
 
       // Pause logic
-      reg pause_reg = 1'b0;
-      reg pause_frame_reg = 1'b0;
+      logic pause_reg = 1'b0;
+      logic pause_frame_reg = 1'b0;
 
       assign m_axis_tready_out = m_axis_tready && !pause_reg;
       assign m_axis_tvalid     = m_axis_tvalid_out && !pause_reg;
@@ -555,7 +571,7 @@ module axis_fifo
 
       assign pause_ack         = pause_reg;
 
-      always @(posedge clk) begin
+      always_ff @(posedge clk) begin
         if (FRAME_PAUSE) begin
           if (pause_reg) begin
             // paused; update pause status

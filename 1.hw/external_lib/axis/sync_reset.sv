@@ -21,17 +21,17 @@ module sync_reset #(
     // depth of synchronizer
     parameter N = 2
 ) (
-    input  wire clk,
-    input  wire rst,
-    output wire out
+    input  logic clk,
+    input  logic rst,
+    output logic out
 );
 
   (* srl_style = "register" *)
-  reg [N-1:0] sync_reg = {N{1'b1}};
+  logic [N-1:0] sync_reg = {N{1'b1}};
 
   assign out = sync_reg[N-1];
 
-  always @(posedge clk or posedge rst) begin
+  always_ff @(posedge clk or posedge rst) begin
     if (rst) begin
       sync_reg <= {N{1'b1}};
     end

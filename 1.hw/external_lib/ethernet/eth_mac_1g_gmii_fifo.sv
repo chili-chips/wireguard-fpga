@@ -47,45 +47,45 @@ module eth_mac_1g_gmii_fifo
     parameter RX_DROP_BAD_FRAME      = RX_DROP_OVERSIZE_FRAME,
     parameter RX_DROP_WHEN_FULL      = RX_DROP_OVERSIZE_FRAME
 ) (
-    input  wire       gtx_clk,
-    input  wire       gtx_rst,
+    input  logic       gtx_clk,
+    input  logic       gtx_rst,
     // the DPE side, in the logic clock domain (tx_axis.clk)
-    dpe_if.s_axis     tx_axis,
-    dpe_if.m_axis     rx_axis,
+    dpe_if.s_axis      tx_axis,
+    dpe_if.m_axis      rx_axis,
 
     /*
      * GMII interface
      */
-    input  wire       gmii_rx_clk,
-    input  wire [7:0] gmii_rxd,
-    input  wire       gmii_rx_dv,
-    input  wire       gmii_rx_er,
-    input  wire       mii_tx_clk,
-    output wire       gmii_tx_clk,
-    output wire [7:0] gmii_txd,
-    output wire       gmii_tx_en,
-    output wire       gmii_tx_er,
+    input  logic       gmii_rx_clk,
+    input  logic [7:0] gmii_rxd,
+    input  logic       gmii_rx_dv,
+    input  logic       gmii_rx_er,
+    input  logic       mii_tx_clk,
+    output logic       gmii_tx_clk,
+    output logic [7:0] gmii_txd,
+    output logic       gmii_tx_en,
+    output logic       gmii_tx_er,
 
     /*
      * Status
      */
-    output wire       tx_error_underflow,
-    output wire       tx_fifo_overflow,
-    output wire       tx_fifo_bad_frame,
-    output wire       tx_fifo_good_frame,
-    output wire       rx_error_bad_frame,
-    output wire       rx_error_bad_fcs,
-    output wire       rx_fifo_overflow,
-    output wire       rx_fifo_bad_frame,
-    output wire       rx_fifo_good_frame,
-    output wire [1:0] speed,
+    output logic       tx_error_underflow,
+    output logic       tx_fifo_overflow,
+    output logic       tx_fifo_bad_frame,
+    output logic       tx_fifo_good_frame,
+    output logic       rx_error_bad_frame,
+    output logic       rx_error_bad_fcs,
+    output logic       rx_fifo_overflow,
+    output logic       rx_fifo_bad_frame,
+    output logic       rx_fifo_good_frame,
+    output logic [1:0] speed,
 
     /*
      * Configuration
      */
-    input  wire [7:0] cfg_ifg,
-    input  wire       cfg_tx_enable,
-    input  wire       cfg_rx_enable
+    input  logic [7:0] cfg_ifg,
+    input  logic       cfg_tx_enable,
+    input  logic       cfg_rx_enable
 );
 
   // Chili.CHIPS: the AXIS side is dpe_if, its widths from dpe_pkg; the body
@@ -94,59 +94,67 @@ module eth_mac_1g_gmii_fifo
   localparam AXIS_KEEP_ENABLE = 1;
   localparam AXIS_KEEP_WIDTH  = DPE_KEEP_W;
 
-  wire                       logic_clk = tx_axis.clk;
-  wire                       logic_rst = tx_axis.rst;
+  logic  logic_clk;
+  assign logic_clk = tx_axis.clk;
+  logic  logic_rst;
+  assign logic_rst = tx_axis.rst;
 
-  wire [AXIS_DATA_WIDTH-1:0] tx_axis_tdata = tx_axis.tdata;
-  wire [AXIS_KEEP_WIDTH-1:0] tx_axis_tkeep = tx_axis.tkeep;
-  wire                       tx_axis_tvalid = tx_axis.tvalid;
-  wire                       tx_axis_tready;
-  wire                       tx_axis_tlast = tx_axis.tlast;
-  wire                       tx_axis_tuser = 1'b0;  // no bad-frame marking
-  assign                     tx_axis.tready = tx_axis_tready;
+  logic [AXIS_DATA_WIDTH-1:0] tx_axis_tdata;
+  assign                      tx_axis_tdata  = tx_axis.tdata;
+  logic [AXIS_KEEP_WIDTH-1:0] tx_axis_tkeep;
+  assign                      tx_axis_tkeep  = tx_axis.tkeep;
+  logic                       tx_axis_tvalid;
+  assign                      tx_axis_tvalid = tx_axis.tvalid;
+  logic                       tx_axis_tready;
+  logic                       tx_axis_tlast;
+  assign                      tx_axis_tlast  = tx_axis.tlast;
+  logic                       tx_axis_tuser;
+  assign                      tx_axis_tuser  = 1'b0;  // no bad-frame marking
+  assign                      tx_axis.tready = tx_axis_tready;
 
-  wire [AXIS_DATA_WIDTH-1:0] rx_axis_tdata;
-  wire [AXIS_KEEP_WIDTH-1:0] rx_axis_tkeep;
-  wire                       rx_axis_tvalid;
-  wire                       rx_axis_tready = rx_axis.tready;
-  wire                       rx_axis_tlast;
+  logic [AXIS_DATA_WIDTH-1:0] rx_axis_tdata;
+  logic [AXIS_KEEP_WIDTH-1:0] rx_axis_tkeep;
+  logic                       rx_axis_tvalid;
+  logic                       rx_axis_tready;
+  assign                      rx_axis_tready = rx_axis.tready;
+  logic                       rx_axis_tlast;
   // verilator lint_off UNUSEDSIGNAL
-  wire                       rx_axis_tuser;  // the bad-frame flag is not used
+  logic                       rx_axis_tuser;  // the bad-frame flag is not used
   // verilator lint_on UNUSEDSIGNAL
-  assign                     rx_axis.tdata  = rx_axis_tdata;
-  assign                     rx_axis.tkeep  = rx_axis_tkeep;
-  assign                     rx_axis.tvalid = rx_axis_tvalid;
-  assign                     rx_axis.tlast  = rx_axis_tlast;
-  assign                     rx_axis.tuser  = '0;  // no DPE routing yet: the multiplexer sets src
-  assign                     rx_axis.tid    = '0;  // no peer yet
+  assign                      rx_axis.tdata  = rx_axis_tdata;
+  assign                      rx_axis.tkeep  = rx_axis_tkeep;
+  assign                      rx_axis.tvalid = rx_axis_tvalid;
+  assign                      rx_axis.tlast  = rx_axis_tlast;
+  assign                      rx_axis.tuser  = '0;  // no DPE routing yet: the multiplexer sets src
+  assign                      rx_axis.tid    = '0;  // no peer yet
 
-  wire       tx_clk;
-  wire       rx_clk;
-  wire       tx_rst;
-  wire       rx_rst;
+  logic       tx_clk;
+  logic       rx_clk;
+  logic       tx_rst;
+  logic       rx_rst;
 
-  wire [7:0] tx_fifo_axis_tdata;
-  wire       tx_fifo_axis_tvalid;
-  wire       tx_fifo_axis_tready;
-  wire       tx_fifo_axis_tlast;
-  wire       tx_fifo_axis_tuser;
+  logic [7:0] tx_fifo_axis_tdata;
+  logic       tx_fifo_axis_tvalid;
+  logic       tx_fifo_axis_tready;
+  logic       tx_fifo_axis_tlast;
+  logic       tx_fifo_axis_tuser;
 
-  wire [7:0] rx_fifo_axis_tdata;
-  wire       rx_fifo_axis_tvalid;
-  wire       rx_fifo_axis_tlast;
-  wire       rx_fifo_axis_tuser;
+  logic [7:0] rx_fifo_axis_tdata;
+  logic       rx_fifo_axis_tvalid;
+  logic       rx_fifo_axis_tlast;
+  logic       rx_fifo_axis_tuser;
 
   // synchronize MAC status signals into logic clock domain
-  wire       tx_error_underflow_int;
+  logic       tx_error_underflow_int;
 
-  reg  [0:0] tx_sync_reg_1 = 1'b0;
-  reg  [0:0] tx_sync_reg_2 = 1'b0;
-  reg  [0:0] tx_sync_reg_3 = 1'b0;
-  reg  [0:0] tx_sync_reg_4 = 1'b0;
+  logic [0:0] tx_sync_reg_1 = 1'b0;
+  logic [0:0] tx_sync_reg_2 = 1'b0;
+  logic [0:0] tx_sync_reg_3 = 1'b0;
+  logic [0:0] tx_sync_reg_4 = 1'b0;
 
   assign tx_error_underflow = tx_sync_reg_3[0] ^ tx_sync_reg_4[0];
 
-  always @(posedge tx_clk or posedge tx_rst) begin
+  always_ff @(posedge tx_clk or posedge tx_rst) begin
     if (tx_rst) begin
       tx_sync_reg_1 <= 1'b0;
     end
@@ -155,7 +163,7 @@ module eth_mac_1g_gmii_fifo
     end
   end
 
-  always @(posedge logic_clk or posedge logic_rst) begin
+  always_ff @(posedge logic_clk or posedge logic_rst) begin
     if (logic_rst) begin
       tx_sync_reg_2 <= 1'b0;
       tx_sync_reg_3 <= 1'b0;
@@ -168,18 +176,18 @@ module eth_mac_1g_gmii_fifo
     end
   end
 
-  wire       rx_error_bad_frame_int;
-  wire       rx_error_bad_fcs_int;
+  logic       rx_error_bad_frame_int;
+  logic       rx_error_bad_fcs_int;
 
-  reg  [1:0] rx_sync_reg_1 = 2'd0;
-  reg  [1:0] rx_sync_reg_2 = 2'd0;
-  reg  [1:0] rx_sync_reg_3 = 2'd0;
-  reg  [1:0] rx_sync_reg_4 = 2'd0;
+  logic [1:0] rx_sync_reg_1 = 2'd0;
+  logic [1:0] rx_sync_reg_2 = 2'd0;
+  logic [1:0] rx_sync_reg_3 = 2'd0;
+  logic [1:0] rx_sync_reg_4 = 2'd0;
 
   assign rx_error_bad_frame = rx_sync_reg_3[0] ^ rx_sync_reg_4[0];
   assign rx_error_bad_fcs   = rx_sync_reg_3[1] ^ rx_sync_reg_4[1];
 
-  always @(posedge rx_clk or posedge rx_rst) begin
+  always_ff @(posedge rx_clk or posedge rx_rst) begin
     if (rx_rst) begin
       rx_sync_reg_1 <= 2'd0;
     end
@@ -188,7 +196,7 @@ module eth_mac_1g_gmii_fifo
     end
   end
 
-  always @(posedge logic_clk or posedge logic_rst) begin
+  always_ff @(posedge logic_clk or posedge logic_rst) begin
     if (logic_rst) begin
       rx_sync_reg_2 <= 2'd0;
       rx_sync_reg_3 <= 2'd0;
@@ -201,14 +209,14 @@ module eth_mac_1g_gmii_fifo
     end
   end
 
-  wire [1:0] speed_int;
+  logic [1:0] speed_int;
 
-  reg  [1:0] speed_sync_reg_1 = 2'b10;
-  reg  [1:0] speed_sync_reg_2 = 2'b10;
+  logic [1:0] speed_sync_reg_1 = 2'b10;
+  logic [1:0] speed_sync_reg_2 = 2'b10;
 
   assign speed = speed_sync_reg_2;
 
-  always @(posedge logic_clk) begin
+  always_ff @(posedge logic_clk) begin
     speed_sync_reg_1 <= speed_int;
     speed_sync_reg_2 <= speed_sync_reg_1;
   end

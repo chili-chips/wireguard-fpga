@@ -28,57 +28,57 @@ module mac_ctrl_tx #(
     parameter USER_WIDTH      = 1,
     parameter MCF_PARAMS_SIZE = 18
 ) (
-    input  wire                         clk,
-    input  wire                         rst,
+    input  logic                         clk,
+    input  logic                         rst,
 
     /*
      * AXI stream input
      */
-    input  wire [DATA_WIDTH-1:0]        s_axis_tdata,
-    input  wire [KEEP_WIDTH-1:0]        s_axis_tkeep,
-    input  wire                         s_axis_tvalid,
-    output wire                         s_axis_tready,
-    input  wire                         s_axis_tlast,
-    input  wire [  ID_WIDTH-1:0]        s_axis_tid,
-    input  wire [DEST_WIDTH-1:0]        s_axis_tdest,
-    input  wire [USER_WIDTH-1:0]        s_axis_tuser,
+    input  logic [DATA_WIDTH-1:0]        s_axis_tdata,
+    input  logic [KEEP_WIDTH-1:0]        s_axis_tkeep,
+    input  logic                         s_axis_tvalid,
+    output logic                         s_axis_tready,
+    input  logic                         s_axis_tlast,
+    input  logic [  ID_WIDTH-1:0]        s_axis_tid,
+    input  logic [DEST_WIDTH-1:0]        s_axis_tdest,
+    input  logic [USER_WIDTH-1:0]        s_axis_tuser,
 
     /*
      * AXI stream output
      */
-    output wire [DATA_WIDTH-1:0]        m_axis_tdata,
-    output wire [KEEP_WIDTH-1:0]        m_axis_tkeep,
-    output wire                         m_axis_tvalid,
-    input  wire                         m_axis_tready,
-    output wire                         m_axis_tlast,
-    output wire [  ID_WIDTH-1:0]        m_axis_tid,
-    output wire [DEST_WIDTH-1:0]        m_axis_tdest,
-    output wire [USER_WIDTH-1:0]        m_axis_tuser,
+    output logic [DATA_WIDTH-1:0]        m_axis_tdata,
+    output logic [KEEP_WIDTH-1:0]        m_axis_tkeep,
+    output logic                         m_axis_tvalid,
+    input  logic                         m_axis_tready,
+    output logic                         m_axis_tlast,
+    output logic [  ID_WIDTH-1:0]        m_axis_tid,
+    output logic [DEST_WIDTH-1:0]        m_axis_tdest,
+    output logic [USER_WIDTH-1:0]        m_axis_tuser,
 
     /*
      * MAC control frame interface
      */
-    input  wire                         mcf_valid,
-    output wire                         mcf_ready,
-    input  wire [                 47:0] mcf_eth_dst,
-    input  wire [                 47:0] mcf_eth_src,
-    input  wire [                 15:0] mcf_eth_type,
-    input  wire [                 15:0] mcf_opcode,
-    input  wire [MCF_PARAMS_SIZE*8-1:0] mcf_params,
-    input  wire [         ID_WIDTH-1:0] mcf_id,
-    input  wire [       DEST_WIDTH-1:0] mcf_dest,
-    input  wire [       USER_WIDTH-1:0] mcf_user,
+    input  logic                         mcf_valid,
+    output logic                         mcf_ready,
+    input  logic [                 47:0] mcf_eth_dst,
+    input  logic [                 47:0] mcf_eth_src,
+    input  logic [                 15:0] mcf_eth_type,
+    input  logic [                 15:0] mcf_opcode,
+    input  logic [MCF_PARAMS_SIZE*8-1:0] mcf_params,
+    input  logic [         ID_WIDTH-1:0] mcf_id,
+    input  logic [       DEST_WIDTH-1:0] mcf_dest,
+    input  logic [       USER_WIDTH-1:0] mcf_user,
 
     /*
      * Pause interface
      */
-    input  wire                         tx_pause_req,
-    output wire                         tx_pause_ack,
+    input  logic                         tx_pause_req,
+    output logic                         tx_pause_ack,
 
     /*
      * Status
      */
-    output wire                         stat_tx_mcf
+    output logic                         stat_tx_mcf
 );
 
   parameter BYTE_LANES  = KEEP_ENABLE ? KEEP_WIDTH : 1;
@@ -121,34 +121,32 @@ data traffic.
 
 */
 
-  reg send_data_reg = 1'b0, send_data_next;
-  reg send_mcf_reg = 1'b0, send_mcf_next;
-  reg [PTR_WIDTH-1:0] ptr_reg = 0, ptr_next;
+  logic send_data_reg = 1'b0, send_data_next;
+  logic send_mcf_reg = 1'b0, send_mcf_next;
+  logic [PTR_WIDTH-1:0] ptr_reg = 0, ptr_next;
 
-  reg s_axis_tready_reg = 1'b0, s_axis_tready_next;
-  reg mcf_ready_reg = 1'b0, mcf_ready_next;
-  reg tx_pause_ack_reg = 1'b0, tx_pause_ack_next;
-  reg stat_tx_mcf_reg = 1'b0, stat_tx_mcf_next;
+  logic s_axis_tready_reg = 1'b0, s_axis_tready_next;
+  logic mcf_ready_reg = 1'b0, mcf_ready_next;
+  logic tx_pause_ack_reg = 1'b0, tx_pause_ack_next;
+  logic stat_tx_mcf_reg = 1'b0, stat_tx_mcf_next;
 
   // internal datapath
-  reg  [DATA_WIDTH-1:0] m_axis_tdata_int;
-  reg  [KEEP_WIDTH-1:0] m_axis_tkeep_int;
-  reg                   m_axis_tvalid_int;
-  reg                   m_axis_tready_int_reg = 1'b0;
-  reg                   m_axis_tlast_int;
-  reg  [  ID_WIDTH-1:0] m_axis_tid_int;
-  reg  [DEST_WIDTH-1:0] m_axis_tdest_int;
-  reg  [USER_WIDTH-1:0] m_axis_tuser_int;
-  wire                  m_axis_tready_int_early;
+  logic [DATA_WIDTH-1:0] m_axis_tdata_int;
+  logic [KEEP_WIDTH-1:0] m_axis_tkeep_int;
+  logic                  m_axis_tvalid_int;
+  logic                  m_axis_tready_int_reg = 1'b0;
+  logic                  m_axis_tlast_int;
+  logic [  ID_WIDTH-1:0] m_axis_tid_int;
+  logic [DEST_WIDTH-1:0] m_axis_tdest_int;
+  logic [USER_WIDTH-1:0] m_axis_tuser_int;
+  logic                  m_axis_tready_int_early;
 
   assign s_axis_tready = s_axis_tready_reg;
   assign mcf_ready     = mcf_ready_reg;
   assign tx_pause_ack  = tx_pause_ack_reg;
   assign stat_tx_mcf   = stat_tx_mcf_reg;
 
-  integer k;
-
-  always @* begin
+  always_comb begin
     send_data_next     = send_data_reg;
     send_mcf_next      = send_mcf_reg;
     ptr_next           = ptr_reg;
@@ -256,7 +254,7 @@ data traffic.
         `_HEADER_FIELD_(14, mcf_opcode[1*8+:8])
         `_HEADER_FIELD_(15, mcf_opcode[0*8+:8])
 
-        for (k = 0; k < HDR_SIZE - 16; k = k + 1) begin
+        for (int k = 0; k < HDR_SIZE - 16; k = k + 1) begin
           if (ptr_reg == (16 + k) / BYTE_LANES) begin
             if (k < MCF_PARAMS_SIZE) begin
               m_axis_tdata_int[((16+k)%BYTE_LANES)*8+:8] = mcf_params[k*8+:8];
@@ -284,7 +282,7 @@ data traffic.
     end
   end
 
-  always @(posedge clk) begin
+  always_ff @(posedge clk) begin
     send_data_reg     <= send_data_next;
     send_mcf_reg      <= send_mcf_next;
     ptr_reg           <= ptr_next;
@@ -306,26 +304,26 @@ data traffic.
   end
 
   // output datapath logic
-  reg [DATA_WIDTH-1:0] m_axis_tdata_reg = {DATA_WIDTH{1'b0}};
-  reg [KEEP_WIDTH-1:0] m_axis_tkeep_reg = {KEEP_WIDTH{1'b0}};
-  reg m_axis_tvalid_reg = 1'b0, m_axis_tvalid_next;
-  reg                  m_axis_tlast_reg = 1'b0;
-  reg [  ID_WIDTH-1:0] m_axis_tid_reg = {ID_WIDTH{1'b0}};
-  reg [DEST_WIDTH-1:0] m_axis_tdest_reg = {DEST_WIDTH{1'b0}};
-  reg [USER_WIDTH-1:0] m_axis_tuser_reg = {USER_WIDTH{1'b0}};
+  logic [DATA_WIDTH-1:0] m_axis_tdata_reg = {DATA_WIDTH{1'b0}};
+  logic [KEEP_WIDTH-1:0] m_axis_tkeep_reg = {KEEP_WIDTH{1'b0}};
+  logic m_axis_tvalid_reg = 1'b0, m_axis_tvalid_next;
+  logic                  m_axis_tlast_reg = 1'b0;
+  logic [  ID_WIDTH-1:0] m_axis_tid_reg = {ID_WIDTH{1'b0}};
+  logic [DEST_WIDTH-1:0] m_axis_tdest_reg = {DEST_WIDTH{1'b0}};
+  logic [USER_WIDTH-1:0] m_axis_tuser_reg = {USER_WIDTH{1'b0}};
 
-  reg [DATA_WIDTH-1:0] temp_m_axis_tdata_reg = {DATA_WIDTH{1'b0}};
-  reg [KEEP_WIDTH-1:0] temp_m_axis_tkeep_reg = {KEEP_WIDTH{1'b0}};
-  reg temp_m_axis_tvalid_reg = 1'b0, temp_m_axis_tvalid_next;
-  reg                  temp_m_axis_tlast_reg = 1'b0;
-  reg [  ID_WIDTH-1:0] temp_m_axis_tid_reg = {ID_WIDTH{1'b0}};
-  reg [DEST_WIDTH-1:0] temp_m_axis_tdest_reg = {DEST_WIDTH{1'b0}};
-  reg [USER_WIDTH-1:0] temp_m_axis_tuser_reg = {USER_WIDTH{1'b0}};
+  logic [DATA_WIDTH-1:0] temp_m_axis_tdata_reg = {DATA_WIDTH{1'b0}};
+  logic [KEEP_WIDTH-1:0] temp_m_axis_tkeep_reg = {KEEP_WIDTH{1'b0}};
+  logic temp_m_axis_tvalid_reg = 1'b0, temp_m_axis_tvalid_next;
+  logic                  temp_m_axis_tlast_reg = 1'b0;
+  logic [  ID_WIDTH-1:0] temp_m_axis_tid_reg = {ID_WIDTH{1'b0}};
+  logic [DEST_WIDTH-1:0] temp_m_axis_tdest_reg = {DEST_WIDTH{1'b0}};
+  logic [USER_WIDTH-1:0] temp_m_axis_tuser_reg = {USER_WIDTH{1'b0}};
 
   // datapath control
-  reg                  store_axis_int_to_output;
-  reg                  store_axis_int_to_temp;
-  reg                  store_axis_temp_to_output;
+  logic                  store_axis_int_to_output;
+  logic                  store_axis_int_to_temp;
+  logic                  store_axis_temp_to_output;
 
   assign m_axis_tdata = m_axis_tdata_reg;
   assign m_axis_tkeep = KEEP_ENABLE ? m_axis_tkeep_reg : {KEEP_WIDTH{1'b1}};
@@ -340,7 +338,7 @@ data traffic.
   assign m_axis_tready_int_early =
       m_axis_tready || (!temp_m_axis_tvalid_reg && (!m_axis_tvalid_reg || !m_axis_tvalid_int));
 
-  always @* begin
+  always_comb begin
     // transfer sink ready state to source
     m_axis_tvalid_next        = m_axis_tvalid_reg;
     temp_m_axis_tvalid_next   = temp_m_axis_tvalid_reg;
@@ -370,7 +368,7 @@ data traffic.
     end
   end
 
-  always @(posedge clk) begin
+  always_ff @(posedge clk) begin
     m_axis_tvalid_reg      <= m_axis_tvalid_next;
     m_axis_tready_int_reg  <= m_axis_tready_int_early;
     temp_m_axis_tvalid_reg <= temp_m_axis_tvalid_next;

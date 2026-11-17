@@ -44,32 +44,32 @@ module axis_adapter #(
     // tuser signal width
     parameter USER_WIDTH    = 1
 ) (
-    input  wire                    clk,
-    input  wire                    rst,
+    input  logic                    clk,
+    input  logic                    rst,
 
     /*
      * AXI input
      */
-    input  wire [S_DATA_WIDTH-1:0] s_axis_tdata,
-    input  wire [S_KEEP_WIDTH-1:0] s_axis_tkeep,
-    input  wire                    s_axis_tvalid,
-    output wire                    s_axis_tready,
-    input  wire                    s_axis_tlast,
-    input  wire [    ID_WIDTH-1:0] s_axis_tid,
-    input  wire [  DEST_WIDTH-1:0] s_axis_tdest,
-    input  wire [  USER_WIDTH-1:0] s_axis_tuser,
+    input  logic [S_DATA_WIDTH-1:0] s_axis_tdata,
+    input  logic [S_KEEP_WIDTH-1:0] s_axis_tkeep,
+    input  logic                    s_axis_tvalid,
+    output logic                    s_axis_tready,
+    input  logic                    s_axis_tlast,
+    input  logic [    ID_WIDTH-1:0] s_axis_tid,
+    input  logic [  DEST_WIDTH-1:0] s_axis_tdest,
+    input  logic [  USER_WIDTH-1:0] s_axis_tuser,
 
     /*
      * AXI output
      */
-    output wire [M_DATA_WIDTH-1:0] m_axis_tdata,
-    output wire [M_KEEP_WIDTH-1:0] m_axis_tkeep,
-    output wire                    m_axis_tvalid,
-    input  wire                    m_axis_tready,
-    output wire                    m_axis_tlast,
-    output wire [    ID_WIDTH-1:0] m_axis_tid,
-    output wire [  DEST_WIDTH-1:0] m_axis_tdest,
-    output wire [  USER_WIDTH-1:0] m_axis_tuser
+    output logic [M_DATA_WIDTH-1:0] m_axis_tdata,
+    output logic [M_KEEP_WIDTH-1:0] m_axis_tkeep,
+    output logic                    m_axis_tvalid,
+    input  logic                    m_axis_tready,
+    output logic                    m_axis_tlast,
+    output logic [    ID_WIDTH-1:0] m_axis_tid,
+    output logic [  DEST_WIDTH-1:0] m_axis_tdest,
+    output logic [  USER_WIDTH-1:0] m_axis_tuser
 );
 
   // force keep width to 1 when disabled
@@ -98,7 +98,8 @@ module axis_adapter #(
     end
   end
 
-  wire [S_KEEP_WIDTH-1:0] s_axis_tkeep_int = S_KEEP_ENABLE ? s_axis_tkeep : {S_KEEP_WIDTH{1'b1}};
+  logic [S_KEEP_WIDTH-1:0] s_axis_tkeep_int;
+  assign                   s_axis_tkeep_int = S_KEEP_ENABLE ? s_axis_tkeep : {S_KEEP_WIDTH{1'b1}};
 
   generate
 
@@ -125,23 +126,23 @@ module axis_adapter #(
       localparam SEG_DATA_WIDTH = M_DATA_WIDTH / SEG_COUNT;
       localparam SEG_KEEP_WIDTH = M_BYTE_LANES / SEG_COUNT;
 
-      reg [$clog2(SEG_COUNT)-1:0] seg_reg = 0;
+      logic [$clog2(SEG_COUNT)-1:0] seg_reg = 0;
 
-      reg [     S_DATA_WIDTH-1:0] s_axis_tdata_reg = {S_DATA_WIDTH{1'b0}};
-      reg [     S_KEEP_WIDTH-1:0] s_axis_tkeep_reg = {S_KEEP_WIDTH{1'b0}};
-      reg                         s_axis_tvalid_reg = 1'b0;
-      reg                         s_axis_tlast_reg = 1'b0;
-      reg [         ID_WIDTH-1:0] s_axis_tid_reg = {ID_WIDTH{1'b0}};
-      reg [       DEST_WIDTH-1:0] s_axis_tdest_reg = {DEST_WIDTH{1'b0}};
-      reg [       USER_WIDTH-1:0] s_axis_tuser_reg = {USER_WIDTH{1'b0}};
+      logic [     S_DATA_WIDTH-1:0] s_axis_tdata_reg = {S_DATA_WIDTH{1'b0}};
+      logic [     S_KEEP_WIDTH-1:0] s_axis_tkeep_reg = {S_KEEP_WIDTH{1'b0}};
+      logic                         s_axis_tvalid_reg = 1'b0;
+      logic                         s_axis_tlast_reg = 1'b0;
+      logic [         ID_WIDTH-1:0] s_axis_tid_reg = {ID_WIDTH{1'b0}};
+      logic [       DEST_WIDTH-1:0] s_axis_tdest_reg = {DEST_WIDTH{1'b0}};
+      logic [       USER_WIDTH-1:0] s_axis_tuser_reg = {USER_WIDTH{1'b0}};
 
-      reg [     M_DATA_WIDTH-1:0] m_axis_tdata_reg = {M_DATA_WIDTH{1'b0}};
-      reg [     M_KEEP_WIDTH-1:0] m_axis_tkeep_reg = {M_KEEP_WIDTH{1'b0}};
-      reg                         m_axis_tvalid_reg = 1'b0;
-      reg                         m_axis_tlast_reg = 1'b0;
-      reg [         ID_WIDTH-1:0] m_axis_tid_reg = {ID_WIDTH{1'b0}};
-      reg [       DEST_WIDTH-1:0] m_axis_tdest_reg = {DEST_WIDTH{1'b0}};
-      reg [       USER_WIDTH-1:0] m_axis_tuser_reg = {USER_WIDTH{1'b0}};
+      logic [     M_DATA_WIDTH-1:0] m_axis_tdata_reg = {M_DATA_WIDTH{1'b0}};
+      logic [     M_KEEP_WIDTH-1:0] m_axis_tkeep_reg = {M_KEEP_WIDTH{1'b0}};
+      logic                         m_axis_tvalid_reg = 1'b0;
+      logic                         m_axis_tlast_reg = 1'b0;
+      logic [         ID_WIDTH-1:0] m_axis_tid_reg = {ID_WIDTH{1'b0}};
+      logic [       DEST_WIDTH-1:0] m_axis_tdest_reg = {DEST_WIDTH{1'b0}};
+      logic [       USER_WIDTH-1:0] m_axis_tuser_reg = {USER_WIDTH{1'b0}};
 
       assign s_axis_tready = !s_axis_tvalid_reg;
 
@@ -153,7 +154,7 @@ module axis_adapter #(
       assign m_axis_tdest  = DEST_ENABLE ? m_axis_tdest_reg : {DEST_WIDTH{1'b0}};
       assign m_axis_tuser  = USER_ENABLE ? m_axis_tuser_reg : {USER_WIDTH{1'b0}};
 
-      always @(posedge clk) begin
+      always_ff @(posedge clk) begin
         m_axis_tvalid_reg <= m_axis_tvalid_reg && !m_axis_tready;
 
         if (!m_axis_tvalid_reg || m_axis_tready) begin
@@ -230,21 +231,21 @@ module axis_adapter #(
       localparam SEG_DATA_WIDTH = S_DATA_WIDTH / SEG_COUNT;
       localparam SEG_KEEP_WIDTH = S_BYTE_LANES / SEG_COUNT;
 
-      reg [S_DATA_WIDTH-1:0] s_axis_tdata_reg = {S_DATA_WIDTH{1'b0}};
-      reg [S_KEEP_WIDTH-1:0] s_axis_tkeep_reg = {S_KEEP_WIDTH{1'b0}};
-      reg                    s_axis_tvalid_reg = 1'b0;
-      reg                    s_axis_tlast_reg = 1'b0;
-      reg [    ID_WIDTH-1:0] s_axis_tid_reg = {ID_WIDTH{1'b0}};
-      reg [  DEST_WIDTH-1:0] s_axis_tdest_reg = {DEST_WIDTH{1'b0}};
-      reg [  USER_WIDTH-1:0] s_axis_tuser_reg = {USER_WIDTH{1'b0}};
+      logic [S_DATA_WIDTH-1:0] s_axis_tdata_reg = {S_DATA_WIDTH{1'b0}};
+      logic [S_KEEP_WIDTH-1:0] s_axis_tkeep_reg = {S_KEEP_WIDTH{1'b0}};
+      logic                    s_axis_tvalid_reg = 1'b0;
+      logic                    s_axis_tlast_reg = 1'b0;
+      logic [    ID_WIDTH-1:0] s_axis_tid_reg = {ID_WIDTH{1'b0}};
+      logic [  DEST_WIDTH-1:0] s_axis_tdest_reg = {DEST_WIDTH{1'b0}};
+      logic [  USER_WIDTH-1:0] s_axis_tuser_reg = {USER_WIDTH{1'b0}};
 
-      reg [M_DATA_WIDTH-1:0] m_axis_tdata_reg = {M_DATA_WIDTH{1'b0}};
-      reg [M_KEEP_WIDTH-1:0] m_axis_tkeep_reg = {M_KEEP_WIDTH{1'b0}};
-      reg                    m_axis_tvalid_reg = 1'b0;
-      reg                    m_axis_tlast_reg = 1'b0;
-      reg [    ID_WIDTH-1:0] m_axis_tid_reg = {ID_WIDTH{1'b0}};
-      reg [  DEST_WIDTH-1:0] m_axis_tdest_reg = {DEST_WIDTH{1'b0}};
-      reg [  USER_WIDTH-1:0] m_axis_tuser_reg = {USER_WIDTH{1'b0}};
+      logic [M_DATA_WIDTH-1:0] m_axis_tdata_reg = {M_DATA_WIDTH{1'b0}};
+      logic [M_KEEP_WIDTH-1:0] m_axis_tkeep_reg = {M_KEEP_WIDTH{1'b0}};
+      logic                    m_axis_tvalid_reg = 1'b0;
+      logic                    m_axis_tlast_reg = 1'b0;
+      logic [    ID_WIDTH-1:0] m_axis_tid_reg = {ID_WIDTH{1'b0}};
+      logic [  DEST_WIDTH-1:0] m_axis_tdest_reg = {DEST_WIDTH{1'b0}};
+      logic [  USER_WIDTH-1:0] m_axis_tuser_reg = {USER_WIDTH{1'b0}};
 
       assign s_axis_tready = !s_axis_tvalid_reg;
 
@@ -256,7 +257,7 @@ module axis_adapter #(
       assign m_axis_tdest  = DEST_ENABLE ? m_axis_tdest_reg : {DEST_WIDTH{1'b0}};
       assign m_axis_tuser  = USER_ENABLE ? m_axis_tuser_reg : {USER_WIDTH{1'b0}};
 
-      always @(posedge clk) begin
+      always_ff @(posedge clk) begin
         m_axis_tvalid_reg <= m_axis_tvalid_reg && !m_axis_tready;
 
         if (!m_axis_tvalid_reg || m_axis_tready) begin

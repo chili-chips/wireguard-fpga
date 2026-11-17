@@ -20,63 +20,63 @@ module mac_pause_ctrl_tx #(
     parameter MCF_PARAMS_SIZE = 18,
     parameter PFC_ENABLE      = 1
 ) (
-    input  wire                         clk,
-    input  wire                         rst,
+    input  logic                         clk,
+    input  logic                         rst,
 
     /*
      * MAC control frame interface
      */
-    output wire                         mcf_valid,
-    input  wire                         mcf_ready,
-    output wire [                 47:0] mcf_eth_dst,
-    output wire [                 47:0] mcf_eth_src,
-    output wire [                 15:0] mcf_eth_type,
-    output wire [                 15:0] mcf_opcode,
-    output wire [MCF_PARAMS_SIZE*8-1:0] mcf_params,
+    output logic                         mcf_valid,
+    input  logic                         mcf_ready,
+    output logic [                 47:0] mcf_eth_dst,
+    output logic [                 47:0] mcf_eth_src,
+    output logic [                 15:0] mcf_eth_type,
+    output logic [                 15:0] mcf_opcode,
+    output logic [MCF_PARAMS_SIZE*8-1:0] mcf_params,
 
     /*
      * Link-level Flow Control (LFC) (IEEE 802.3 annex 31B PAUSE)
      */
-    input  wire                         tx_lfc_req,
-    input  wire                         tx_lfc_resend,
+    input  logic                         tx_lfc_req,
+    input  logic                         tx_lfc_resend,
 
     /*
      * Priority Flow Control (PFC) (IEEE 802.3 annex 31D)
      */
-    input  wire [7:0]                   tx_pfc_req,
-    input  wire                         tx_pfc_resend,
+    input  logic [7:0]                   tx_pfc_req,
+    input  logic                         tx_pfc_resend,
 
     /*
      * Configuration
      */
-    input  wire [    47:0]              cfg_tx_lfc_eth_dst,
-    input  wire [    47:0]              cfg_tx_lfc_eth_src,
-    input  wire [    15:0]              cfg_tx_lfc_eth_type,
-    input  wire [    15:0]              cfg_tx_lfc_opcode,
-    input  wire                         cfg_tx_lfc_en,
-    input  wire [    15:0]              cfg_tx_lfc_quanta,
-    input  wire [    15:0]              cfg_tx_lfc_refresh,
-    input  wire [    47:0]              cfg_tx_pfc_eth_dst,
-    input  wire [    47:0]              cfg_tx_pfc_eth_src,
-    input  wire [    15:0]              cfg_tx_pfc_eth_type,
-    input  wire [    15:0]              cfg_tx_pfc_opcode,
-    input  wire                         cfg_tx_pfc_en,
-    input  wire [8*16-1:0]              cfg_tx_pfc_quanta,
-    input  wire [8*16-1:0]              cfg_tx_pfc_refresh,
-    input  wire [     9:0]              cfg_quanta_step,
-    input  wire                         cfg_quanta_clk_en,
+    input  logic [    47:0]              cfg_tx_lfc_eth_dst,
+    input  logic [    47:0]              cfg_tx_lfc_eth_src,
+    input  logic [    15:0]              cfg_tx_lfc_eth_type,
+    input  logic [    15:0]              cfg_tx_lfc_opcode,
+    input  logic                         cfg_tx_lfc_en,
+    input  logic [    15:0]              cfg_tx_lfc_quanta,
+    input  logic [    15:0]              cfg_tx_lfc_refresh,
+    input  logic [    47:0]              cfg_tx_pfc_eth_dst,
+    input  logic [    47:0]              cfg_tx_pfc_eth_src,
+    input  logic [    15:0]              cfg_tx_pfc_eth_type,
+    input  logic [    15:0]              cfg_tx_pfc_opcode,
+    input  logic                         cfg_tx_pfc_en,
+    input  logic [8*16-1:0]              cfg_tx_pfc_quanta,
+    input  logic [8*16-1:0]              cfg_tx_pfc_refresh,
+    input  logic [     9:0]              cfg_quanta_step,
+    input  logic                         cfg_quanta_clk_en,
 
     /*
      * Status
      */
-    output wire                         stat_tx_lfc_pkt,
-    output wire                         stat_tx_lfc_xon,
-    output wire                         stat_tx_lfc_xoff,
-    output wire                         stat_tx_lfc_paused,
-    output wire                         stat_tx_pfc_pkt,
-    output wire [7:0]                   stat_tx_pfc_xon,
-    output wire [7:0]                   stat_tx_pfc_xoff,
-    output wire [7:0]                   stat_tx_pfc_paused
+    output logic                         stat_tx_lfc_pkt,
+    output logic                         stat_tx_lfc_xon,
+    output logic                         stat_tx_lfc_xoff,
+    output logic                         stat_tx_lfc_paused,
+    output logic                         stat_tx_pfc_pkt,
+    output logic [7:0]                   stat_tx_pfc_xon,
+    output logic [7:0]                   stat_tx_pfc_xoff,
+    output logic [7:0]                   stat_tx_pfc_paused
 );
 
   localparam QFB = 8;
@@ -89,41 +89,42 @@ module mac_pause_ctrl_tx #(
     end
   end
 
-  reg lfc_req_reg = 1'b0, lfc_req_next;
-  reg lfc_act_reg = 1'b0, lfc_act_next;
-  reg lfc_send_reg = 1'b0, lfc_send_next;
-  reg [7:0] pfc_req_reg = 8'd0, pfc_req_next;
-  reg [7:0] pfc_act_reg = 8'd0, pfc_act_next;
-  reg [7:0] pfc_en_reg = 8'd0, pfc_en_next;
-  reg pfc_send_reg = 1'b0, pfc_send_next;
+  logic lfc_req_reg = 1'b0, lfc_req_next;
+  logic lfc_act_reg = 1'b0, lfc_act_next;
+  logic lfc_send_reg = 1'b0, lfc_send_next;
+  logic [7:0] pfc_req_reg = 8'd0, pfc_req_next;
+  logic [7:0] pfc_act_reg = 8'd0, pfc_act_next;
+  logic [7:0] pfc_en_reg = 8'd0, pfc_en_next;
+  logic pfc_send_reg = 1'b0, pfc_send_next;
 
-  reg [16+QFB-1:0] lfc_refresh_reg = 0, lfc_refresh_next;
-  reg [16+QFB-1:0] pfc_refresh_reg[0:7], pfc_refresh_next[0:7];
+  logic [16+QFB-1:0] lfc_refresh_reg = 0, lfc_refresh_next;
+  logic [16+QFB-1:0] pfc_refresh_reg[0:7], pfc_refresh_next[0:7];
 
-  reg stat_tx_lfc_pkt_reg = 1'b0, stat_tx_lfc_pkt_next;
-  reg stat_tx_lfc_xon_reg = 1'b0, stat_tx_lfc_xon_next;
-  reg stat_tx_lfc_xoff_reg = 1'b0, stat_tx_lfc_xoff_next;
-  reg stat_tx_pfc_pkt_reg = 1'b0, stat_tx_pfc_pkt_next;
-  reg [7:0] stat_tx_pfc_xon_reg = 0, stat_tx_pfc_xon_next;
-  reg [7:0] stat_tx_pfc_xoff_reg = 0, stat_tx_pfc_xoff_next;
+  logic stat_tx_lfc_pkt_reg = 1'b0, stat_tx_lfc_pkt_next;
+  logic stat_tx_lfc_xon_reg = 1'b0, stat_tx_lfc_xon_next;
+  logic stat_tx_lfc_xoff_reg = 1'b0, stat_tx_lfc_xoff_next;
+  logic stat_tx_pfc_pkt_reg = 1'b0, stat_tx_pfc_pkt_next;
+  logic [7:0] stat_tx_pfc_xon_reg = 0, stat_tx_pfc_xon_next;
+  logic [7:0] stat_tx_pfc_xoff_reg = 0, stat_tx_pfc_xoff_next;
 
   // MAC control interface
-  reg mcf_pfc_sel_reg = PFC_ENABLE != 0, mcf_pfc_sel_next;
-  reg mcf_valid_reg = 1'b0, mcf_valid_next;
+  logic mcf_pfc_sel_reg = PFC_ENABLE != 0, mcf_pfc_sel_next;
+  logic mcf_valid_reg = 1'b0, mcf_valid_next;
 
-  wire [2*8-1:0] mcf_lfc_params;
+  logic [2*8-1:0] mcf_lfc_params;
   assign mcf_lfc_params[16*0 +: 16] = lfc_req_reg
                                     ? {cfg_tx_lfc_quanta[0 +: 8], cfg_tx_lfc_quanta[8 +: 8]}
                                     : 0;
 
-  wire [18*8-1:0] mcf_pfc_params;
-  assign          mcf_pfc_params[16*0+:16] = {pfc_en_reg, 8'd0};
+  logic [18*8-1:0] mcf_pfc_params;
+  assign           mcf_pfc_params[16*0+:16] = {pfc_en_reg, 8'd0};
 
   // the quanta of each requested PFC class, its two bytes swapped
   genvar n;
   for (n = 0; n < 8; n = n + 1) begin : g_pfc_quanta
-    wire [15:0] quanta = cfg_tx_pfc_quanta[16*n+:16];
-    assign      mcf_pfc_params[16*(n+1)+:16] = pfc_req_reg[n] ? {quanta[7:0], quanta[15:8]} : 0;
+    logic [15:0] quanta;
+    assign       quanta                       = cfg_tx_pfc_quanta[16*n+:16];
+    assign       mcf_pfc_params[16*(n+1)+:16] = pfc_req_reg[n] ? {quanta[7:0], quanta[15:8]} : 0;
   end
 
   assign mcf_valid = mcf_valid_reg;
@@ -142,15 +143,13 @@ module mac_pause_ctrl_tx #(
   assign stat_tx_pfc_xoff = stat_tx_pfc_xoff_reg;
   assign stat_tx_pfc_paused = pfc_req_reg;
 
-  integer k;
-
   initial begin
-    for (k = 0; k < 8; k = k + 1) begin
+    for (int k = 0; k < 8; k = k + 1) begin
       pfc_refresh_reg[k] = 0;
     end
   end
 
-  always @* begin
+  always_comb begin
     lfc_req_next          = lfc_req_reg;
     lfc_act_next          = lfc_act_reg;
     lfc_send_next         = lfc_send_reg | tx_lfc_resend;
@@ -184,7 +183,7 @@ module mac_pause_ctrl_tx #(
       lfc_refresh_next = lfc_refresh_reg;
     end
 
-    for (k = 0; k < 8; k = k + 1) begin
+    for (int k = 0; k < 8; k = k + 1) begin
       if (cfg_quanta_clk_en) begin
         if (pfc_refresh_reg[k] > cfg_quanta_step) begin
           pfc_refresh_next[k] = pfc_refresh_reg[k] - cfg_quanta_step;
@@ -236,7 +235,7 @@ module mac_pause_ctrl_tx #(
           mcf_valid_next   = pfc_act_reg != 0;
           pfc_en_next      = pfc_act_reg;
           pfc_act_next     = pfc_req_reg;
-          for (k = 0; k < 8; k = k + 1) begin
+          for (int k = 0; k < 8; k = k + 1) begin
             pfc_refresh_next[k] = pfc_req_reg[k] ? {cfg_tx_pfc_refresh[16*k+:16], {QFB{1'b0}}} : 0;
           end
           pfc_send_next         = 1'b0;
@@ -249,7 +248,7 @@ module mac_pause_ctrl_tx #(
     end
   end
 
-  always @(posedge clk) begin
+  always_ff @(posedge clk) begin
     lfc_req_reg     <= lfc_req_next;
     lfc_act_reg     <= lfc_act_next;
     lfc_send_reg    <= lfc_send_next;
@@ -262,7 +261,7 @@ module mac_pause_ctrl_tx #(
     mcf_valid_reg   <= mcf_valid_next;
 
     lfc_refresh_reg <= lfc_refresh_next;
-    for (k = 0; k < 8; k = k + 1) begin
+    for (int k = 0; k < 8; k = k + 1) begin
       pfc_refresh_reg[k] <= pfc_refresh_next[k];
     end
 
@@ -283,7 +282,7 @@ module mac_pause_ctrl_tx #(
       mcf_pfc_sel_reg <= PFC_ENABLE != 0;
       mcf_valid_reg   <= 1'b0;
       lfc_refresh_reg <= 0;
-      for (k = 0; k < 8; k = k + 1) begin
+      for (int k = 0; k < 8; k = k + 1) begin
         pfc_refresh_reg[k] <= 0;
       end
 
