@@ -51,12 +51,12 @@
 //    IDLE->WRITE->WRITE->READ->READ->WRITE->IDLE
 //==========================================================================
 
-interface soc_if (
+interface soc_if
+  import soc_pkg::*;
+(
     input logic arst_n,  // asynchronous, active-low reset
     input logic clk      // bus clock
 );
-
-  import soc_pkg::*;
 
   logic      vld;  // 1 for access REQuest     -\ transacion is performed
   logic      rdy;  // 1 for access ACKnowledge -/ when both vld&rdy are 1

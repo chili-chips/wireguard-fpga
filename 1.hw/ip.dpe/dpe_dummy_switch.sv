@@ -69,11 +69,12 @@
 //
 //==========================================================================
 
-module dpe_dummy_switch (
+module dpe_dummy_switch
+  import dpe_pkg::*;
+(
     dpe_if.s_axis inp,
     dpe_if.m_axis outp
 );
-  import dpe_pkg::*;
 
   dpe_if outp_sbuff (
       .clk (inp.clk),

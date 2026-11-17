@@ -41,13 +41,13 @@
 //   compatible with our infrastructure
 //==========================================================================
 
-module soc_ram #(
+module soc_ram
+  import soc_pkg::*;
+#(
     parameter int NUM_WORDS = 1024  // RAM depth in SOC bus words, typically 32-bit
 ) (
     soc_if.SLV bus
 );
-
-  import soc_pkg::*;
 
   localparam int ADDR_MSB = $clog2(NUM_WORDS) + 1;
 

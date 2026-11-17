@@ -99,8 +99,8 @@ module soc_fabric
   // peripheral selects (soc_pkg memory map): they never overlap
   logic dmem_sel, csr_sel;
 
-  assign dmem_sel  = soc_pkg::is_dmem(grant_addr);
-  assign csr_sel   = soc_pkg::is_csr(grant_addr);
+  assign dmem_sel  = is_dmem(grant_addr);
+  assign csr_sel   = is_csr(grant_addr);
 
   //peripheral access is when peripheral is SELected and the request VLD
   assign dmem.vld  = grant_vld & dmem_sel;

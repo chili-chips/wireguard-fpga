@@ -40,7 +40,10 @@
 //   WireGuard FPGA top-level module
 //==========================================================================
 
-module top (
+module top
+  import csr_pkg::*;
+  import soc_pkg::*;
+(
     input        clk_p,     //board clock positive
     input        clk_n,     //board clock negative
     input        rst_n,     //reset, low active
@@ -111,8 +114,6 @@ module top (
     // LEDs
     output [1:0] led
 );
-  import csr_pkg::*;
-  import soc_pkg::*;
 
   //==========================================================================
   // Clock and reset generation
@@ -177,8 +178,8 @@ module top (
       .clk (sys_clk),
       .rst (sys_rst)
   );
-  csr_pkg::csr__in_t  to_csr;
-  csr_pkg::csr__out_t from_csr;
+  csr__in_t  to_csr;
+  csr__out_t from_csr;
 
   //=================================
   // CPU Subsystem

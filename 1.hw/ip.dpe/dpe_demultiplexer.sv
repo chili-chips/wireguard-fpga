@@ -40,7 +40,9 @@
 //   DPE demultiplexer with multicast and broadcast support
 //==========================================================================
 
-module dpe_demultiplexer (
+module dpe_demultiplexer
+  import dpe_pkg::*;
+(
     dpe_if.s_axis from_dpe,
     dpe_if.m_axis to_cpu,
     dpe_if.m_axis to_eth_1,
@@ -48,7 +50,6 @@ module dpe_demultiplexer (
     dpe_if.m_axis to_eth_3,
     dpe_if.m_axis to_eth_4
 );
-  import dpe_pkg::*;
 
   dpe_if from_dpe_sbuff (
       .clk (from_dpe.clk),

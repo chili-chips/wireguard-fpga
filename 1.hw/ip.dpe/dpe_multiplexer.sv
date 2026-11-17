@@ -40,7 +40,9 @@
 //   DPE multiplexer
 //==========================================================================
 
-module dpe_multiplexer (
+module dpe_multiplexer
+  import dpe_pkg::*;
+(
     input  logic  pause,
     output logic  is_idle,
 
@@ -51,7 +53,6 @@ module dpe_multiplexer (
     dpe_if.s_axis from_eth_4,
     dpe_if.m_axis to_dpe
 );
-  import dpe_pkg::*;
 
   typedef enum logic [3:0] {
     IDLE,

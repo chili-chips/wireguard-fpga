@@ -57,26 +57,26 @@
 
 module uart
   import csr_pkg::*;
+  import soc_pkg::*;
 (
-    input  logic                           arst_n,
-    input  logic                           clk,
+    input  logic                  arst_n,
+    input  logic                  clk,
 
-    input  logic                           uart_rx,
-    output logic                           uart_tx,
+    input  logic                  uart_rx,
+    output logic                  uart_tx,
 
-    input  csr_pkg::csr__out_t             from_csr,
-    output csr_pkg::csr__uart__in_t        to_csr,
+    input  csr__out_t             from_csr,
+    output csr__uart__in_t        to_csr,
 
     // IMEM Write port, for live updates of CPU program
-    output logic                           imem_cpu_rstn,
-    output logic                           imem_we,
-    output logic                    [31:2] imem_waddr,
-    output logic                    [31:0] imem_wdat,
+    output logic                  imem_cpu_rstn,
+    output logic                  imem_we,
+    output logic           [31:2] imem_waddr,
+    output logic           [31:0] imem_wdat,
 
     // DMEM/CSR bus mastering interface
-    soc_if.MST                             bus
+    soc_if.MST                    bus
 );
-  import soc_pkg::*;
 
   //--------------------------------------
   // IMEM/BUS FSM states
@@ -638,7 +638,7 @@ module uart
       ram_data      <= '0;
       bus_vld       <= 1'b0;
       bus_we        <= '0;
-      bus_addr      <= soc_pkg::DMEM_BASE[31:2];
+      bus_addr      <= DMEM_BASE[31:2];
       bus_rdat      <= '0;
       bus_wdat      <= '0;
       checksum      <= '0;

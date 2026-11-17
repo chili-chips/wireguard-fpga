@@ -44,9 +44,9 @@ module soc_csr
   import soc_pkg::*;
   import csr_pkg::*;
 (
-    soc_if.SLV                 bus,
-    input  csr_pkg::csr__in_t  hwif_in,
-    output csr_pkg::csr__out_t hwif_out
+    soc_if.SLV        bus,
+    input  csr__in_t  hwif_in,
+    output csr__out_t hwif_out
 );
   logic [31:0] s_cpuif_wr_biten;
   logic        s_cpuif_rd_ack;
