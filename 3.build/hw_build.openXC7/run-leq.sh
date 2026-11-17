@@ -8,7 +8,7 @@
 # (read_slang), chip view (SYNTHESIS defined). Use it to prove that a cleanup
 # does not change behaviour. The DPE blocks top does not instantiate yet are
 # tops of their own (leq_tops.sv): dpe_wg_encryptor, dpe_wg_decryptor,
-# dpe_egress_ip_lookup; the encryptor's and the decryptor's
+# dpe_egress_ip_lookup, dpe_wg_disassembler; the encryptor's and the decryptor's
 # generated ChaCha20-Poly1305 cores are black boxes (gen_core_bb.py).
 # LEQ_TOPS="top leq_dpe_wg_encryptor ..." picks the tops (default: all).
 #
@@ -72,9 +72,8 @@ PRIMS="PLLE2_BASE BUFG IBUFGDS BUFGMUX BUFIO BUFIO2 BUFR ODDR ODDR2"
 GEN=$BLD/pipelinec_build/generated-files
 CORES="chacha20poly1305_encrypt chacha20poly1305_decrypt"
 # The tops: the design, and the DPE blocks it does not instantiate yet
-# (leq_tops.sv wraps each, a top cannot have interface ports). Not yet:
-# dpe_wg_disassembler (does not compile); LEQ_TOPS adds it
-TOPS=${LEQ_TOPS:-top leq_dpe_wg_encryptor leq_dpe_wg_decryptor leq_dpe_egress_ip_lookup}
+# (leq_tops.sv wraps each, a top cannot have interface ports)
+TOPS=${LEQ_TOPS:-top leq_dpe_wg_encryptor leq_dpe_wg_decryptor leq_dpe_egress_ip_lookup leq_dpe_wg_disassembler}
 W=$(mktemp -d); cd "$W"
 
 "$PYTHON" "$HERE/gen_xilinx_bb.py" "$("$YOSYS_CONFIG" --datdir)/xilinx" bb.sv $PRIMS >/dev/null
@@ -88,6 +87,7 @@ files() {  # $1 = 1.hw dir; the design, and what $TOP adds to it
     leq_dpe_wg_encryptor) x="ip.dpe/dpe_wg_encryptor.sv ip.infra/dpe_if_pipeline.sv" ;;
     leq_dpe_wg_decryptor) x="ip.dpe/dpe_wg_decryptor.sv ip.infra/dpe_if_pipeline.sv" ;;
     leq_dpe_egress_ip_lookup) x="ip.dpe/dpe_egress_ip_lookup.sv ip.dpe/dpe_route_mem.sv" ;;
+    leq_dpe_wg_disassembler) x="ip.infra/net_pkg.sv ip.dpe/dpe_wg_disassembler.sv" ;;
     *) echo "run-leq.sh: no files for top $TOP" >&2 ;;
   esac
   [ "$TOP" = top ] || x="$x $HERE/leq_tops.sv"

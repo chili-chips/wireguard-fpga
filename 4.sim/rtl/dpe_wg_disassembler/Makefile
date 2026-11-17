@@ -5,7 +5,7 @@
 # dpe_wg_disassembler block-level bench: make [SIM=verilator|icarus|janushdl], see ../sim.mk
 
 VFLAGS = -Wall -Wno-PINCONNECTEMPTY -Wno-UNUSEDPARAM -Wno-GENUNNAMED
-SRC_F  = ${HW_SRC}/top.filelist
-SRC    = ${HW_SRC}/ip.dpe/dpe_wg_disassembler.sv tb.sv
+SRC_F  = tb.filelist
+SRC    = tb.sv
 
 include ../sim.mk

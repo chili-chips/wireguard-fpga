@@ -106,3 +106,20 @@ module leq_dpe_egress_ip_lookup (
   dpe_egress_ip_lookup #(.ENTRY_COUNT(64)) u_dut (.*);
 endmodule
 `endif
+
+`ifdef LEQ_TOP_leq_dpe_wg_disassembler
+module leq_dpe_wg_disassembler (
+    input logic clk,
+    input logic rst,
+    `LEQ_DPE_S(inp),
+    `LEQ_DPE_M(outp),
+    output logic        fcr_idle,
+    output logic [31:0] wg_rcv,
+    input  logic [ 6:0] wg_idx,
+    input  logic        wg_idx_match
+);
+  `LEQ_DPE_S_IF(inp)
+  `LEQ_DPE_M_IF(outp)
+  dpe_wg_disassembler u_dut (.*);
+endmodule
+`endif
