@@ -61,81 +61,54 @@ module dpe_egress_ip_lookup #(
   dpe_if.s_axis  s_axis,
   dpe_if.m_axis  m_axis,
 
-  input  csr_pkg::csr__dpe__routing_table__external__out_t hwif_out [ENTRY_COUNT], 
-  output csr_pkg::csr__dpe__routing_table__external__in_t  hwif_in  [ENTRY_COUNT]
+  // the CSR routing_table regfile (csr.rdl): one port for the whole table
+  input  csr_pkg::csr__routing_table__external__out_t hwif_out,
+  output csr_pkg::csr__routing_table__external__in_t  hwif_in
 );
 
-  logic        req;
-  logic        is_wr;
-  logic [31:0] wr_data;
-  logic [3:0]  addr_offset;
+  // -----------------------------------------------------------
+  // CSR ACCESS: entry[addr[9:4]], its field at addr[3:2]
+  // -----------------------------------------------------------
+  typedef enum logic [1:0] {
+    FIELD_IP   = 2'd0,  // entry.ip       (offset 0x0)
+    FIELD_MASK = 2'd1,  // entry.mask     (offset 0x4)
+    FIELD_PEER = 2'd2,  // entry.peer_idx (offset 0x8)
+    FIELD_DST  = 2'd3   // entry.dst      (offset 0xC)
+  } rt_field_e;
+
+  logic        csr_wr, csr_rd;
   logic [5:0]  mem_idx;
+  rt_field_e   field;
+  logic [31:0] wr_data;
+
+  assign csr_wr  = hwif_out.req & hwif_out.req_is_wr;
+  assign csr_rd  = hwif_out.req & ~hwif_out.req_is_wr;
+  assign mem_idx = hwif_out.addr[9:4];
+  assign field   = rt_field_e'(hwif_out.addr[3:2]);
+  assign wr_data = hwif_out.wr_data;
 
   logic we_prefix, we_mask, we_peer, we_dst;
   logic [31:0] rdata_prefix, rdata_mask;
   logic [7:0]  rdata_peer;
   logic [2:0]  rdata_dst;
 
-  // -----------------------------------------------------------
-  // INPUT MULTIPLEXER
-  // -----------------------------------------------------------  
-  always_comb begin
-    req         = 1'b0;
-    is_wr       = 1'b0;
-    wr_data     = 32'd0;
-    addr_offset = 4'd0;
-    mem_idx     = 6'd0;
+  assign we_prefix = csr_wr && field == FIELD_IP;
+  assign we_mask   = csr_wr && field == FIELD_MASK;
+  assign we_peer   = csr_wr && field == FIELD_PEER;
+  assign we_dst    = csr_wr && field == FIELD_DST;
 
-    for (int i = 0; i < ENTRY_COUNT; i++) begin
-       if (hwif_out[i].req) begin
-          req         = 1'b1;
-          is_wr       = hwif_out[i].req_is_wr;
-          wr_data     = hwif_out[i].wr_data;
-          addr_offset = hwif_out[i].addr; 
-          mem_idx     = i[5:0];
-       end
-    end
+  // The answer in the request's cycle, as the table is in registers
+  assign hwif_in.wr_ack = csr_wr;
+  assign hwif_in.rd_ack = csr_rd;
+  always_comb begin
+    unique case (field)
+      FIELD_IP:   hwif_in.rd_data = rdata_prefix;
+      FIELD_MASK: hwif_in.rd_data = rdata_mask;
+      FIELD_PEER: hwif_in.rd_data = {24'd0, rdata_peer};
+      FIELD_DST:  hwif_in.rd_data = {29'd0, rdata_dst};
+    endcase
   end
 
-  // -----------------------------------------------------------
-  // OUTPUT DEMULTIPLEXER
-  // -----------------------------------------------------------
-  generate
-    genvar k;
-    for (k = 0; k < ENTRY_COUNT; k++) begin : GEN_RESP
-       assign hwif_in[k].wr_ack = (mem_idx == k) ? (req && is_wr)  : 1'b0;
-       assign hwif_in[k].rd_ack = (mem_idx == k) ? (req && !is_wr) : 1'b0;
-       
-       always_comb begin
-          hwif_in[k].rd_data = 32'd0;
-          if (mem_idx == k) begin
-             case (addr_offset[3:2]) // Offset 0, 4, 8, C
-                2'b00: hwif_in[k].rd_data = rdata_prefix;
-                2'b01: hwif_in[k].rd_data = rdata_mask;
-                2'b10: hwif_in[k].rd_data = {24'd0, rdata_peer};
-                2'b11: hwif_in[k].rd_data = {29'd0, rdata_dst};
-             endcase
-          end
-       end
-    end
-  endgenerate
-
-  // -----------------------------------------------------------
-  // WRITING TO MEMORY
-  // -----------------------------------------------------------
-  always_comb begin
-    we_prefix = 1'b0; we_mask = 1'b0; we_peer = 1'b0; we_dst = 1'b0;
-    
-    if (req && is_wr) begin
-      case (addr_offset[3:2])
-        2'b00: begin we_prefix = 1'b1; end
-        2'b01: we_mask   = 1'b1;
-        2'b10: we_peer   = 1'b1;
-        2'b11: we_dst    = 1'b1;
-      endcase
-    end
-  end
-  
   logic        route_hit;
   logic [5:0]  route_idx;
   logic [2:0]  route_dst;
@@ -183,10 +156,10 @@ module dpe_egress_ip_lookup #(
     logic [127:0] data;
     logic [15:0]  keep;
     logic         last;
-    logic         valid;
   } beat_t;
 
-  beat_t beat_buf[0:2];
+  beat_t beat_buf  [0:2];  // the buffered beats (no reset)
+  logic  beat_valid[0:2];  // which of them hold a beat
   logic [1:0] buf_rd_ptr;
 
   logic [2:0] decided_dst, decided_dst_n;
@@ -263,7 +236,7 @@ module dpe_egress_ip_lookup #(
       end
 
       S_FLUSH: begin
-        if (m_axis.tready && beat_buf[buf_rd_ptr].valid) begin
+        if (m_axis.tready && beat_valid[buf_rd_ptr]) begin
           if (beat_buf[buf_rd_ptr].last) begin
             state_next = S_IDLE;
           end else if (buf_rd_ptr == flush_limit) begin
@@ -290,7 +263,7 @@ module dpe_egress_ip_lookup #(
       state <= S_IDLE;
       beat  <= 2'd0;
       buf_rd_ptr <= 2'd0;
-      beat_buf[0].valid <= 1'b0; beat_buf[1].valid <= 1'b0; beat_buf[2].valid <= 1'b0;
+      beat_valid[0] <= 1'b0; beat_valid[1] <= 1'b0; beat_valid[2] <= 1'b0;
       decided_dst <= 3'd0;
       decided_peer<= 8'd0;
       decided_bypass <= 1'b0;
@@ -310,17 +283,11 @@ module dpe_egress_ip_lookup #(
       end
 
       if (state == S_IDLE && in_hs) begin
-         beat_buf[0].data  <= s_axis.tdata;
-         beat_buf[0].keep  <= s_axis.tkeep;
-         beat_buf[0].last  <= s_axis.tlast;
-         beat_buf[0].valid <= 1'b1;
+         beat_valid[0] <= 1'b1;
       end
 
       if (state == S_COLLECT && in_hs) begin
-        beat_buf[beat].data  <= s_axis.tdata;
-        beat_buf[beat].keep  <= s_axis.tkeep;
-        beat_buf[beat].last  <= s_axis.tlast;
-        beat_buf[beat].valid <= 1'b1;
+        beat_valid[beat] <= 1'b1;
 
         if (beat == 2'd1) begin
             route_req_ip[31:24] <= s_axis.tdata[119:112];
@@ -333,8 +300,8 @@ module dpe_egress_ip_lookup #(
       end
       
       // (FLUSH)
-      if (state == S_FLUSH && m_axis.tready && beat_buf[buf_rd_ptr].valid) begin
-        beat_buf[buf_rd_ptr].valid <= 1'b0;
+      if (state == S_FLUSH && m_axis.tready && beat_valid[buf_rd_ptr]) begin
+        beat_valid[buf_rd_ptr] <= 1'b0;
         if (!beat_buf[buf_rd_ptr].last && (buf_rd_ptr < flush_limit)) begin
           buf_rd_ptr <= buf_rd_ptr + 2'd1;
         end else begin
@@ -344,13 +311,28 @@ module dpe_egress_ip_lookup #(
 
       // Buffer reset after IDLE
       if (state_next == S_IDLE) begin
-        beat_buf[0].valid <= 1'b0; beat_buf[1].valid <= 1'b0; beat_buf[2].valid <= 1'b0;
+        beat_valid[0] <= 1'b0; beat_valid[1] <= 1'b0; beat_valid[2] <= 1'b0;
         buf_rd_ptr   <= 2'd0;
       end
 
       decided_dst    <= decided_dst_n;
       decided_peer   <= decided_peer_n;
       decided_bypass <= decided_bypass_n;
+    end
+  end
+
+  // The buffered beats' data: no reset value (only their valid flags above),
+  // and held while in reset, as before
+  always_ff @(posedge s_axis.clk) begin
+    if (!s_axis.rst && state == S_IDLE && in_hs) begin
+      beat_buf[0].data <= s_axis.tdata;
+      beat_buf[0].keep <= s_axis.tkeep;
+      beat_buf[0].last <= s_axis.tlast;
+    end
+    if (!s_axis.rst && state == S_COLLECT && in_hs) begin
+      beat_buf[beat].data <= s_axis.tdata;
+      beat_buf[beat].keep <= s_axis.tkeep;
+      beat_buf[beat].last <= s_axis.tlast;
     end
   end
 
@@ -363,7 +345,7 @@ module dpe_egress_ip_lookup #(
   assign flush_tdata  = beat_buf[buf_rd_ptr].data;
   assign flush_tkeep  = beat_buf[buf_rd_ptr].keep;
   assign flush_tlast  = beat_buf[buf_rd_ptr].last;
-  assign flush_tvalid = (state == S_FLUSH) && beat_buf[buf_rd_ptr].valid;
+  assign flush_tvalid = (state == S_FLUSH) && beat_valid[buf_rd_ptr];
 
   assign m_axis.tvalid = (state == S_FLUSH) ? flush_tvalid :
                          (state == S_FWD)   ? s_axis.tvalid : 1'b0;

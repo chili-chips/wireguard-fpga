@@ -7,7 +7,8 @@
 # interfaces, DPE, SOC, CPU, CSR) between two versions of the RTL, with Yosys
 # (read_slang), chip view (SYNTHESIS defined). Use it to prove that a cleanup
 # does not change behaviour. The DPE blocks top does not instantiate yet are
-# tops of their own (leq_tops.sv): dpe_wg_encryptor, dpe_wg_decryptor; their
+# tops of their own (leq_tops.sv): dpe_wg_encryptor, dpe_wg_decryptor,
+# dpe_egress_ip_lookup; the encryptor's and the decryptor's
 # generated ChaCha20-Poly1305 cores are black boxes (gen_core_bb.py).
 # LEQ_TOPS="top leq_dpe_wg_encryptor ..." picks the tops (default: all).
 #
@@ -35,7 +36,9 @@
 # only constant after reset shows up as unproven and needs a look by hand.
 #
 # Memories stay memory cells (memory -nomap): the FIFOs hold over 1M bits,
-# too many to prove as flops. equiv_struct merges the memories whose inputs
+# too many to prove as flops. A small one (64 words at most, a buffer of a
+# few beats) is mapped to flops (memory_map), so it can be compared with the
+# same buffer written as registers. equiv_struct merges the memories whose inputs
 # match; a memory whose inputs differ ends the run with "No SAT model
 # available for cell ... ($mem_v2)". Only "Equivalence successfully proven"
 # is a pass.
@@ -70,9 +73,8 @@ GEN=$BLD/pipelinec_build/generated-files
 CORES="chacha20poly1305_encrypt chacha20poly1305_decrypt"
 # The tops: the design, and the DPE blocks it does not instantiate yet
 # (leq_tops.sv wraps each, a top cannot have interface ports). Not yet:
-# dpe_egress_ip_lookup (its CSR side predates the single routing_table
-# regfile) and dpe_wg_disassembler (does not compile); LEQ_TOPS adds them
-TOPS=${LEQ_TOPS:-top leq_dpe_wg_encryptor leq_dpe_wg_decryptor}
+# dpe_wg_disassembler (does not compile); LEQ_TOPS adds it
+TOPS=${LEQ_TOPS:-top leq_dpe_wg_encryptor leq_dpe_wg_decryptor leq_dpe_egress_ip_lookup}
 W=$(mktemp -d); cd "$W"
 
 "$PYTHON" "$HERE/gen_xilinx_bb.py" "$("$YOSYS_CONFIG" --datdir)/xilinx" bb.sv $PRIMS >/dev/null
@@ -97,7 +99,7 @@ BB=$(for p in $PRIMS; do printf 't:%s ' $p; done)
 prove() {  # the LEQ of one top ($TOP), in its own directory
 mkdir -p "$W/$TOP"; cd "$W/$TOP"; cp "$W/bb.sv" .
 READ="read_slang -D SYNTHESIS -D SYN_YOSYS_BUG -D LEQ_TOP_$TOP --top $TOP -I $BLD/sw_build"
-PREP="hierarchy -top $TOP; proc; flatten; memory -nomap; async2sync"
+PREP="hierarchy -top $TOP; proc; flatten; memory -nomap; memory_map t:\$mem_v2 r:SIZE<=64 %i; async2sync"
 
 REN=""
 if [ -n "$MAP" ]; then   # rename gold objects to their gate names (skip names the gold already has)
@@ -148,7 +150,7 @@ EOF
 
 hier() {
   local HREAD="${READ/read_slang /read_slang --keep-hierarchy }"
-  local HPREP="hierarchy -top $TOP; proc; memory -nomap; async2sync; opt_clean"
+  local HPREP="hierarchy -top $TOP; proc; memory -nomap; memory_map t:\$mem_v2 r:SIZE<=64 %i; async2sync; opt_clean"
   local EVERT='expose -evert c:* t:$* %d; opt_clean'
   local m mods
   for v in gold gate; do  # the modules, by their instance path names

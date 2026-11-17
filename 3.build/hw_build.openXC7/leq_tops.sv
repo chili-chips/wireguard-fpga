@@ -98,8 +98,8 @@ module leq_dpe_egress_ip_lookup (
     input logic rst,
     `LEQ_DPE_S(s_axis),
     `LEQ_DPE_M(m_axis),
-    input  csr_pkg::csr__dpe__routing_table__external__out_t hwif_out[64],
-    output csr_pkg::csr__dpe__routing_table__external__in_t  hwif_in [64]
+    input  csr_pkg::csr__routing_table__external__out_t hwif_out,
+    output csr_pkg::csr__routing_table__external__in_t  hwif_in
 );
   `LEQ_DPE_S_IF(s_axis)
   `LEQ_DPE_M_IF(m_axis)
