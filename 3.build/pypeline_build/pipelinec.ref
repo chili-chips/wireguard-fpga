@@ -3,4 +3,4 @@
 # build.py warns when the local pypelinec checkout differs.
 # Update it in the same commit as any design change that needs another
 # PipelineC commit. The first line that is not a comment is the hash.
-97097a875f719c67becfa6fe9885fac8f15a7738
+99e5e01832c3b9a46c7e527b845af8b24f9d02c9

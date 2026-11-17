@@ -88,9 +88,6 @@ jobs:
           git -C "$RUNNER_TEMP/PipelineC" checkout -q "$ref"
           # PipelineC imports distutils, gone from Python 3.12: setuptools brings it back
           "${{ steps.py.outputs.python-path }}" -m pip install -q setuptools
-          # Workaround for PipelineC#394 (empty VHDL record): drop it when fixed
-          sed -i 's/^import statistics$//; s/^\(    \)return statistics.median/\1import statistics\n\1return statistics.median/' \
-            "$RUNNER_TEMP/PipelineC/include/pypeline/stream/stream_perf.py"
           # pypelinec through this Python, not the OSS CAD Suite one
           printf '#!/bin/sh\nexec "%s" "%s" "$@"\n' "${{ steps.py.outputs.python-path }}" \
             "$RUNNER_TEMP/PipelineC/src/pypelinec" > "$RUNNER_TEMP/pypelinec"

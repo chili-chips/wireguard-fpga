@@ -195,9 +195,6 @@ is done.
   calls `bank_state_t_..._to_slv` before its body is elaborated (GHDL
   `-Welaboration`). The lint waives it; drop the waiver and move
   `pipelinec.ref` to the fixing commit once it is fixed.
-- **PipelineC#394:** an empty VHDL `LinearRegression` record breaks Vivado
-  2026.1 and GHDL. CI applies the workaround; drop it from `lint.yml` and the
-  [README tracker](README.md#issues-filed-upstream) once it is fixed.
 - **Vivado 2026.1:** the project uses 2026.1, while the published results used
   2019.2. Re-measure timing and area on 2026.1.
 - **Perf probes:** `prep.fsm` in `prep_auth_data_wide.py` and `append.fsm` in
