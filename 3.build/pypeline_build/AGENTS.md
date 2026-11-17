@@ -212,20 +212,47 @@ is done.
 
 ### SoC integration
 
-- **The SoC still uses the old core:** `1.hw/ip.dpe/dpe_wg_encryptor.sv` and
-  `dpe_wg_decryptor.sv` instantiate the `pipelinec_build` core, which has the
-  known Poly1305 and ciphertext-length bugs. This core replaces it. The DPE
-  stream (`1.hw/ip.infra/dpe_if.sv`) is 128-bit (`tdata[127:0]`,
-  `tkeep[15:0]`), and the SoC clock is 80 MHz (`clk_80p0`).
+Where it stands (2026-11-17). Chili.CHIPS works on the SoC side, on `main`
+too: pull before you edit `1.hw/` or `4.sim/`.
+
+- **Swapping this core in** ([#48](https://github.com/chili-chips/wireguard-fpga/issues/48),
+  ours): `1.hw/ip.dpe/dpe_wg_encryptor.sv` and `dpe_wg_decryptor.sv` still
+  instantiate the old `pipelinec_build` core (non-RFC Poly1305). Standalone
+  `--enc --soc` and `--dec --soc` builds of this core (PipelineC `97097a87`,
+  Vivado 2026.1) are running; their Verilog goes to `soc/` here and their
+  `latency_profile.json` to `latency_hints/`. The ports keep the old core's
+  names, so the swap is an instance change. Keep the port names and their
+  meaning stable; tell us (issue or note here) before changing them.
+- **What the wrappers give the core** (rewritten 2026-11-17, `cedffc4`,
+  `cc96f5d`): 128-bit beats at 80 MHz (`dpe_if`: `tdata[127:0]`,
+  `tkeep[15:0]`, byte 0 in `[7:0]`); whole 16-byte blocks, the IPv4 packet
+  zero-padded, `tkeep` all ones; `key` byte 0 in `[7:0]`; nonce
+  `{counter, 32'd0}` (4 zero bytes, then the little-endian counter); no AAD.
+  Key and nonce stay put while a packet is in the core: one packet at a time
+  for now, so the core's throughput is not yet the limit.
+- **Failed authentication: handled.** The decryptor drops a packet whose
+  plaintext comes with `is_verified_out` low; the loopback bench flips one
+  ciphertext bit and checks the packet is dropped.
+- **Benches that will check this core:** `4.sim/rtl/dpe_wg_encryptor` (10
+  frames, 30 to 1492 IPv4 bytes, stalls on both sides) and
+  `4.sim/rtl/dpe_wg_decryptor` (encryptor to decryptor loopback).
+  `4.sim/rtl/wg_check.py` rebuilds every frame in Python, tag included
+  (RFC 8439, checked against `cryptography`).
+- **Two cores, one design:** the standalone encrypt and decrypt netlists
+  share helper module names (the old ones did: Verilator `MODDUP`); synthesis
+  of both will clash. The shared top (one ChaCha20 pipeline) avoids it but
+  needs one instance for both wrappers: our call at integration
+  ([#27](https://github.com/chili-chips/wireguard-fpga/issues/27)). If
+  PipelineC can prefix or uniquify module names per top, say so.
+- **`pipelinec.ref`** is `99e5e018` (your #394 fix; `4ee9093`). The SoC
+  builds above started on `97097a87` with the old workaround; the lint and
+  the native random sim pass on `99e5e018`.
 - **Size the core to the board** ([#40](https://github.com/chili-chips/wireguard-fpga/issues/40)):
   the published default uses about 61% of the
   xc7a200t's LUTs and 45% of its DSPs (81,489 LUT, 332 DSP48) and gives
   19.2 Gb/s per direction. 4x 1GbE needs at most 4 Gb/s per direction, and the
   MACs, CPU and DPE must fit too. Measure `--data-bitwidth 128` at 80 MHz as
   the SoC profile.
-- **Failed authentication:** decrypt releases the plaintext of a failed packet
-  with `is_verified_out` low. The DPE must drop such packets, never forward
-  them.
 - **Routed timing:** the published 81.32 MHz is synthesis only (1.6% margin).
   Check timing after place and route, in the SoC.
 - **Reproducibility:** published results name their PipelineC commit; keep it
