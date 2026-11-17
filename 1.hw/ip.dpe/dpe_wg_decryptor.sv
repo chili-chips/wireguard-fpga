@@ -467,21 +467,21 @@ module dpe_wg_decryptor (
 
    chacha20poly1305_decrypt decrypt (
       .clk_80p0(inp.clk),
-      .key(decrypt_key),
-      .nonce({32'd0, send_cnt}),
-      .aad(256'd0),
-      .aad_len(8'd0),
-      .s_axis_tdata(to_decrypt.tdata),
-      .s_axis_tkeep(to_decrypt.tkeep),
-      .s_axis_tlast(to_decrypt.tlast),
-      .s_axis_tvalid(to_decrypt.tvalid),
-      .m_axis_tready(from_decrypt.tready),
-      .s_axis_tready(to_decrypt.tready),
-      .m_axis_tdata(from_decrypt.tdata),
-      .m_axis_tkeep(from_decrypt.tkeep),
-      .m_axis_tlast(from_decrypt.tlast),
-      .m_axis_tvalid(from_decrypt.tvalid),
-      .m_verified(is_verified)
+      .decrypt_key(decrypt_key),
+      .decrypt_nonce({32'd0, send_cnt}),
+      .decrypt_aad(256'd0),
+      .decrypt_aad_len(8'd0),
+      .decrypt_s_axis_tdata(to_decrypt.tdata),
+      .decrypt_s_axis_tkeep(to_decrypt.tkeep),
+      .decrypt_s_axis_tlast(to_decrypt.tlast),
+      .decrypt_s_axis_tvalid(to_decrypt.tvalid),
+      .decrypt_m_axis_tready(from_decrypt.tready),
+      .decrypt_s_axis_tready(to_decrypt.tready),
+      .decrypt_m_axis_tdata(from_decrypt.tdata),
+      .decrypt_m_axis_tkeep(from_decrypt.tkeep),
+      .decrypt_m_axis_tlast(from_decrypt.tlast),
+      .decrypt_m_axis_tvalid(from_decrypt.tvalid),
+      .decrypt_m_verified(is_verified)
    );
 
    dpe_if_pipeline #(.LENGTH(1)) input_pipe (

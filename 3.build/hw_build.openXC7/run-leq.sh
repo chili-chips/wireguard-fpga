@@ -6,7 +6,10 @@
 # Formal equivalence check of the whole design (top: Ethernet MACs and PHY
 # interfaces, DPE, SOC, CPU, CSR) between two versions of the RTL, with Yosys
 # (read_slang), chip view (SYNTHESIS defined). Use it to prove that a cleanup
-# does not change behaviour.
+# does not change behaviour. The DPE blocks top does not instantiate yet are
+# tops of their own (leq_tops.sv): dpe_wg_encryptor, dpe_wg_decryptor; their
+# generated ChaCha20-Poly1305 cores are black boxes (gen_core_bb.py).
+# LEQ_TOPS="top leq_dpe_wg_encryptor ..." picks the tops (default: all).
 #
 # usage:  bash run-leq.sh <gold 1.hw> <gate 1.hw> [sed script]
 #         LEQ_EXTRA=<file> bash run-leq.sh ... Yosys commands run after equiv_make,
@@ -56,21 +59,44 @@ HERE=$(cd "$(dirname "$0")" && pwd)
 . "$HERE/sources.sh"
 GOLD=$(cd "$1" && pwd); GATE=$(cd "$2" && pwd); MAP=${3:-}
 BLD=$(cd "$HERE/.." && pwd)
-TOP=top
 YOSYS=${YOSYS:-yosys}
 YOSYS_CONFIG=${YOSYS_CONFIG:-yosys-config}
 YOSYS_ARGS=${YOSYS_ARGS:-}
 PYTHON=${PYTHON:-python3}
 PRIMS="PLLE2_BASE BUFG IBUFGDS BUFGMUX BUFIO BUFIO2 BUFR ODDR ODDR2"
+# The generated ChaCha20-Poly1305 cores are black boxes too (the same files
+# on both sides; their proof against the Python source is PipelineC#398)
+GEN=$BLD/pipelinec_build/generated-files
+CORES="chacha20poly1305_encrypt chacha20poly1305_decrypt"
+# The tops: the design, and the DPE blocks it does not instantiate yet
+# (leq_tops.sv wraps each, a top cannot have interface ports). Not yet:
+# dpe_egress_ip_lookup (its CSR side predates the single routing_table
+# regfile) and dpe_wg_disassembler (does not compile); LEQ_TOPS adds them
+TOPS=${LEQ_TOPS:-top leq_dpe_wg_encryptor leq_dpe_wg_decryptor}
 W=$(mktemp -d); cd "$W"
 
 "$PYTHON" "$HERE/gen_xilinx_bb.py" "$("$YOSYS_CONFIG" --datdir)/xilinx" bb.sv $PRIMS >/dev/null
+for c in $CORES; do "$PYTHON" "$HERE/gen_core_bb.py" "$GEN/$c.v" $c >> bb.sv; done
+PRIMS="$PRIMS $CORES"
 
-files() {  # $1 = 1.hw dir
-  echo bb.sv $(design_rtl "$1" "$BLD" | tr '\n' ' ')
+files() {  # $1 = 1.hw dir; the design, and what $TOP adds to it
+  local x=""
+  case $TOP in
+    top) ;;
+    leq_dpe_wg_encryptor) x="ip.dpe/dpe_wg_encryptor.sv ip.infra/dpe_if_pipeline.sv" ;;
+    leq_dpe_wg_decryptor) x="ip.dpe/dpe_wg_decryptor.sv ip.infra/dpe_if_pipeline.sv" ;;
+    leq_dpe_egress_ip_lookup) x="ip.dpe/dpe_egress_ip_lookup.sv ip.dpe/dpe_route_mem.sv" ;;
+    *) echo "run-leq.sh: no files for top $TOP" >&2 ;;
+  esac
+  [ "$TOP" = top ] || x="$x $HERE/leq_tops.sv"
+  echo bb.sv $(design_rtl "$1" "$BLD" | tr '\n' ' ') \
+    $(for f in $x; do case $f in /*) printf '%s ' "$f" ;; *) printf '%s ' "$1/$f" ;; esac; done)
 }
 BB=$(for p in $PRIMS; do printf 't:%s ' $p; done)
-READ="read_slang -D SYNTHESIS -D SYN_YOSYS_BUG --top $TOP -I $BLD/sw_build"
+
+prove() {  # the LEQ of one top ($TOP), in its own directory
+mkdir -p "$W/$TOP"; cd "$W/$TOP"; cp "$W/bb.sv" .
+READ="read_slang -D SYNTHESIS -D SYN_YOSYS_BUG -D LEQ_TOP_$TOP --top $TOP -I $BLD/sw_build"
 PREP="hierarchy -top $TOP; proc; flatten; memory -nomap; async2sync"
 
 REN=""
@@ -114,7 +140,7 @@ EOF
   "$YOSYS" $YOSYS_ARGS -q -l eq.log eq.ys >/dev/null || rc=$?
   grep -E "Found [0-9]+ .equiv|Of those cells|successfully proven|^ERROR" eq.log | tail -3
   grep "Unproven" eq.log | sed -E 's/.*: .([^ ]*)_gold.*/\1/; s/\[[0-9]+\]//g' | sort | uniq -c
-  echo "log: $W/eq.log"
+  echo "log: $PWD/eq.log"
   # Pass only if Yosys got through equiv_status and proved every $equiv cell
   unproven=$(sed -nE 's/.*Of those cells [0-9]+ are proven and ([0-9]+) are unproven.*/\1/p' eq.log | tail -1)
   [ $rc -eq 0 ] && [ -n "$unproven" ] && [ "$unproven" -eq 0 ]
@@ -162,7 +188,7 @@ hier() {
   proven=$(grep -c "Equivalence successfully proven" hier.log)
   echo "modules proven: $proven of $n"
   grep -m3 "^ERROR" hier.log || true
-  echo "log: $W/hier.log"
+  echo "log: $PWD/hier.log"
   [ $rc -eq 0 ] && [ "$proven" -eq "$n" ]
 }
 
@@ -183,11 +209,22 @@ case $MODE in
     fi ;;
   *) echo "LEQ_MODE must be auto, flat or hier (got \"$MODE\")"; exit 2 ;;
 esac
-if [ $ok -ne 1 ]; then
-  echo "LEQ: FAILED ($MODE)"
+RESULT="$RESULT
+  $TOP: $([ $ok -eq 1 ] && echo PASS || echo FAILED) ($MODE)"
+[ $ok -eq 1 ]
+}
+
+RESULT=""; fail=0
+for TOP in $TOPS; do
+  echo "== $TOP"
+  prove || fail=1
+done
+echo "LEQ:$RESULT"
+if [ $fail -ne 0 ]; then
+  echo "LEQ: FAILED"
   exit 1
 fi
-echo "LEQ: PASS ($MODE)"
+echo "LEQ: PASS"
 
 # -----------------------------------------------------------------------------
 # Project:     WireGuard-FPGA
