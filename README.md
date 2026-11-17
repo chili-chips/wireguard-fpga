@@ -11,7 +11,7 @@ SPDX-License-Identifier: BSD-3-Clause
 [![PipelineC:YES](https://badgen.net/badge/PipelineC/YES/green)](3.build/pipelinec_build)
 [![PypelineHDL+Sim:YES](https://badgen.net/badge/PypelineHDL%2BSim/YES/green)](3.build/pypeline_build)
 [![PeakRDL:YES](https://badgen.net/badge/PeakRDL/YES/green)](3.build/csr_build)
-[![eduBOS5:WIP](https://badgen.net/badge/eduBOS5/WIP/orange)](https://github.com/chili-chips/openPCIE/blob/main/2.rtl/0.common.opensource/src/CPU.eduBOS5/README.md)
+[![eduBOS5:YES](https://badgen.net/badge/eduBOS5/YES/green)](https://github.com/chili-chips/openPCIE/blob/main/2.rtl/0.common.opensource/src/CPU.eduBOS5/README.md)
 [![VProc:YES](https://badgen.net/badge/VProc/YES/green)](4.sim/README.md)
 [![WaveCrux:YES](https://badgen.net/badge/WaveCrux/YES/green)](https://wavecrux.app)
 [![JanusHDL:WIP](https://badgen.net/badge/JanusHDL/WIP/orange)](https://que.no/janushdl/)
