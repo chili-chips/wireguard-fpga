@@ -431,6 +431,7 @@ If it was not for **Julian Kemmerer's** unreserved support helping us move our t
 | PipelineC (Pypeline) | [PipelineC#396](https://github.com/JulianKemmerer/PipelineC/issues/396) | feature: auto-pipeliner aware of DSP48 boundaries, to absorb its registers into the DSP48 ([#37](https://github.com/chili-chips/wireguard-fpga/issues/37)) | open |
 | PipelineC (Pypeline) | [PipelineC#397](https://github.com/JulianKemmerer/PipelineC/issues/397) | feature: faster sweep, with less repeated whole-design synthesis ([#38](https://github.com/chili-chips/wireguard-fpga/issues/38)) | open |
 | JanusHDL | [#1](https://github.com/chili-chips/wireguard-fpga/issues/1) | 0.17.0: what simulates and what does not | open |
+| JanusHDL | [#41](https://github.com/chili-chips/wireguard-fpga/issues/41) | 0.17.0: a member of a struct-typed signal in an interface names nothing | open |
 | openXC7 nextpnr-xilinx | [nextpnr-xilinx#75](https://github.com/openXC7/nextpnr-xilinx/issues/75) | `BUFGMUX` not supported (legacy toolchain) | closed (fixed, [nextpnr-xilinx#81](https://github.com/openXC7/nextpnr-xilinx/pull/81)) |
 | openXC7 nextpnr-xilinx | [nextpnr-xilinx#74](https://github.com/openXC7/nextpnr-xilinx/issues/74) | `IBUFGDS` not supported (legacy toolchain) | closed |
 | openXC7 nextpnr-xilinx | [nextpnr-xilinx#73](https://github.com/openXC7/nextpnr-xilinx/issues/73) | `IOBUFGDS`, `PLLE2_BASE` not supported (legacy toolchain) | closed |
