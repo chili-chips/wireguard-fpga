@@ -21,7 +21,11 @@
 #      ports (run-format-align.py; Verible aligns each group on its own);
 #      an interface port, which has no direction, starts in the direction column;
 #   0. no CR (^M) in these files (removed unless --check);
-#   3. no ?: in a port connection (reported, not fixed).
+#   3. no ?: in a port connection (reported, not fixed);
+#   4. package imports (reported, not fixed): a module's or interface's
+#      imports in its header (module m import p::*; (...)), not after the port
+#      list; only wildcard imports (import p::*;), no selective ones
+#      (import p::name;); no p:: prefix on a name outside an import line.
 #
 # usage:  bash run-format.sh            format every RTL file in place
 #         bash run-format.sh --check    only report the files that are not
@@ -224,7 +228,47 @@ port_out=$(perl -e '
 [ -n "$port_out" ] && printf '%s\n' "$port_out"
 np=$(printf '%s' "$port_out" | grep -c '?:')
 echo "-- port connections: $np with ?:"
-[ $bad -eq 0 ] && [ $ncr -eq 0 ] && [ $nf -eq 0 ] && [ $nl -eq 0 ] && [ $nc -eq 0 ] && [ $np -eq 0 ]
+
+# Package imports: in the header, wildcard only, no p:: prefixes. Reported in
+# both modes: moving an import or dropping a prefix is a manual edit.
+imp_out=$(python3 - "${FILES[@]}" <<'PY'
+import re, sys
+files = sys.argv[1:]
+
+def code(f):  # the file without comments, line numbers kept
+    s = open(f, encoding='utf-8', errors='replace').read()
+    s = re.sub(r'/\*.*?\*/', lambda m: re.sub(r'[^\n]', ' ', m.group(0)), s, flags=re.S)
+    return re.sub(r'//[^\n]*', '', s).split('\n')
+
+pkgs = {m for f in files for l in code(f) for m in re.findall(r'^\s*package\s+(\w+)\s*;', l)}
+for f in files:
+    name = f.split('/')[-1]
+    where = None  # 'header' from 'module m' to the end of its port list, then 'body'
+    for n, l in enumerate(code(f), 1):
+        if re.match(r'\s*(module|interface)\s+\w+', l):
+            where = 'body' if re.search(r';\s*$', l) else 'header'
+        elif where == 'header' and re.match(r'\s*\)\s*;', l):
+            where = 'body'
+        elif re.match(r'\s*end(module|interface)\b', l):
+            where = None
+        imp = re.match(r'\s*import\s+(.*);', l)
+        if imp:
+            for item in imp.group(1).split(','):
+                if not item.strip().endswith('::*'):
+                    print(f'selective import ({item.strip()}): {name}:{n}')
+            if where == 'body':
+                print(f'import after the port list: {name}:{n}')
+            continue
+        for p in re.findall(r'\b(\w+)::\w', l):
+            if p in pkgs or p.endswith('_pkg'):
+                print(f'{p}:: prefix (import it in the header): {name}:{n}')
+PY
+)
+[ -n "$imp_out" ] && printf '%s\n' "$imp_out"
+ni=$(printf '%s' "$imp_out" | grep -c ':[0-9]')
+echo "-- package imports: $ni finding(s)"
+[ $bad -eq 0 ] && [ $ncr -eq 0 ] && [ $nf -eq 0 ] && [ $nl -eq 0 ] && [ $nc -eq 0 ] && [ $np -eq 0 ] &&
+  [ $ni -eq 0 ]
 
 # -----------------------------------------------------------------------------
 # Project:     WireGuard-FPGA

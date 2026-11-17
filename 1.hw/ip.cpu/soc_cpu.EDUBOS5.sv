@@ -33,7 +33,9 @@
 //   `define SOC_EDUBOS5_3STG selects the 3-stage pipeline (default 2-stage).
 //==========================================================================
 
-module soc_cpu #(
+module soc_cpu
+  import edubos5_pkg::*;
+#(
     parameter logic [31:0] ADDR_RESET     = 32'h0000_0000,
     parameter int          NUM_WORDS_IMEM = 8192
 ) (
@@ -57,32 +59,32 @@ module soc_cpu #(
 `endif
 
   // instruction port
-  edubos5_pkg::cpu_pc_t          imem_addr;
-  logic                          imem_vld;
-  logic                   [31:0] imem_rdat;
+  cpu_pc_t          imem_addr;
+  logic             imem_vld;
+  logic      [31:0] imem_rdat;
 
   // data port
-  edubos5_pkg::cpu_addr_t        dmem_addr;
-  edubos5_pkg::we_bs_t           dmem_we;
-  logic                   [31:0] dmem_wdat;
-  logic                   [31:0] dmem_rdat;
-  logic                          dmem_vld;
-  logic                          dmem_rdy;
-  logic                   [ 1:0] NC_dmem_addr;  // byte offset: dmem_we has it
+  cpu_addr_t        dmem_addr;
+  we_bs_t           dmem_we;
+  logic      [31:0] dmem_wdat;
+  logic      [31:0] dmem_rdat;
+  logic             dmem_vld;
+  logic             dmem_rdy;
+  logic      [ 1:0] NC_dmem_addr;  // byte offset: dmem_we has it
 
   // IMEM space: data loads from IMEM port B
-  logic                          is_imem;
-  logic                          imem_load;
-  logic                          imem_load_rdy;
-  logic                   [31:0] imem_load_rdat;
+  logic             is_imem;
+  logic             imem_load;
+  logic             imem_load_rdy;
+  logic      [31:0] imem_load_rdat;
 
   // BUS space: a load's ready, and a store's (STORE_WAITS_RDY: a store holds
   // its request until ready, e.g. while the UART has the bus)
-  logic                          bus_load;
-  logic                          bus_load_wait;
-  logic                          bus_load_rdy;
-  logic                          bus_store_rdy;
-  logic                          imem_store;  // IMEM is written only by the UART: dropped
+  logic             bus_load;
+  logic             bus_load_wait;
+  logic             bus_load_rdy;
+  logic             bus_store_rdy;
+  logic             imem_store;  // IMEM is written only by the UART: dropped
 
   assign NC_dmem_addr = dmem_addr[1:0];
 

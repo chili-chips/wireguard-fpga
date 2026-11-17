@@ -197,7 +197,7 @@ IEEE 1800-2009 SystemVerilog, the same rules as on [openPCIE](https://github.com
 
 - **Declare and size once:** widths, constants and types live in a `_pkg` (`soc_pkg.sv`, `dpe_pkg.sv`, the generated `csr_pkg.sv`); no module redeclares them. Every parameter has a type (`int`, `logic [N:0]`).
 - **Fewer, richer ports:** interfaces (`soc_if`, `dpe_if`, `gmii_if`) and struct-typed ports, not many scalars. Each CSR client drives only its own sub-struct of `csr__in_t`, never the whole struct.
-- **Packages:** `import` right after the module name, no package prefix on every use.
+- **Packages:** `import p::*;` in the module or interface header, right after its name, never after the port list; wildcard only, no selective `import p::name;`; no `p::` prefix on a use. `run-format.sh --check` reports all three.
 - **Case:** signals and ports lower case, constants UPPER CASE (parameters, localparams, enum values, macros). Only vendor primitive pins (`PLLE2_BASE`, `BUFG`, ...) keep vendor names.
 - **Procedural blocks:** `always_ff` for flip-flops, `always_comb` for combinational logic, never plain `always`. `unique case` for parallel muxes whose items cover every value, `unique0 case` where no item may match, `priority case` for priority encoders: every `case` has one of them. Keep a sensible `default`, also in a `unique case` whose items cover every value (slang's case-redundant-default is waived for it); only a `unique0 case` has none. No inferred latches: every variable an `always_comb` assigns gets a default at its top. An `if`/`else if` chain that tests one selector is a `unique case`.
 
