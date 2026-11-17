@@ -9,3 +9,9 @@ SRC_F  = tb.filelist
 SRC    = tb.sv
 
 include ../sim.mk
+
+# Self-checking: the frames read from test1.pcap must come back out of the
+# writer the same (timestamps aside; a packet captured short at its wire length)
+CHECK = @python3 ../pcap_same.py --replay test1.pcap output/test2.pcap \
+	&& echo "RESULT: PASS (test1.pcap through reader and writer)" \
+	|| { echo "RESULT: FAIL (output/test2.pcap differs from test1.pcap)"; exit 1; }

@@ -58,7 +58,7 @@ module tb;
    );
 
    dpe_pcapwriter #(
-	   .PCAP_FILENAME("../test2.pcap")
+	   .PCAP_FILENAME("test2.pcap")  // in output/
    ) pcapwr (
 	   .inp(stream)
    );

@@ -72,7 +72,6 @@ module pcapwriter#
 
 
     logic [7:0] x = packet_buffer[i];
-    logic finished = 0;
     logic first_sop = 0;
 
     //timer in picoseconds
@@ -113,23 +112,20 @@ module pcapwriter#
 	        end
             //end
 
+	    // Write the packet in its last beat's clock: a write one clock later
+	    // took the next packet's first beat along when it came at once
 	    if(to_writer_avalon.eop || to_writer_axis.last) begin
-                finished <= 1;
+                $fwrite(file, "%u%u%u%u", 32'd0, timestamp, pktSz, pktSz);
+	        for(i=0; i < pktSz; i=i+1) begin
+                    $fwrite(file, "%c", packet_buffer[i]);
+	        end
+	        $fflush(file);
+
+	        pktSz = 0;
+                first_sop <= 0;
             end
 
 	end
-
-        if (finished) begin
-            $fwrite(file, "%u%u%u%u", 32'd0, timestamp, pktSz, pktSz);
-	    for(i=0; i < pktSz; i=i+1) begin
-                $fwrite(file, "%c", packet_buffer[i]);
-	    end
-	    $fflush(file);
-
-	    pktSz = 0;
-            finished <= 0;
-            first_sop <= 0;
-        end
     end
     /* verilator lint_on BLKSEQ */
 
