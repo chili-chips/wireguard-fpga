@@ -45,11 +45,10 @@ module tb;
    import dpe_pkg::*;
 
    // Constants
-   localparam CLK_PERIOD = 12_500;
 
    // Clock and reset signals
-   logic clk = 0;
-   logic rst = 1;
+   logic clk;
+   logic rst;
 
    // Interfaces
    dpe_if inp(.clk(clk), .rst(rst));
@@ -77,29 +76,39 @@ module tb;
    };
 
    // Clock generation
-   always #((CLK_PERIOD/2) * 1ps) clk <= ~clk;
+   // 80 MHz at 1 ns precision: halves of 6, 6, 7, 6 ns, 12.5 ns on average
+   initial begin
+      clk = 1'b0;
+      forever begin
+         #6ns clk = 1'b1;
+         #6ns clk = 1'b0;
+         #7ns clk = 1'b1;
+         #6ns clk = 1'b0;
+      end
+   end
 
    // DUT instantiation
    chacha20poly1305_encrypt DUT (
       .clk_80p0(clk),
-      .key(256'h9F9E9D9C9B9A999897969594939291908F8E8D8C8B8A89888786858483828180),
-      .nonce(96'h474645444342414000000007),
-      .aad(256'h0000006174616420646574616369746E6568747561206C616E6F697469646441),
-      .aad_len(8'd29),
-      .s_axis_tdata(inp.tdata),
-      .s_axis_tkeep(inp.tkeep),
-      .s_axis_tlast(inp.tlast),
-      .s_axis_tvalid(inp.tvalid),
-      .m_axis_tready(outp.tready),
-      .s_axis_tready(inp.tready),
-      .m_axis_tdata(outp.tdata),
-      .m_axis_tkeep(outp.tkeep),
-      .m_axis_tlast(outp.tlast),
-      .m_axis_tvalid(outp.tvalid)
+      .encrypt_key(256'h9F9E9D9C9B9A999897969594939291908F8E8D8C8B8A89888786858483828180),
+      .encrypt_nonce(96'h474645444342414000000007),
+      .encrypt_aad(256'h0000006174616420646574616369746E6568747561206C616E6F697469646441),
+      .encrypt_aad_len(8'd29),
+      .encrypt_s_axis_tdata(inp.tdata),
+      .encrypt_s_axis_tkeep(inp.tkeep),
+      .encrypt_s_axis_tlast(inp.tlast),
+      .encrypt_s_axis_tvalid(inp.tvalid),
+      .encrypt_m_axis_tready(outp.tready),
+      .encrypt_s_axis_tready(inp.tready),
+      .encrypt_m_axis_tdata(outp.tdata),
+      .encrypt_m_axis_tkeep(outp.tkeep),
+      .encrypt_m_axis_tlast(outp.tlast),
+      .encrypt_m_axis_tvalid(outp.tvalid)
    );
 
    // Main stimulus process
    initial begin
+      rst = 1;
       // Initialize input interface
       inp.tvalid = 0;
       inp.tlast = 0;
@@ -112,17 +121,17 @@ module tb;
       outp.tready = 1;
 
       // Reset assertion
-      #((CLK_PERIOD * 4) * 1ps);
+      repeat (4) @(negedge clk);
       @(posedge clk);
-      #1ps;
+      @(negedge clk);
       rst = 0;
-      #((CLK_PERIOD) * 1ps);
+      @(negedge clk);
 
       // Input stimulus
       begin
          @(posedge clk);
          // Send packet 0
-         #1ps;
+         @(negedge clk);
          inp.tvalid = 1;
          for (int i = 0; i < 4; i++) begin
             inp.tdata = packet_data[0][i];
@@ -130,7 +139,7 @@ module tb;
             inp.tlast = (i == 3);
             @(posedge clk);
             while (!inp.tready) @(posedge clk);
-            #1ps;
+            @(negedge clk);
          end
          inp.tvalid = 0;
          inp.tlast = 0;
@@ -144,7 +153,7 @@ module tb;
             inp.tlast = (i == 4);
             @(posedge clk);
             while (!inp.tready) @(posedge clk);
-            #1ps;
+            @(negedge clk);
          end
          inp.tvalid = 0;
          inp.tlast = 0;
@@ -153,22 +162,24 @@ module tb;
       end
 
       $display("Stimulus completed successfully");
-      #((CLK_PERIOD * 200) * 1ps);
+      repeat (200) @(negedge clk);
       $finish(2);
    end
 
    // Output ready control process
    initial begin
       @(posedge clk);
-      #1ps;
+      @(negedge clk);
       outp.tready = 1;
    end
 
    // Monitor process
-   int expected_data_count = 0;
+   int expected_data_count;
 
    always @(posedge clk) begin
-      if (!rst) begin
+      if (rst) begin
+         expected_data_count <= 0;
+      end else begin
          if (outp.tvalid && outp.tready) begin
             expected_data_count <= expected_data_count + 1;
 

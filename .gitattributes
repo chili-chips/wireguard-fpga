@@ -72,7 +72,6 @@
 4.sim/models/cosim/** linguist-vendored=true
 4.sim/models/rv32/** linguist-vendored=true
 4.sim/models/udpIpPg/** linguist-vendored=true
-4.sim/models/sdr_sdram/** linguist-vendored=true
 4.sim/models/no-change/** linguist-vendored=true
 
 # Generated: PipelineC/PeakRDL output, sv2v conversion, build outputs

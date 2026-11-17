@@ -44,11 +44,9 @@
 module bfm_ethernet
 #(parameter                            START_NODE     = 1,
   parameter                            NUM_PORTS      = 4,
-  parameter                            MDIO_BUFF_ADDR = 32'h50000000,
-  parameter                            RGMII          = 1)
+  parameter                            MDIO_BUFF_ADDR = 32'h50000000)
 (
   input                                clk,
-  input                                clkx2,
   input                                arst_n,
 
   // GMII interface
@@ -92,47 +90,14 @@ generate
   for (UDP = 0; UDP < NUM_PORTS; UDP++)
   begin
 
-    if (RGMII)
-    begin:gen_rgmii
-      // When RGMII, instantiate convertor and use gmii_if.tx[3:0], gmii_if.rdx[3:0], gmii_if.txen and
-      // gmii_if.rxdv for the RGMI signalling.
-      gmii_rgmii_conv conv
-      (
-        .clk                           (clk),
-        .clkx2                         (clkx2),
+    // GMII, wired straight through to udpIpPg
+    assign gmii[UDP].rxd               = udp_gmii_txd[UDP];
+    assign gmii[UDP].rxdv              = udp_gmii_txen[UDP];
+    assign gmii[UDP].rxer              = udp_gmii_txer[UDP];
 
-        // GMII to RGMII
-        .gmiitxd                       (udp_gmii_txd[UDP]),
-        .gmiitxen                      (udp_gmii_txen[UDP]),
-        .gmiitxer                      (udp_gmii_txer[UDP]),
-
-        .rgmiitxd                      (gmii[UDP].rxd[3:0]),
-        .rgmiitxctl                    (gmii[UDP].rxdv),
-
-        // RGMII to GMII
-        .rgmiirxd                      (gmii[UDP].txd[3:0]),
-        .rgmiirxctl                    (gmii[UDP].txen),
-
-        .gmiirxd                       (udp_gmii_rxd[UDP]),
-        .gmiirxdv                      (udp_gmii_rxdv[UDP]),
-        .gmiirxer                      (udp_gmii_rxer[UDP])
-      );
-
-      // Tie off unused outputs
-      assign gmii[UDP].rxd[7:4]        = '0;
-      assign gmii[UDP].rxer            = '0;
-    end
-    else
-    begin:gen_gmii
-       // When in GMII mode, wire interface straight through to udpIpPg
-       assign gmii[UDP].rxd            = udp_gmii_txd[UDP];
-       assign gmii[UDP].rxdv           = udp_gmii_txen[UDP];
-       assign gmii[UDP].rxer           = udp_gmii_txer[UDP];
-
-       assign udp_gmii_rxd[UDP]        = gmii[UDP].txd;
-       assign udp_gmii_rxdv[UDP]       = gmii[UDP].txen;
-       assign udp_gmii_rxer[UDP]       = gmii[UDP].txer;
-    end
+    assign udp_gmii_rxd[UDP]           = gmii[UDP].txd;
+    assign udp_gmii_rxdv[UDP]          = gmii[UDP].txen;
+    assign udp_gmii_rxer[UDP]          = gmii[UDP].txer;
 
     // UDP/IPv4 ethernet BFM
     udp_ip_pg #(

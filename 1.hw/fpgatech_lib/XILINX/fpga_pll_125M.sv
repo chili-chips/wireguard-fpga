@@ -58,12 +58,12 @@ module fpga_pll_125M (
   initial begin
     eth_pll_clk    = 1'b0;
     eth_pll_locked = 1'b0;
-    #25_000ps;
+    #25ns;
     eth_pll_locked = 1'b1;
   end
 
   always begin
-    #4_000ps eth_pll_clk = ~eth_pll_clk;
+    #4ns eth_pll_clk = ~eth_pll_clk;
   end
 
 `else

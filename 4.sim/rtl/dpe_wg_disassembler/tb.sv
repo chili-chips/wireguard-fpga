@@ -45,11 +45,10 @@ module tb;
    import dpe_pkg::*;
 
    // Constants
-   localparam CLK_PERIOD = 12_500;
    
    // Clock and reset signals
-   logic clk = 0;
-   logic rst = 1;
+   logic clk;
+   logic rst;
    logic fcr_idle;
 
    // Interfaces
@@ -108,7 +107,16 @@ module tb;
    };
 
    // Clock generation
-   always #((CLK_PERIOD/2) * 1ps) clk <= ~clk;
+   // 80 MHz at 1 ns precision: halves of 6, 6, 7, 6 ns, 12.5 ns on average
+   initial begin
+      clk = 1'b0;
+      forever begin
+         #6ns clk = 1'b1;
+         #6ns clk = 1'b0;
+         #7ns clk = 1'b1;
+         #6ns clk = 1'b0;
+      end
+   end
 
    // DUT instantiation
    dpe_wg_disassembler DUT (
@@ -119,6 +127,7 @@ module tb;
 
    // Main stimulus process
    initial begin
+      rst = 1;
       // Initialize input interface
       inp.tvalid = 0;
       inp.tlast = 0;
@@ -126,17 +135,17 @@ module tb;
       inp.tdata = '0;
 
       // Reset assertion
-      #((CLK_PERIOD * 4) * 1ps);
+      repeat (4) @(negedge clk);
       @(posedge clk);
-      #1ps;
+      @(negedge clk);
       rst = 0;
-      #((CLK_PERIOD) * 1ps);
+      @(negedge clk);
 
       // Input stimulus
       begin
          @(posedge clk);
          // Send packet 0
-         #1ps;
+         @(negedge clk);
          inp.tvalid = 1;
          for (int i = 0; i < 11; i++) begin
             inp.tuser_bypass_all = 0;
@@ -148,7 +157,7 @@ module tb;
             inp.tlast = (i == 10);
             @(posedge clk);
             while (!inp.tready) @(posedge clk);
-            #1ps;
+            @(negedge clk);
          end
          inp.tvalid = 0;
          inp.tlast = 0;
@@ -166,7 +175,7 @@ module tb;
             inp.tlast = (i == 10);
             @(posedge clk);
             while (!inp.tready) @(posedge clk);
-            #1ps;
+            @(negedge clk);
          end
          inp.tvalid = 0;
          inp.tlast = 0;
@@ -184,7 +193,7 @@ module tb;
             inp.tlast = (i == 10);
             @(posedge clk);
             while (!inp.tready) @(posedge clk);
-            #1ps;
+            @(negedge clk);
          end
          inp.tvalid = 0;
          inp.tlast = 0;
@@ -202,7 +211,7 @@ module tb;
             inp.tlast = (i == 4);
             @(posedge clk);
             while (!inp.tready) @(posedge clk);
-            #1ps;
+            @(negedge clk);
          end
          inp.tvalid = 0;
          inp.tlast = 0;
@@ -210,7 +219,7 @@ module tb;
          inp.tdata = '0;
       end
 
-      #((CLK_PERIOD * 7) * 1ps);
+      repeat (7) @(negedge clk);
       $display("Stimulus completed successfully");
    $finish(2);
    end
@@ -218,31 +227,33 @@ module tb;
    // Output ready control process
    initial begin
       @(posedge clk);
-      #1ps;
+      @(negedge clk);
       outp.tready = 1;
-      #((CLK_PERIOD * 10) * 1ps);
+      repeat (10) @(negedge clk);
       outp.tready = 0;
-      #(CLK_PERIOD * 1ps);
+      @(negedge clk);
       outp.tready = 1;
-      #((CLK_PERIOD * 16) * 1ps);
+      repeat (16) @(negedge clk);
       outp.tready = 0;
-      #((CLK_PERIOD * 2) * 1ps);
+      repeat (2) @(negedge clk);
       outp.tready = 1;
-      /*#((CLK_PERIOD * 4) * 1ps);
+      /*repeat (4) @(negedge clk);
       outp.tready = 0;
-      #((CLK_PERIOD * 2) * 1ps);
+      repeat (2) @(negedge clk);
       outp.tready = 1;
-      #((CLK_PERIOD * 6) * 1ps);
+      repeat (6) @(negedge clk);
       outp.tready = 0;
-      #((CLK_PERIOD * 2) * 1ps);
+      repeat (2) @(negedge clk);
       outp.tready = 1;*/
    end
 
    // Monitor process
-   int expected_data_count = 0;
+   int expected_data_count;
 
    always @(posedge clk) begin
-      if (!rst) begin
+      if (rst) begin
+         expected_data_count <= 0;
+      end else begin
          if (outp.tvalid && outp.tready) begin
             expected_data_count <= expected_data_count + 1;
 

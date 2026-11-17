@@ -43,12 +43,11 @@
 
 module tb;
     // Constants
-    localparam CLK_PERIOD = 12_500;
 
     // Clock and reset signals
-    logic clk = 0;
-    logic rst = 1;
-    logic pause = 0;
+    logic clk;
+    logic rst;
+    logic pause;
 
     // Interfaces
     dpe_if from_cpu(.clk(clk), .rst(rst));
@@ -71,7 +70,16 @@ module tb;
     };
 
     // Clock generation
-    always #((CLK_PERIOD/2) * 1ps) clk <= ~clk;
+    // 80 MHz at 1 ns precision: halves of 6, 6, 7, 6 ns, 12.5 ns on average
+    initial begin
+       clk = 1'b0;
+       forever begin
+          #6ns clk = 1'b1;
+          #6ns clk = 1'b0;
+          #7ns clk = 1'b1;
+          #6ns clk = 1'b0;
+       end
+    end
 
     // DUT instantiation
     dpe_multiplexer DUT (
@@ -87,6 +95,8 @@ module tb;
 
     // Main stimulus process
     initial begin
+        rst = 1;
+        pause = 0;
         // Initialize all input interfaces
         from_cpu.tvalid = 0;
         from_cpu.tlast = 0;
@@ -114,18 +124,18 @@ module tb;
         from_eth_4.tdata = '0;
 
         // Reset assertion
-        #((CLK_PERIOD * 4) * 1ps);
+        repeat (4) @(negedge clk);
         @(posedge clk);
-        #1ps;
+        @(negedge clk);
         rst = 0;
-        #((CLK_PERIOD) * 1ps);
+        @(negedge clk);
 
         // Start all stimulus processes in parallel
         fork
             // Input 0 stimulus
             begin
                 @(posedge clk);
-                #1ps;
+                @(negedge clk);
                 from_cpu.tvalid = 1;
                 for (int i = 0; i < 6; i++) begin
                     from_cpu.tdata = '0;
@@ -134,7 +144,7 @@ module tb;
                     from_cpu.tlast = (i == 5);
                     @(posedge clk);
                     while (!from_cpu.tready) @(posedge clk);
-                    #1ps;
+                    @(negedge clk);
                 end
                 from_cpu.tvalid = 0;
                 from_cpu.tlast = 0;
@@ -143,7 +153,7 @@ module tb;
             // Input 1 stimulus
             begin
                 @(posedge clk);
-                #1ps;
+                @(negedge clk);
                 from_eth_1.tvalid = 1;
                 for (int i = 0; i < 4; i++) begin
                     from_eth_1.tdata = '0;
@@ -152,7 +162,7 @@ module tb;
                     from_eth_1.tlast = (i == 3);
                     @(posedge clk);
                     while (!from_eth_1.tready) @(posedge clk);
-                    #1ps;
+                    @(negedge clk);
                 end
                 from_eth_1.tvalid = 0;
                 from_eth_1.tlast = 0;
@@ -161,7 +171,7 @@ module tb;
             // Input 2 stimulus
             begin
                 @(posedge clk);
-                #1ps;
+                @(negedge clk);
                 from_eth_2.tvalid = 1;
                 for (int i = 0; i < 5; i++) begin
                     from_eth_2.tdata = '0;
@@ -170,7 +180,7 @@ module tb;
                     from_eth_2.tlast = (i == 4);
                     @(posedge clk);
                     while (!from_eth_2.tready) @(posedge clk);
-                    #1ps;
+                    @(negedge clk);
                 end
                 from_eth_2.tvalid = 0;
                 from_eth_2.tlast = 0;
@@ -179,7 +189,7 @@ module tb;
             // Input 3 stimulus
             begin
                 @(posedge clk);
-                #1ps;
+                @(negedge clk);
                 from_eth_3.tvalid = 1;
                 for (int i = 0; i < 4; i++) begin
                     from_eth_3.tdata = '0;
@@ -188,7 +198,7 @@ module tb;
                     from_eth_3.tlast = (i == 3);
                     @(posedge clk);
                     while (!from_eth_3.tready) @(posedge clk);
-                    #1ps;
+                    @(negedge clk);
                 end
                 from_eth_3.tvalid = 0;
                 from_eth_3.tlast = 0;
@@ -197,7 +207,7 @@ module tb;
             // Input 4 stimulus
             begin
                 @(posedge clk);
-                #1ps;
+                @(negedge clk);
                 from_eth_4.tvalid = 1;
                 for (int i = 0; i < 4; i++) begin
                     from_eth_4.tdata = '0;
@@ -206,14 +216,14 @@ module tb;
                     from_eth_4.tlast = (i == 3);
                     @(posedge clk);
                     while (!from_eth_4.tready) @(posedge clk);
-                    #1ps;
+                    @(negedge clk);
                 end
                 from_eth_4.tvalid = 0;
                 from_eth_4.tlast = 0;
             end
         join
 
-        #((CLK_PERIOD * 7) * 1ps);
+        repeat (7) @(negedge clk);
         $display("Stimulus completed successfully");
     $finish(2);
     end
@@ -221,33 +231,35 @@ module tb;
     // Output ready control process
     initial begin
         @(posedge clk);
-        #1ps;
+        @(negedge clk);
         to_dpe.tready = 1;
-        #((CLK_PERIOD * 7) * 1ps);
+        repeat (7) @(negedge clk);
         to_dpe.tready = 0;
-        #(CLK_PERIOD * 1ps);
+        @(negedge clk);
         to_dpe.tready = 1;
-        #((CLK_PERIOD * 4) * 1ps);
+        repeat (4) @(negedge clk);
         to_dpe.tready = 0;
         pause = 1;
-        #((CLK_PERIOD * 3) * 1ps);
+        repeat (3) @(negedge clk);
         to_dpe.tready = 1;
-        #((CLK_PERIOD * 4) * 1ps);
+        repeat (4) @(negedge clk);
         to_dpe.tready = 0;
-        #((CLK_PERIOD * 2) * 1ps);
+        repeat (2) @(negedge clk);
         to_dpe.tready = 1;
-        #((CLK_PERIOD * 6) * 1ps);
+        repeat (6) @(negedge clk);
         to_dpe.tready = 0;
-        #((CLK_PERIOD * 2) * 1ps);
+        repeat (2) @(negedge clk);
         to_dpe.tready = 1;
         pause = 0;
     end
 
     // Monitor process
-    int expected_data_count = 0;
+    int expected_data_count;
 
     always @(posedge clk) begin
-        if (!rst) begin
+        if (rst) begin
+           expected_data_count <= 0;
+        end else begin
             if (to_dpe.tvalid && to_dpe.tready) begin
                 expected_data_count <= expected_data_count + 1;
 

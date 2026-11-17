@@ -73,35 +73,6 @@ wire        Update;
 reg         UpdateResponse;
 
 // --------------------------------------------
-// Continuous assignments
-// --------------------------------------------
-
-// Ensure there is no race on the update ordering on
-// the rising edge of the clock between updating the
-// inputs and the synchronous process below being called.
-
-`ifndef VERILATOR
-
-wire  [7:0] rxd_int;
-wire  [1:0] rxc_int;
-
-assign #1ps   rxd_int                    = rxd;
-assign #1ps   rxc_int                    = {rxer, rxdv};
-
-`else
-
-reg   [7:0] rxd_int;
-reg   [1:0] rxc_int;
-
-always @(negedge clk)
-begin
-  rxd_int                              <= rxd;
-  rxc_int                              <= {rxer, rxdv};
-end
-
-`endif
-
-// --------------------------------------------
 // Initialisation
 // --------------------------------------------
 
@@ -140,7 +111,7 @@ begin
 
     // Update the TXD low word, if a write, and read the low RXD inputs
     `TXD_ADDR: begin
-      DataIn                           = {24'h0, rxd_int};
+      DataIn                           = {24'h0, rxd};
       if (WE == 1'b1)
       begin
         txd                            = DataOut[7:0];
@@ -148,7 +119,7 @@ begin
     end
     // Update the TXC bits, if a write, and read the RXC inputs
     `TXC_ADDR: begin
-      DataIn                           = {30'h0, rxc_int};
+      DataIn                           = {30'h0, rxer, rxdv};
       if (WE == 1'b1)
       begin
         txen                           = DataOut[0];

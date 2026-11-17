@@ -58,12 +58,17 @@ module fpga_pll_80M (
   initial begin
     sys_pll_clk    = 1'b0;
     sys_pll_locked = 1'b0;
-    #40_000ps;
+    #40ns;
     sys_pll_locked = 1'b1;
   end
 
+  // 12.5 ns does not fit the 1 ns precision: halves of 6, 6, 7, 6 ns give
+  // periods of 12 and 13 ns, exactly 80 MHz on average
   always begin
-    #6_250ps sys_pll_clk = ~sys_pll_clk;
+    #6ns sys_pll_clk = 1'b1;
+    #6ns sys_pll_clk = 1'b0;
+    #7ns sys_pll_clk = 1'b1;
+    #6ns sys_pll_clk = 1'b0;
   end
 
 `else

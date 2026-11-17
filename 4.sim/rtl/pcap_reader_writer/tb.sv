@@ -47,7 +47,6 @@ module tb;
    logic clk;
    logic rst;
    logic pcapfinished;
-   localparam CLOCK_PERIOD = 12500;
 
    dpe_if stream(.clk(clk), .rst(rst));
 
@@ -64,20 +63,27 @@ module tb;
 	   .inp(stream)
    );
 
-   always #((CLOCK_PERIOD/2) * 1ps) clk <= ~clk;
+   // 80 MHz at 1 ns precision: halves of 6, 6, 7, 6 ns, 12.5 ns on average
+   initial begin
+      clk = 1'b0;
+      forever begin
+         #6ns clk = 1'b1;
+         #6ns clk = 1'b0;
+         #7ns clk = 1'b1;
+         #6ns clk = 1'b0;
+      end
+   end
 
-   integer i = 0;
    initial begin
       rst = 1;
-      #((CLOCK_PERIOD) * 1ps);
+      @(negedge clk);
       rst = 0;
 
       while (~pcapfinished) begin
-	      #20ps
-	      i = i + 1;
+	      @(negedge clk);
 	   end
 
-      #((2*CLOCK_PERIOD) * 1ps);
+      repeat (2) @(negedge clk);
 
       $finish;
    end

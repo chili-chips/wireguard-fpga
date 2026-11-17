@@ -43,13 +43,11 @@
 
 module tb;
    // Constants
-   localparam CLK_PERIOD = 8_000;
-	localparam CLK25_PERIOD = 40_000;
    localparam DATA_WIDTH = 128;
 
    // Clock and reset signals
-   logic clk = 0;
-	logic clk25 = 0;
+   logic clk;
+   logic clk25;
    logic rst;
 
    // Interfaces
@@ -118,8 +116,12 @@ module tb;
    };
 
    // Clock generation
-   always #((CLK_PERIOD/2) * 1ps) clk <= ~clk;
-	always #((CLK25_PERIOD/2) * 1ps) clk25 <= ~clk25;
+   initial begin
+      clk   = 1'b0;
+      clk25 = 1'b0;
+   end
+   always #4ns clk = ~clk;  // 125 MHz
+   always #20ns clk25 = ~clk25;  // 25 MHz
 
    // DUT instantiation
    eth_mac_1g_gmii_fifo #(
@@ -198,17 +200,17 @@ module tb;
 
       // Reset assertion
       rst = 1;
-      #((CLK_PERIOD * 4) * 1ps);
+      repeat (4) @(negedge clk);
       @(posedge clk);
-      #1ps;
+      @(negedge clk);
       rst = 0;
-      #((CLK_PERIOD * 50) * 1ps);
+      repeat (50) @(negedge clk);
 
       // Input stimulus
       begin
          @(posedge clk);
          // Send packet 0
-         #1ps;
+         @(negedge clk);
          inp.tvalid = 1;
          for (int i = 0; i < 11; i++) begin
             inp.tdata = packet_data[0][i];
@@ -216,7 +218,7 @@ module tb;
             inp.tlast = (i == 10);
             @(posedge clk);
             while (!inp.tready) @(posedge clk);
-            #1ps;
+            @(negedge clk);
          end
          inp.tvalid = 0;
          inp.tlast = 0;
@@ -231,7 +233,7 @@ module tb;
             inp.tlast = (i == 10);
             @(posedge clk);
             while (!inp.tready) @(posedge clk);
-            #1ps;
+            @(negedge clk);
          end
          inp.tvalid = 0;
          inp.tlast = 0;
@@ -245,7 +247,7 @@ module tb;
             inp.tlast = (i == 10);
             @(posedge clk);
             while (!inp.tready) @(posedge clk);
-            #1ps;
+            @(negedge clk);
          end
          inp.tvalid = 0;
          inp.tlast = 0;
@@ -259,7 +261,7 @@ module tb;
             inp.tlast = (i == 4);
             @(posedge clk);
             while (!inp.tready) @(posedge clk);
-            #1ps;
+            @(negedge clk);
          end
          inp.tvalid = 0;
          inp.tlast = 0;
@@ -267,7 +269,7 @@ module tb;
          inp.tdata = '0;*/
       end
 
-      #((CLK_PERIOD * 5000) * 1ps);
+      repeat (5000) @(negedge clk);
       $display("Stimulus completed successfully");
    $finish(2);
    end
@@ -275,24 +277,26 @@ module tb;
    // Output ready control process
    initial begin
       @(posedge clk);
-      #1ps;
+      @(negedge clk);
       outp.tready = 1;
-      /*#((CLK_PERIOD * 10) * 1ps);
+      /*repeat (10) @(negedge clk);
       outp.tready = 0;
-      #(CLK_PERIOD * 1ps);
+      @(negedge clk);
       outp.tready = 1;
-      #((CLK_PERIOD * 16) * 1ps);
+      repeat (16) @(negedge clk);
       outp.tready = 0;
-      #((CLK_PERIOD * 2) * 1ps);
+      repeat (2) @(negedge clk);
       outp.tready = 1;
       */
    end
 
    // Monitor process
-   int expected_data_count = 0;
+   int expected_data_count;
 
    always @(posedge clk) begin
-      if (!rst) begin
+      if (rst) begin
+         expected_data_count <= 0;
+      end else begin
          if (outp.tvalid && outp.tready) begin
             expected_data_count <= expected_data_count + 1;
 

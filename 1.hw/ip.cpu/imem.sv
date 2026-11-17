@@ -81,12 +81,6 @@ module imem #(
   //  'syn_romstyle' attributes: <block_rom, distributed_rom, logic>
 `endif
 
-  logic [ADDR_MSB:2] raddr_int;
-  logic [ADDR_MSB:2] waddr_int;
-
-  assign raddr_int = raddr[ADDR_MSB:2];
-  assign waddr_int = waddr[ADDR_MSB:2];
-
   initial begin
     `include "imem.INIT.vh"
   end
@@ -95,11 +89,11 @@ module imem #(
   // storage element: Writes and Reads are synchronous
   //------------------------------------------------------------
   always_ff @(posedge clk) begin
-    rdat  <= mem[raddr_int];
-    wrdat <= mem[waddr_int];
+    rdat  <= mem[raddr[ADDR_MSB:2]];
+    wrdat <= mem[waddr[ADDR_MSB:2]];
 
     if (we == 1'b1) begin
-      mem[waddr_int] <= wdat;
+      mem[waddr[ADDR_MSB:2]] <= wdat;
     end
   end
 

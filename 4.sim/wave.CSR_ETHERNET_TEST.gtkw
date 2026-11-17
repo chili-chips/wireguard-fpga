@@ -50,12 +50,10 @@ TOP.tb.dut.u_cpu.bus.wdat[31:0]
 @420
 TOP.tb.bfm_udp.MDIO_BUFF_ADDR
 TOP.tb.bfm_udp.NUM_PORTS
-TOP.tb.bfm_udp.RGMII
 TOP.tb.bfm_udp.START_NODE
 @28
 TOP.tb.bfm_udp.arst_n
 TOP.tb.bfm_udp.clk
-TOP.tb.bfm_udp.clkx2
 @22
 TOP.tb.bfm_udp.halt[3:0]
 @28

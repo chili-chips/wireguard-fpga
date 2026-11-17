@@ -242,7 +242,7 @@ TBFILELIST    = $(TB_NAME).filelist
 WORKDIR          = output
 
 SIMOPTS       = --cc                                          \
-                --timescale 1ns/1ps                           \
+                --timescale 1ns/1ns                           \
                 --exe versimSV.cpp                            \
                 -sv                                           \
                 $(TRACEOPTS) $(TIMINGOPT) $(USRSIMOPTS)       \
@@ -416,7 +416,7 @@ xml2stems: $(TOPFILELIST)
 	        --timing                                      \
 	        -xml-only                                     \
 	        -xml-output tb.xml                            \
-	        --timescale 1ns/1ps                           \
+	        --timescale 1ns/1ns                           \
 	        $(SIMINCLPATHS) $(SIMDEFS)                    \
 	        -F $(TOPFILELIST)                             \
 	        -F $(TBFILELIST)                              \

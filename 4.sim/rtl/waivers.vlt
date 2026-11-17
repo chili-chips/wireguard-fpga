@@ -1,0 +1,9 @@
+// SPDX-FileCopyrightText: 2026 Chili.CHIPS
+//
+// SPDX-License-Identifier: BSD-3-Clause
+
+// Block-level benches: no warnings from third-party and generated code
+// (run-lint.sh checks it with its own waivers)
+`verilator_config
+lint_off -file "*/external_lib/*"
+lint_off -file "*/pipelinec_build/*"

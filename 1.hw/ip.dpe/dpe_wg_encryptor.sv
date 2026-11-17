@@ -462,20 +462,20 @@ module dpe_wg_encryptor (
 // Encryptor core
    chacha20poly1305_encrypt u_chacha20poly1305_encrypt (
       .clk_80p0(inp.clk),
-      .key(encrypt_key),
-      .nonce({32'd0, send_cnt}),
-      .aad(256'd0),
-      .aad_len(8'd0),
-      .s_axis_tdata(to_encrypt.tdata),
-      .s_axis_tkeep(to_encrypt.tkeep),
-      .s_axis_tlast(to_encrypt.tlast),
-      .s_axis_tvalid(to_encrypt.tvalid),
-      .m_axis_tready(from_encrypt.tready),
-      .s_axis_tready(to_encrypt.tready),
-      .m_axis_tdata(from_encrypt.tdata),
-      .m_axis_tkeep(from_encrypt.tkeep),
-      .m_axis_tlast(from_encrypt.tlast),
-      .m_axis_tvalid(from_encrypt.tvalid)
+      .encrypt_key(encrypt_key),
+      .encrypt_nonce({32'd0, send_cnt}),
+      .encrypt_aad(256'd0),
+      .encrypt_aad_len(8'd0),
+      .encrypt_s_axis_tdata(to_encrypt.tdata),
+      .encrypt_s_axis_tkeep(to_encrypt.tkeep),
+      .encrypt_s_axis_tlast(to_encrypt.tlast),
+      .encrypt_s_axis_tvalid(to_encrypt.tvalid),
+      .encrypt_m_axis_tready(from_encrypt.tready),
+      .encrypt_s_axis_tready(to_encrypt.tready),
+      .encrypt_m_axis_tdata(from_encrypt.tdata),
+      .encrypt_m_axis_tkeep(from_encrypt.tkeep),
+      .encrypt_m_axis_tlast(from_encrypt.tlast),
+      .encrypt_m_axis_tvalid(from_encrypt.tvalid)
    );
 
 // Input pipeline

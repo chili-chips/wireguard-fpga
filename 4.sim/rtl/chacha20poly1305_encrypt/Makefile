@@ -17,7 +17,7 @@ export BLD_DIR HW_SRC TB_NAME
 
 #------------------------
 .PHONY: all
-all: clean sim wave
+all: clean sim
 
 #------------------------
 clean:
@@ -34,9 +34,10 @@ compile:
 		--timing \
 		--trace-fst \
 		--trace-structs \
-		--timescale 1ns/1ps          \
+		--timescale 1ns/1ns          \
 		--exe versimSV.cpp \
 		--Mdir ./output \
+		../waivers.vlt \
 		+define+SIM_ONLY \
 		$(ARE_TESTS) \
 		-f ${TB_NAME}.filelist \
@@ -50,13 +51,11 @@ sim: compile
 	./V${TB_NAME} | tee sim.log
 
 #------------------------
-wave: xml2stems
+wave:
 	cd output; \
 	gtkwave --saveonexit \
 		--slider-zoom \
-		--stems   ../tb.stems \
 		--logfile sim.log \
-		-rc       ../.gtkwaverc \
 		--dump    wave.fst &
 
 #------------------------
@@ -64,22 +63,6 @@ wave-alt:
 	cd output; \
 	surfer.exe -s ../wave.surfer.ron wave.fst &
 
-#------------------------
-xml2stems:
-	verilator \
-		-Wno-DEPRECATED \
-		--timing \
-		-xml-only \
-		-xml-output tb.xml \
-		--timescale 1ns/1ps \
-		-f ${TB_NAME}.filelist \
-		${TB_NAME}.sv \
-		--top-module ${TB_NAME}
-	xml2stems tb.xml tb.stems
-
-#------------------------
-rtlbrowse: xml2stems
-	rtlbrowse tb.stems
 #------------------------
 
 #=============================================================

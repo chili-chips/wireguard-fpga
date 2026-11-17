@@ -46,11 +46,10 @@ module tb;
    import csr_pkg::*;
 
    // Constants
-   localparam CLK_PERIOD = 12_500;
    
    // Clock and reset signals
-   logic clk = 0;
-   logic rst = 1;
+   logic clk;
+   logic rst;
 
    // Interfaces
    csr_pkg::csr__out_t from_csr;
@@ -79,7 +78,16 @@ module tb;
    };
 
    // Clock generation
-   always #((CLK_PERIOD/2) * 1ps) clk <= ~clk;
+   // 80 MHz at 1 ns precision: halves of 6, 6, 7, 6 ns, 12.5 ns on average
+   initial begin
+      clk = 1'b0;
+      forever begin
+         #6ns clk = 1'b1;
+         #6ns clk = 1'b0;
+         #7ns clk = 1'b1;
+         #6ns clk = 1'b0;
+      end
+   end
 
    // DUT instantiation
    dpe DUT (
@@ -101,6 +109,7 @@ module tb;
 
    // Main stimulus process
    initial begin
+      rst = 1;
       from_csr.dpe.fcr.pause.value = 0;
 
       // Initialize all input interfaces
@@ -150,18 +159,18 @@ module tb;
       from_eth_4.tuser_dst = '0;
 
       // Reset assertion
-      #((CLK_PERIOD * 4) * 1ps);
+      repeat (4) @(negedge clk);
       @(posedge clk);
-      #1ps;
+      @(negedge clk);
       rst = 0;
-      #((CLK_PERIOD) * 1ps);
+      @(negedge clk);
 
       // Start all stimulus processes in parallel
       fork
          // Input 0 stimulus
          begin
             @(posedge clk);
-            #1ps;
+            @(negedge clk);
             from_cpu.tvalid = 1;
             from_cpu.tkeep = '1;
             from_cpu.tuser_dst = DPE_ADDR_ETH_1;
@@ -170,7 +179,7 @@ module tb;
                from_cpu.tlast = (i == 5);
                @(posedge clk);
                while (!from_cpu.tready) @(posedge clk);
-               #1ps;
+               @(negedge clk);
             end
             from_cpu.tvalid = 0;
             from_cpu.tlast = 0;
@@ -179,7 +188,7 @@ module tb;
          // Input 1 stimulus
          begin
             @(posedge clk);
-            #1ps;
+            @(negedge clk);
             from_eth_1.tvalid = 1;
             from_eth_1.tkeep = '1;
             from_eth_1.tuser_dst = DPE_ADDR_CPU;
@@ -188,7 +197,7 @@ module tb;
                from_eth_1.tlast = (i == 3);
                @(posedge clk);
                while (!from_eth_1.tready) @(posedge clk);
-               #1ps;
+               @(negedge clk);
             end
             from_eth_1.tvalid = 0;
             from_eth_1.tlast = 0;
@@ -197,7 +206,7 @@ module tb;
          // Input 2 stimulus
          begin
             @(posedge clk);
-            #1ps;
+            @(negedge clk);
             from_eth_2.tvalid = 1;
             from_eth_2.tkeep = '1;
             from_eth_2.tuser_dst = DPE_ADDR_ETH_3;
@@ -206,7 +215,7 @@ module tb;
                from_eth_2.tlast = (i == 4);
                @(posedge clk);
                while (!from_eth_2.tready) @(posedge clk);
-               #1ps;
+               @(negedge clk);
             end
             from_eth_2.tvalid = 0;
             from_eth_2.tlast = 0;
@@ -215,7 +224,7 @@ module tb;
          // Input 3 stimulus
          begin
             @(posedge clk);
-            #1ps;
+            @(negedge clk);
             from_eth_3.tvalid = 1;
             from_eth_3.tkeep = '1;
             from_eth_3.tuser_dst = DPE_ADDR_ETH_2;
@@ -224,7 +233,7 @@ module tb;
                from_eth_3.tlast = (i == 3);
                @(posedge clk);
                while (!from_eth_3.tready) @(posedge clk);
-               #1ps;
+               @(negedge clk);
             end
             from_eth_3.tvalid = 0;
             from_eth_3.tlast = 0;
@@ -233,7 +242,7 @@ module tb;
          // Input 4 stimulus
          begin
             @(posedge clk);
-            #1ps;
+            @(negedge clk);
             from_eth_4.tvalid = 1;
             from_eth_4.tkeep = '1;
             from_eth_4.tuser_dst = DPE_ADDR_BCAST;
@@ -242,14 +251,14 @@ module tb;
                from_eth_4.tlast = (i == 3);
                @(posedge clk);
                while (!from_eth_4.tready) @(posedge clk);
-               #1ps;
+               @(negedge clk);
             end
             from_eth_4.tvalid = 0;
             from_eth_4.tlast = 0;
          end
       join
 
-      #((CLK_PERIOD * 7) * 1ps);
+      repeat (7) @(negedge clk);
       $display("Stimulus completed successfully");
    $finish(2);
    end
@@ -257,55 +266,55 @@ module tb;
    // Outputs ready control process
    initial begin
       @(posedge clk);
-      #1ps;
+      @(negedge clk);
       to_cpu.tready = 1;
       to_eth_1.tready = 1;
       to_eth_2.tready = 1;
       to_eth_3.tready = 1;
       to_eth_4.tready = 1;
-      #((CLK_PERIOD * 7) * 1ps);
+      repeat (7) @(negedge clk);
       to_cpu.tready = 0;
       to_eth_1.tready = 0;
       to_eth_2.tready = 0;
       to_eth_3.tready = 0;
       to_eth_4.tready = 0;
-      #(CLK_PERIOD * 1ps);
+      @(negedge clk);
       to_cpu.tready = 1;
       to_eth_1.tready = 1;
       to_eth_2.tready = 1;
       to_eth_3.tready = 1;
       to_eth_4.tready = 1;
-      #((CLK_PERIOD * 4) * 1ps);
+      repeat (4) @(negedge clk);
       to_cpu.tready = 0;
       to_eth_1.tready = 0;
       to_eth_2.tready = 0;
       to_eth_3.tready = 0;
       to_eth_4.tready = 0;
-      #((CLK_PERIOD * 3) * 1ps);
+      repeat (3) @(negedge clk);
       to_cpu.tready = 1;
       to_eth_1.tready = 1;
       to_eth_2.tready = 1;
       to_eth_3.tready = 1;
       to_eth_4.tready = 1;
-      #((CLK_PERIOD * 4) * 1ps);
+      repeat (4) @(negedge clk);
       to_cpu.tready = 0;
       to_eth_1.tready = 0;
       to_eth_2.tready = 0;
       to_eth_3.tready = 0;
       to_eth_4.tready = 0;
-      #((CLK_PERIOD * 2) * 1ps);
+      repeat (2) @(negedge clk);
       to_cpu.tready = 1;
       to_eth_1.tready = 1;
       to_eth_2.tready = 1;
       to_eth_3.tready = 1;
       to_eth_4.tready = 1;
-      #((CLK_PERIOD * 6) * 1ps);
+      repeat (6) @(negedge clk);
       to_cpu.tready = 0;
       to_eth_1.tready = 0;
       to_eth_2.tready = 0;
       to_eth_3.tready = 0;
       to_eth_4.tready = 0;
-      #((CLK_PERIOD * 2) * 1ps);
+      repeat (2) @(negedge clk);
       to_cpu.tready = 1;
       to_eth_1.tready = 1;
       to_eth_2.tready = 1;
@@ -314,14 +323,20 @@ module tb;
    end
 
    // Monitor process
-   int expected_data_count0 = 0;
-   int expected_data_count1 = 0;
-   int expected_data_count2 = 0;
-   int expected_data_count3 = 0;
-   int expected_data_count4 = 0;
+   int expected_data_count0;
+   int expected_data_count1;
+   int expected_data_count2;
+   int expected_data_count3;
+   int expected_data_count4;
 
    always @(posedge clk) begin
-      if (!rst) begin
+      if (rst) begin
+         expected_data_count0 <= 0;
+         expected_data_count1 <= 0;
+         expected_data_count2 <= 0;
+         expected_data_count3 <= 0;
+         expected_data_count4 <= 0;
+      end else begin
          if (to_cpu.tvalid && to_cpu.tready) begin
             expected_data_count0 <= expected_data_count0 + 1;
 

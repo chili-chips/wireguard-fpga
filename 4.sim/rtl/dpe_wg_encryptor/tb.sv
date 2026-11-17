@@ -48,7 +48,6 @@ module tb;
    logic rst;
    logic pcapfinished;
    logic fcr_idle;
-   localparam CLOCK_PERIOD = 12500;
 
    dpe_if to_encryptor(.clk(clk), .rst(rst));
    dpe_if from_encryptor(.clk(clk), .rst(rst));
@@ -87,23 +86,31 @@ module tb;
 	   .inp(from_encryptor)
    );
 
-   always #((CLOCK_PERIOD/2) * 1ps) clk <= ~clk;
+   // 80 MHz at 1 ns precision: halves of 6, 6, 7, 6 ns, 12.5 ns on average
+   initial begin
+      clk = 1'b0;
+      forever begin
+         #6ns clk = 1'b1;
+         #6ns clk = 1'b0;
+         #7ns clk = 1'b1;
+         #6ns clk = 1'b0;
+      end
+   end
 
-   integer i = 0;
    initial begin
       rst = 1;
-      #((CLOCK_PERIOD) * 1ps);
+      @(negedge clk);
       rst = 0;
 
       while (~pcapfinished) begin
-	      #((CLOCK_PERIOD) * 1ps);
+	      @(negedge clk);
 	   end
 
       while (~fcr_idle) begin
-	      #((CLOCK_PERIOD) * 1ps);
+	      @(negedge clk);
 	   end
 
-      #((2*CLOCK_PERIOD) * 1ps);
+      repeat (2) @(negedge clk);
 
       $finish;
    end

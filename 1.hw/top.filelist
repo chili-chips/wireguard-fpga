@@ -72,7 +72,6 @@ ${HW_SRC}/ip.cpu/soc_cpu.EDUBOS5.sv
 # PicoRV32 (the alternative): to switch, uncomment these lines and comment out
 # the eduBOS5 ones above
 #${HW_SRC}/ip.cpu/cpu.PICORV32/picorv32.CHILI.sv
-#${HW_SRC}/ip.cpu/cpu.PICORV32/picorv32.ORIG.sv
 #${HW_SRC}/ip.cpu/soc_cpu.PICORV32.sv
 
 #---DPE

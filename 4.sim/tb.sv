@@ -55,21 +55,21 @@ module tb #(
 //--------------------------------------------------------------
 // Generate clocks and run sim until the test is done (halt_req), or
 // for RUN_SIM_US at most
-   localparam  HALF_CLK_P_PERIOD_PS      =   2_500; // 200MHz
-   localparam  HALF_GMII_PERIOD_PS       =   4_000; // 125MHz
-   localparam  HALF_PERIOD_ETH_TX_PS     =  20_000; // 25 MHz
-   localparam  HALF_PERIOD_OTHER_BFMS_PS =   6_250; // 80 MHz
+// Timescale 1ns/1ns. No 200 MHz board clock: in simulation the PLL models
+// (fpga_pll_80M, fpga_pll_125M) make the system and Ethernet clocks
+// themselves, so clk_p stays 0.
+   localparam  HALF_GMII_PERIOD_NS   =  4;  // 125MHz
+   localparam  HALF_PERIOD_ETH_TX_NS = 20;  // 25 MHz
 
-   localparam  RST_CYLES      = 10;
+   localparam  RST_NS         = 25;  // board reset
    localparam  GMII_RST_CYLES = 10;
    localparam  HALT_TAIL_US   = 10;  // run on after halt_req, for the waves
 
    logic       clk_p, clk_n;
    logic       rst_n;
-   logic       gmiiclk, gmiiclkx2;
+   logic       gmiiclk;
    logic       gmiiarst_n;
    logic       eth_txc;
-   logic       clk_80;
    logic [2:1] key;
    logic       halt_req;  // the UDP test code is done (udpIpPg halt)
 
@@ -77,45 +77,28 @@ module tb #(
       clk_p      = 1'b0;
       rst_n      = 1'b0;
       gmiiclk    = 1'b0;
-      gmiiclkx2  = 1'b0;
       gmiiarst_n = 1'b0;
       eth_txc    = 1'b0;
-      clk_80     = 1'b0;
       key        = 2'b0;
 
       fork
          begin : board_rst_n
-            #(HALF_CLK_P_PERIOD_PS*RST_CYLES * 1ps)
+            #(RST_NS * 1ns)
                rst_n = 1'b1;
          end
 
-         forever begin: clk_p_gen
-            #(HALF_CLK_P_PERIOD_PS * 1ps)
-               clk_p  = ~clk_p;
-         end
-
          forever begin: gmii_clock_gen
-            #(HALF_GMII_PERIOD_PS * 1ps)
+            #(HALF_GMII_PERIOD_NS * 1ns)
                gmiiclk = ~gmiiclk;
          end
 
-         forever begin: gmii_clockx2_gen
-            #(HALF_GMII_PERIOD_PS/2 * 1ps)
-               gmiiclkx2 = ~gmiiclkx2;
-         end
-
          forever begin: eth_txc_gen
-            #(HALF_PERIOD_ETH_TX_PS * 1ps)
+            #(HALF_PERIOD_ETH_TX_NS * 1ns)
                eth_txc = ~eth_txc;
          end
 
-         forever begin: clk_80_gen
-            #(HALF_PERIOD_OTHER_BFMS_PS * 1ps)
-               clk_80 = ~clk_80;
-         end
-
          begin : gmii_arst_n
-            #(HALF_GMII_PERIOD_PS*2*GMII_RST_CYLES * 1ps)
+            #(HALF_GMII_PERIOD_NS*2*GMII_RST_CYLES * 1ns)
                gmiiarst_n = 1'b1;
          end
 
@@ -287,11 +270,11 @@ module tb #(
   verilator_sim_ctrl
   #(
      .NODE                    (15),
-     .CLK_PERIOD_PS           (HALF_CLK_P_PERIOD_PS * 2),
+     .CLK_PERIOD_PS           (12_500),  // 80 MHz on average
      .DISABLE_SIM_CTRL        (DISABLE_SIM_CTRL)
   ) simctrl
   (
-    .clk                      (clk_p),
+    .clk                      (dut.sys_clk),  // the system clock, from the PLL model
     .cycle_count              ()
   );
 
@@ -315,11 +298,6 @@ generate
 `ifdef VERILATOR
     assign mdio[PORT]      =  mdio_en[PORT] ? mdio_out[PORT] : 1'bz;
 `endif
-
-    // Tie off GMII inputs
-    assign gmii[PORT].txen = 1'b0;
-    assign gmii[PORT].txer = 1'b0;
-    assign gmii[PORT].txd  = '0;
   end
 endgenerate
 
@@ -343,12 +321,10 @@ assign gmii[3].txd  = e4_txd;
  bfm_ethernet
    #(.START_NODE                          (ETH_START_NODE),
      .NUM_PORTS                           (NUM_ETH_PORTS),
-     .MDIO_BUFF_ADDR                      (MDIO_BUFF_ADDR),
-     .RGMII                               (0)
+     .MDIO_BUFF_ADDR                      (MDIO_BUFF_ADDR)
    ) bfm_udp
    (
      .clk                                 (gmiiclk),
-     .clkx2                               (gmiiclkx2),
      .arst_n                              (gmiiarst_n),
 
      // GMII interface

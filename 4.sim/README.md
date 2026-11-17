@@ -28,6 +28,7 @@ SPDX-License-Identifier: BSD-3-Clause
   * [_udpIpPg_ Software](#udpippg-software)
   + [System-Level Ethernet Simulation](#system-level-ethernet-simulation)
 * [HAL](#hal)
+* [Simulation speed](#simulation-speed)
 * [Tool Versions](#tool-versions)
 * [References](#references)
 
@@ -41,7 +42,7 @@ The _VProc_ component is wrapped up into an [`soc_cpu.VPROC`](models/README.md#s
 <img src="https://github.com/user-attachments/assets/98cb3a19-11c7-4470-a4e1-41c503429e14" width=800>
 </div>
 
-Shown in the diagram is the Wireguard FPGA top level component (<tt>top</tt>) with the <tt>soc_cpu.VPROC</tt> component instantiated in it as one of three possible selected devices for the soc_cpu. The IMEM write port is connected to the UART for program updates and the <tt>soc_if</tt> from  <tt>soc_cpu.VPROC</tt> is connected to the interconnect fabric (<tt>soc_fabric</tt>), just as for the two RTL components. The test bench around the top level Wireguard component has a driver for the UART (<tt>bfm_uart</tt>) and the four GMII/RGMII interfaces (including MDIO signals) coming from the Wireguard core to some verification IP (`bfm_ethernet`) to drive this signalling. This BFM implementation is based around the [_udpIpPg_](https://github.com/wyvernSemi/udpIpPg) GMII/RGMII VProc based VIP. In addtion there are MDIO slave models for reading and writing over the PHY MDIO signals from Wireguard, and these also read and write to allocated _VProc_ memory for access by _VProc_ `soc_cpu` code. MDIO registers access are displayed to the console as well, for logging purpose, displaying the name of the clause 22 register accessed. Finally the test bench generates clocks and the key press reset that go to the top level's <tt>clk_rst_gen</tt> component (<tt>debounce</tt> is commented out of <tt>top.filelist</tt>).
+Shown in the diagram is the Wireguard FPGA top level component (<tt>top</tt>) with the <tt>soc_cpu.VPROC</tt> component instantiated in it as one of three possible selected devices for the soc_cpu. The IMEM write port is connected to the UART for program updates and the <tt>soc_if</tt> from  <tt>soc_cpu.VPROC</tt> is connected to the interconnect fabric (<tt>soc_fabric</tt>), just as for the two RTL components. The test bench around the top level Wireguard component has a driver for the UART (<tt>bfm_uart</tt>) and the four GMII interfaces (including MDIO signals) coming from the Wireguard core to some verification IP (`bfm_ethernet`) to drive this signalling. This BFM implementation is based around the [_udpIpPg_](https://github.com/wyvernSemi/udpIpPg) GMII VProc based VIP (RGMII support removed: the design uses GMII). In addtion there are MDIO slave models for reading and writing over the PHY MDIO signals from Wireguard, and these also read and write to allocated _VProc_ memory for access by _VProc_ `soc_cpu` code. MDIO registers access are displayed to the console as well, for logging purpose, displaying the name of the clause 22 register accessed. Finally the test bench generates the GMII clocks and the board reset (the PLL models make the system and Ethernet clocks themselves) that go to the top level's <tt>clk_rst_gen</tt> component (<tt>debounce</tt> is commented out of <tt>top.filelist</tt>).
 
 ## VerilatorSimCtrl (interactive run control)
 
@@ -418,10 +419,10 @@ Status with JanusHDL 0.17.0 (preview): **the run stops at elaboration**, on `tdp
 | Where | What JanusHDL 0.17.0 does | Runs |
 |---|---|---|
 | `1.hw/ip.infra/tdp_ram.sv:65,74` | error: `mem` written by two `always_ff` (IEEE 1800 9.2.2.4) | all |
-| `models/udpIpPg/bfm_ethernet.sv:169` | error: `inout` port on one bit of a net is not supported yet | all |
+| `models/udpIpPg/bfm_ethernet.sv:134` | error: `inout` port on one bit of a net is not supported yet | all |
 | `models/bfm_phy_mdio.sv:73` | error: array of strings set from `{...}` is not supported yet | all |
-| `models/udpIpPg/bfm_ethernet.sv:128-134`, `tb.sv:321-323` | no message, wrong result: `gmii[i]` with a genvar `i` is always `gmii[0]`, so ports 2 to 4 receive X | all |
-| `1.hw/ip.cpu/cpu.EDUBOS5/edubos5_rf.sv:32,42`, `1.hw/ip.cpu/imem.sv:102` | error: variable written by an `always_ff` and an `initial` | `CPU=rtl` |
+| `models/udpIpPg/bfm_ethernet.sv:94-100`, `tb.sv:304-318` | no message, wrong result: `gmii[i]` with a genvar `i` is always `gmii[0]`, so ports 2 to 4 receive X | all |
+| `1.hw/ip.cpu/cpu.EDUBOS5/edubos5_rf.sv:32,42`, `1.hw/ip.cpu/imem.sv:96` | error: variable written by an `always_ff` and an `initial` | `CPU=rtl` |
 | `1.hw/ip.cpu/cpu.EDUBOS5/edubos5.sv:211` | error: bit select of a packed union member is not supported yet | `CPU=rtl` |
 
 With scratch copies that work around the four `all` rows, the default run (`BUILD=DEFAULT`) starts: the firmware boots and both UDP nodes send their frame. No frame is received, and the run ends at the time limit. Verilator ends the same test with `All frames received: test done` at 2.002 ms. The cause is not found yet. Speed, on one loaded machine: 1709 s for 2.5 ms, against 178 s for the 2.0 ms of the Verilator executable.
@@ -598,6 +599,21 @@ The firmware source has no co-simulation code but four spots:
 - **C library:** the bare-metal `memcpy`, `strcmp` and friends (`string_bare.c`) give way to the host's.
 - **UART output:** `uart_send_char()` (`uart.c`) prints to the simulation log instead of waiting on the 115200-baud UART. The boot banner would otherwise keep the firmware out of its main loop, which forwards ETH_1 <-> ETH_2 frames, for about 40 ms.
 
+## Simulation speed
+
+The default test, simulation only (`make -f MakefileVProc.mk run` once `make -f MakefileVProc.mk all` has built it). Each run alone, on one PC (Ryzen 9 6900HX, WSL2, Verilator 5.055):
+
+| Run | Before (`24fc84d`) | Now |
+|---|---:|---:|
+| Firmware on the host (`BUILD=DEFAULT`) | 291 s (2.0 ms simulated) | 11 s (3.7 ms simulated) |
+| Firmware on the rv32 ISS (`BUILD=ISS`) | over 900 s, stopped | 12 s |
+| Firmware on the RTL eduBOS5 (`CPU=rtl`) | over 900 s, stopped | 12 s |
+| ISS end time against the RTL core | 1.5% late | 0.02% late |
+
+The Verilator build adds about 20 s when ccache holds the C++ objects, about 2 minutes when it does not. Time the two separately: one cold build hides the change in simulation speed.
+
+The speed comes from VProc's [coroutine patch](#local-changes): before it, every access of a VProc node (the CPU model and the four _udpIpPg_ nodes) switched between two OS threads. The accuracy comes from the measured [ISS timing table](#configuring-iss-timing-model) and bus credit. Before, the default test ended at 2.0 ms: the co-simulated firmware skipped the UART.
+
 ## Tool Versions
 
 | Component | In use | Source |
@@ -607,7 +623,7 @@ The firmware source has no co-simulation code but four spots:
 | VProc **(modified, see below)** | 1.13.4 | [wyvernSemi/vproc](https://github.com/wyvernSemi/vproc) |
 | mem_model | `main` c7b9c62 (1.0.1 + one fix) | [wyvernSemi/mem_model](https://github.com/wyvernSemi/mem_model) |
 | rv32 ISS **(modified, see below)** | 1.3.3 (`774d84fa`) | [wyvernSemi/rv32](https://github.com/wyvernSemi/rv32) |
-| udpIpPg | 1.0.3 | [wyvernSemi/udpIpPg](https://github.com/wyvernSemi/udpIpPg) |
+| udpIpPg **(modified, see below)** | 1.0.3 | [wyvernSemi/udpIpPg](https://github.com/wyvernSemi/udpIpPg) |
 
 Linux/WSL only. [`tools/vip-upgrade.sh`](tools/vip-upgrade.sh) refreshes VProc, mem_model and rv32 from upstream: the HDL, headers and `libcosimlnx.a` in `models/cosim`, the rv32 sources, and the versions `MakefileVProc.mk` clones. It re-applies the local changes below and stops if the rv32 patch no longer applies.
 
@@ -615,14 +631,16 @@ Linux/WSL only. [`tools/vip-upgrade.sh`](tools/vip-upgrade.sh) refreshes VProc, 
 
 | File | Change | Why |
 |---|---|---|
-| VProc `code/` (`models/cosim/vproc-coroutine.patch`, from [openPCIE_BFM](https://github.com/chili-chips/openPCIE_BFM) `01664f0`) | the user code runs as a coroutine on the simulator's thread, not a thread of its own | the default test runs 2.7 times faster, the ISS one 41 s, and every run takes the same time. `MakefileVProc.mk` applies it to its clone, `vip-upgrade.sh` to `libcosimlnx.a` and the headers |
+| VProc `code/` (`models/cosim/vproc-coroutine.patch`, from [openPCIE_BFM](https://github.com/chili-chips/openPCIE_BFM) `01664f0`) | the user code runs as a coroutine on the simulator's thread, not a thread of its own | the default test simulates in 11 s, from 291 s, and the ISS and RTL ones in 12 s, from over 15 minutes ([Simulation speed](#simulation-speed)). `MakefileVProc.mk` applies it to its clone, `vip-upgrade.sh` to `libcosimlnx.a` and the headers |
 | `models/cosim/extradefs.v`, `f_VProc.v`, `f_mem_model.v`, `mem_model.sv` | no `` `timescale``; `Update` a plain non-blocking assignment (no `` `MINDELAY``) | as openPCIE_BFM: the simulator command line gives the timescale |
 | `models/rv32/src/rv32csr_cpu.cpp` (in `models/rv32/rv32-openpcie.patch`) | the timer-compare check in `process_interrupts()` no longer charges cycles | it added 2 cycles to every instruction |
 | `models/rv32/src/rv32i_cpu.cpp` (same patch) | `sw`, `sh` add the store extra cycles | upstream adds the load ones |
 | `models/rv32/usercode/VUserMain0.cpp` | waits for reset release, restarts at the reset vector on a new reset | as the RTL cores do |
 | `models/rv32/usercode/VUserMain0.cpp` | `ISS_BUS_CREDIT=1` (default): bus credit, no fetch/load wait states | an access then costs only its timing-table cycles |
+| `models/udpIpPg/udp_ip_pg.v` | reads `rxd`, `rxer`, `rxdv` directly: no `#1ps` copy, no falling-edge copy for Verilator | no delays in the simulation; VProc reads before the DUT's non-blocking updates of the same edge |
+| `models/udpIpPg/gmii_rgmii_conv.v` | removed, with the RGMII option of `bfm_ethernet.sv` | the design uses GMII |
 | `models/soc_cpu.VPROC.sv` | CPU reset (`bus.arst_n & imem_cpu_rstn`, as the RTL cores) on VProc interrupt bit 3 | for the ISS reset handling |
-| `models/rv32/usercode/rv32_timing_config.h` | eduBOS5 2-stage measured in this SOC ([`2.sw/tests/iss_timing`](../2.sw/tests/iss_timing)): linear 2, jump and taken branch 2, load 5, store 2 | the ISS ends the default test 0.02% after the RTL core (3.7797 vs 3.7789 ms); the old table was 1.5% slow. The other cores keep the original tables |
+| `models/rv32/usercode/rv32_timing_config.h` | eduBOS5 2-stage measured in this SOC ([`2.sw/tests/iss_timing`](../2.sw/tests/iss_timing)): linear 2, jump and taken branch 2, load 5, store 2 | the ISS ends the default test 0.02% after the RTL core (3.7796 vs 3.7789 ms); the old table was 1.5% slow. The other cores keep the original tables |
 
 The patch and the `VUserMain0.cpp` changes come from [openPCIE](https://github.com/chili-chips/openpcie). Bus credit: a load or store to the simulation takes real clocks on the VProc bus. In `soc_cpu.VPROC.sv` VProc samples the ack at a rising edge, and the ack is `bus.rdy` sampled on the falling edge before it. Measured in `wave.fst`: a write takes 1 clock (DMEM and CSR), a CSR read 1, a DMEM read 2. With credit on, the ISS takes them off its next synchronisation.
 
@@ -630,7 +648,11 @@ Two other fixes: `vusermain.cfg` halted the ISS at `0x6c`, the `jal main` in `2.
 
 ### Timescale, delays and the UART
 
-As in our BFMs: no `` `timescale`` in our HDL (third-party and AMD files keep theirs), every `#` delay carries its unit, and the simulator command line gives the timescale (`--timescale 1ns/1ps`).
+As in our BFMs: no `` `timescale`` in our HDL (third-party and AMD files keep theirs), every `#` delay carries its unit, and the simulator command line gives the timescale: `--timescale 1ns/1ns`. Nothing here needs less than 1 ns (no SerDes), so every delay is a whole number of ns:
+
+- The 80 MHz system clock (`fpga_pll_80M.sv`) has halves of 6, 6, 7 and 6 ns: periods of 12 and 13 ns, exactly 80 MHz on average.
+- No 200 MHz board clock: the PLL models make the system and Ethernet clocks themselves, so `tb.sv` holds `clk_p` at 0. `verilator_sim_ctrl` counts system clocks.
+- The only delays left are clock generation and the waits of the test bench and `bfm_uart`. Third party: AMD's `glbl.v` (its start-up reset pulses) and `ODDR.v` (`#1 $finish` on a bad parameter), unchanged.
 
 The co-simulated firmware drives the real UART registers, as on the hardware, with no `VPROC` branch. To keep console output cheap in simulated time, the make files define `UART_SIM_TICK_CLKS=7`: the UART's time base (`soc_pkg.sv`) runs 10 times faster, and `bfm_uart` follows it. `bfm_uart` prints each received line as `UART: ...`.
 
