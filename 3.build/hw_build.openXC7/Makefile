@@ -89,16 +89,17 @@ DESIGN_RTL := $(shell bash -c '. ./sources.sh && design_rtl $(HW_DIR) $(BUILD_DI
 # eth_mac_1g instantiates the MAC control blocks in a generate branch
 # (MAC_CTRL_ENABLE = 0): not in top.filelist, but Yosys reads every module
 MAC_CTRL_SRC = \
-    $(HW_DIR)/external_lib/ethernet/mac_ctrl_rx.v \
-    $(HW_DIR)/external_lib/ethernet/mac_ctrl_tx.v \
-    $(HW_DIR)/external_lib/ethernet/mac_pause_ctrl_rx.v \
-    $(HW_DIR)/external_lib/ethernet/mac_pause_ctrl_tx.v
+    $(HW_DIR)/external_lib/ethernet/mac_ctrl_rx.sv \
+    $(HW_DIR)/external_lib/ethernet/mac_ctrl_tx.sv \
+    $(HW_DIR)/external_lib/ethernet/mac_pause_ctrl_rx.sv \
+    $(HW_DIR)/external_lib/ethernet/mac_pause_ctrl_tx.sv
 
-# Pure Verilog (external_lib): read by Yosys as is, no conversion needed
-PURE_V_FILES = $(filter %.v,$(DESIGN_RTL)) $(MAC_CTRL_SRC)
+# Pure Verilog: read by Yosys as is, no conversion needed (none left: the
+# external_lib files are SystemVerilog now)
+PURE_V_FILES = $(filter %.v,$(DESIGN_RTL))
 
-# SystemVerilog, in top.filelist order
-SV_ORDERED = $(filter %.sv,$(DESIGN_RTL))
+# SystemVerilog, in top.filelist order, then the MAC control blocks
+SV_ORDERED = $(filter %.sv,$(DESIGN_RTL)) $(MAC_CTRL_SRC)
 
 # Xilinx primitives the RTL instantiates (stubs for read_slang)
 XILINX_PRIMS = PLLE2_BASE BUFG IBUFGDS BUFGMUX BUFIO BUFIO2 BUFR ODDR ODDR2

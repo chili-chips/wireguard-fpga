@@ -16,23 +16,23 @@ ${HW_SRC}/ip.infra/dpe_pkg.sv
 #---External AXIS library
 ${HW_SRC}/external_lib/axis/axis_register.sv
 ${HW_SRC}/external_lib/axis/axis_pipeline_register.sv
-${HW_SRC}/external_lib/axis/axis_async_fifo_adapter.v
-${HW_SRC}/external_lib/axis/axis_adapter.v
-${HW_SRC}/external_lib/axis/axis_async_fifo.v
-${HW_SRC}/external_lib/axis/sync_reset.v
+${HW_SRC}/external_lib/axis/axis_async_fifo_adapter.sv
+${HW_SRC}/external_lib/axis/axis_adapter.sv
+${HW_SRC}/external_lib/axis/axis_async_fifo.sv
+${HW_SRC}/external_lib/axis/sync_reset.sv
 ${HW_SRC}/external_lib/axis/axis_fifo.sv
 
 #---External Ethernet library
 ${HW_SRC}/external_lib/ethernet/eth_mac_1g_gmii_fifo.sv
-${HW_SRC}/external_lib/ethernet/eth_mac_1g_gmii.v
-${HW_SRC}/external_lib/ethernet/eth_mac_1g.v
-${HW_SRC}/external_lib/ethernet/gmii_phy_if.v
-${HW_SRC}/external_lib/ethernet/axis_gmii_rx.v
-${HW_SRC}/external_lib/ethernet/axis_gmii_tx.v
-${HW_SRC}/external_lib/ethernet/ssio_sdr_out.v
-${HW_SRC}/external_lib/ethernet/ssio_sdr_in.v
-${HW_SRC}/external_lib/ethernet/lfsr.v
-${HW_SRC}/external_lib/ethernet/oddr.v
+${HW_SRC}/external_lib/ethernet/eth_mac_1g_gmii.sv
+${HW_SRC}/external_lib/ethernet/eth_mac_1g.sv
+${HW_SRC}/external_lib/ethernet/gmii_phy_if.sv
+${HW_SRC}/external_lib/ethernet/axis_gmii_rx.sv
+${HW_SRC}/external_lib/ethernet/axis_gmii_tx.sv
+${HW_SRC}/external_lib/ethernet/ssio_sdr_out.sv
+${HW_SRC}/external_lib/ethernet/ssio_sdr_in.sv
+${HW_SRC}/external_lib/ethernet/lfsr.sv
+${HW_SRC}/external_lib/ethernet/oddr.sv
 
 #---Common packages and interfaces
 ${HW_SRC}/ip.infra/soc_pkg.sv

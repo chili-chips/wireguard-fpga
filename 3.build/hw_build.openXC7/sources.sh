@@ -28,7 +28,7 @@ design_rtl() {
 own_rtl() {
   { design_rtl "$1" "$2" | grep -v -e '/csr_build/'
     ls "$1"/ip.cpu/soc_cpu.*.sv "$1"/ip.cpu/cpu.EDUBOS5/*.sv "$1"/ip.cpu/cpu.PICORV32/*.sv
-    ls "$1"/external_lib/*/*.v
+    ls "$1"/external_lib/*/*.sv
     # the DPE blocks top does not instantiate yet (run-leq.sh proves them too)
     ls "$1"/ip.dpe/dpe_wg_encryptor.sv "$1"/ip.dpe/dpe_wg_decryptor.sv "$1"/ip.dpe/dpe_wg_disassembler.sv
     ls "$1"/ip.dpe/dpe_egress_ip_lookup.sv "$1"/ip.dpe/dpe_route_mem.sv
