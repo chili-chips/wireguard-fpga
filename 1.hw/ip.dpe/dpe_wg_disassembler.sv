@@ -213,8 +213,7 @@ module dpe_wg_disassembler
   );
 
   axis_fifo #(
-      .DEPTH     (FIFO_BEATS * DPE_DATA_BYTES),  // bytes
-      .ID_ENABLE (1)
+      .DEPTH (FIFO_BEATS * DPE_DATA_BYTES)  // bytes
   ) u_fifo (
       .s_axis              (inp),
       .m_axis              (buffered),

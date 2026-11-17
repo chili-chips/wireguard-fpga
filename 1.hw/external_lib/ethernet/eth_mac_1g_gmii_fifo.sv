@@ -117,6 +117,8 @@ module eth_mac_1g_gmii_fifo
   assign                     rx_axis.tkeep  = rx_axis_tkeep;
   assign                     rx_axis.tvalid = rx_axis_tvalid;
   assign                     rx_axis.tlast  = rx_axis_tlast;
+  assign                     rx_axis.tuser  = '0;  // no DPE routing yet: the multiplexer sets src
+  assign                     rx_axis.tid    = '0;  // no peer yet
 
   wire       tx_clk;
   wire       rx_clk;

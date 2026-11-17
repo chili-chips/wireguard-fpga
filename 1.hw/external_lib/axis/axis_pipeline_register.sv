@@ -22,7 +22,8 @@ module axis_pipeline_register #(
     // Propagate tlast signal
     parameter LAST_ENABLE = 1,
     // Propagate tid signal
-    parameter ID_ENABLE   = 0,
+    // (Chili.CHIPS: on by default, dpe_if carries the peer index in tid)
+    parameter ID_ENABLE   = 1,
     // Propagate tuser signal
     parameter USER_ENABLE = 1,
     // Register type

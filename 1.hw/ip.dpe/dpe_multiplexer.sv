@@ -223,6 +223,7 @@ module dpe_multiplexer (
     to_dpe_sbuff.tlast  = 1'b0;
     to_dpe_sbuff.tkeep  = '0;
     to_dpe_sbuff.tuser  = '0;
+    to_dpe_sbuff.tid    = '0;  // no peer yet: the lookup sets it
     from_cpu.tready     = 1'b0;
     from_eth_1.tready   = 1'b0;
     from_eth_2.tready   = 1'b0;

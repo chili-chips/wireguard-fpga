@@ -96,7 +96,8 @@ module cpu_fifo
   axis_fifo #(
       .DEPTH          (4096),
       .FRAME_FIFO     (1),
-      .DROP_WHEN_FULL (1)
+      .DROP_WHEN_FULL (1),
+      .ID_ENABLE      (0)      // the CSR has no tid
   ) tx_fifo (
       .s_axis              (to_cpu),
       .m_axis              (csr_tx),
@@ -112,7 +113,8 @@ module cpu_fifo
   axis_fifo #(
       .DEPTH          (4096),
       .FRAME_FIFO     (1),
-      .DROP_WHEN_FULL (1)
+      .DROP_WHEN_FULL (1),
+      .ID_ENABLE      (0)      // the CSR has no tid
   ) rx_fifo (
       .s_axis              (csr_rx),
       .m_axis              (from_cpu),

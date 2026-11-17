@@ -102,6 +102,7 @@ module dpe_demultiplexer (
       to_cpu_sbuff.tkeep  = from_dpe_sbuff.tkeep;
       to_cpu_sbuff.tlast  = from_dpe_sbuff.tlast;
       to_cpu_sbuff.tuser  = from_dpe_sbuff.tuser;
+      to_cpu_sbuff.tid    = from_dpe_sbuff.tid;
     end
     else begin
       to_cpu_sbuff.tvalid = 1'b0;
@@ -109,6 +110,7 @@ module dpe_demultiplexer (
       to_cpu_sbuff.tkeep  = '0;
       to_cpu_sbuff.tlast  = '0;
       to_cpu_sbuff.tuser  = '0;
+      to_cpu_sbuff.tid    = '0;
     end
     if (sel_eth_1) begin
       to_eth_1_sbuff.tvalid = from_dpe_sbuff.tvalid;
@@ -116,6 +118,7 @@ module dpe_demultiplexer (
       to_eth_1_sbuff.tkeep  = from_dpe_sbuff.tkeep;
       to_eth_1_sbuff.tlast  = from_dpe_sbuff.tlast;
       to_eth_1_sbuff.tuser  = from_dpe_sbuff.tuser;
+      to_eth_1_sbuff.tid    = from_dpe_sbuff.tid;
     end
     else begin
       to_eth_1_sbuff.tvalid = 1'b0;
@@ -123,6 +126,7 @@ module dpe_demultiplexer (
       to_eth_1_sbuff.tkeep  = '0;
       to_eth_1_sbuff.tlast  = '0;
       to_eth_1_sbuff.tuser  = '0;
+      to_eth_1_sbuff.tid    = '0;
     end
     if (sel_eth_2) begin
       to_eth_2_sbuff.tvalid = from_dpe_sbuff.tvalid;
@@ -130,6 +134,7 @@ module dpe_demultiplexer (
       to_eth_2_sbuff.tkeep  = from_dpe_sbuff.tkeep;
       to_eth_2_sbuff.tlast  = from_dpe_sbuff.tlast;
       to_eth_2_sbuff.tuser  = from_dpe_sbuff.tuser;
+      to_eth_2_sbuff.tid    = from_dpe_sbuff.tid;
     end
     else begin
       to_eth_2_sbuff.tvalid = 1'b0;
@@ -137,6 +142,7 @@ module dpe_demultiplexer (
       to_eth_2_sbuff.tkeep  = '0;
       to_eth_2_sbuff.tlast  = '0;
       to_eth_2_sbuff.tuser  = '0;
+      to_eth_2_sbuff.tid    = '0;
     end
     if (sel_eth_3) begin
       to_eth_3_sbuff.tvalid = from_dpe_sbuff.tvalid;
@@ -144,6 +150,7 @@ module dpe_demultiplexer (
       to_eth_3_sbuff.tkeep  = from_dpe_sbuff.tkeep;
       to_eth_3_sbuff.tlast  = from_dpe_sbuff.tlast;
       to_eth_3_sbuff.tuser  = from_dpe_sbuff.tuser;
+      to_eth_3_sbuff.tid    = from_dpe_sbuff.tid;
     end
     else begin
       to_eth_3_sbuff.tvalid = 1'b0;
@@ -151,6 +158,7 @@ module dpe_demultiplexer (
       to_eth_3_sbuff.tkeep  = '0;
       to_eth_3_sbuff.tlast  = '0;
       to_eth_3_sbuff.tuser  = '0;
+      to_eth_3_sbuff.tid    = '0;
     end
     if (sel_eth_4) begin
       to_eth_4_sbuff.tvalid = from_dpe_sbuff.tvalid;
@@ -158,6 +166,7 @@ module dpe_demultiplexer (
       to_eth_4_sbuff.tkeep  = from_dpe_sbuff.tkeep;
       to_eth_4_sbuff.tlast  = from_dpe_sbuff.tlast;
       to_eth_4_sbuff.tuser  = from_dpe_sbuff.tuser;
+      to_eth_4_sbuff.tid    = from_dpe_sbuff.tid;
     end
     else begin
       to_eth_4_sbuff.tvalid = 1'b0;
@@ -165,6 +174,7 @@ module dpe_demultiplexer (
       to_eth_4_sbuff.tkeep  = '0;
       to_eth_4_sbuff.tlast  = '0;
       to_eth_4_sbuff.tuser  = '0;
+      to_eth_4_sbuff.tid    = '0;
     end
   end
 

@@ -89,6 +89,7 @@ module dpe_dummy_switch (
     outp_sbuff.tdata              = inp.tdata;
     outp_sbuff.tkeep              = inp.tkeep;
     outp_sbuff.tlast              = inp.tlast;
+    outp_sbuff.tid                = inp.tid;
     outp_sbuff.tuser.bypass_all   = inp.tuser.bypass_all;
     outp_sbuff.tuser.bypass_stage = 1'b0;
     outp_sbuff.tuser.src          = inp.tuser.src;
