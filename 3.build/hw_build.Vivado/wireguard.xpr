@@ -259,9 +259,9 @@
           <Attr Name="UsedIn" Val="simulation"/>
         </FileInfo>
       </File>
-      <File Path="$PPRDIR/../../1.hw/external_lib/ethernet/eth_mac_1g_gmii_fifo.v">
+      <File Path="$PPRDIR/../../1.hw/external_lib/ethernet/eth_mac_1g_gmii_fifo.sv">
         <FileInfo>
-          <Attr Name="ImportPath" Val="$PPRDIR/../../1.hw/external_lib/ethernet/eth_mac_1g_gmii_fifo.v"/>
+          <Attr Name="ImportPath" Val="$PPRDIR/../../1.hw/external_lib/ethernet/eth_mac_1g_gmii_fifo.sv"/>
           <Attr Name="ImportTime" Val="1738637941"/>
           <Attr Name="UsedIn" Val="synthesis"/>
           <Attr Name="UsedIn" Val="implementation"/>
@@ -304,9 +304,9 @@
           <Attr Name="UsedIn" Val="simulation"/>
         </FileInfo>
       </File>
-      <File Path="$PPRDIR/../../1.hw/external_lib/axis/axis_register.v">
+      <File Path="$PPRDIR/../../1.hw/external_lib/axis/axis_register.sv">
         <FileInfo>
-          <Attr Name="ImportPath" Val="$PPRDIR/../../1.hw/external_lib/axis/axis_register.v"/>
+          <Attr Name="ImportPath" Val="$PPRDIR/../../1.hw/external_lib/axis/axis_register.sv"/>
           <Attr Name="ImportTime" Val="1739272867"/>
           <Attr Name="UsedIn" Val="synthesis"/>
           <Attr Name="UsedIn" Val="implementation"/>
@@ -348,7 +348,7 @@
           <Attr Name="UsedIn" Val="simulation"/>
         </FileInfo>
       </File>
-      <File Path="$PPRDIR/../../1.hw/external_lib/axis/axis_fifo.v">
+      <File Path="$PPRDIR/../../1.hw/external_lib/axis/axis_fifo.sv">
         <FileInfo>
           <Attr Name="UsedIn" Val="synthesis"/>
           <Attr Name="UsedIn" Val="implementation"/>

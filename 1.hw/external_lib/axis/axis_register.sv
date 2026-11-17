@@ -10,7 +10,7 @@
 //
 // SPDX-License-Identifier: MIT
 
-// Language: Verilog 2001
+// Language: Verilog 2001 (ports: SystemVerilog dpe_if, by Chili.CHIPS)
 
 `resetall
 `default_nettype none
@@ -18,58 +18,63 @@
 /*
  * AXI4-Stream register
  */
-module axis_register #(
-    // Width of AXI stream interfaces in bits
-    parameter DATA_WIDTH  = 8,
+module axis_register
+  import dpe_pkg::*;
+#(
     // Propagate tkeep signal
-    parameter KEEP_ENABLE = (DATA_WIDTH > 8),
-    // tkeep signal width (words per cycle)
-    parameter KEEP_WIDTH  = ((DATA_WIDTH + 7) / 8),
+    parameter KEEP_ENABLE = 1,
     // Propagate tlast signal
     parameter LAST_ENABLE = 1,
     // Propagate tid signal
     parameter ID_ENABLE   = 0,
-    // tid signal width
-    parameter ID_WIDTH    = 8,
-    // Propagate tdest signal
-    parameter DEST_ENABLE = 0,
-    // tdest signal width
-    parameter DEST_WIDTH  = 8,
     // Propagate tuser signal
     parameter USER_ENABLE = 1,
-    // tuser signal width
-    parameter USER_WIDTH  = 1,
     // Register type
     // 0 to bypass, 1 for simple buffer, 2 for skid buffer
     parameter REG_TYPE    = 2
 ) (
-    input  wire                  clk,
-    input  wire                  rst,
-
-    /*
-     * AXI Stream input
-     */
-    input  wire [DATA_WIDTH-1:0] s_axis_tdata,
-    input  wire [KEEP_WIDTH-1:0] s_axis_tkeep,
-    input  wire                  s_axis_tvalid,
-    output wire                  s_axis_tready,
-    input  wire                  s_axis_tlast,
-    input  wire [  ID_WIDTH-1:0] s_axis_tid,
-    input  wire [DEST_WIDTH-1:0] s_axis_tdest,
-    input  wire [USER_WIDTH-1:0] s_axis_tuser,
-
-    /*
-     * AXI Stream output
-     */
-    output wire [DATA_WIDTH-1:0] m_axis_tdata,
-    output wire [KEEP_WIDTH-1:0] m_axis_tkeep,
-    output wire                  m_axis_tvalid,
-    input  wire                  m_axis_tready,
-    output wire                  m_axis_tlast,
-    output wire [  ID_WIDTH-1:0] m_axis_tid,
-    output wire [DEST_WIDTH-1:0] m_axis_tdest,
-    output wire [USER_WIDTH-1:0] m_axis_tuser
+    dpe_if.s_axis s_axis,
+    dpe_if.m_axis m_axis
 );
+
+  // Chili.CHIPS: the widths are dpe_if's, from dpe_pkg; the body below keeps
+  // its original port names, bound here to the interface ports
+  localparam DATA_WIDTH  = DPE_DATA_W;
+  localparam KEEP_WIDTH  = DPE_KEEP_W;
+  localparam ID_WIDTH    = DPE_ID_W;
+  localparam DEST_ENABLE = 0;           // dpe_if carries no tdest
+  localparam DEST_WIDTH  = 1;
+  localparam USER_WIDTH  = DPE_USER_W;
+
+  wire                  clk = s_axis.clk;
+  wire                  rst = s_axis.rst;
+
+  wire [DATA_WIDTH-1:0] s_axis_tdata = s_axis.tdata;
+  wire [KEEP_WIDTH-1:0] s_axis_tkeep = s_axis.tkeep;
+  wire                  s_axis_tvalid = s_axis.tvalid;
+  wire                  s_axis_tready;
+  wire                  s_axis_tlast = s_axis.tlast;
+  wire [ ID_WIDTH-1:0]  s_axis_tid = s_axis.tid;
+  wire [DEST_WIDTH-1:0] s_axis_tdest = '0;
+  wire [USER_WIDTH-1:0] s_axis_tuser = s_axis.tuser;
+  assign                s_axis.tready = s_axis_tready;
+
+  wire [DATA_WIDTH-1:0] m_axis_tdata;
+  wire [KEEP_WIDTH-1:0] m_axis_tkeep;
+  wire                  m_axis_tvalid;
+  wire                  m_axis_tready = m_axis.tready;
+  wire                  m_axis_tlast;
+  wire [ ID_WIDTH-1:0]  m_axis_tid;
+  // verilator lint_off UNUSEDSIGNAL
+  wire [DEST_WIDTH-1:0] m_axis_tdest;  // DEST_ENABLE is 0
+  // verilator lint_on UNUSEDSIGNAL
+  wire [USER_WIDTH-1:0] m_axis_tuser;
+  assign                m_axis.tdata  = m_axis_tdata;
+  assign                m_axis.tkeep  = m_axis_tkeep;
+  assign                m_axis.tvalid = m_axis_tvalid;
+  assign                m_axis.tlast  = m_axis_tlast;
+  assign                m_axis.tid    = m_axis_tid;
+  assign                m_axis.tuser  = m_axis_tuser;
 
   generate
 

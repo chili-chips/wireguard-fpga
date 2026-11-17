@@ -40,34 +40,12 @@
 //   DPE AXIS skid buffer
 //==========================================================================
 
-module dpe_if_skid_buffer
-  import dpe_pkg::*;
-(
+module dpe_if_skid_buffer (
     dpe_if.s_axis inp,
     dpe_if.m_axis outp
 );
-  axis_register #(
-      .DATA_WIDTH (DPE_DATA_W),
-      .USER_WIDTH (DPE_USER_W),
-      .ID_WIDTH   (DPE_ID_W)
-  ) sbuff (
-      .clk           (inp.clk),
-      .rst           (inp.rst),
-      .s_axis_tvalid (inp.tvalid),
-      .s_axis_tready (inp.tready),
-      .s_axis_tdata  (inp.tdata),
-      .s_axis_tkeep  (inp.tkeep),
-      .s_axis_tlast  (inp.tlast),
-      .s_axis_tuser  (inp.tuser),
-      .s_axis_tid    (inp.tid),
-      .s_axis_tdest  ('0),
-      .m_axis_tvalid (outp.tvalid),
-      .m_axis_tready (outp.tready),
-      .m_axis_tdata  (outp.tdata),
-      .m_axis_tkeep  (outp.tkeep),
-      .m_axis_tlast  (outp.tlast),
-      .m_axis_tuser  (outp.tuser),
-      .m_axis_tid    (outp.tid),
-      .m_axis_tdest  (  /*LINT:OK*/)  // DEST_ENABLE is 0: dpe_if carries no tdest
+  axis_register sbuff (
+      .s_axis (inp),
+      .m_axis (outp)
   );
 endmodule

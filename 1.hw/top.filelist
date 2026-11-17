@@ -10,17 +10,20 @@
 ${HW_SRC}/fpgatech_lib/XILINX/fpga_pll_80M.sv
 ${HW_SRC}/fpgatech_lib/XILINX/fpga_pll_125M.sv
 
+#---DPE package: the widths of dpe_if, also for the AXIS library
+${HW_SRC}/ip.infra/dpe_pkg.sv
+
 #---External AXIS library
-${HW_SRC}/external_lib/axis/axis_register.v
-${HW_SRC}/external_lib/axis/axis_pipeline_register.v
+${HW_SRC}/external_lib/axis/axis_register.sv
+${HW_SRC}/external_lib/axis/axis_pipeline_register.sv
 ${HW_SRC}/external_lib/axis/axis_async_fifo_adapter.v
 ${HW_SRC}/external_lib/axis/axis_adapter.v
 ${HW_SRC}/external_lib/axis/axis_async_fifo.v
 ${HW_SRC}/external_lib/axis/sync_reset.v
-${HW_SRC}/external_lib/axis/axis_fifo.v
+${HW_SRC}/external_lib/axis/axis_fifo.sv
 
 #---External Ethernet library
-${HW_SRC}/external_lib/ethernet/eth_mac_1g_gmii_fifo.v
+${HW_SRC}/external_lib/ethernet/eth_mac_1g_gmii_fifo.sv
 ${HW_SRC}/external_lib/ethernet/eth_mac_1g_gmii.v
 ${HW_SRC}/external_lib/ethernet/eth_mac_1g.v
 ${HW_SRC}/external_lib/ethernet/gmii_phy_if.v
@@ -34,7 +37,6 @@ ${HW_SRC}/external_lib/ethernet/oddr.v
 #---Common packages and interfaces
 ${HW_SRC}/ip.infra/soc_pkg.sv
 ${HW_SRC}/ip.infra/soc_if.sv
-${HW_SRC}/ip.infra/dpe_pkg.sv
 ${HW_SRC}/ip.infra/dpe_if.sv
 ${HW_SRC}/ip.infra/gmii_if.sv
 

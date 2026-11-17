@@ -40,9 +40,7 @@
 //   Triple-Speed Ethernet Wrapper
 //==========================================================================
 
-module ethernet_mac
-  import dpe_pkg::*;
-(
+module ethernet_mac (
     input  logic       gtx_clk,
     input  logic       gtx_rst,
     input  logic       gmii_rx_clk,
@@ -62,9 +60,6 @@ module ethernet_mac
       .TARGET            ("XILINX"),
       .IODDR_STYLE       ("IODDR"),
       .CLOCK_INPUT_STYLE ("BUFG"),
-      .AXIS_DATA_WIDTH   (DPE_DATA_W),
-      .AXIS_KEEP_ENABLE  (1),
-      .AXIS_KEEP_WIDTH   (DPE_KEEP_W),
       .ENABLE_PADDING    (1),
       .MIN_FRAME_LENGTH  (64),
       .TX_FIFO_DEPTH     (4096),
@@ -72,24 +67,11 @@ module ethernet_mac
       .RX_FIFO_DEPTH     (4096),
       .RX_FRAME_FIFO     (1)
   ) eth (
-      .gtx_clk   (gtx_clk),
-      .gtx_rst   (gtx_rst),
-      .logic_clk (tx_fifo.clk),
-      .logic_rst (tx_fifo.rst),
+      .gtx_clk (gtx_clk),
+      .gtx_rst (gtx_rst),
 
-      .tx_axis_tdata  (tx_fifo.tdata),
-      .tx_axis_tkeep  (tx_fifo.tkeep),
-      .tx_axis_tvalid (tx_fifo.tvalid),
-      .tx_axis_tready (tx_fifo.tready),
-      .tx_axis_tlast  (tx_fifo.tlast),
-      .tx_axis_tuser  ('0),
-
-      .rx_axis_tdata  (rx_fifo.tdata),
-      .rx_axis_tkeep  (rx_fifo.tkeep),
-      .rx_axis_tvalid (rx_fifo.tvalid),
-      .rx_axis_tready (rx_fifo.tready),
-      .rx_axis_tlast  (rx_fifo.tlast),
-      .rx_axis_tuser  (  /*LINT:OK*/),   // the bad-frame flag is not used
+      .tx_axis (tx_fifo),
+      .rx_axis (rx_fifo),
 
       .gmii_rx_clk (gmii_rx_clk),
       .gmii_rxd    (gmii_rxd),

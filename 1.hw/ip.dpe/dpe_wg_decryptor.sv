@@ -2,36 +2,36 @@
 //
 // SPDX-License-Identifier: BSD-3-Clause
 
-//========================================================================== 
-// Wireguard-1GE FPGA * NLnet-sponsored open-source implementation   
+//==========================================================================
+// Wireguard-1GE FPGA * NLnet-sponsored open-source implementation
 //--------------------------------------------------------------------------
 //                   Copyright (C) 2026 Chili.CHIPS*ba
-// 
-// Redistribution and use in source and binary forms, with or without 
-// modification, are permitted provided that the following conditions 
+//
+// Redistribution and use in source and binary forms, with or without
+// modification, are permitted provided that the following conditions
 // are met:
 //
-// 1. Redistributions of source code must retain the above copyright 
+// 1. Redistributions of source code must retain the above copyright
 // notice, this list of conditions and the following disclaimer.
 //
-// 2. Redistributions in binary form must reproduce the above copyright 
-// notice, this list of conditions and the following disclaimer in the 
+// 2. Redistributions in binary form must reproduce the above copyright
+// notice, this list of conditions and the following disclaimer in the
 // documentation and/or other materials provided with the distribution.
 //
-// 3. Neither the name of the copyright holder nor the names of its 
+// 3. Neither the name of the copyright holder nor the names of its
 // contributors may be used to endorse or promote products derived
 // from this software without specific prior written permission.
 //
-// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS 
-// IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED 
-// TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A 
-// PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT 
-// HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, 
-// SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT 
-// LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, 
-// DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY 
-// THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT 
-// (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS
+// IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED
+// TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A
+// PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+// HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+// SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+// LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+// DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+// THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+// (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //
 //              https://opensource.org/license/bsd-3-clause
@@ -46,8 +46,8 @@
 // ============================================================================
 
 module sync_fifo #(
-    parameter WIDTH = 159,
-    parameter DEPTH = 512
+    parameter int WIDTH = 159,
+    parameter int DEPTH = 512
 ) (
     input  logic             clk,
     input  logic             rst,
@@ -58,7 +58,7 @@ module sync_fifo #(
     input  logic             rd_en,
     output logic             empty
 );
-  localparam ADDR_W = $clog2(DEPTH);
+  localparam int ADDR_W = $clog2(DEPTH);
   logic [WIDTH-1:0] mem[DEPTH];
   logic [ADDR_W:0] wr_ptr, rd_ptr;
 
@@ -187,7 +187,7 @@ module dpe_wg_decryptor (
   dpe_addr_t fifo_out_tuser_dst, fifo_out_tuser_src;
   dpe_peer_idx_t fifo_out_tid;
 
-  assign {fifo_out_tid, fifo_out_tuser_src, fifo_out_tuser_dst, 
+  assign {fifo_out_tid, fifo_out_tuser_src, fifo_out_tuser_dst,
            fifo_out_tlast, fifo_out_tkeep, fifo_out_tdata} = fifo_dout;
 
   // FIFO Instantiation

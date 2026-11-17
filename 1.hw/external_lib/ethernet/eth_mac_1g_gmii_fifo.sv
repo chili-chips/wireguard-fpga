@@ -10,7 +10,7 @@
 //
 // SPDX-License-Identifier: MIT
 
-// Language: Verilog 2001
+// Language: Verilog 2001 (AXIS ports: SystemVerilog dpe_if, by Chili.CHIPS)
 
 `resetall
 `default_nettype none
@@ -18,7 +18,9 @@
 /*
  * 1G Ethernet MAC with GMII interface and TX and RX FIFOs
  */
-module eth_mac_1g_gmii_fifo #(
+module eth_mac_1g_gmii_fifo
+  import dpe_pkg::*;
+#(
     // target ("SIM", "GENERIC", "XILINX", "ALTERA")
     parameter TARGET                 = "GENERIC",
     // IODDR style ("IODDR", "IODDR2")
@@ -30,9 +32,6 @@ module eth_mac_1g_gmii_fifo #(
     // Use BUFG for Ultrascale
     // Use BUFIO2 for Spartan-6
     parameter CLOCK_INPUT_STYLE      = "BUFIO2",
-    parameter AXIS_DATA_WIDTH        = 8,
-    parameter AXIS_KEEP_ENABLE       = (AXIS_DATA_WIDTH > 8),
-    parameter AXIS_KEEP_WIDTH        = (AXIS_DATA_WIDTH / 8),
     parameter ENABLE_PADDING         = 1,
     parameter MIN_FRAME_LENGTH       = 64,
     parameter TX_FIFO_DEPTH          = 4096,
@@ -48,65 +47,76 @@ module eth_mac_1g_gmii_fifo #(
     parameter RX_DROP_BAD_FRAME      = RX_DROP_OVERSIZE_FRAME,
     parameter RX_DROP_WHEN_FULL      = RX_DROP_OVERSIZE_FRAME
 ) (
-    input  wire                       gtx_clk,
-    input  wire                       gtx_rst,
-    input  wire                       logic_clk,
-    input  wire                       logic_rst,
-
-    /*
-     * AXI input
-     */
-    input  wire [AXIS_DATA_WIDTH-1:0] tx_axis_tdata,
-    input  wire [AXIS_KEEP_WIDTH-1:0] tx_axis_tkeep,
-    input  wire                       tx_axis_tvalid,
-    output wire                       tx_axis_tready,
-    input  wire                       tx_axis_tlast,
-    input  wire                       tx_axis_tuser,
-
-    /*
-     * AXI output
-     */
-    output wire [AXIS_DATA_WIDTH-1:0] rx_axis_tdata,
-    output wire [AXIS_KEEP_WIDTH-1:0] rx_axis_tkeep,
-    output wire                       rx_axis_tvalid,
-    input  wire                       rx_axis_tready,
-    output wire                       rx_axis_tlast,
-    output wire                       rx_axis_tuser,
+    input  wire       gtx_clk,
+    input  wire       gtx_rst,
+    // the DPE side, in the logic clock domain (tx_axis.clk)
+    dpe_if.s_axis     tx_axis,
+    dpe_if.m_axis     rx_axis,
 
     /*
      * GMII interface
      */
-    input  wire                       gmii_rx_clk,
-    input  wire [7:0]                 gmii_rxd,
-    input  wire                       gmii_rx_dv,
-    input  wire                       gmii_rx_er,
-    input  wire                       mii_tx_clk,
-    output wire                       gmii_tx_clk,
-    output wire [7:0]                 gmii_txd,
-    output wire                       gmii_tx_en,
-    output wire                       gmii_tx_er,
+    input  wire       gmii_rx_clk,
+    input  wire [7:0] gmii_rxd,
+    input  wire       gmii_rx_dv,
+    input  wire       gmii_rx_er,
+    input  wire       mii_tx_clk,
+    output wire       gmii_tx_clk,
+    output wire [7:0] gmii_txd,
+    output wire       gmii_tx_en,
+    output wire       gmii_tx_er,
 
     /*
      * Status
      */
-    output wire                       tx_error_underflow,
-    output wire                       tx_fifo_overflow,
-    output wire                       tx_fifo_bad_frame,
-    output wire                       tx_fifo_good_frame,
-    output wire                       rx_error_bad_frame,
-    output wire                       rx_error_bad_fcs,
-    output wire                       rx_fifo_overflow,
-    output wire                       rx_fifo_bad_frame,
-    output wire                       rx_fifo_good_frame,
-    output wire [1:0]                 speed,
+    output wire       tx_error_underflow,
+    output wire       tx_fifo_overflow,
+    output wire       tx_fifo_bad_frame,
+    output wire       tx_fifo_good_frame,
+    output wire       rx_error_bad_frame,
+    output wire       rx_error_bad_fcs,
+    output wire       rx_fifo_overflow,
+    output wire       rx_fifo_bad_frame,
+    output wire       rx_fifo_good_frame,
+    output wire [1:0] speed,
 
     /*
      * Configuration
      */
-    input  wire [7:0]                 cfg_ifg,
-    input  wire                       cfg_tx_enable,
-    input  wire                       cfg_rx_enable
+    input  wire [7:0] cfg_ifg,
+    input  wire       cfg_tx_enable,
+    input  wire       cfg_rx_enable
 );
+
+  // Chili.CHIPS: the AXIS side is dpe_if, its widths from dpe_pkg; the body
+  // below keeps its original port names, bound here to the interface ports
+  localparam AXIS_DATA_WIDTH  = DPE_DATA_W;
+  localparam AXIS_KEEP_ENABLE = 1;
+  localparam AXIS_KEEP_WIDTH  = DPE_KEEP_W;
+
+  wire                       logic_clk = tx_axis.clk;
+  wire                       logic_rst = tx_axis.rst;
+
+  wire [AXIS_DATA_WIDTH-1:0] tx_axis_tdata = tx_axis.tdata;
+  wire [AXIS_KEEP_WIDTH-1:0] tx_axis_tkeep = tx_axis.tkeep;
+  wire                       tx_axis_tvalid = tx_axis.tvalid;
+  wire                       tx_axis_tready;
+  wire                       tx_axis_tlast = tx_axis.tlast;
+  wire                       tx_axis_tuser = 1'b0;  // no bad-frame marking
+  assign                     tx_axis.tready = tx_axis_tready;
+
+  wire [AXIS_DATA_WIDTH-1:0] rx_axis_tdata;
+  wire [AXIS_KEEP_WIDTH-1:0] rx_axis_tkeep;
+  wire                       rx_axis_tvalid;
+  wire                       rx_axis_tready = rx_axis.tready;
+  wire                       rx_axis_tlast;
+  // verilator lint_off UNUSEDSIGNAL
+  wire                       rx_axis_tuser;  // the bad-frame flag is not used
+  // verilator lint_on UNUSEDSIGNAL
+  assign                     rx_axis.tdata  = rx_axis_tdata;
+  assign                     rx_axis.tkeep  = rx_axis_tkeep;
+  assign                     rx_axis.tvalid = rx_axis_tvalid;
+  assign                     rx_axis.tlast  = rx_axis_tlast;
 
   wire       tx_clk;
   wire       rx_clk;

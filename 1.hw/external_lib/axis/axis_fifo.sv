@@ -8,7 +8,7 @@
 //
 // SPDX-License-Identifier: MIT
 
-// Language: Verilog 2001
+// Language: Verilog 2001 (ports: SystemVerilog dpe_if, by Chili.CHIPS)
 
 `resetall
 `default_nettype none
@@ -16,32 +16,22 @@
 /*
  * AXI4-Stream FIFO
  */
-module axis_fifo #(
+module axis_fifo
+  import dpe_pkg::*;
+#(
     // FIFO depth in words
     // KEEP_WIDTH words per cycle if KEEP_ENABLE set
     // Rounded up to nearest power of 2 cycles
     parameter DEPTH                = 4096,
-    // Width of AXI stream interfaces in bits
-    parameter DATA_WIDTH           = 8,
     // Propagate tkeep signal
     // If disabled, tkeep assumed to be 1'b1
-    parameter KEEP_ENABLE          = (DATA_WIDTH > 8),
-    // tkeep signal width (words per cycle)
-    parameter KEEP_WIDTH           = ((DATA_WIDTH + 7) / 8),
+    parameter KEEP_ENABLE          = 1,
     // Propagate tlast signal
     parameter LAST_ENABLE          = 1,
     // Propagate tid signal
     parameter ID_ENABLE            = 0,
-    // tid signal width
-    parameter ID_WIDTH             = 8,
-    // Propagate tdest signal
-    parameter DEST_ENABLE          = 0,
-    // tdest signal width
-    parameter DEST_WIDTH           = 8,
     // Propagate tuser signal
     parameter USER_ENABLE          = 1,
-    // tuser signal width
-    parameter USER_WIDTH           = 1,
     // number of RAM pipeline registers
     parameter RAM_PIPELINE         = 1,
     // use output FIFO
@@ -74,32 +64,8 @@ module axis_fifo #(
     // Pause between frames
     parameter FRAME_PAUSE          = FRAME_FIFO
 ) (
-    input  wire                   clk,
-    input  wire                   rst,
-
-    /*
-     * AXI input
-     */
-    input  wire [DATA_WIDTH-1:0]  s_axis_tdata,
-    input  wire [KEEP_WIDTH-1:0]  s_axis_tkeep,
-    input  wire                   s_axis_tvalid,
-    output wire                   s_axis_tready,
-    input  wire                   s_axis_tlast,
-    input  wire [  ID_WIDTH-1:0]  s_axis_tid,
-    input  wire [DEST_WIDTH-1:0]  s_axis_tdest,
-    input  wire [USER_WIDTH-1:0]  s_axis_tuser,
-
-    /*
-     * AXI output
-     */
-    output wire [DATA_WIDTH-1:0]  m_axis_tdata,
-    output wire [KEEP_WIDTH-1:0]  m_axis_tkeep,
-    output wire                   m_axis_tvalid,
-    input  wire                   m_axis_tready,
-    output wire                   m_axis_tlast,
-    output wire [  ID_WIDTH-1:0]  m_axis_tid,
-    output wire [DEST_WIDTH-1:0]  m_axis_tdest,
-    output wire [USER_WIDTH-1:0]  m_axis_tuser,
+    dpe_if.s_axis                 s_axis,
+    dpe_if.m_axis                 m_axis,
 
     /*
      * Pause
@@ -116,6 +82,45 @@ module axis_fifo #(
     output wire                   status_bad_frame,
     output wire                   status_good_frame
 );
+
+  // Chili.CHIPS: the widths are dpe_if's, from dpe_pkg; the body below keeps
+  // its original port names, bound here to the interface ports
+  localparam DATA_WIDTH  = DPE_DATA_W;
+  localparam KEEP_WIDTH  = DPE_KEEP_W;
+  localparam ID_WIDTH    = DPE_ID_W;
+  localparam DEST_ENABLE = 0;           // dpe_if carries no tdest
+  localparam DEST_WIDTH  = 1;
+  localparam USER_WIDTH  = DPE_USER_W;
+
+  wire                  clk = s_axis.clk;
+  wire                  rst = s_axis.rst;
+
+  wire [DATA_WIDTH-1:0] s_axis_tdata = s_axis.tdata;
+  wire [KEEP_WIDTH-1:0] s_axis_tkeep = s_axis.tkeep;
+  wire                  s_axis_tvalid = s_axis.tvalid;
+  wire                  s_axis_tready;
+  wire                  s_axis_tlast = s_axis.tlast;
+  wire [ ID_WIDTH-1:0]  s_axis_tid = s_axis.tid;
+  wire [DEST_WIDTH-1:0] s_axis_tdest = '0;
+  wire [USER_WIDTH-1:0] s_axis_tuser = s_axis.tuser;
+  assign                s_axis.tready = s_axis_tready;
+
+  wire [DATA_WIDTH-1:0] m_axis_tdata;
+  wire [KEEP_WIDTH-1:0] m_axis_tkeep;
+  wire                  m_axis_tvalid;
+  wire                  m_axis_tready = m_axis.tready;
+  wire                  m_axis_tlast;
+  wire [ ID_WIDTH-1:0]  m_axis_tid;
+  // verilator lint_off UNUSEDSIGNAL
+  wire [DEST_WIDTH-1:0] m_axis_tdest;  // DEST_ENABLE is 0
+  // verilator lint_on UNUSEDSIGNAL
+  wire [USER_WIDTH-1:0] m_axis_tuser;
+  assign                m_axis.tdata  = m_axis_tdata;
+  assign                m_axis.tkeep  = m_axis_tkeep;
+  assign                m_axis.tvalid = m_axis_tvalid;
+  assign                m_axis.tlast  = m_axis_tlast;
+  assign                m_axis.tid    = m_axis_tid;
+  assign                m_axis.tuser  = m_axis_tuser;
 
   parameter ADDR_WIDTH = (KEEP_ENABLE && KEEP_WIDTH > 1) ? $clog2(
       DEPTH / KEEP_WIDTH
@@ -205,41 +210,50 @@ module axis_fifo #(
                        ? (!full || (full_wr && DROP_OVERSIZE_FRAME) || DROP_WHEN_FULL)
                        : (!full || MARK_WHEN_FULL);
 
-  wire [WIDTH-1:0] s_axis;
+  wire [WIDTH-1:0] s_axis_word;
 
   generate
-    assign s_axis[DATA_WIDTH-1:0] = s_axis_tdata;
+    assign s_axis_word[DATA_WIDTH-1:0] = s_axis_tdata;
     if (KEEP_ENABLE) begin : g_keep
-      assign s_axis[KEEP_OFFSET+:KEEP_WIDTH] = s_axis_tkeep;
+      assign s_axis_word[KEEP_OFFSET+:KEEP_WIDTH] = s_axis_tkeep;
     end
     if (LAST_ENABLE) begin : g_last
-      assign s_axis[LAST_OFFSET] = s_axis_tlast | mark_frame_reg;
+      assign s_axis_word[LAST_OFFSET] = s_axis_tlast | mark_frame_reg;
     end
     if (ID_ENABLE) begin : g_id
-      assign s_axis[ID_OFFSET+:ID_WIDTH] = s_axis_tid;
+      assign s_axis_word[ID_OFFSET+:ID_WIDTH] = s_axis_tid;
     end
     if (DEST_ENABLE) begin : g_dest
-      assign s_axis[DEST_OFFSET+:DEST_WIDTH] = s_axis_tdest;
+      assign s_axis_word[DEST_OFFSET+:DEST_WIDTH] = s_axis_tdest;
     end
     if (USER_ENABLE) begin : g_user
-      assign s_axis[USER_OFFSET+:USER_WIDTH] = mark_frame_reg ? USER_BAD_FRAME_VALUE : s_axis_tuser;
+      assign s_axis_word[USER_OFFSET+:USER_WIDTH] = mark_frame_reg
+                                                  ? USER_BAD_FRAME_VALUE
+                                                  : s_axis_tuser;
     end
   endgenerate
 
-  wire [     WIDTH-1:0] m_axis = m_axis_pipe_reg[RAM_PIPELINE+1-1];
+  wire [     WIDTH-1:0] m_axis_word = m_axis_pipe_reg[RAM_PIPELINE+1-1];
 
   wire                  m_axis_tready_pipe;
   wire                  m_axis_tvalid_pipe = m_axis_tvalid_pipe_reg[RAM_PIPELINE+1-1];
 
-  wire [DATA_WIDTH-1:0] m_axis_tdata_pipe = m_axis[DATA_WIDTH-1:0];
+  wire [DATA_WIDTH-1:0] m_axis_tdata_pipe = m_axis_word[DATA_WIDTH-1:0];
   wire [KEEP_WIDTH-1:0] m_axis_tkeep_pipe;
-  assign m_axis_tkeep_pipe = KEEP_ENABLE ? m_axis[KEEP_OFFSET+:KEEP_WIDTH] : {KEEP_WIDTH{1'b1}};
-  wire m_axis_tlast_pipe = LAST_ENABLE ? m_axis[LAST_OFFSET] : 1'b1;
-  wire [ID_WIDTH-1:0] m_axis_tid_pipe = ID_ENABLE ? m_axis[ID_OFFSET+:ID_WIDTH] : {ID_WIDTH{1'b0}};
+  assign m_axis_tkeep_pipe = KEEP_ENABLE
+                           ? m_axis_word[KEEP_OFFSET+:KEEP_WIDTH]
+                           : {KEEP_WIDTH{1'b1}};
+  wire                m_axis_tlast_pipe = LAST_ENABLE ? m_axis_word[LAST_OFFSET] : 1'b1;
+  wire [ID_WIDTH-1:0] m_axis_tid_pipe;
+  assign m_axis_tid_pipe = ID_ENABLE ? m_axis_word[ID_OFFSET+:ID_WIDTH] : {ID_WIDTH{1'b0}};
   wire [DEST_WIDTH-1:0] m_axis_tdest_pipe;
-  assign m_axis_tdest_pipe = DEST_ENABLE ? m_axis[DEST_OFFSET+:DEST_WIDTH] : {DEST_WIDTH{1'b0}};
+  assign m_axis_tdest_pipe = DEST_ENABLE
+                           ? m_axis_word[DEST_OFFSET+:DEST_WIDTH]
+                           : {DEST_WIDTH{1'b0}};
   wire [USER_WIDTH-1:0] m_axis_tuser_pipe;
-  assign m_axis_tuser_pipe = USER_ENABLE ? m_axis[USER_OFFSET+:USER_WIDTH] : {USER_WIDTH{1'b0}};
+  assign m_axis_tuser_pipe = USER_ENABLE
+                           ? m_axis_word[USER_OFFSET+:USER_WIDTH]
+                           : {USER_WIDTH{1'b0}};
 
   wire                  m_axis_tready_out;
   wire                  m_axis_tvalid_out;
@@ -296,7 +310,7 @@ module axis_fifo #(
         end
         else begin
           // store it
-          mem[wr_ptr_reg[ADDR_WIDTH-1:0]] <= s_axis;
+          mem[wr_ptr_reg[ADDR_WIDTH-1:0]] <= s_axis_word;
           wr_ptr_reg                      <= wr_ptr_reg + 1;
           if (s_axis_tlast || (!DROP_OVERSIZE_FRAME && (full_wr || send_frame_reg))) begin
             // end of frame or send frame
@@ -331,7 +345,7 @@ module axis_fifo #(
             if (!full && mark_frame_reg) begin
               // terminate marked frame
               mark_frame_reg                  <= 1'b0;
-              mem[wr_ptr_reg[ADDR_WIDTH-1:0]] <= s_axis;
+              mem[wr_ptr_reg[ADDR_WIDTH-1:0]] <= s_axis_word;
               wr_ptr_reg                      <= wr_ptr_reg + 1;
               wr_ptr_commit_reg               <= wr_ptr_reg + 1;
             end
@@ -352,7 +366,7 @@ module axis_fifo #(
         end
         else begin
           // transfer in
-          mem[wr_ptr_reg[ADDR_WIDTH-1:0]] <= s_axis;
+          mem[wr_ptr_reg[ADDR_WIDTH-1:0]] <= s_axis_word;
           wr_ptr_reg                      <= wr_ptr_reg + 1;
           wr_ptr_commit_reg               <= wr_ptr_reg + 1;
         end
@@ -360,7 +374,7 @@ module axis_fifo #(
       else if ((!full && !drop_frame_reg && mark_frame_reg) && MARK_WHEN_FULL) begin
         // terminate marked frame
         mark_frame_reg                  <= 1'b0;
-        mem[wr_ptr_reg[ADDR_WIDTH-1:0]] <= s_axis;
+        mem[wr_ptr_reg[ADDR_WIDTH-1:0]] <= s_axis_word;
         wr_ptr_reg                      <= wr_ptr_reg + 1;
         wr_ptr_commit_reg               <= wr_ptr_reg + 1;
       end

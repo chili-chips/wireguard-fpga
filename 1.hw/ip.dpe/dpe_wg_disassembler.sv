@@ -2,36 +2,36 @@
 //
 // SPDX-License-Identifier: BSD-3-Clause
 
-//========================================================================== 
-// Wireguard-1GE FPGA * NLnet-sponsored open-source implementation   
+//==========================================================================
+// Wireguard-1GE FPGA * NLnet-sponsored open-source implementation
 //--------------------------------------------------------------------------
 //                   Copyright (C) 2026 Chili.CHIPS*ba
-// 
-// Redistribution and use in source and binary forms, with or without 
-// modification, are permitted provided that the following conditions 
+//
+// Redistribution and use in source and binary forms, with or without
+// modification, are permitted provided that the following conditions
 // are met:
 //
-// 1. Redistributions of source code must retain the above copyright 
+// 1. Redistributions of source code must retain the above copyright
 // notice, this list of conditions and the following disclaimer.
 //
-// 2. Redistributions in binary form must reproduce the above copyright 
-// notice, this list of conditions and the following disclaimer in the 
+// 2. Redistributions in binary form must reproduce the above copyright
+// notice, this list of conditions and the following disclaimer in the
 // documentation and/or other materials provided with the distribution.
 //
-// 3. Neither the name of the copyright holder nor the names of its 
+// 3. Neither the name of the copyright holder nor the names of its
 // contributors may be used to endorse or promote products derived
 // from this software without specific prior written permission.
 //
-// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS 
-// IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED 
-// TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A 
-// PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT 
-// HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, 
-// SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT 
-// LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, 
-// DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY 
-// THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT 
-// (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS
+// IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED
+// TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A
+// PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+// HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+// SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+// LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+// DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+// THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+// (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //
 //              https://opensource.org/license/bsd-3-clause
@@ -170,9 +170,9 @@ module dpe_wg_disassembler
   //------------------------------------------------------------------
   // Decision FIFO: one entry per packet, in packet order
   typedef struct packed {
-    logic       to_peer;  // tid = peer, bypass_stage clear
-    logic       pass_on;  // unchanged
-    logic [6:0] peer;
+    logic          to_peer;  // tid = peer, bypass_stage clear
+    logic          pass_on;  // unchanged
+    dpe_peer_idx_t peer;
   } decision_t;
 
   decision_t dec_mem[DEC_DEPTH];
@@ -185,8 +185,14 @@ module dpe_wg_disassembler
 
   always_ff @(posedge inp.clk) begin
     if (dec_pending) begin
-      dec_mem[dec_wr[$clog2(DEC_DEPTH)-1:0]] <=
-          '{to_peer: dec_is_wg & wg_idx_match & !dec_pass_on, pass_on: dec_pass_on, peer: wg_idx};
+      dec_mem[dec_wr[$clog2(
+          DEC_DEPTH
+      )-1:0]] <=
+      '{
+          to_peer: dec_is_wg & wg_idx_match & !dec_pass_on,
+          pass_on: dec_pass_on,
+          peer: dpe_peer_idx_t'(wg_idx)
+      };
     end
   end
 
@@ -207,37 +213,17 @@ module dpe_wg_disassembler
 
   //------------------------------------------------------------------
   // Data FIFO: the packet waits for its decision
-  logic buf_tvalid, buf_tready, buf_tlast;
-  beat_t             buf_tdata;
-  logic       [15:0] buf_tkeep;
-  dpe_tuser_t        buf_tuser;
-  logic       [ 7:0] buf_tid;
+  dpe_if buffered (
+      .clk (inp.clk),
+      .rst (inp.rst)
+  );
 
   axis_fifo #(
-      .DEPTH      (FIFO_BEATS * DPE_DATA_BYTES),  // bytes
-      .DATA_WIDTH (DPE_DATA_W),
-      .ID_ENABLE  (1),
-      .ID_WIDTH   (DPE_ID_W),
-      .USER_WIDTH (DPE_USER_W)
+      .DEPTH     (FIFO_BEATS * DPE_DATA_BYTES),  // bytes
+      .ID_ENABLE (1)
   ) u_fifo (
-      .clk                 (inp.clk),
-      .rst                 (inp.rst),
-      .s_axis_tdata        (inp.tdata),
-      .s_axis_tkeep        (inp.tkeep),
-      .s_axis_tvalid       (inp.tvalid),
-      .s_axis_tready       (inp.tready),
-      .s_axis_tlast        (inp.tlast),
-      .s_axis_tid          (inp.tid),
-      .s_axis_tdest        ('0),
-      .s_axis_tuser        (inp.tuser),
-      .m_axis_tdata        (buf_tdata),
-      .m_axis_tkeep        (buf_tkeep),
-      .m_axis_tvalid       (buf_tvalid),
-      .m_axis_tready       (buf_tready),
-      .m_axis_tlast        (buf_tlast),
-      .m_axis_tid          (buf_tid),
-      .m_axis_tdest        (  /*LINT:OK*/),  // no TDEST: s_axis_tdest is tied to 0
-      .m_axis_tuser        (buf_tuser),
+      .s_axis              (inp),
+      .m_axis              (buffered),
       .pause_req           (1'b0),
       .pause_ack           (  /*LINT:OK*/),  // no pause
       .status_depth        (  /*LINT:OK*/),  // status not used
@@ -249,24 +235,24 @@ module dpe_wg_disassembler
 
   //------------------------------------------------------------------
   // Output: each beat with its packet's decision
-  assign outp.tvalid = buf_tvalid & dec_avail;
-  assign buf_tready  = outp.tready & dec_avail;
-  assign dec_pop     = outp.tvalid & outp.tready & buf_tlast;
+  assign outp.tvalid     = buffered.tvalid & dec_avail;
+  assign buffered.tready = outp.tready & dec_avail;
+  assign dec_pop         = outp.tvalid & outp.tready & buffered.tlast;
 
-  assign outp.tdata  = buf_tdata;
-  assign outp.tkeep  = buf_tkeep;
-  assign outp.tlast  = buf_tlast;
+  assign outp.tdata      = buffered.tdata;
+  assign outp.tkeep      = buffered.tkeep;
+  assign outp.tlast      = buffered.tlast;
 
   always_comb begin
-    outp.tuser = buf_tuser;
-    outp.tid   = buf_tid;
+    outp.tuser = buffered.tuser;
+    outp.tid   = buffered.tid;
     if (!dec.pass_on) begin
       outp.tuser.bypass_stage = !dec.to_peer;
       if (dec.to_peer) begin
-        outp.tid = {1'b0, dec.peer};
+        outp.tid = dec.peer;
       end
     end
   end
 
-  assign fcr_idle = !buf_tvalid && !dec_avail && !dec_pending && in_beat == '0;
+  assign fcr_idle = !buffered.tvalid && !dec_avail && !dec_pending && in_beat == '0;
 endmodule
