@@ -57,9 +57,9 @@
 module dpe_egress_ip_lookup
   import csr_pkg::*;
   import dpe_pkg::*;
+  import net_pkg::*;
 #(
-    parameter int ENTRY_COUNT         = 64,
-    parameter bit USE_BYPASS_FROM_MEM = 1'b0
+    parameter int ENTRY_COUNT = 64
 ) (
     dpe_if.s_axis                              s_axis,
     dpe_if.m_axis                              m_axis,
@@ -104,7 +104,7 @@ module dpe_egress_ip_lookup
   // dpe_route_mem registers the entry the request addresses (rdata_*)
   logic      rd_ack;
   rt_field_e rd_field;
-  always_ff @(posedge s_axis.clk or posedge s_axis.rst) begin
+  always_ff @(posedge s_axis.clk) begin
     if (s_axis.rst) begin
       rd_ack   <= 1'b0;
       rd_field <= FIELD_IP;
@@ -130,19 +130,14 @@ module dpe_egress_ip_lookup
   assign hwif_in.rd_ack  = rd_ack;
   assign hwif_in.rd_data = rd_data;
 
-  logic                 route_hit;
-  logic          [ 5:0] route_idx;
   dpe_addr_t            route_dst;
   dpe_peer_idx_t        route_peer;
-  logic                 route_bypass;
   logic          [31:0] route_req_ip;
-  logic                 route_req_valid;
 
   dpe_route_mem #(
       .ENTRY_COUNT (ENTRY_COUNT)
   ) u_mem (
       .clk (s_axis.clk),
-      .rst (s_axis.rst),
 
       .waddr        (mem_idx),
       .we_prefix    (we_prefix),
@@ -161,12 +156,10 @@ module dpe_egress_ip_lookup
       .rdata_dst    (rdata_dst),
 
       .req_ip         (route_req_ip),
-      .req_valid      (route_req_valid),
-      .resp_hit       (route_hit),
-      .resp_route_idx (route_idx),
+      .resp_hit       (  /*LINT:OK*/),  // a miss takes the defaults
+      .resp_route_idx (  /*LINT:OK*/),  // not needed: dst and peer come with it
       .resp_dst       (route_dst),
-      .resp_peer      (route_peer),
-      .resp_bypass    (route_bypass)
+      .resp_peer      (route_peer)
   );
 
   // --------------------------------------------------------------------------
@@ -182,10 +175,13 @@ module dpe_egress_ip_lookup
   } state_e;
   state_e state, state_next;
 
-  logic      [1:0] beat;
+  logic [1:0] beat;
+  // the beats that hold the IPv4 destination: its bytes 0, 1, then 2, 3
+  localparam logic [1:0] DA_HI_BEAT = 2'(beat_of(IPV4_DST_OFFSET));      // 1
+  localparam logic [1:0] DA_LO_BEAT = 2'(beat_of(IPV4_DST_OFFSET + 2));  // 2
 
   // the frame's own tuser fields, from its first beat
-  dpe_addr_t       frame_src;
+  dpe_addr_t frame_src;
   logic frame_bypass_all, frame_bypass_stage;
 
   typedef struct packed {
@@ -222,7 +218,6 @@ module dpe_egress_ip_lookup
     decided_peer_n   = decided_peer;
     decided_bypass_n = decided_bypass;
     flush_limit_n    = flush_limit;
-    route_req_valid  = 1'b0;
 
     unique case (state)
       S_IDLE: begin
@@ -245,20 +240,19 @@ module dpe_egress_ip_lookup
         end
       end
 
-      // beat 1 holds IPv4 destination bytes 0, 1 (frame bytes 30, 31), beat 2
-      // bytes 2, 3; a frame that ends before beat 2 is decided at its end
+      // the IPv4 destination: bytes 0, 1 in beat 1, bytes 2, 3 in beat 2; a frame
+      // that ends before is decided at its end
       S_COLLECT: begin
-        if (in_hs && (beat == 2'd2 || s_axis.tlast)) begin
+        if (in_hs && (beat == DA_LO_BEAT || s_axis.tlast)) begin
           flush_limit_n = beat;
           state_next    = S_DECIDE;
         end
       end
 
       S_DECIDE: begin
-        route_req_valid  = 1'b1;
         decided_dst_n    = route_dst;
         decided_peer_n   = route_peer;
-        decided_bypass_n = (USE_BYPASS_FROM_MEM) ? route_bypass : frame_bypass_stage;
+        decided_bypass_n = frame_bypass_stage;
         state_next       = S_FLUSH;
       end
 
@@ -286,7 +280,7 @@ module dpe_egress_ip_lookup
     endcase
   end
 
-  always_ff @(posedge s_axis.clk or posedge s_axis.rst) begin
+  always_ff @(posedge s_axis.clk) begin
     if (s_axis.rst) begin
       state              <= S_IDLE;
       beat               <= 2'd0;
@@ -335,13 +329,11 @@ module dpe_egress_ip_lookup
       if (state == S_COLLECT && in_hs) begin
         beat_valid[beat] <= 1'b1;
 
-        if (beat == 2'd1) begin
-          route_req_ip[31:24] <= s_axis.tdata[119:112];
-          route_req_ip[23:16] <= s_axis.tdata[127:120];
+        if (beat == DA_HI_BEAT) begin
+          route_req_ip[31:16] <= be16(s_axis.tdata, IPV4_DST_OFFSET);
         end
-        if (beat == 2'd2) begin
-          route_req_ip[15:8] <= s_axis.tdata[7:0];
-          route_req_ip[7:0]  <= s_axis.tdata[15:8];
+        if (beat == DA_LO_BEAT) begin
+          route_req_ip[15:0] <= be16(s_axis.tdata, IPV4_DST_OFFSET + 2);
         end
       end
 

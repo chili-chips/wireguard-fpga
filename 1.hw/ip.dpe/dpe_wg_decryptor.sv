@@ -104,14 +104,15 @@ module dpe_wg_decryptor
 
   // a core beat: the frame beat before's last CARRY_BYTES bytes, then
   // WG_HDR_TAIL_BYTES of this one
-  localparam int CARRY_BYTES = BEAT_BYTES - WG_HDR_TAIL_BYTES;  // 6
-  localparam int CARRY_W = 8 * CARRY_BYTES;
-  localparam int HEAD_W = 8 * WG_HDR_TAIL_BYTES;  // 80
+  localparam int CARRY_BYTES   = BEAT_BYTES - WG_HDR_TAIL_BYTES;  // 6
+  localparam int CARRY_W       = 8 * CARRY_BYTES;
+  localparam int HEAD_W        = 8 * WG_HDR_TAIL_BYTES;           // 80
   // the output's first beat: the Ethernet header, then plaintext bytes
-  localparam int ETH_W = 8 * ETH_HDR_LEN;  // 112
-  localparam int PT_HEAD_W = DPE_DATA_W - ETH_W;  // 16
-  localparam int PT_HEAD_BYTES = PT_HEAD_W / 8;  // 2
-  localparam int WG_HDR_BEATS = WG_FRAME_HDR_LEN / BEAT_BYTES;  // 3: then the beat with the counter
+  localparam int ETH_W         = 8 * ETH_HDR_LEN;                 // 112
+  localparam int PT_HEAD_W     = DPE_DATA_W - ETH_W;              // 16
+  localparam int PT_HEAD_BYTES = PT_HEAD_W / 8;                   // 2
+  // header-only beats: the payload (and the counter) start in the next
+  localparam int WG_HDR_BEATS  = WG_PAYLOAD_OFFSET / BEAT_BYTES;  // 3
 
   state_t state, state_next;
   feed_t feed, feed_next;

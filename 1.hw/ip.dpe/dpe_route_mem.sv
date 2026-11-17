@@ -53,12 +53,9 @@ module dpe_route_mem
     parameter int            ENTRY_COUNT      = 64,
     parameter int            ROUTE_IDX_W      = $clog2(ENTRY_COUNT),
     parameter dpe_addr_t     DEFAULT_DST_PORT = DPE_ADDR_CPU,
-    parameter dpe_peer_idx_t DEFAULT_PEER_IDX = '0,
-    parameter bit            DEFAULT_BYPASS   = 1'b0
+    parameter dpe_peer_idx_t DEFAULT_PEER_IDX = '0
 ) (
     input  logic                            clk,
-    input  logic                            rst,
-
     // Write Interface
     input  logic          [ROUTE_IDX_W-1:0] waddr,
     input  logic                            we_prefix,
@@ -79,29 +76,20 @@ module dpe_route_mem
 
     // Lookup Interface
     input  logic          [           31:0] req_ip,
-    input  logic                            req_valid,
     output logic                            resp_hit,
     output logic          [ROUTE_IDX_W-1:0] resp_route_idx,
     output dpe_addr_t                       resp_dst,
-    output dpe_peer_idx_t                   resp_peer,
-    output logic                            resp_bypass
+    output dpe_peer_idx_t                   resp_peer
 );
 
-  // Debug signals
-  logic          [31:0] debug_mask_0;
-  logic          [31:0] debug_mask_1;
-
   // Storage arrays
-  logic          [31:0] cam_prefix   [ENTRY_COUNT];
-  logic          [31:0] cam_mask     [ENTRY_COUNT];
+  logic          [31:0] cam_prefix[ENTRY_COUNT];
+  logic          [31:0] cam_mask  [ENTRY_COUNT];
 
 
-  dpe_addr_t            ram_dst      [ENTRY_COUNT];
-  dpe_peer_idx_t        ram_peer     [ENTRY_COUNT];
-  logic                 ram_bypass   [ENTRY_COUNT];
+  dpe_addr_t            ram_dst   [ENTRY_COUNT];
+  dpe_peer_idx_t        ram_peer  [ENTRY_COUNT];
 
-  assign debug_mask_0 = cam_mask[0];
-  assign debug_mask_1 = cam_mask[1];
 
   // ---------------------------
   // WRITE LOGIC
@@ -143,15 +131,14 @@ module dpe_route_mem
     end
   endgenerate
 
-  logic   [ROUTE_IDX_W-1:0] best_idx;
-  logic                     hit_found;
-  integer                   i;
+  logic [ROUTE_IDX_W-1:0] best_idx;
+  logic                   hit_found;
 
   always_comb begin
     best_idx  = '0;
     hit_found = 1'b0;
 
-    for (i = 0; i < ENTRY_COUNT; i++) begin
+    for (int i = 0; i < ENTRY_COUNT; i++) begin
       if (hit_vec[i]) begin
         if (!hit_found) begin
           hit_found = 1'b1;
@@ -164,9 +151,8 @@ module dpe_route_mem
   assign resp_hit       = hit_found;
   assign resp_route_idx = hit_found ? best_idx : '0;
 
-  assign resp_dst       = hit_found ? ram_dst[best_idx]    : DEFAULT_DST_PORT;
-  assign resp_peer      = hit_found ? ram_peer[best_idx]   : DEFAULT_PEER_IDX;
-  assign resp_bypass    = hit_found ? ram_bypass[best_idx] : DEFAULT_BYPASS;
+  assign resp_dst       = hit_found ? ram_dst[best_idx]  : DEFAULT_DST_PORT;
+  assign resp_peer      = hit_found ? ram_peer[best_idx] : DEFAULT_PEER_IDX;
 
 endmodule
 

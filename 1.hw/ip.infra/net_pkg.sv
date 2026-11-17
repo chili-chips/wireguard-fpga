@@ -46,11 +46,7 @@ package net_pkg;
   localparam int IPV4_VER_IHL_OFFSET = IPV4_OFFSET;  // version in [7:4]
   localparam int IPV4_TOTAL_LEN_OFFSET = IPV4_OFFSET + 2;  // 2 bytes, big-endian
   localparam int IPV4_PROTO_OFFSET = IPV4_OFFSET + 9;
-  localparam int IPV4_SRC_OFFSET = IPV4_OFFSET + 12;  // 4 bytes, big-endian
   localparam int IPV4_DST_OFFSET = IPV4_OFFSET + 16;  // 4 bytes, big-endian
-  localparam int UDP_SRC_PORT_OFFSET = UDP_OFFSET;  // 2 bytes, big-endian
-  localparam int UDP_DST_PORT_OFFSET = UDP_OFFSET + 2;
-  localparam int UDP_LEN_OFFSET = UDP_OFFSET + 4;
   localparam int WG_TYPE_OFFSET = WG_OFFSET;  // 4 bytes, little-endian
   localparam int WG_RECEIVER_OFFSET = WG_OFFSET + 4;  // 4 bytes, little-endian
   localparam int WG_COUNTER_OFFSET = WG_OFFSET + 8;  // 8 bytes, little-endian

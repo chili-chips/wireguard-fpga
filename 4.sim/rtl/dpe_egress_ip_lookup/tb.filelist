@@ -8,6 +8,7 @@
 
 ${HW_SRC}/ip.infra/dpe_pkg.sv
 ${BLD_DIR}/csr_build/generated-files/csr_pkg.sv
+${HW_SRC}/ip.infra/net_pkg.sv
 ${HW_SRC}/ip.infra/dpe_if.sv
 ${HW_SRC}/ip.dpe/dpe_route_mem.sv
 ${HW_SRC}/ip.dpe/dpe_egress_ip_lookup.sv
