@@ -21,6 +21,7 @@ ${SIM_SRC}/rtl/pcap_reader_writer/pcapreader.sv
 ${SIM_SRC}/rtl/pcap_reader_writer/pcapwriter.sv
 ${SIM_SRC}/rtl/pcap_reader_writer/dpe_pcapreader.sv
 ${SIM_SRC}/rtl/pcap_reader_writer/dpe_pcapwriter.sv
+${SIM_SRC}/rtl/dpe_tb_throttle.sv
 
 #==========================================================================
 # End-of-File

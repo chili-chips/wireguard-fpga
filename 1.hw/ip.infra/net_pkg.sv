@@ -229,5 +229,25 @@ package net_pkg;
     return {le32(beat, offset + 4), le32(beat, offset)};
   endfunction
 
+  //------------------------------------------------------------------
+  // The tkeep of a beat that holds its first n bytes (n of 0 to BEAT_BYTES:
+  // a larger n keeps them all)
+  function automatic dpe_keep_t keep_first(len16_t n);
+    dpe_keep_t k;
+    for (int b = 0; b < BEAT_BYTES; b++) begin
+      k[b] = len16_t'(b) < n;
+    end
+    return k;
+  endfunction
+
+  // The beat with the bytes that keep does not hold set to zero
+  function automatic beat_t keep_bytes(beat_t beat, dpe_keep_t keep);
+    beat_t m;
+    for (int b = 0; b < BEAT_BYTES; b++) begin
+      m[8*b+:8] = keep[b] ? beat[8*b+:8] : 8'h00;
+    end
+    return m;
+  endfunction
+
 endpackage : net_pkg
 `endif

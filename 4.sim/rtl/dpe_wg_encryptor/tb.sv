@@ -50,14 +50,16 @@ module tb;
    logic pcapfinished;
    logic fcr_idle;
 
+   dpe_if from_pcap(.clk(clk), .rst(rst));
    dpe_if to_encryptor(.clk(clk), .rst(rst));
    dpe_if from_encryptor(.clk(clk), .rst(rst));
+   dpe_if to_pcap(.clk(clk), .rst(rst));
 
    dpe_pcapreader #(
-      .PCAP_FILENAME("../plaintext_128.pcap"),
+      .PCAP_FILENAME("../plaintext_mix.pcap"),
       .TUSER_BYPASS_STAGE(1'b0)
    ) pcaprd (
-	   .outp(to_encryptor),
+	   .outp(from_pcap),
       .pcapfinished(pcapfinished)
    );
 
@@ -74,6 +76,18 @@ module tb;
       send_cnt:    64'd1
    };
 
+   // Stalls on both sides: bubbles into the encryptor, backpressure out of
+   // it. ../wg_check.py checks the output (see the Makefile)
+   dpe_tb_throttle #(.PASS_PCT(60), .SEED(16'hACE1)) stall_in (
+      .inp (from_pcap),
+      .outp(to_encryptor)
+   );
+
+   dpe_tb_throttle #(.PASS_PCT(60), .SEED(16'h1D2C)) stall_out (
+      .inp (from_encryptor),
+      .outp(to_pcap)
+   );
+
    dpe_wg_encryptor encryptor (
       .inp(to_encryptor),
       .outp(from_encryptor),
@@ -87,9 +101,9 @@ module tb;
    );
 
    dpe_pcapwriter #(
-	   .PCAP_FILENAME("../ciphertext_128.pcap")
+	   .PCAP_FILENAME("ciphertext_mix.pcap")  // in output/
    ) pcapwr (
-	   .inp(from_encryptor)
+	   .inp(to_pcap)
    );
 
    // 80 MHz at 1 ns precision: halves of 6, 6, 7, 6 ns, 12.5 ns on average
