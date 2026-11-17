@@ -433,6 +433,11 @@ If it was not for **Julian Kemmerer's** unreserved support helping us move our t
 | PipelineC (Pypeline) | [PipelineC#398](https://github.com/JulianKemmerer/PipelineC/issues/398) | feature: formal equivalence (LEQ) between the Python source and the generated HDL ([#42](https://github.com/chili-chips/wireguard-fpga/issues/42)) | open |
 | JanusHDL | [#1](https://github.com/chili-chips/wireguard-fpga/issues/1) | 0.17.0: what simulates and what does not | open |
 | JanusHDL | [#41](https://github.com/chili-chips/wireguard-fpga/issues/41) | 0.17.0: a member of a struct-typed signal in an interface names nothing | open |
+| JanusHDL | [#47](https://github.com/chili-chips/wireguard-fpga/issues/47) | 0.17.0: a cast to a named type (`len16_t'(...)`) in a constant expression is not evaluated | open |
+| Icarus Verilog | [iverilog#1820](https://github.com/steveicarus/iverilog/issues/1820) | `unique if` / `unique0 if` / `priority if`: syntax error ([#43](https://github.com/chili-chips/wireguard-fpga/issues/43)) | open |
+| Icarus Verilog | [iverilog#1821](https://github.com/steveicarus/iverilog/issues/1821) | an interface port's parameter rejected in a constant expression ([#44](https://github.com/chili-chips/wireguard-fpga/issues/44)) | open |
+| Icarus Verilog | [iverilog#266](https://github.com/steveicarus/iverilog/issues/266) | unpacked structs (our case added; [#45](https://github.com/chili-chips/wireguard-fpga/issues/45)) | open |
+| Verible | [verible#2656](https://github.com/chipsalliance/verible/issues/2656) | feature: align `?` and `:` in conditional assigns, wrap a long one under `=` ([#46](https://github.com/chili-chips/wireguard-fpga/issues/46)) | open |
 | openXC7 nextpnr-xilinx | [nextpnr-xilinx#75](https://github.com/openXC7/nextpnr-xilinx/issues/75) | `BUFGMUX` not supported (legacy toolchain) | closed (fixed, [nextpnr-xilinx#81](https://github.com/openXC7/nextpnr-xilinx/pull/81)) |
 | openXC7 nextpnr-xilinx | [nextpnr-xilinx#74](https://github.com/openXC7/nextpnr-xilinx/issues/74) | `IBUFGDS` not supported (legacy toolchain) | closed |
 | openXC7 nextpnr-xilinx | [nextpnr-xilinx#73](https://github.com/openXC7/nextpnr-xilinx/issues/73) | `IOBUFGDS`, `PLLE2_BASE` not supported (legacy toolchain) | closed |
