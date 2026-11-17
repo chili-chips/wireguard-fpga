@@ -36,7 +36,7 @@ The rules are in [`sim.mk`](sim.mk): timescale `1ns/1ns`, `output/sim.log` and `
 | `pcap_reader_writer` | runs | runs | no: `$fread` into a memory |
 | `gmii2gmii_test` | runs | no: compiles all of `top.filelist` (`csr_pkg.sv`) | runs |
 | `chacha20poly1305_encrypt` | runs | no: nested unpacked array pattern (`tb.sv:62`) | runs |
-| `dpe_wg_encryptor` | output differs from its reference `.pcap` | | |
+| `dpe_wg_encryptor` | output differs from its reference `.pcap` | no: hangs (after "sorry: constant selects in `always_*` processes", `dpe_wg_encryptor.sv:223`) | no: `$fread` into a memory (`pcapreader.sv:62`) |
 | `dpe_wg_disassembler` | does not compile: RTL older than `dpe_if` | | |
 
 "Runs" means the bench ends without error but has no self-check yet.
