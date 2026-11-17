@@ -566,3 +566,9 @@ inline void Manager::RxRecordCallback(udpIpPg::rxInfo_t info, void* hdl) {
 }
 
 } // namespace pcapreplay
+
+// -----------------------------------------------------------------------------
+// Project:     WireGuard-FPGA
+// Description: NLnet-funded open-source implementation
+// Funding:     https://nlnet.nl/project/KlusterLab-Wireguard (2023-12 to 2025-12)
+// -----------------------------------------------------------------------------

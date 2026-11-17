@@ -110,3 +110,9 @@ uint8_t str_parse_hex(const char* str, uint32_t* value, uint32_t min, uint32_t m
 #endif
 
 #endif /* STRING_BARE_H */
+
+// -----------------------------------------------------------------------------
+// Project:     WireGuard-FPGA
+// Description: NLnet-funded open-source implementation
+// Funding:     https://nlnet.nl/project/KlusterLab-Wireguard (2023-12 to 2025-12)
+// -----------------------------------------------------------------------------

@@ -85,3 +85,9 @@ module dpe_pcapreader
       .from_reader_axis(axis_int)
    );
 endmodule
+
+// -----------------------------------------------------------------------------
+// Project:     WireGuard-FPGA
+// Description: NLnet-funded open-source implementation
+// Funding:     https://nlnet.nl/project/KlusterLab-Wireguard (2023-12 to 2025-12)
+// -----------------------------------------------------------------------------

@@ -829,8 +829,9 @@ module edubos5
 endmodule : edubos5
 
 // -----------------------------------------------------------------------------
-// Project:     openPCIE
-// Description: NLnet-sponsored open-source implementation
+// Project:     WireGuard-FPGA
+// Description: NLnet-funded open-source implementation
+// Funding:     https://nlnet.nl/project/KlusterLab-Wireguard (2023-12 to 2025-12)
 // Version:     1.0
 // Date:        Aug 9, 2023
 // -----------------------------------------------------------------------------

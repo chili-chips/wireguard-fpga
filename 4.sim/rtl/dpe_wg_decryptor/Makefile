@@ -17,3 +17,9 @@ include ../sim.mk
 CHECK = @python3 ../wg_check.py dec ../dpe_wg_encryptor/plaintext_mix.pcap output/decrypted_mix.pcap 3 \
 	&& echo "RESULT: PASS (plaintext_mix.pcap back, corrupted frame 3 dropped)" \
 	|| { echo "RESULT: FAIL (output/decrypted_mix.pcap, see above)"; exit 1; }
+
+# -----------------------------------------------------------------------------
+# Project:     WireGuard-FPGA
+# Description: NLnet-funded open-source implementation
+# Funding:     https://nlnet.nl/project/KlusterLab-Wireguard (2023-12 to 2025-12)
+# -----------------------------------------------------------------------------

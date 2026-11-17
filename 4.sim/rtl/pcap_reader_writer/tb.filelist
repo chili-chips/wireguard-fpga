@@ -18,3 +18,9 @@ ${SIM_SRC}/rtl/pcap_reader_writer/dpe_pcapwriter.sv
 #==========================================================================
 # End-of-File
 #==========================================================================
+
+# -----------------------------------------------------------------------------
+# Project:     WireGuard-FPGA
+# Description: NLnet-funded open-source implementation
+# Funding:     https://nlnet.nl/project/KlusterLab-Wireguard (2023-12 to 2025-12)
+# -----------------------------------------------------------------------------

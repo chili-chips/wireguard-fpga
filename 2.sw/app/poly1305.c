@@ -298,3 +298,9 @@ int poly1305_verify(const uint8_t *tag1, const uint8_t *tag2)
 
     return (a_hi[0] == b_hi[0]) && (a_lo[0] == b_lo[0]);
 }
+
+// -----------------------------------------------------------------------------
+// Project:     WireGuard-FPGA
+// Description: NLnet-funded open-source implementation
+// Funding:     https://nlnet.nl/project/KlusterLab-Wireguard (2023-12 to 2025-12)
+// -----------------------------------------------------------------------------

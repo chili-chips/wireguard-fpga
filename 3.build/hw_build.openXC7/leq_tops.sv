@@ -127,3 +127,9 @@ module leq_dpe_wg_disassembler
   dpe_wg_disassembler u_dut (.*);
 endmodule
 `endif
+
+// -----------------------------------------------------------------------------
+// Project:     WireGuard-FPGA
+// Description: NLnet-funded open-source implementation
+// Funding:     https://nlnet.nl/project/KlusterLab-Wireguard (2023-12 to 2025-12)
+// -----------------------------------------------------------------------------

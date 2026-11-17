@@ -61,3 +61,9 @@ except Exception as e:
     sys.exit(-1)
 
 print(f"Bin file size: {addr*4} bytes")
+
+# -----------------------------------------------------------------------------
+# Project:     WireGuard-FPGA
+# Description: NLnet-funded open-source implementation
+# Funding:     https://nlnet.nl/project/KlusterLab-Wireguard (2023-12 to 2025-12)
+# -----------------------------------------------------------------------------

@@ -185,8 +185,9 @@ package edubos5_pkg;
 endpackage : edubos5_pkg
 
 // -----------------------------------------------------------------------------
-// Project:     openPCIE
-// Description: NLnet-sponsored open-source implementation
+// Project:     WireGuard-FPGA
+// Description: NLnet-funded open-source implementation
+// Funding:     https://nlnet.nl/project/KlusterLab-Wireguard (2023-12 to 2025-12)
 // Version:     1.0
 // Date:        Aug 30, 2022
 // -----------------------------------------------------------------------------

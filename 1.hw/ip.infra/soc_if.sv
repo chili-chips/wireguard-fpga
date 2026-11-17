@@ -84,3 +84,9 @@ Version History:
 -----------------------------------------------------------------------------
  2023/12/20 JI: initial creation
 */
+
+// -----------------------------------------------------------------------------
+// Project:     WireGuard-FPGA
+// Description: NLnet-funded open-source implementation
+// Funding:     https://nlnet.nl/project/KlusterLab-Wireguard (2023-12 to 2025-12)
+// -----------------------------------------------------------------------------

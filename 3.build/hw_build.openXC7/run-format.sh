@@ -272,6 +272,7 @@ echo "-- package imports: $ni finding(s)"
 
 # -----------------------------------------------------------------------------
 # Project:     WireGuard-FPGA
-# Description: NLnet-sponsored open-source implementation
+# Description: NLnet-funded open-source implementation
+# Funding:     https://nlnet.nl/project/KlusterLab-Wireguard (2023-12 to 2025-12)
 # Ported from: openPCIE / openCologne-PCIE (4.build)
 # -----------------------------------------------------------------------------

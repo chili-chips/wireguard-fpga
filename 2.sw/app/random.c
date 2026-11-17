@@ -102,3 +102,9 @@ uint32_t random_range(uint32_t min, uint32_t max)
 
     return min + (val % (max - min + 1));
 }
+
+// -----------------------------------------------------------------------------
+// Project:     WireGuard-FPGA
+// Description: NLnet-funded open-source implementation
+// Funding:     https://nlnet.nl/project/KlusterLab-Wireguard (2023-12 to 2025-12)
+// -----------------------------------------------------------------------------

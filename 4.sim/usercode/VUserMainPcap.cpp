@@ -246,3 +246,9 @@ extern "C" void VUserMain4(void) {
     Manager::RegisterRecorder(pUdp, &ctx4);
     WaitFlowDone(pUdp, g_tx_done_node4, g_tx_times_node4, g_tx_mtx_node4);
 }
+
+// -----------------------------------------------------------------------------
+// Project:     WireGuard-FPGA
+// Description: NLnet-funded open-source implementation
+// Funding:     https://nlnet.nl/project/KlusterLab-Wireguard (2023-12 to 2025-12)
+// -----------------------------------------------------------------------------

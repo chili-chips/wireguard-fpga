@@ -64,3 +64,9 @@ int curve25519_compute_shared_secret(uint8_t shared_secret[32], const uint8_t pr
     /* Compute shared secret using scalar multiplication */
     return x25519_scalarmult(shared_secret, private_key, public_key);
 }
+
+// -----------------------------------------------------------------------------
+// Project:     WireGuard-FPGA
+// Description: NLnet-funded open-source implementation
+// Funding:     https://nlnet.nl/project/KlusterLab-Wireguard (2023-12 to 2025-12)
+// -----------------------------------------------------------------------------

@@ -79,3 +79,9 @@ package dpe_pkg;
   localparam int DPE_USER_W = $bits(dpe_tuser_t);  // tuser, 8 bits
 endpackage : dpe_pkg
 `endif
+
+// -----------------------------------------------------------------------------
+// Project:     WireGuard-FPGA
+// Description: NLnet-funded open-source implementation
+// Funding:     https://nlnet.nl/project/KlusterLab-Wireguard (2023-12 to 2025-12)
+// -----------------------------------------------------------------------------

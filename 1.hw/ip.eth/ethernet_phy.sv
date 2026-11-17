@@ -65,3 +65,9 @@ module ethernet_phy (
   assign e3_mdc   = 1'b0;
   assign e4_mdc   = 1'b0;
 endmodule
+
+// -----------------------------------------------------------------------------
+// Project:     WireGuard-FPGA
+// Description: NLnet-funded open-source implementation
+// Funding:     https://nlnet.nl/project/KlusterLab-Wireguard (2023-12 to 2025-12)
+// -----------------------------------------------------------------------------

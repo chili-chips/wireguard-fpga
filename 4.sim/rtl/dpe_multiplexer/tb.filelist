@@ -8,3 +8,9 @@ ${HW_SRC}/external_lib/axis/axis_register.sv
 ${HW_SRC}/ip.dpe/dpe_if.sv
 ${HW_SRC}/ip.dpe/dpe_if_skid_buffer.sv
 ${HW_SRC}/ip.dpe/dpe_multiplexer.sv
+
+# -----------------------------------------------------------------------------
+# Project:     WireGuard-FPGA
+# Description: NLnet-funded open-source implementation
+# Funding:     https://nlnet.nl/project/KlusterLab-Wireguard (2023-12 to 2025-12)
+# -----------------------------------------------------------------------------

@@ -7,3 +7,9 @@
 `verilator_config
 lint_off -file "*/external_lib/*"
 lint_off -file "*/pipelinec_build/*"
+
+// -----------------------------------------------------------------------------
+// Project:     WireGuard-FPGA
+// Description: NLnet-funded open-source implementation
+// Funding:     https://nlnet.nl/project/KlusterLab-Wireguard (2023-12 to 2025-12)
+// -----------------------------------------------------------------------------

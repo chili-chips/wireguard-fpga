@@ -111,3 +111,9 @@ fi
 
 echo "Done. Next: make -f MakefileVProc.mk run (BUILD=DEFAULT and BUILD=ISS),"
 echo "update the version table in 4.sim/README.md, review the diff."
+
+# -----------------------------------------------------------------------------
+# Project:     WireGuard-FPGA
+# Description: NLnet-funded open-source implementation
+# Funding:     https://nlnet.nl/project/KlusterLab-Wireguard (2023-12 to 2025-12)
+# -----------------------------------------------------------------------------

@@ -99,3 +99,9 @@ module ethernet_mac (
       .cfg_rx_enable (1'b1)
   );
 endmodule
+
+// -----------------------------------------------------------------------------
+// Project:     WireGuard-FPGA
+// Description: NLnet-funded open-source implementation
+// Funding:     https://nlnet.nl/project/KlusterLab-Wireguard (2023-12 to 2025-12)
+// -----------------------------------------------------------------------------

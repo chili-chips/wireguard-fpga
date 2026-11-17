@@ -15,3 +15,9 @@ include ../sim.mk
 CHECK = @python3 ../wg_check.py enc plaintext_mix.pcap output/ciphertext_mix.pcap \
 	&& echo "RESULT: PASS (WireGuard frames of plaintext_mix.pcap)" \
 	|| { echo "RESULT: FAIL (output/ciphertext_mix.pcap, see above)"; exit 1; }
+
+# -----------------------------------------------------------------------------
+# Project:     WireGuard-FPGA
+# Description: NLnet-funded open-source implementation
+# Funding:     https://nlnet.nl/project/KlusterLab-Wireguard (2023-12 to 2025-12)
+# -----------------------------------------------------------------------------

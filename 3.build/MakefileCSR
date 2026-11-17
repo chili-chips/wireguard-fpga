@@ -45,3 +45,9 @@ clean-all: clean
 	@rm -rf $(PKRDLHDR) $(PKRDLTOP) $(GENDIR)/*.sv $(PKRDLHTML) $(PKRDLMD)
 
 .PHONY: all rtl clean clean-all
+
+# -----------------------------------------------------------------------------
+# Project:     WireGuard-FPGA
+# Description: NLnet-funded open-source implementation
+# Funding:     https://nlnet.nl/project/KlusterLab-Wireguard (2023-12 to 2025-12)
+# -----------------------------------------------------------------------------

@@ -159,3 +159,9 @@ module dpe
         from_csr.cryptokey_table.req & from_csr.cryptokey_table.req_is_wr;
   end
 endmodule
+
+// -----------------------------------------------------------------------------
+// Project:     WireGuard-FPGA
+// Description: NLnet-funded open-source implementation
+// Funding:     https://nlnet.nl/project/KlusterLab-Wireguard (2023-12 to 2025-12)
+// -----------------------------------------------------------------------------

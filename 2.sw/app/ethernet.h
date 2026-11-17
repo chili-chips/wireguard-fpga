@@ -40,3 +40,9 @@ uint32_t eth_receive_packet  (eth_raw_packet_t* packet);
 #endif
 
 #endif // ETHERNET_H
+
+// -----------------------------------------------------------------------------
+// Project:     WireGuard-FPGA
+// Description: NLnet-funded open-source implementation
+// Funding:     https://nlnet.nl/project/KlusterLab-Wireguard (2023-12 to 2025-12)
+// -----------------------------------------------------------------------------

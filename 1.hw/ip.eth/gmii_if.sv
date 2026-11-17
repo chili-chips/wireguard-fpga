@@ -64,3 +64,9 @@ interface gmii_if (
   modport SLV(input arst_n, clk, txd, txen, txer, output rxd, rxdv, rxer);
 
 endinterface : gmii_if
+
+// -----------------------------------------------------------------------------
+// Project:     WireGuard-FPGA
+// Description: NLnet-funded open-source implementation
+// Funding:     https://nlnet.nl/project/KlusterLab-Wireguard (2023-12 to 2025-12)
+// -----------------------------------------------------------------------------

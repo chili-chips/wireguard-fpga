@@ -24,3 +24,9 @@ void delay_ms(uint32_t ms);
 #endif
 
 #endif // TIMER_H
+
+// -----------------------------------------------------------------------------
+// Project:     WireGuard-FPGA
+// Description: NLnet-funded open-source implementation
+// Funding:     https://nlnet.nl/project/KlusterLab-Wireguard (2023-12 to 2025-12)
+// -----------------------------------------------------------------------------

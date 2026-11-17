@@ -152,3 +152,9 @@ uint8_t str_parse_hex(const char* str, uint32_t* value, uint32_t min, uint32_t m
    *value = val;
    return 1; // Success
 }
+
+// -----------------------------------------------------------------------------
+// Project:     WireGuard-FPGA
+// Description: NLnet-funded open-source implementation
+// Funding:     https://nlnet.nl/project/KlusterLab-Wireguard (2023-12 to 2025-12)
+// -----------------------------------------------------------------------------

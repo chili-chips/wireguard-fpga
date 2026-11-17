@@ -151,3 +151,9 @@ module soc_fabric
   // CPU cannot interrupt an ongoing UART transaction
   assign cpu_ack   = cpu.vld & ~uart_busy;
 endmodule : soc_fabric
+
+// -----------------------------------------------------------------------------
+// Project:     WireGuard-FPGA
+// Description: NLnet-funded open-source implementation
+// Funding:     https://nlnet.nl/project/KlusterLab-Wireguard (2023-12 to 2025-12)
+// -----------------------------------------------------------------------------

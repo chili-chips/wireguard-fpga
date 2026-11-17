@@ -249,3 +249,9 @@ Version History:
  2024/01/01 JI: initial creation
  2024/02/16 JI: updated based on Verilator Linting reports
 */
+
+// -----------------------------------------------------------------------------
+// Project:     WireGuard-FPGA
+// Description: NLnet-funded open-source implementation
+// Funding:     https://nlnet.nl/project/KlusterLab-Wireguard (2023-12 to 2025-12)
+// -----------------------------------------------------------------------------

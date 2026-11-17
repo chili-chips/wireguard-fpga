@@ -432,3 +432,9 @@ Version History:
  2024/10/31 SS: Made compatible with current dut ports and commented out
                 non-compiling test components
 */
+
+// -----------------------------------------------------------------------------
+// Project:     WireGuard-FPGA
+// Description: NLnet-funded open-source implementation
+// Funding:     https://nlnet.nl/project/KlusterLab-Wireguard (2023-12 to 2025-12)
+// -----------------------------------------------------------------------------

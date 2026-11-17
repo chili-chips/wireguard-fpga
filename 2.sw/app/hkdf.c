@@ -85,3 +85,9 @@ out:
     memset(secret, 0, BLAKE2S_HASH_SIZE);
     memset(output, 0, BLAKE2S_HASH_SIZE + 1);
 }
+
+// -----------------------------------------------------------------------------
+// Project:     WireGuard-FPGA
+// Description: NLnet-funded open-source implementation
+// Funding:     https://nlnet.nl/project/KlusterLab-Wireguard (2023-12 to 2025-12)
+// -----------------------------------------------------------------------------

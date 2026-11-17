@@ -95,3 +95,9 @@ uint8_t        net_process_icmp        (net_config_t*     config,
 #endif
 
 #endif // NETWORK_H
+
+// -----------------------------------------------------------------------------
+// Project:     WireGuard-FPGA
+// Description: NLnet-funded open-source implementation
+// Funding:     https://nlnet.nl/project/KlusterLab-Wireguard (2023-12 to 2025-12)
+// -----------------------------------------------------------------------------

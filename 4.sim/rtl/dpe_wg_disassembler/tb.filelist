@@ -8,3 +8,9 @@ ${HW_SRC}/external_lib/axis/axis_fifo.sv
 ${HW_SRC}/ip.dpe/net_pkg.sv
 ${HW_SRC}/ip.dpe/dpe_if.sv
 ${HW_SRC}/ip.dpe/dpe_wg_disassembler.sv
+
+# -----------------------------------------------------------------------------
+# Project:     WireGuard-FPGA
+# Description: NLnet-funded open-source implementation
+# Funding:     https://nlnet.nl/project/KlusterLab-Wireguard (2023-12 to 2025-12)
+# -----------------------------------------------------------------------------

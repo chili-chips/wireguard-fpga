@@ -41,3 +41,9 @@ int poly1305_verify(const uint8_t *received_auth_tag, const uint8_t *calucalted_
 #endif
 
 #endif // POLY1305_H
+
+// -----------------------------------------------------------------------------
+// Project:     WireGuard-FPGA
+// Description: NLnet-funded open-source implementation
+// Funding:     https://nlnet.nl/project/KlusterLab-Wireguard (2023-12 to 2025-12)
+// -----------------------------------------------------------------------------

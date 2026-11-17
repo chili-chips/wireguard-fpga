@@ -62,3 +62,9 @@ for f in sys.argv[1 + check:]:
             print(f)
         else:
             open(f, 'w').write(n)
+
+# -----------------------------------------------------------------------------
+# Project:     WireGuard-FPGA
+# Description: NLnet-funded open-source implementation
+# Funding:     https://nlnet.nl/project/KlusterLab-Wireguard (2023-12 to 2025-12)
+# -----------------------------------------------------------------------------

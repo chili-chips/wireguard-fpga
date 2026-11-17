@@ -214,3 +214,9 @@ int hmac(uint8_t *out, const uint8_t *in, const uint8_t *key,
 
     return 0;
 }
+
+// -----------------------------------------------------------------------------
+// Project:     WireGuard-FPGA
+// Description: NLnet-funded open-source implementation
+// Funding:     https://nlnet.nl/project/KlusterLab-Wireguard (2023-12 to 2025-12)
+// -----------------------------------------------------------------------------

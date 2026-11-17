@@ -35,3 +35,9 @@ int curve25519_compute_shared_secret(uint8_t shared_secret[32], const uint8_t pr
 #endif
 
 #endif /* CURVE25519_H */
+
+// -----------------------------------------------------------------------------
+// Project:     WireGuard-FPGA
+// Description: NLnet-funded open-source implementation
+// Funding:     https://nlnet.nl/project/KlusterLab-Wireguard (2023-12 to 2025-12)
+// -----------------------------------------------------------------------------

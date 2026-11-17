@@ -35,3 +35,9 @@ package dpe_tb_pkg;
     ports_of[4] = (dst == DPE_ADDR_ETH_4) || (dst == DPE_ADDR_MCAST_24) || (dst == DPE_ADDR_BCAST);
   endfunction
 endpackage
+
+// -----------------------------------------------------------------------------
+// Project:     WireGuard-FPGA
+// Description: NLnet-funded open-source implementation
+// Funding:     https://nlnet.nl/project/KlusterLab-Wireguard (2023-12 to 2025-12)
+// -----------------------------------------------------------------------------

@@ -249,3 +249,9 @@ module dpe_wg_disassembler
 
   assign fcr_idle = !buffered.tvalid && !dec_avail && !dec_pending && in_beat == '0;
 endmodule
+
+// -----------------------------------------------------------------------------
+// Project:     WireGuard-FPGA
+// Description: NLnet-funded open-source implementation
+// Funding:     https://nlnet.nl/project/KlusterLab-Wireguard (2023-12 to 2025-12)
+// -----------------------------------------------------------------------------

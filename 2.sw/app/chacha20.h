@@ -61,3 +61,9 @@ void chacha20_block(chacha20_state *state, chacha20_state *output);
 #endif
 
 #endif // CHACHA20_H
+
+// -----------------------------------------------------------------------------
+// Project:     WireGuard-FPGA
+// Description: NLnet-funded open-source implementation
+// Funding:     https://nlnet.nl/project/KlusterLab-Wireguard (2023-12 to 2025-12)
+// -----------------------------------------------------------------------------

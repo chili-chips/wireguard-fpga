@@ -18,3 +18,9 @@ program_hw_devices $device
 
 # Close the hardware manager (optional)
 close_hw_manager
+
+# -----------------------------------------------------------------------------
+# Project:     WireGuard-FPGA
+# Description: NLnet-funded open-source implementation
+# Funding:     https://nlnet.nl/project/KlusterLab-Wireguard (2023-12 to 2025-12)
+# -----------------------------------------------------------------------------
