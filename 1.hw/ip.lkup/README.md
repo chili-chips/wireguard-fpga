@@ -27,7 +27,7 @@ The entries are scanned in ascending index order, and the first matching index i
 ### Top-Level Module: egress_ip_lookup
 
 The top-level module `egress_ip_lookup` instantiates `route_mem` and coordinates control-plane configuration with data-plane packet processing. Its responsibilities include:
-- CSR Interface (Control Plane): decodes incoming transactions (`hwif_out`) to determine which routing table entry is being accessed. Read responses and acknowledgements are returned on `hwif_in`.
+- CSR Interface (Control Plane): decodes incoming transactions (`csr_cfg`) to determine which routing table entry is being accessed. Read responses and acknowledgements are returned on `csr_sta`.
 - Packet Buffering: Incoming packets arrive on an AXI-Stream interface (`s_axis`). The IPv4 destination address spans the second and third 128-bit beats of the packet header. The module buffers the first beats in a small circular buffer until the address is in; the input stalls while the routing table is read (DECIDE) and the buffered beats go out (FLUSH).
 - Metadata Assignment: On the outgoing AXI-Stream interface (`m_axis`), the module sets `m_axis.tuser.dst` and `m_axis.tid` from the routing table lookup result; `m_axis.tuser.bypass_stage` is the frame's own bit, passed through. This ensures that the selected forwarding path and peer association are applied consistently to all beats of the packet.
 

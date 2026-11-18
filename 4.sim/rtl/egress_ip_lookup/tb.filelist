@@ -10,6 +10,7 @@ ${HW_SRC}/ip.dpe/dpe_pkg.sv
 ${BLD_DIR}/csr_build/generated-files/csr_pkg.sv
 ${HW_SRC}/ip.dpe/net_pkg.sv
 ${HW_SRC}/ip.dpe/dpe_if.sv
+${HW_SRC}/ip.lkup/lkup_pkg.sv
 ${HW_SRC}/ip.lkup/route_mem.sv
 ${HW_SRC}/ip.lkup/egress_ip_lookup.sv
 ${SIM_SRC}/rtl/dpe_tb_throttle.sv

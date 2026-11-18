@@ -240,9 +240,9 @@ module top
 
   //---------------------------------
   soc_csr u_soc_csr (
-      .bus      (bus_csr),  //SLV
-      .hwif_in  (to_csr),   //i
-      .hwif_out (from_csr)  //o
+      .bus     (bus_csr),  //SLV
+      .csr_sta (to_csr),   //i
+      .csr_cfg (from_csr)  //o
   );
 
   //---------------------------------

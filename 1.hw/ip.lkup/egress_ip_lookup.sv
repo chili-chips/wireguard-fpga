@@ -58,15 +58,16 @@ module egress_ip_lookup
   import csr_pkg::*;
   import dpe_pkg::*;
   import net_pkg::*;
+  import lkup_pkg::*;
 #(
     parameter int ENTRY_COUNT = 64
 ) (
-    dpe_if.s_axis                              s_axis,
-    dpe_if.m_axis                              m_axis,
+    dpe_if.s_axis    s_axis,
+    dpe_if.m_axis    m_axis,
 
     // the CSR routing_table regfile (csr.rdl): one port for the whole table
-    input  csr__routing_table__external__out_t hwif_out,
-    output csr__routing_table__external__in_t  hwif_in
+    input  csr_cfg_t csr_cfg,
+    output csr_sta_t csr_sta
 );
 
   // -----------------------------------------------------------
@@ -84,11 +85,11 @@ module egress_ip_lookup
   rt_field_e        field;
   logic      [31:0] wr_data;
 
-  assign csr_wr  = hwif_out.req & hwif_out.req_is_wr;
-  assign csr_rd  = hwif_out.req & ~hwif_out.req_is_wr;
-  assign mem_idx = hwif_out.addr[9:4];
-  assign field   = rt_field_e'(hwif_out.addr[3:2]);
-  assign wr_data = hwif_out.wr_data;
+  assign csr_wr  = csr_cfg.req & csr_cfg.req_is_wr;
+  assign csr_rd  = csr_cfg.req & ~csr_cfg.req_is_wr;
+  assign mem_idx = csr_cfg.addr[9:4];
+  assign field   = rt_field_e'(csr_cfg.addr[3:2]);
+  assign wr_data = csr_cfg.wr_data;
 
   logic we_prefix, we_mask, we_peer, we_dst;
   logic [31:0] rdata_prefix, rdata_mask;
@@ -126,9 +127,9 @@ module egress_ip_lookup
       FIELD_DST:  rd_data = CSR_DATA_WIDTH'(rdata_dst);
     endcase
   end
-  assign hwif_in.wr_ack  = csr_wr;
-  assign hwif_in.rd_ack  = rd_ack;
-  assign hwif_in.rd_data = rd_data;
+  assign csr_sta.wr_ack  = csr_wr;
+  assign csr_sta.rd_ack  = rd_ack;
+  assign csr_sta.rd_data = rd_data;
 
   dpe_addr_t            route_dst;
   dpe_peer_idx_t        route_peer;

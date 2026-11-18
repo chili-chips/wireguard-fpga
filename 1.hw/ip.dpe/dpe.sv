@@ -104,8 +104,8 @@ module dpe
   //      .s_axis               (muxed_1),
   //      .m_axis               (muxed_2),
 
-  //      .hwif_out             (from_csr.dpe.routing_table),
-  //      .hwif_in              (to_csr.dpe.routing_table)
+  //      .csr_cfg              (from_csr.dpe.routing_table),
+  //      .csr_sta              (to_csr.dpe.routing_table)
   //   );
 
   logic [31:0] rt_rd_data;

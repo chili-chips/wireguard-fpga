@@ -36,7 +36,7 @@ own_rtl() {
     ls "$1"/external_lib/*/*.sv
     # the DPE blocks top does not instantiate yet (run-leq.sh proves them too)
     ls "$1"/ip.dpe/dpe_wg_encryptor.sv "$1"/ip.dpe/dpe_wg_decryptor.sv "$1"/ip.dpe/dpe_wg_disassembler.sv
-    ls "$1"/ip.lkup/egress_ip_lookup.sv "$1"/ip.lkup/route_mem.sv
+    ls "$1"/ip.lkup/lkup_pkg.sv "$1"/ip.lkup/egress_ip_lookup.sv "$1"/ip.lkup/route_mem.sv
     ls "$1"/ip.dpe/dpe_if_pipeline.sv "$1"/ip.dpe/net_pkg.sv
   } | awk '!seen[$0]++'
 }
@@ -59,7 +59,7 @@ block_rtl() {
   case $1 in
     leq_dpe_wg_encryptor) echo "$pkg $(dpe dpe_wg_encryptor.sv) $(dpe dpe_if_pipeline.sv)" ;;
     leq_dpe_wg_decryptor) echo "$pkg $(dpe dpe_wg_decryptor.sv) $(dpe dpe_if_pipeline.sv)" ;;
-    leq_egress_ip_lookup) echo "$pkg $(lkup egress_ip_lookup.sv) $(lkup route_mem.sv)" ;;
+    leq_egress_ip_lookup) echo "$pkg $(lkup lkup_pkg.sv) $(lkup egress_ip_lookup.sv) $(lkup route_mem.sv)" ;;
     leq_dpe_wg_disassembler) echo "$pkg $(dpe dpe_wg_disassembler.sv)" ;;
     *) echo "block_rtl: no files for top $1" >&2; return 1 ;;
   esac

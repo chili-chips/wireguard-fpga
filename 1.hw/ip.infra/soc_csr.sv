@@ -45,8 +45,8 @@ module soc_csr
   import csr_pkg::*;
 (
     soc_if.SLV        bus,
-    input  csr__in_t  hwif_in,
-    output csr__out_t hwif_out
+    input  csr__in_t  csr_sta,  // hardware to CPU: status, read data
+    output csr__out_t csr_cfg   // CPU to hardware: configuration
 );
   logic [31:0] s_cpuif_wr_biten;
   logic        s_cpuif_rd_ack;
@@ -77,8 +77,8 @@ module soc_csr
       .s_cpuif_wr_ack (s_cpuif_wr_ack),
       .s_cpuif_wr_err (  /*LINT:OK*/),  // soc_if has no stall or error path
 
-      .hwif_in  (hwif_in),
-      .hwif_out (hwif_out)
+      .hwif_in  (csr_sta),
+      .hwif_out (csr_cfg)
   );
 
   //=========================================

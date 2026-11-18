@@ -92,15 +92,15 @@ endmodule
 
 `ifdef LEQ_TOP_leq_egress_ip_lookup
 module leq_egress_ip_lookup
-  import csr_pkg::*;
   import dpe_pkg::*;
+  import lkup_pkg::*;
 (
     input logic clk,
     input logic rst,
     `LEQ_DPE_S(s_axis),
     `LEQ_DPE_M(m_axis),
-    input  csr__routing_table__external__out_t hwif_out,
-    output csr__routing_table__external__in_t  hwif_in
+    input  csr_cfg_t csr_cfg,
+    output csr_sta_t csr_sta
 );
   `LEQ_DPE_S_IF(s_axis)
   `LEQ_DPE_M_IF(m_axis)

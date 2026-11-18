@@ -21,6 +21,7 @@
 module tb;
   import dpe_pkg::*;
   import csr_pkg::*;
+  import lkup_pkg::*;
 
   localparam int ENTRIES = 64;
   localparam int MAX_FRAMES = 16;
@@ -33,8 +34,8 @@ module tb;
   dpe_if from_dut (.clk(clk), .rst(rst));
   dpe_if to_snk   (.clk(clk), .rst(rst));
 
-  csr__routing_table__external__out_t hwif_out;
-  csr__routing_table__external__in_t  hwif_in;
+  csr_cfg_t csr_cfg;
+  csr_sta_t csr_sta;
 
   dpe_tb_throttle #(.PASS_PCT(60), .SEED(16'hACE1)) stall_in  (.inp(from_src), .outp(to_dut));
   dpe_tb_throttle #(.PASS_PCT(60), .SEED(16'h1D2C)) stall_out (.inp(from_dut), .outp(to_snk));
@@ -42,8 +43,8 @@ module tb;
   egress_ip_lookup #(.ENTRY_COUNT(ENTRIES)) dut (
       .s_axis  (to_dut),
       .m_axis  (from_dut),
-      .hwif_out(hwif_out),
-      .hwif_in (hwif_in)
+      .csr_cfg (csr_cfg),
+      .csr_sta (csr_sta)
   );
 
   // 80 MHz at 1 ns precision: halves of 6, 6, 7, 6 ns, 12.5 ns on average
@@ -104,42 +105,42 @@ module tb;
 
   task automatic csr_write(int idx, int field, logic [31:0] data);
     @(negedge clk);
-    hwif_out.req       = 1'b1;
-    hwif_out.req_is_wr = 1'b1;
-    hwif_out.addr      = 10'({idx[5:0], field[1:0], 2'b00});
-    hwif_out.wr_data   = data;
-    hwif_out.wr_biten  = '1;
+    csr_cfg.req       = 1'b1;
+    csr_cfg.req_is_wr = 1'b1;
+    csr_cfg.addr      = 10'({idx[5:0], field[1:0], 2'b00});
+    csr_cfg.wr_data   = data;
+    csr_cfg.wr_biten  = '1;
     #3ns;
-    if (!hwif_in.wr_ack) begin
+    if (!csr_sta.wr_ack) begin
       $display("ERROR: CSR write entry %0d field %0d: no wr_ack", idx, field);
       errors++;
     end
     @(negedge clk);
-    hwif_out.req = 1'b0;
+    csr_cfg.req = 1'b0;
   endtask
 
   task automatic csr_read(int idx, int field, logic [31:0] want);
     @(negedge clk);
-    hwif_out.req       = 1'b1;
-    hwif_out.req_is_wr = 1'b0;
-    hwif_out.addr      = 10'({idx[5:0], field[1:0], 2'b00});
+    csr_cfg.req       = 1'b1;
+    csr_cfg.req_is_wr = 1'b0;
+    csr_cfg.addr      = 10'({idx[5:0], field[1:0], 2'b00});
     // a one-clock request, as PeakRDL's external access makes it; the answer
     // (rd_ack with rd_data) may come in that clock or up to 3 later
     for (int t = 0; t < 4; t++) begin
       #3ns;
-      if (hwif_in.rd_ack) begin
-        if (hwif_in.rd_data !== want) begin
+      if (csr_sta.rd_ack) begin
+        if (csr_sta.rd_data !== want) begin
           $display("ERROR: CSR read entry %0d field %0d: data %h, want %h", idx, field,
-                   hwif_in.rd_data, want);
+                   csr_sta.rd_data, want);
           errors++;
         end
         @(negedge clk);
-        hwif_out.req  = 1'b0;
+        csr_cfg.req  = 1'b0;
         return;
       end
       @(negedge clk);
-      hwif_out.req  = 1'b0;
-      hwif_out.addr = '1;  // the block must not need it after the request
+      csr_cfg.req  = 1'b0;
+      csr_cfg.addr = '1;  // the block must not need it after the request
     end
     $display("ERROR: CSR read entry %0d field %0d: no rd_ack", idx, field);
     errors++;
@@ -287,7 +288,7 @@ module tb;
     frames[9] = '{len: 14,   ip_dst: ip4(10, 1, 2, 6),     bypass_all: 0, dst: DPE_ADDR_CPU,
                   bypass_stage: 0, tid: 0};
 
-    hwif_out = '{req: 1'b0, addr: '0, req_is_wr: 1'b0, wr_data: '0, wr_biten: '0};
+    csr_cfg = '{req: 1'b0, addr: '0, req_is_wr: 1'b0, wr_data: '0, wr_biten: '0};
     n_frames = 0;
     rst = 1'b1;
     repeat (4) @(negedge clk);
