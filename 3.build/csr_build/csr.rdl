@@ -576,6 +576,13 @@ addrmap csr {
                sw = rw;
                hw = r;
             } peer_idx[5:0];
+
+            field {
+               name = "csr.routing_table.entry[0..63].peer_idx.encrypt";
+               desc = "1: the route goes through the WireGuard tunnel to peer_idx (the encryptor encrypts its packets); 0: its packets go out as they are";
+               sw = rw;
+               hw = r;
+            } encrypt[8:8] = 0;
          } peer_idx;
 
          reg {

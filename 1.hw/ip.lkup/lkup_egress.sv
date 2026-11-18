@@ -50,7 +50,10 @@
 //
 //   3. Routing Action: Updates the outgoing AXI Stream sideband signals
 //      (tuser_dst, tid/peer_id) based on the lookup result, directing the
-//      packet to the correct physical port and associating it with a Peer.
+//      packet to the correct physical port and associating it with a Peer;
+//      tuser.bypass_stage is the route's encrypt flag inverted, for the
+//      encryptor after this stage. A frame that ends before its IPv4
+//      destination does goes to the CPU, peer 0, not encrypted.
 //==========================================================================
 
 
@@ -91,15 +94,19 @@ module lkup_egress
   assign field   = rt_field_e'(csr_cfg.addr[3:2]);
   assign wr_data = csr_cfg.wr_data;
 
-  logic we_prefix, we_mask, we_peer, we_dst;
+  logic we_prefix, we_mask, we_peer, we_encrypt, we_dst;
   logic [31:0] rdata_prefix, rdata_mask;
   dpe_peer_idx_t rdata_peer;
+  logic          rdata_encrypt;
   dpe_addr_t     rdata_dst;
 
-  assign we_prefix = csr_wr & (field == FIELD_IP);
-  assign we_mask   = csr_wr & (field == FIELD_MASK);
-  assign we_peer   = csr_wr & (field == FIELD_PEER);
-  assign we_dst    = csr_wr & (field == FIELD_DST);
+  assign we_prefix  = csr_wr & (field == FIELD_IP);
+  assign we_mask    = csr_wr & (field == FIELD_MASK);
+  // the peer_idx register: peer_idx in byte 0, encrypt in byte 1 (bit 8);
+  // the CPU writes a field's byte lanes only
+  assign we_peer    = csr_wr & (field == FIELD_PEER) & csr_cfg.wr_biten[0];
+  assign we_encrypt = csr_wr & (field == FIELD_PEER) & csr_cfg.wr_biten[8];
+  assign we_dst     = csr_wr & (field == FIELD_DST);
 
   // A write is done in its request's clock. A read answers one clock later:
   // lkup_route_mem registers the entry the request addresses (rdata_*)
@@ -123,7 +130,7 @@ module lkup_egress
     unique case (rd_field)
       FIELD_IP:   rd_data = rdata_prefix;
       FIELD_MASK: rd_data = rdata_mask;
-      FIELD_PEER: rd_data = CSR_DATA_WIDTH'(rdata_peer);
+      FIELD_PEER: rd_data = CSR_DATA_WIDTH'({rdata_encrypt, rdata_peer});
       FIELD_DST:  rd_data = CSR_DATA_WIDTH'(rdata_dst);
     endcase
   end
@@ -133,6 +140,7 @@ module lkup_egress
 
   dpe_addr_t            route_dst;
   dpe_peer_idx_t        route_peer;
+  logic                 route_encrypt;
   logic          [31:0] route_req_ip;
 
   lkup_route_mem #(
@@ -140,27 +148,31 @@ module lkup_egress
   ) u_mem (
       .clk (s_axis.clk),
 
-      .waddr        (mem_idx),
-      .we_prefix    (we_prefix),
-      .wdata_prefix (wr_data),
-      .we_mask      (we_mask),
-      .wdata_mask   (wr_data),
-      .we_peer      (we_peer),
-      .wdata_peer   (dpe_peer_idx_t'(wr_data)),
-      .we_dst       (we_dst),
-      .wdata_dst    (dpe_addr_t'(wr_data[$bits(dpe_addr_t)-1:0])),
+      .waddr         (mem_idx),
+      .we_prefix     (we_prefix),
+      .wdata_prefix  (wr_data),
+      .we_mask       (we_mask),
+      .wdata_mask    (wr_data),
+      .we_peer       (we_peer),
+      .wdata_peer    (dpe_peer_idx_t'(wr_data)),
+      .we_encrypt    (we_encrypt),
+      .wdata_encrypt (wr_data[8]),
+      .we_dst        (we_dst),
+      .wdata_dst     (dpe_addr_t'(wr_data[$bits(dpe_addr_t)-1:0])),
 
-      .raddr        (mem_idx),
-      .rdata_prefix (rdata_prefix),
-      .rdata_mask   (rdata_mask),
-      .rdata_peer   (rdata_peer),
-      .rdata_dst    (rdata_dst),
+      .raddr         (mem_idx),
+      .rdata_prefix  (rdata_prefix),
+      .rdata_mask    (rdata_mask),
+      .rdata_peer    (rdata_peer),
+      .rdata_encrypt (rdata_encrypt),
+      .rdata_dst     (rdata_dst),
 
       .req_ip         (route_req_ip),
       .resp_hit       (  /*LINT:OK*/),  // a miss takes the defaults
       .resp_route_idx (  /*LINT:OK*/),  // not needed: dst and peer come with it
       .resp_dst       (route_dst),
-      .resp_peer      (route_peer)
+      .resp_peer      (route_peer),
+      .resp_encrypt   (route_encrypt)
   );
 
   // --------------------------------------------------------------------------
@@ -183,7 +195,8 @@ module lkup_egress
 
   // the frame's own tuser fields, from its first beat
   dpe_addr_t frame_src;
-  logic frame_bypass_all, frame_bypass_stage;
+  logic      frame_bypass_all;
+  logic      da_ok;  // the frame holds its whole IPv4 destination
 
   typedef struct packed {
     dpe_data_t data;
@@ -251,9 +264,13 @@ module lkup_egress
       end
 
       S_DECIDE: begin
-        decided_dst_n    = route_dst;
-        decided_peer_n   = route_peer;
-        decided_bypass_n = frame_bypass_stage;
+        // the encryptor after this stage: through the tunnel only when the
+        // route says so (the routing entry's encrypt flag). A frame that ends
+        // before its IPv4 destination does takes the defaults: to the CPU,
+        // never into the tunnel
+        decided_dst_n    = da_ok ? route_dst : DPE_ADDR_CPU;
+        decided_peer_n   = da_ok ? route_peer : dpe_peer_idx_t'(0);
+        decided_bypass_n = ~(da_ok & route_encrypt);
         state_next       = S_FLUSH;
       end
 
@@ -283,29 +300,29 @@ module lkup_egress
 
   always_ff @(posedge s_axis.clk) begin
     if (s_axis.rst) begin
-      state              <= S_IDLE;
-      beat               <= 2'd0;
-      buf_rd_ptr         <= 2'd0;
-      beat_valid[0]      <= 1'b0;
-      beat_valid[1]      <= 1'b0;
-      beat_valid[2]      <= 1'b0;
-      decided_dst        <= DPE_ADDR_CPU;
-      decided_peer       <= '0;
-      decided_bypass     <= 1'b0;
-      route_req_ip       <= 32'd0;
-      flush_limit        <= 2'd0;
-      frame_src          <= DPE_ADDR_CPU;
-      frame_bypass_all   <= 1'b0;
-      frame_bypass_stage <= 1'b0;
+      state            <= S_IDLE;
+      beat             <= 2'd0;
+      buf_rd_ptr       <= 2'd0;
+      beat_valid[0]    <= 1'b0;
+      beat_valid[1]    <= 1'b0;
+      beat_valid[2]    <= 1'b0;
+      decided_dst      <= DPE_ADDR_CPU;
+      decided_peer     <= '0;
+      decided_bypass   <= 1'b0;
+      route_req_ip     <= 32'd0;
+      flush_limit      <= 2'd0;
+      frame_src        <= DPE_ADDR_CPU;
+      frame_bypass_all <= 1'b0;
+      da_ok            <= 1'b0;
     end
     else begin
       state       <= state_next;
       flush_limit <= flush_limit_n;
 
       if (state == S_IDLE && in_hs) begin
-        frame_src          <= s_axis.tuser.src;
-        frame_bypass_all   <= s_axis.tuser.bypass_all;
-        frame_bypass_stage <= s_axis.tuser.bypass_stage;
+        frame_src        <= s_axis.tuser.src;
+        frame_bypass_all <= s_axis.tuser.bypass_all;
+        da_ok            <= 1'b0;
       end
 
       if (state == S_IDLE) begin
@@ -335,6 +352,7 @@ module lkup_egress
         end
         if (beat == DA_LO_BEAT) begin
           route_req_ip[15:0] <= be16(s_axis.tdata, IPV4_DST_OFFSET + 2);
+          da_ok              <= s_axis.tkeep[(IPV4_DST_OFFSET+3)%BEAT_BYTES];
         end
       end
 

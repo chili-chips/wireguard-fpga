@@ -76,9 +76,10 @@ Enter new routing table entry:
   Destination IP address [0.0.0.0]: 192.168.0.0
   Subnet mask [0.0.0.0]: 255.255.255.0
   Peer index (0-63) [0]: 1
+  Encrypt (0/1: through the tunnel to the peer) [0]: 1
   Destination interface (0-7) [0]: 6
 Routing table entry updated.
-  (0) IP: 192.168.0.0, Mask: 255.255.255.0, Peer index: 1, Destination interface: 6 [..2.4]
+  (0) IP: 192.168.0.0, Mask: 255.255.255.0, Peer index: 1, Encrypt: 1, Destination interface: 6 [..2.4]
 (wireguard-fpga)# 
 ```
 
@@ -132,9 +133,10 @@ Enter new routing table entry:
   Destination IP address [0.0.0.0]: 192.168.0.0
   Subnet mask [0.0.0.0]: 255.255.255.0
   Peer index (0-63) [0]: 1
+  Encrypt (0/1: through the tunnel to the peer) [0]: 1
   Destination interface (0-7) [0]: 2
 Routing table entry updated.
-  (0) IP: 192.168.0.0, Mask: 255.255.255.0, Peer index: 1, Destination interface: 2 [..2..]
+  (0) IP: 192.168.0.0, Mask: 255.255.255.0, Peer index: 1, Encrypt: 1, Destination interface: 2 [..2..]
 (wireguard-fpga)#
 ```
 

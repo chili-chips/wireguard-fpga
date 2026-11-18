@@ -521,10 +521,16 @@ typedef union {
 #define CSR__ROUTING_TABLE__ENTRY__PEER_IDX__PEER_IDX_bm 0x3f
 #define CSR__ROUTING_TABLE__ENTRY__PEER_IDX__PEER_IDX_bp 0
 #define CSR__ROUTING_TABLE__ENTRY__PEER_IDX__PEER_IDX_bw 6
+#define CSR__ROUTING_TABLE__ENTRY__PEER_IDX__ENCRYPT_bm 0x100
+#define CSR__ROUTING_TABLE__ENTRY__PEER_IDX__ENCRYPT_bp 8
+#define CSR__ROUTING_TABLE__ENTRY__PEER_IDX__ENCRYPT_bw 1
+#define CSR__ROUTING_TABLE__ENTRY__PEER_IDX__ENCRYPT_reset 0x0
 typedef union {
     struct __attribute__ ((__packed__)) {
         uint32_t peer_idx :6;
-        uint32_t :26;
+        uint32_t :2;
+        uint32_t encrypt :1;
+        uint32_t :23;
     } f;
     uint32_t w;
 } csr__routing_table__entry__peer_idx_t;

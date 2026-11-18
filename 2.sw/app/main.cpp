@@ -357,6 +357,10 @@ void show_routes_entry(int i) {
    uart_send(", Peer index: ");
    uart_send_dec(peer_idx);
 
+   uint32_t encrypt = CSR_GET(routing_table.entry[i].peer_idx, CSR__ROUTING_TABLE__ENTRY__PEER_IDX__ENCRYPT);
+   uart_send(", Encrypt: ");
+   uart_send_dec(encrypt);
+
    uint32_t dst = CSR_GET(routing_table.entry[i].dst, CSR__ROUTING_TABLE__ENTRY__DST__DST);
    uart_send(", Destination interface: ");
    uart_send_dec(dst);
@@ -437,6 +441,13 @@ void config_routes(void) {
    while (!uart_recv(uart_rx_data));
    str_parse_uint32(uart_rx_data, &peer_idx, 0, 63);
 
+   uart_send("  Encrypt (0/1: through the tunnel to the peer) [");
+   uint32_t encrypt = CSR_GET(routing_table.entry[entry_idx].peer_idx, CSR__ROUTING_TABLE__ENTRY__PEER_IDX__ENCRYPT);
+   uart_send_dec(encrypt);
+   uart_send("]: ");
+   while (!uart_recv(uart_rx_data));
+   str_parse_uint32(uart_rx_data, &encrypt, 0, 1);
+
    uart_send("  Destination interface (0-7) [");
    uint32_t dst = CSR_GET(routing_table.entry[entry_idx].dst, CSR__ROUTING_TABLE__ENTRY__DST__DST);
    uart_send_dec(dst);
@@ -450,6 +461,7 @@ void config_routes(void) {
    CSR_REG32(routing_table.entry[entry_idx].ip) = uip;
    CSR_REG32(routing_table.entry[entry_idx].mask) = umask;
    CSR_SET(routing_table.entry[entry_idx].peer_idx, CSR__ROUTING_TABLE__ENTRY__PEER_IDX__PEER_IDX, peer_idx);
+   CSR_SET(routing_table.entry[entry_idx].peer_idx, CSR__ROUTING_TABLE__ENTRY__PEER_IDX__ENCRYPT, encrypt);
    CSR_SET(routing_table.entry[entry_idx].dst, CSR__ROUTING_TABLE__ENTRY__DST__DST, dst);
 
    uart_send("Routing table entry updated.\r\n");

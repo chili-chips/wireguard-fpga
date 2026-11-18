@@ -64,6 +64,8 @@ module lkup_route_mem
     input  logic          [           31:0] wdata_mask,
     input  logic                            we_peer,
     input  dpe_peer_idx_t                   wdata_peer,
+    input  logic                            we_encrypt,
+    input  logic                            wdata_encrypt,
     input  logic                            we_dst,
     input  dpe_addr_t                       wdata_dst,
 
@@ -72,6 +74,7 @@ module lkup_route_mem
     output logic          [           31:0] rdata_prefix,
     output logic          [           31:0] rdata_mask,
     output dpe_peer_idx_t                   rdata_peer,
+    output logic                            rdata_encrypt,
     output dpe_addr_t                       rdata_dst,
 
     // Lookup Interface
@@ -79,16 +82,18 @@ module lkup_route_mem
     output logic                            resp_hit,
     output logic          [ROUTE_IDX_W-1:0] resp_route_idx,
     output dpe_addr_t                       resp_dst,
-    output dpe_peer_idx_t                   resp_peer
+    output dpe_peer_idx_t                   resp_peer,
+    output logic                            resp_encrypt     // through the tunnel to resp_peer
 );
 
   // Storage arrays
-  logic          [31:0] cam_prefix[ENTRY_COUNT];
-  logic          [31:0] cam_mask  [ENTRY_COUNT];
+  logic          [31:0] cam_prefix [ENTRY_COUNT];
+  logic          [31:0] cam_mask   [ENTRY_COUNT];
 
 
-  dpe_addr_t            ram_dst   [ENTRY_COUNT];
-  dpe_peer_idx_t        ram_peer  [ENTRY_COUNT];
+  dpe_addr_t            ram_dst    [ENTRY_COUNT];
+  dpe_peer_idx_t        ram_peer   [ENTRY_COUNT];
+  logic                 ram_encrypt[ENTRY_COUNT];
 
 
   // ---------------------------
@@ -104,6 +109,9 @@ module lkup_route_mem
     if (we_peer) begin
       ram_peer[waddr] <= wdata_peer;
     end
+    if (we_encrypt) begin
+      ram_encrypt[waddr] <= wdata_encrypt;
+    end
     if (we_dst) begin
       ram_dst[waddr] <= wdata_dst;
     end
@@ -113,10 +121,11 @@ module lkup_route_mem
   // READ LOGIC
   // ---------------------------
   always_ff @(posedge clk) begin
-    rdata_prefix <= cam_prefix[raddr];
-    rdata_mask   <= cam_mask[raddr];
-    rdata_peer   <= ram_peer[raddr];
-    rdata_dst    <= ram_dst[raddr];
+    rdata_prefix  <= cam_prefix[raddr];
+    rdata_mask    <= cam_mask[raddr];
+    rdata_peer    <= ram_peer[raddr];
+    rdata_encrypt <= ram_encrypt[raddr];
+    rdata_dst     <= ram_dst[raddr];
   end
 
   // ---------------------------
@@ -153,6 +162,7 @@ module lkup_route_mem
 
   assign resp_dst       = hit_found ? ram_dst[best_idx]  : DEFAULT_DST_PORT;
   assign resp_peer      = hit_found ? ram_peer[best_idx] : DEFAULT_PEER_IDX;
+  assign resp_encrypt   = hit_found & ram_encrypt[best_idx];  // a miss: as it is
 
 endmodule
 

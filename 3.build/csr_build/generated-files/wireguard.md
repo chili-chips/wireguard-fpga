@@ -995,6 +995,11 @@ No supported members.
 |Bits|Identifier|Access|Reset|                         Name                        |
 |----|----------|------|-----|-----------------------------------------------------|
 | 5:0| peer_idx |  rw  |  —  |csr.routing_table.entry[0..63].peer_idx.peer_idx[5:0]|
+|  8 |  encrypt |  rw  | 0x0 |   csr.routing_table.entry[0..63].peer_idx.encrypt   |
+
+#### encrypt field
+
+<p>1: the route goes through the WireGuard tunnel to peer_idx (the encryptor encrypts its packets); 0: its packets go out as they are</p>
 
 ### dst register
 
@@ -1061,6 +1066,11 @@ No supported members.
 |Bits|Identifier|Access|Reset|                         Name                        |
 |----|----------|------|-----|-----------------------------------------------------|
 | 5:0| peer_idx |  rw  |  —  |csr.routing_table.entry[0..63].peer_idx.peer_idx[5:0]|
+|  8 |  encrypt |  rw  | 0x0 |   csr.routing_table.entry[0..63].peer_idx.encrypt   |
+
+#### encrypt field
+
+<p>1: the route goes through the WireGuard tunnel to peer_idx (the encryptor encrypts its packets); 0: its packets go out as they are</p>
 
 ### dst register
 
@@ -1127,6 +1137,11 @@ No supported members.
 |Bits|Identifier|Access|Reset|                         Name                        |
 |----|----------|------|-----|-----------------------------------------------------|
 | 5:0| peer_idx |  rw  |  —  |csr.routing_table.entry[0..63].peer_idx.peer_idx[5:0]|
+|  8 |  encrypt |  rw  | 0x0 |   csr.routing_table.entry[0..63].peer_idx.encrypt   |
+
+#### encrypt field
+
+<p>1: the route goes through the WireGuard tunnel to peer_idx (the encryptor encrypts its packets); 0: its packets go out as they are</p>
 
 ### dst register
 
@@ -1193,6 +1208,11 @@ No supported members.
 |Bits|Identifier|Access|Reset|                         Name                        |
 |----|----------|------|-----|-----------------------------------------------------|
 | 5:0| peer_idx |  rw  |  —  |csr.routing_table.entry[0..63].peer_idx.peer_idx[5:0]|
+|  8 |  encrypt |  rw  | 0x0 |   csr.routing_table.entry[0..63].peer_idx.encrypt   |
+
+#### encrypt field
+
+<p>1: the route goes through the WireGuard tunnel to peer_idx (the encryptor encrypts its packets); 0: its packets go out as they are</p>
 
 ### dst register
 
@@ -1259,6 +1279,11 @@ No supported members.
 |Bits|Identifier|Access|Reset|                         Name                        |
 |----|----------|------|-----|-----------------------------------------------------|
 | 5:0| peer_idx |  rw  |  —  |csr.routing_table.entry[0..63].peer_idx.peer_idx[5:0]|
+|  8 |  encrypt |  rw  | 0x0 |   csr.routing_table.entry[0..63].peer_idx.encrypt   |
+
+#### encrypt field
+
+<p>1: the route goes through the WireGuard tunnel to peer_idx (the encryptor encrypts its packets); 0: its packets go out as they are</p>
 
 ### dst register
 
@@ -1325,6 +1350,11 @@ No supported members.
 |Bits|Identifier|Access|Reset|                         Name                        |
 |----|----------|------|-----|-----------------------------------------------------|
 | 5:0| peer_idx |  rw  |  —  |csr.routing_table.entry[0..63].peer_idx.peer_idx[5:0]|
+|  8 |  encrypt |  rw  | 0x0 |   csr.routing_table.entry[0..63].peer_idx.encrypt   |
+
+#### encrypt field
+
+<p>1: the route goes through the WireGuard tunnel to peer_idx (the encryptor encrypts its packets); 0: its packets go out as they are</p>
 
 ### dst register
 
@@ -1391,6 +1421,11 @@ No supported members.
 |Bits|Identifier|Access|Reset|                         Name                        |
 |----|----------|------|-----|-----------------------------------------------------|
 | 5:0| peer_idx |  rw  |  —  |csr.routing_table.entry[0..63].peer_idx.peer_idx[5:0]|
+|  8 |  encrypt |  rw  | 0x0 |   csr.routing_table.entry[0..63].peer_idx.encrypt   |
+
+#### encrypt field
+
+<p>1: the route goes through the WireGuard tunnel to peer_idx (the encryptor encrypts its packets); 0: its packets go out as they are</p>
 
 ### dst register
 
@@ -1457,6 +1492,11 @@ No supported members.
 |Bits|Identifier|Access|Reset|                         Name                        |
 |----|----------|------|-----|-----------------------------------------------------|
 | 5:0| peer_idx |  rw  |  —  |csr.routing_table.entry[0..63].peer_idx.peer_idx[5:0]|
+|  8 |  encrypt |  rw  | 0x0 |   csr.routing_table.entry[0..63].peer_idx.encrypt   |
+
+#### encrypt field
+
+<p>1: the route goes through the WireGuard tunnel to peer_idx (the encryptor encrypts its packets); 0: its packets go out as they are</p>
 
 ### dst register
 
@@ -1523,6 +1563,11 @@ No supported members.
 |Bits|Identifier|Access|Reset|                         Name                        |
 |----|----------|------|-----|-----------------------------------------------------|
 | 5:0| peer_idx |  rw  |  —  |csr.routing_table.entry[0..63].peer_idx.peer_idx[5:0]|
+|  8 |  encrypt |  rw  | 0x0 |   csr.routing_table.entry[0..63].peer_idx.encrypt   |
+
+#### encrypt field
+
+<p>1: the route goes through the WireGuard tunnel to peer_idx (the encryptor encrypts its packets); 0: its packets go out as they are</p>
 
 ### dst register
 
@@ -1589,6 +1634,11 @@ No supported members.
 |Bits|Identifier|Access|Reset|                         Name                        |
 |----|----------|------|-----|-----------------------------------------------------|
 | 5:0| peer_idx |  rw  |  —  |csr.routing_table.entry[0..63].peer_idx.peer_idx[5:0]|
+|  8 |  encrypt |  rw  | 0x0 |   csr.routing_table.entry[0..63].peer_idx.encrypt   |
+
+#### encrypt field
+
+<p>1: the route goes through the WireGuard tunnel to peer_idx (the encryptor encrypts its packets); 0: its packets go out as they are</p>
 
 ### dst register
 
@@ -1655,6 +1705,11 @@ No supported members.
 |Bits|Identifier|Access|Reset|                         Name                        |
 |----|----------|------|-----|-----------------------------------------------------|
 | 5:0| peer_idx |  rw  |  —  |csr.routing_table.entry[0..63].peer_idx.peer_idx[5:0]|
+|  8 |  encrypt |  rw  | 0x0 |   csr.routing_table.entry[0..63].peer_idx.encrypt   |
+
+#### encrypt field
+
+<p>1: the route goes through the WireGuard tunnel to peer_idx (the encryptor encrypts its packets); 0: its packets go out as they are</p>
 
 ### dst register
 
@@ -1721,6 +1776,11 @@ No supported members.
 |Bits|Identifier|Access|Reset|                         Name                        |
 |----|----------|------|-----|-----------------------------------------------------|
 | 5:0| peer_idx |  rw  |  —  |csr.routing_table.entry[0..63].peer_idx.peer_idx[5:0]|
+|  8 |  encrypt |  rw  | 0x0 |   csr.routing_table.entry[0..63].peer_idx.encrypt   |
+
+#### encrypt field
+
+<p>1: the route goes through the WireGuard tunnel to peer_idx (the encryptor encrypts its packets); 0: its packets go out as they are</p>
 
 ### dst register
 
@@ -1787,6 +1847,11 @@ No supported members.
 |Bits|Identifier|Access|Reset|                         Name                        |
 |----|----------|------|-----|-----------------------------------------------------|
 | 5:0| peer_idx |  rw  |  —  |csr.routing_table.entry[0..63].peer_idx.peer_idx[5:0]|
+|  8 |  encrypt |  rw  | 0x0 |   csr.routing_table.entry[0..63].peer_idx.encrypt   |
+
+#### encrypt field
+
+<p>1: the route goes through the WireGuard tunnel to peer_idx (the encryptor encrypts its packets); 0: its packets go out as they are</p>
 
 ### dst register
 
@@ -1853,6 +1918,11 @@ No supported members.
 |Bits|Identifier|Access|Reset|                         Name                        |
 |----|----------|------|-----|-----------------------------------------------------|
 | 5:0| peer_idx |  rw  |  —  |csr.routing_table.entry[0..63].peer_idx.peer_idx[5:0]|
+|  8 |  encrypt |  rw  | 0x0 |   csr.routing_table.entry[0..63].peer_idx.encrypt   |
+
+#### encrypt field
+
+<p>1: the route goes through the WireGuard tunnel to peer_idx (the encryptor encrypts its packets); 0: its packets go out as they are</p>
 
 ### dst register
 
@@ -1919,6 +1989,11 @@ No supported members.
 |Bits|Identifier|Access|Reset|                         Name                        |
 |----|----------|------|-----|-----------------------------------------------------|
 | 5:0| peer_idx |  rw  |  —  |csr.routing_table.entry[0..63].peer_idx.peer_idx[5:0]|
+|  8 |  encrypt |  rw  | 0x0 |   csr.routing_table.entry[0..63].peer_idx.encrypt   |
+
+#### encrypt field
+
+<p>1: the route goes through the WireGuard tunnel to peer_idx (the encryptor encrypts its packets); 0: its packets go out as they are</p>
 
 ### dst register
 
@@ -1985,6 +2060,11 @@ No supported members.
 |Bits|Identifier|Access|Reset|                         Name                        |
 |----|----------|------|-----|-----------------------------------------------------|
 | 5:0| peer_idx |  rw  |  —  |csr.routing_table.entry[0..63].peer_idx.peer_idx[5:0]|
+|  8 |  encrypt |  rw  | 0x0 |   csr.routing_table.entry[0..63].peer_idx.encrypt   |
+
+#### encrypt field
+
+<p>1: the route goes through the WireGuard tunnel to peer_idx (the encryptor encrypts its packets); 0: its packets go out as they are</p>
 
 ### dst register
 
@@ -2051,6 +2131,11 @@ No supported members.
 |Bits|Identifier|Access|Reset|                         Name                        |
 |----|----------|------|-----|-----------------------------------------------------|
 | 5:0| peer_idx |  rw  |  —  |csr.routing_table.entry[0..63].peer_idx.peer_idx[5:0]|
+|  8 |  encrypt |  rw  | 0x0 |   csr.routing_table.entry[0..63].peer_idx.encrypt   |
+
+#### encrypt field
+
+<p>1: the route goes through the WireGuard tunnel to peer_idx (the encryptor encrypts its packets); 0: its packets go out as they are</p>
 
 ### dst register
 
@@ -2117,6 +2202,11 @@ No supported members.
 |Bits|Identifier|Access|Reset|                         Name                        |
 |----|----------|------|-----|-----------------------------------------------------|
 | 5:0| peer_idx |  rw  |  —  |csr.routing_table.entry[0..63].peer_idx.peer_idx[5:0]|
+|  8 |  encrypt |  rw  | 0x0 |   csr.routing_table.entry[0..63].peer_idx.encrypt   |
+
+#### encrypt field
+
+<p>1: the route goes through the WireGuard tunnel to peer_idx (the encryptor encrypts its packets); 0: its packets go out as they are</p>
 
 ### dst register
 
@@ -2183,6 +2273,11 @@ No supported members.
 |Bits|Identifier|Access|Reset|                         Name                        |
 |----|----------|------|-----|-----------------------------------------------------|
 | 5:0| peer_idx |  rw  |  —  |csr.routing_table.entry[0..63].peer_idx.peer_idx[5:0]|
+|  8 |  encrypt |  rw  | 0x0 |   csr.routing_table.entry[0..63].peer_idx.encrypt   |
+
+#### encrypt field
+
+<p>1: the route goes through the WireGuard tunnel to peer_idx (the encryptor encrypts its packets); 0: its packets go out as they are</p>
 
 ### dst register
 
@@ -2249,6 +2344,11 @@ No supported members.
 |Bits|Identifier|Access|Reset|                         Name                        |
 |----|----------|------|-----|-----------------------------------------------------|
 | 5:0| peer_idx |  rw  |  —  |csr.routing_table.entry[0..63].peer_idx.peer_idx[5:0]|
+|  8 |  encrypt |  rw  | 0x0 |   csr.routing_table.entry[0..63].peer_idx.encrypt   |
+
+#### encrypt field
+
+<p>1: the route goes through the WireGuard tunnel to peer_idx (the encryptor encrypts its packets); 0: its packets go out as they are</p>
 
 ### dst register
 
@@ -2315,6 +2415,11 @@ No supported members.
 |Bits|Identifier|Access|Reset|                         Name                        |
 |----|----------|------|-----|-----------------------------------------------------|
 | 5:0| peer_idx |  rw  |  —  |csr.routing_table.entry[0..63].peer_idx.peer_idx[5:0]|
+|  8 |  encrypt |  rw  | 0x0 |   csr.routing_table.entry[0..63].peer_idx.encrypt   |
+
+#### encrypt field
+
+<p>1: the route goes through the WireGuard tunnel to peer_idx (the encryptor encrypts its packets); 0: its packets go out as they are</p>
 
 ### dst register
 
@@ -2381,6 +2486,11 @@ No supported members.
 |Bits|Identifier|Access|Reset|                         Name                        |
 |----|----------|------|-----|-----------------------------------------------------|
 | 5:0| peer_idx |  rw  |  —  |csr.routing_table.entry[0..63].peer_idx.peer_idx[5:0]|
+|  8 |  encrypt |  rw  | 0x0 |   csr.routing_table.entry[0..63].peer_idx.encrypt   |
+
+#### encrypt field
+
+<p>1: the route goes through the WireGuard tunnel to peer_idx (the encryptor encrypts its packets); 0: its packets go out as they are</p>
 
 ### dst register
 
@@ -2447,6 +2557,11 @@ No supported members.
 |Bits|Identifier|Access|Reset|                         Name                        |
 |----|----------|------|-----|-----------------------------------------------------|
 | 5:0| peer_idx |  rw  |  —  |csr.routing_table.entry[0..63].peer_idx.peer_idx[5:0]|
+|  8 |  encrypt |  rw  | 0x0 |   csr.routing_table.entry[0..63].peer_idx.encrypt   |
+
+#### encrypt field
+
+<p>1: the route goes through the WireGuard tunnel to peer_idx (the encryptor encrypts its packets); 0: its packets go out as they are</p>
 
 ### dst register
 
@@ -2513,6 +2628,11 @@ No supported members.
 |Bits|Identifier|Access|Reset|                         Name                        |
 |----|----------|------|-----|-----------------------------------------------------|
 | 5:0| peer_idx |  rw  |  —  |csr.routing_table.entry[0..63].peer_idx.peer_idx[5:0]|
+|  8 |  encrypt |  rw  | 0x0 |   csr.routing_table.entry[0..63].peer_idx.encrypt   |
+
+#### encrypt field
+
+<p>1: the route goes through the WireGuard tunnel to peer_idx (the encryptor encrypts its packets); 0: its packets go out as they are</p>
 
 ### dst register
 
@@ -2579,6 +2699,11 @@ No supported members.
 |Bits|Identifier|Access|Reset|                         Name                        |
 |----|----------|------|-----|-----------------------------------------------------|
 | 5:0| peer_idx |  rw  |  —  |csr.routing_table.entry[0..63].peer_idx.peer_idx[5:0]|
+|  8 |  encrypt |  rw  | 0x0 |   csr.routing_table.entry[0..63].peer_idx.encrypt   |
+
+#### encrypt field
+
+<p>1: the route goes through the WireGuard tunnel to peer_idx (the encryptor encrypts its packets); 0: its packets go out as they are</p>
 
 ### dst register
 
@@ -2645,6 +2770,11 @@ No supported members.
 |Bits|Identifier|Access|Reset|                         Name                        |
 |----|----------|------|-----|-----------------------------------------------------|
 | 5:0| peer_idx |  rw  |  —  |csr.routing_table.entry[0..63].peer_idx.peer_idx[5:0]|
+|  8 |  encrypt |  rw  | 0x0 |   csr.routing_table.entry[0..63].peer_idx.encrypt   |
+
+#### encrypt field
+
+<p>1: the route goes through the WireGuard tunnel to peer_idx (the encryptor encrypts its packets); 0: its packets go out as they are</p>
 
 ### dst register
 
@@ -2711,6 +2841,11 @@ No supported members.
 |Bits|Identifier|Access|Reset|                         Name                        |
 |----|----------|------|-----|-----------------------------------------------------|
 | 5:0| peer_idx |  rw  |  —  |csr.routing_table.entry[0..63].peer_idx.peer_idx[5:0]|
+|  8 |  encrypt |  rw  | 0x0 |   csr.routing_table.entry[0..63].peer_idx.encrypt   |
+
+#### encrypt field
+
+<p>1: the route goes through the WireGuard tunnel to peer_idx (the encryptor encrypts its packets); 0: its packets go out as they are</p>
 
 ### dst register
 
@@ -2777,6 +2912,11 @@ No supported members.
 |Bits|Identifier|Access|Reset|                         Name                        |
 |----|----------|------|-----|-----------------------------------------------------|
 | 5:0| peer_idx |  rw  |  —  |csr.routing_table.entry[0..63].peer_idx.peer_idx[5:0]|
+|  8 |  encrypt |  rw  | 0x0 |   csr.routing_table.entry[0..63].peer_idx.encrypt   |
+
+#### encrypt field
+
+<p>1: the route goes through the WireGuard tunnel to peer_idx (the encryptor encrypts its packets); 0: its packets go out as they are</p>
 
 ### dst register
 
@@ -2843,6 +2983,11 @@ No supported members.
 |Bits|Identifier|Access|Reset|                         Name                        |
 |----|----------|------|-----|-----------------------------------------------------|
 | 5:0| peer_idx |  rw  |  —  |csr.routing_table.entry[0..63].peer_idx.peer_idx[5:0]|
+|  8 |  encrypt |  rw  | 0x0 |   csr.routing_table.entry[0..63].peer_idx.encrypt   |
+
+#### encrypt field
+
+<p>1: the route goes through the WireGuard tunnel to peer_idx (the encryptor encrypts its packets); 0: its packets go out as they are</p>
 
 ### dst register
 
@@ -2909,6 +3054,11 @@ No supported members.
 |Bits|Identifier|Access|Reset|                         Name                        |
 |----|----------|------|-----|-----------------------------------------------------|
 | 5:0| peer_idx |  rw  |  —  |csr.routing_table.entry[0..63].peer_idx.peer_idx[5:0]|
+|  8 |  encrypt |  rw  | 0x0 |   csr.routing_table.entry[0..63].peer_idx.encrypt   |
+
+#### encrypt field
+
+<p>1: the route goes through the WireGuard tunnel to peer_idx (the encryptor encrypts its packets); 0: its packets go out as they are</p>
 
 ### dst register
 
@@ -2975,6 +3125,11 @@ No supported members.
 |Bits|Identifier|Access|Reset|                         Name                        |
 |----|----------|------|-----|-----------------------------------------------------|
 | 5:0| peer_idx |  rw  |  —  |csr.routing_table.entry[0..63].peer_idx.peer_idx[5:0]|
+|  8 |  encrypt |  rw  | 0x0 |   csr.routing_table.entry[0..63].peer_idx.encrypt   |
+
+#### encrypt field
+
+<p>1: the route goes through the WireGuard tunnel to peer_idx (the encryptor encrypts its packets); 0: its packets go out as they are</p>
 
 ### dst register
 
@@ -3041,6 +3196,11 @@ No supported members.
 |Bits|Identifier|Access|Reset|                         Name                        |
 |----|----------|------|-----|-----------------------------------------------------|
 | 5:0| peer_idx |  rw  |  —  |csr.routing_table.entry[0..63].peer_idx.peer_idx[5:0]|
+|  8 |  encrypt |  rw  | 0x0 |   csr.routing_table.entry[0..63].peer_idx.encrypt   |
+
+#### encrypt field
+
+<p>1: the route goes through the WireGuard tunnel to peer_idx (the encryptor encrypts its packets); 0: its packets go out as they are</p>
 
 ### dst register
 
@@ -3107,6 +3267,11 @@ No supported members.
 |Bits|Identifier|Access|Reset|                         Name                        |
 |----|----------|------|-----|-----------------------------------------------------|
 | 5:0| peer_idx |  rw  |  —  |csr.routing_table.entry[0..63].peer_idx.peer_idx[5:0]|
+|  8 |  encrypt |  rw  | 0x0 |   csr.routing_table.entry[0..63].peer_idx.encrypt   |
+
+#### encrypt field
+
+<p>1: the route goes through the WireGuard tunnel to peer_idx (the encryptor encrypts its packets); 0: its packets go out as they are</p>
 
 ### dst register
 
@@ -3173,6 +3338,11 @@ No supported members.
 |Bits|Identifier|Access|Reset|                         Name                        |
 |----|----------|------|-----|-----------------------------------------------------|
 | 5:0| peer_idx |  rw  |  —  |csr.routing_table.entry[0..63].peer_idx.peer_idx[5:0]|
+|  8 |  encrypt |  rw  | 0x0 |   csr.routing_table.entry[0..63].peer_idx.encrypt   |
+
+#### encrypt field
+
+<p>1: the route goes through the WireGuard tunnel to peer_idx (the encryptor encrypts its packets); 0: its packets go out as they are</p>
 
 ### dst register
 
@@ -3239,6 +3409,11 @@ No supported members.
 |Bits|Identifier|Access|Reset|                         Name                        |
 |----|----------|------|-----|-----------------------------------------------------|
 | 5:0| peer_idx |  rw  |  —  |csr.routing_table.entry[0..63].peer_idx.peer_idx[5:0]|
+|  8 |  encrypt |  rw  | 0x0 |   csr.routing_table.entry[0..63].peer_idx.encrypt   |
+
+#### encrypt field
+
+<p>1: the route goes through the WireGuard tunnel to peer_idx (the encryptor encrypts its packets); 0: its packets go out as they are</p>
 
 ### dst register
 
@@ -3305,6 +3480,11 @@ No supported members.
 |Bits|Identifier|Access|Reset|                         Name                        |
 |----|----------|------|-----|-----------------------------------------------------|
 | 5:0| peer_idx |  rw  |  —  |csr.routing_table.entry[0..63].peer_idx.peer_idx[5:0]|
+|  8 |  encrypt |  rw  | 0x0 |   csr.routing_table.entry[0..63].peer_idx.encrypt   |
+
+#### encrypt field
+
+<p>1: the route goes through the WireGuard tunnel to peer_idx (the encryptor encrypts its packets); 0: its packets go out as they are</p>
 
 ### dst register
 
@@ -3371,6 +3551,11 @@ No supported members.
 |Bits|Identifier|Access|Reset|                         Name                        |
 |----|----------|------|-----|-----------------------------------------------------|
 | 5:0| peer_idx |  rw  |  —  |csr.routing_table.entry[0..63].peer_idx.peer_idx[5:0]|
+|  8 |  encrypt |  rw  | 0x0 |   csr.routing_table.entry[0..63].peer_idx.encrypt   |
+
+#### encrypt field
+
+<p>1: the route goes through the WireGuard tunnel to peer_idx (the encryptor encrypts its packets); 0: its packets go out as they are</p>
 
 ### dst register
 
@@ -3437,6 +3622,11 @@ No supported members.
 |Bits|Identifier|Access|Reset|                         Name                        |
 |----|----------|------|-----|-----------------------------------------------------|
 | 5:0| peer_idx |  rw  |  —  |csr.routing_table.entry[0..63].peer_idx.peer_idx[5:0]|
+|  8 |  encrypt |  rw  | 0x0 |   csr.routing_table.entry[0..63].peer_idx.encrypt   |
+
+#### encrypt field
+
+<p>1: the route goes through the WireGuard tunnel to peer_idx (the encryptor encrypts its packets); 0: its packets go out as they are</p>
 
 ### dst register
 
@@ -3503,6 +3693,11 @@ No supported members.
 |Bits|Identifier|Access|Reset|                         Name                        |
 |----|----------|------|-----|-----------------------------------------------------|
 | 5:0| peer_idx |  rw  |  —  |csr.routing_table.entry[0..63].peer_idx.peer_idx[5:0]|
+|  8 |  encrypt |  rw  | 0x0 |   csr.routing_table.entry[0..63].peer_idx.encrypt   |
+
+#### encrypt field
+
+<p>1: the route goes through the WireGuard tunnel to peer_idx (the encryptor encrypts its packets); 0: its packets go out as they are</p>
 
 ### dst register
 
@@ -3569,6 +3764,11 @@ No supported members.
 |Bits|Identifier|Access|Reset|                         Name                        |
 |----|----------|------|-----|-----------------------------------------------------|
 | 5:0| peer_idx |  rw  |  —  |csr.routing_table.entry[0..63].peer_idx.peer_idx[5:0]|
+|  8 |  encrypt |  rw  | 0x0 |   csr.routing_table.entry[0..63].peer_idx.encrypt   |
+
+#### encrypt field
+
+<p>1: the route goes through the WireGuard tunnel to peer_idx (the encryptor encrypts its packets); 0: its packets go out as they are</p>
 
 ### dst register
 
@@ -3635,6 +3835,11 @@ No supported members.
 |Bits|Identifier|Access|Reset|                         Name                        |
 |----|----------|------|-----|-----------------------------------------------------|
 | 5:0| peer_idx |  rw  |  —  |csr.routing_table.entry[0..63].peer_idx.peer_idx[5:0]|
+|  8 |  encrypt |  rw  | 0x0 |   csr.routing_table.entry[0..63].peer_idx.encrypt   |
+
+#### encrypt field
+
+<p>1: the route goes through the WireGuard tunnel to peer_idx (the encryptor encrypts its packets); 0: its packets go out as they are</p>
 
 ### dst register
 
@@ -3701,6 +3906,11 @@ No supported members.
 |Bits|Identifier|Access|Reset|                         Name                        |
 |----|----------|------|-----|-----------------------------------------------------|
 | 5:0| peer_idx |  rw  |  —  |csr.routing_table.entry[0..63].peer_idx.peer_idx[5:0]|
+|  8 |  encrypt |  rw  | 0x0 |   csr.routing_table.entry[0..63].peer_idx.encrypt   |
+
+#### encrypt field
+
+<p>1: the route goes through the WireGuard tunnel to peer_idx (the encryptor encrypts its packets); 0: its packets go out as they are</p>
 
 ### dst register
 
@@ -3767,6 +3977,11 @@ No supported members.
 |Bits|Identifier|Access|Reset|                         Name                        |
 |----|----------|------|-----|-----------------------------------------------------|
 | 5:0| peer_idx |  rw  |  —  |csr.routing_table.entry[0..63].peer_idx.peer_idx[5:0]|
+|  8 |  encrypt |  rw  | 0x0 |   csr.routing_table.entry[0..63].peer_idx.encrypt   |
+
+#### encrypt field
+
+<p>1: the route goes through the WireGuard tunnel to peer_idx (the encryptor encrypts its packets); 0: its packets go out as they are</p>
 
 ### dst register
 
@@ -3833,6 +4048,11 @@ No supported members.
 |Bits|Identifier|Access|Reset|                         Name                        |
 |----|----------|------|-----|-----------------------------------------------------|
 | 5:0| peer_idx |  rw  |  —  |csr.routing_table.entry[0..63].peer_idx.peer_idx[5:0]|
+|  8 |  encrypt |  rw  | 0x0 |   csr.routing_table.entry[0..63].peer_idx.encrypt   |
+
+#### encrypt field
+
+<p>1: the route goes through the WireGuard tunnel to peer_idx (the encryptor encrypts its packets); 0: its packets go out as they are</p>
 
 ### dst register
 
@@ -3899,6 +4119,11 @@ No supported members.
 |Bits|Identifier|Access|Reset|                         Name                        |
 |----|----------|------|-----|-----------------------------------------------------|
 | 5:0| peer_idx |  rw  |  —  |csr.routing_table.entry[0..63].peer_idx.peer_idx[5:0]|
+|  8 |  encrypt |  rw  | 0x0 |   csr.routing_table.entry[0..63].peer_idx.encrypt   |
+
+#### encrypt field
+
+<p>1: the route goes through the WireGuard tunnel to peer_idx (the encryptor encrypts its packets); 0: its packets go out as they are</p>
 
 ### dst register
 
@@ -3965,6 +4190,11 @@ No supported members.
 |Bits|Identifier|Access|Reset|                         Name                        |
 |----|----------|------|-----|-----------------------------------------------------|
 | 5:0| peer_idx |  rw  |  —  |csr.routing_table.entry[0..63].peer_idx.peer_idx[5:0]|
+|  8 |  encrypt |  rw  | 0x0 |   csr.routing_table.entry[0..63].peer_idx.encrypt   |
+
+#### encrypt field
+
+<p>1: the route goes through the WireGuard tunnel to peer_idx (the encryptor encrypts its packets); 0: its packets go out as they are</p>
 
 ### dst register
 
@@ -4031,6 +4261,11 @@ No supported members.
 |Bits|Identifier|Access|Reset|                         Name                        |
 |----|----------|------|-----|-----------------------------------------------------|
 | 5:0| peer_idx |  rw  |  —  |csr.routing_table.entry[0..63].peer_idx.peer_idx[5:0]|
+|  8 |  encrypt |  rw  | 0x0 |   csr.routing_table.entry[0..63].peer_idx.encrypt   |
+
+#### encrypt field
+
+<p>1: the route goes through the WireGuard tunnel to peer_idx (the encryptor encrypts its packets); 0: its packets go out as they are</p>
 
 ### dst register
 
@@ -4097,6 +4332,11 @@ No supported members.
 |Bits|Identifier|Access|Reset|                         Name                        |
 |----|----------|------|-----|-----------------------------------------------------|
 | 5:0| peer_idx |  rw  |  —  |csr.routing_table.entry[0..63].peer_idx.peer_idx[5:0]|
+|  8 |  encrypt |  rw  | 0x0 |   csr.routing_table.entry[0..63].peer_idx.encrypt   |
+
+#### encrypt field
+
+<p>1: the route goes through the WireGuard tunnel to peer_idx (the encryptor encrypts its packets); 0: its packets go out as they are</p>
 
 ### dst register
 
@@ -4163,6 +4403,11 @@ No supported members.
 |Bits|Identifier|Access|Reset|                         Name                        |
 |----|----------|------|-----|-----------------------------------------------------|
 | 5:0| peer_idx |  rw  |  —  |csr.routing_table.entry[0..63].peer_idx.peer_idx[5:0]|
+|  8 |  encrypt |  rw  | 0x0 |   csr.routing_table.entry[0..63].peer_idx.encrypt   |
+
+#### encrypt field
+
+<p>1: the route goes through the WireGuard tunnel to peer_idx (the encryptor encrypts its packets); 0: its packets go out as they are</p>
 
 ### dst register
 
@@ -4229,6 +4474,11 @@ No supported members.
 |Bits|Identifier|Access|Reset|                         Name                        |
 |----|----------|------|-----|-----------------------------------------------------|
 | 5:0| peer_idx |  rw  |  —  |csr.routing_table.entry[0..63].peer_idx.peer_idx[5:0]|
+|  8 |  encrypt |  rw  | 0x0 |   csr.routing_table.entry[0..63].peer_idx.encrypt   |
+
+#### encrypt field
+
+<p>1: the route goes through the WireGuard tunnel to peer_idx (the encryptor encrypts its packets); 0: its packets go out as they are</p>
 
 ### dst register
 
@@ -4295,6 +4545,11 @@ No supported members.
 |Bits|Identifier|Access|Reset|                         Name                        |
 |----|----------|------|-----|-----------------------------------------------------|
 | 5:0| peer_idx |  rw  |  —  |csr.routing_table.entry[0..63].peer_idx.peer_idx[5:0]|
+|  8 |  encrypt |  rw  | 0x0 |   csr.routing_table.entry[0..63].peer_idx.encrypt   |
+
+#### encrypt field
+
+<p>1: the route goes through the WireGuard tunnel to peer_idx (the encryptor encrypts its packets); 0: its packets go out as they are</p>
 
 ### dst register
 
@@ -4361,6 +4616,11 @@ No supported members.
 |Bits|Identifier|Access|Reset|                         Name                        |
 |----|----------|------|-----|-----------------------------------------------------|
 | 5:0| peer_idx |  rw  |  —  |csr.routing_table.entry[0..63].peer_idx.peer_idx[5:0]|
+|  8 |  encrypt |  rw  | 0x0 |   csr.routing_table.entry[0..63].peer_idx.encrypt   |
+
+#### encrypt field
+
+<p>1: the route goes through the WireGuard tunnel to peer_idx (the encryptor encrypts its packets); 0: its packets go out as they are</p>
 
 ### dst register
 
@@ -4427,6 +4687,11 @@ No supported members.
 |Bits|Identifier|Access|Reset|                         Name                        |
 |----|----------|------|-----|-----------------------------------------------------|
 | 5:0| peer_idx |  rw  |  —  |csr.routing_table.entry[0..63].peer_idx.peer_idx[5:0]|
+|  8 |  encrypt |  rw  | 0x0 |   csr.routing_table.entry[0..63].peer_idx.encrypt   |
+
+#### encrypt field
+
+<p>1: the route goes through the WireGuard tunnel to peer_idx (the encryptor encrypts its packets); 0: its packets go out as they are</p>
 
 ### dst register
 
@@ -4493,6 +4758,11 @@ No supported members.
 |Bits|Identifier|Access|Reset|                         Name                        |
 |----|----------|------|-----|-----------------------------------------------------|
 | 5:0| peer_idx |  rw  |  —  |csr.routing_table.entry[0..63].peer_idx.peer_idx[5:0]|
+|  8 |  encrypt |  rw  | 0x0 |   csr.routing_table.entry[0..63].peer_idx.encrypt   |
+
+#### encrypt field
+
+<p>1: the route goes through the WireGuard tunnel to peer_idx (the encryptor encrypts its packets); 0: its packets go out as they are</p>
 
 ### dst register
 
@@ -4559,6 +4829,11 @@ No supported members.
 |Bits|Identifier|Access|Reset|                         Name                        |
 |----|----------|------|-----|-----------------------------------------------------|
 | 5:0| peer_idx |  rw  |  —  |csr.routing_table.entry[0..63].peer_idx.peer_idx[5:0]|
+|  8 |  encrypt |  rw  | 0x0 |   csr.routing_table.entry[0..63].peer_idx.encrypt   |
+
+#### encrypt field
+
+<p>1: the route goes through the WireGuard tunnel to peer_idx (the encryptor encrypts its packets); 0: its packets go out as they are</p>
 
 ### dst register
 
@@ -4625,6 +4900,11 @@ No supported members.
 |Bits|Identifier|Access|Reset|                         Name                        |
 |----|----------|------|-----|-----------------------------------------------------|
 | 5:0| peer_idx |  rw  |  —  |csr.routing_table.entry[0..63].peer_idx.peer_idx[5:0]|
+|  8 |  encrypt |  rw  | 0x0 |   csr.routing_table.entry[0..63].peer_idx.encrypt   |
+
+#### encrypt field
+
+<p>1: the route goes through the WireGuard tunnel to peer_idx (the encryptor encrypts its packets); 0: its packets go out as they are</p>
 
 ### dst register
 
@@ -4691,6 +4971,11 @@ No supported members.
 |Bits|Identifier|Access|Reset|                         Name                        |
 |----|----------|------|-----|-----------------------------------------------------|
 | 5:0| peer_idx |  rw  |  —  |csr.routing_table.entry[0..63].peer_idx.peer_idx[5:0]|
+|  8 |  encrypt |  rw  | 0x0 |   csr.routing_table.entry[0..63].peer_idx.encrypt   |
+
+#### encrypt field
+
+<p>1: the route goes through the WireGuard tunnel to peer_idx (the encryptor encrypts its packets); 0: its packets go out as they are</p>
 
 ### dst register
 
@@ -4757,6 +5042,11 @@ No supported members.
 |Bits|Identifier|Access|Reset|                         Name                        |
 |----|----------|------|-----|-----------------------------------------------------|
 | 5:0| peer_idx |  rw  |  —  |csr.routing_table.entry[0..63].peer_idx.peer_idx[5:0]|
+|  8 |  encrypt |  rw  | 0x0 |   csr.routing_table.entry[0..63].peer_idx.encrypt   |
+
+#### encrypt field
+
+<p>1: the route goes through the WireGuard tunnel to peer_idx (the encryptor encrypts its packets); 0: its packets go out as they are</p>
 
 ### dst register
 
@@ -4823,6 +5113,11 @@ No supported members.
 |Bits|Identifier|Access|Reset|                         Name                        |
 |----|----------|------|-----|-----------------------------------------------------|
 | 5:0| peer_idx |  rw  |  —  |csr.routing_table.entry[0..63].peer_idx.peer_idx[5:0]|
+|  8 |  encrypt |  rw  | 0x0 |   csr.routing_table.entry[0..63].peer_idx.encrypt   |
+
+#### encrypt field
+
+<p>1: the route goes through the WireGuard tunnel to peer_idx (the encryptor encrypts its packets); 0: its packets go out as they are</p>
 
 ### dst register
 
@@ -4889,6 +5184,11 @@ No supported members.
 |Bits|Identifier|Access|Reset|                         Name                        |
 |----|----------|------|-----|-----------------------------------------------------|
 | 5:0| peer_idx |  rw  |  —  |csr.routing_table.entry[0..63].peer_idx.peer_idx[5:0]|
+|  8 |  encrypt |  rw  | 0x0 |   csr.routing_table.entry[0..63].peer_idx.encrypt   |
+
+#### encrypt field
+
+<p>1: the route goes through the WireGuard tunnel to peer_idx (the encryptor encrypts its packets); 0: its packets go out as they are</p>
 
 ### dst register
 
@@ -4955,6 +5255,11 @@ No supported members.
 |Bits|Identifier|Access|Reset|                         Name                        |
 |----|----------|------|-----|-----------------------------------------------------|
 | 5:0| peer_idx |  rw  |  —  |csr.routing_table.entry[0..63].peer_idx.peer_idx[5:0]|
+|  8 |  encrypt |  rw  | 0x0 |   csr.routing_table.entry[0..63].peer_idx.encrypt   |
+
+#### encrypt field
+
+<p>1: the route goes through the WireGuard tunnel to peer_idx (the encryptor encrypts its packets); 0: its packets go out as they are</p>
 
 ### dst register
 
@@ -5021,6 +5326,11 @@ No supported members.
 |Bits|Identifier|Access|Reset|                         Name                        |
 |----|----------|------|-----|-----------------------------------------------------|
 | 5:0| peer_idx |  rw  |  —  |csr.routing_table.entry[0..63].peer_idx.peer_idx[5:0]|
+|  8 |  encrypt |  rw  | 0x0 |   csr.routing_table.entry[0..63].peer_idx.encrypt   |
+
+#### encrypt field
+
+<p>1: the route goes through the WireGuard tunnel to peer_idx (the encryptor encrypts its packets); 0: its packets go out as they are</p>
 
 ### dst register
 
@@ -5087,6 +5397,11 @@ No supported members.
 |Bits|Identifier|Access|Reset|                         Name                        |
 |----|----------|------|-----|-----------------------------------------------------|
 | 5:0| peer_idx |  rw  |  —  |csr.routing_table.entry[0..63].peer_idx.peer_idx[5:0]|
+|  8 |  encrypt |  rw  | 0x0 |   csr.routing_table.entry[0..63].peer_idx.encrypt   |
+
+#### encrypt field
+
+<p>1: the route goes through the WireGuard tunnel to peer_idx (the encryptor encrypts its packets); 0: its packets go out as they are</p>
 
 ### dst register
 
@@ -5153,6 +5468,11 @@ No supported members.
 |Bits|Identifier|Access|Reset|                         Name                        |
 |----|----------|------|-----|-----------------------------------------------------|
 | 5:0| peer_idx |  rw  |  —  |csr.routing_table.entry[0..63].peer_idx.peer_idx[5:0]|
+|  8 |  encrypt |  rw  | 0x0 |   csr.routing_table.entry[0..63].peer_idx.encrypt   |
+
+#### encrypt field
+
+<p>1: the route goes through the WireGuard tunnel to peer_idx (the encryptor encrypts its packets); 0: its packets go out as they are</p>
 
 ### dst register
 
