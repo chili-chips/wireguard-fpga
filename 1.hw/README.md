@@ -191,6 +191,33 @@ To illustrate the operation of the system as a whole, we will follow the step-by
 54. Once the entire packet is stored in the Tx FIFO, it is sent to the MAC core of the outgoing interface _if2_, provided that the corresponding 1 Gbps link is active and ready.
 55. The 1G MAC writes its MAC address as the source, calculates the FCS on the fly, which it ultimately appends to the end of the Ethernet frame, and then sends it to the end-user host of peer B.
 
+### Receiver Index: From a WireGuard Packet to Its Peer
+
+Every WireGuard data message names its session by a 32-bit _receiver index_: the index the receiving peer chose for itself during the handshake. In step 50, the data plane must find the session's keys from that index alone, at line rate.
+
+The firmware and the hardware split the work:
+
+- **Firmware (handshake):** for a new session it picks a free entry `e` (0 to 63) of the cryptokey table, and its own index as random upper 26 bits with `e` in the low 6 bits: `local_id = (random() & ~0x3F) | e`. It writes the session (keys, `local_id`, the peer's index, addresses) to entry `e` over the CSR, and sends `local_id` in its handshake message.
+- **Hardware (every data packet):** the disassembler takes the entry from the low 6 bits of the packet's receiver index, reads it, and compares all 32 bits with the entry's `local_id`. A match gives the peer to the decryptor; a mismatch (a stale session, an unknown or forged index) drops the packet.
+
+Why this way:
+
+- **One read, one compare.** No search over 64 entries.
+- **Indices look random on the wire,** as WireGuard intends: an observer cannot count sessions or link them across rekeys.
+- **Rekeys overlap cleanly.** The new session gets another entry, so old and new keys both work until the firmware retires the old entry.
+
+Each entry has a key per direction: the encryptor uses `encrypt_key` and `send_cnt` (and writes the counter back after each packet), the decryptor `decrypt_key`.
+
+**Where the table lives.** 64 entries of 30 words (padded to 32, so an entry is `addr[12:7]` of the CSR address). The CPU writes and reads it over the CSR. In the data plane, the encryptor and the decryptor each read a whole entry at the start of a packet, the disassembler reads `local_id` for every WireGuard packet, and the encryptor writes `send_cnt` back. Three ways to hold it:
+
+| | Pros | Cons |
+|---|---|---|
+| **Flip-flops** | Any number of readers, simplest RTL | 61k flip-flops, about half of the Artix-7's, and wide read multiplexers that hurt timing |
+| **Block RAM** | One or two BRAM36, hardly any LUTs | Two ports for four users (CPU, encryptor with its write-back, decryptor, disassembler): arbitration, and a clocked read where the disassembler wants a combinational one |
+| **Distributed RAM (LUTRAM)** | A write port and as many read ports as needed, combinational read, small | LUTs: about 1k for the table |
+
+LUTRAM was selected. Each word is stored once, in a 64-entry RAM beside the block that reads it: the addresses, `encrypt_key` and `send_cnt` at the encryptor; `decrypt_key` at the decryptor; `local_id` at the disassembler. The CSR writes reach every RAM, and reads back through a second read port. No block ever waits for another, no arbitration is needed, and the table costs about 2% of the device's LUTs.
+
 ### RTL coding rules
 
 IEEE 1800-2009 SystemVerilog, the same rules as on [openPCIE](https://github.com/chili-chips/openPCIE/blob/main/2.rtl/README.md#rtl-coding-rules). For our RTL in `1.hw` (the files [`top.filelist`](top.filelist) builds) and the models that stand in for it. Known exceptions: `` `timescale `` and plain `always` (the PLL models' clocks) inside `SIM_ONLY` blocks; the unbuilt `dpe_*` stages (untyped parameters, `` `timescale ``). Alex Forencich's verilog-ethernet and verilog-axis (`external_lib`) follow the procedural-block, `case` and `logic` rules below, but keep their untyped parameters and unlabelled generate blocks; PicoRV32 and the PeakRDL-generated CSR keep their own style. [`run-lint`](../3.build/hw_build.openXC7/run-lint.sh), [`run-format`](../3.build/hw_build.openXC7/run-format.sh) and [`run-leq`](../3.build/hw_build.openXC7/run-leq.sh) are in `3.build/hw_build.openXC7`.

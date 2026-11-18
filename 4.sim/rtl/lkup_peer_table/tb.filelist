@@ -1,0 +1,15 @@
+# SPDX-FileCopyrightText: 2026 Chili.CHIPS
+#
+# SPDX-License-Identifier: BSD-3-Clause
+
+${HW_SRC}/ip.dpe/dpe_pkg.sv
+${BLD_DIR}/csr_build/generated-files/csr_pkg.sv
+${HW_SRC}/ip.dpe/net_pkg.sv
+${HW_SRC}/ip.lkup/lkup_pkg.sv
+${HW_SRC}/ip.lkup/lkup_peer_table.sv
+
+# -----------------------------------------------------------------------------
+# Project:     WireGuard-FPGA
+# Description: NLnet-funded open-source implementation
+# Funding:     https://nlnet.nl/project/KlusterLab-Wireguard (2023-12 to 2025-12)
+# -----------------------------------------------------------------------------

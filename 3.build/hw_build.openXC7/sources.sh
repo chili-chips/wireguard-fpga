@@ -37,12 +37,13 @@ own_rtl() {
     # the DPE blocks top does not instantiate yet (run-leq.sh proves them too)
     ls "$1"/ip.dpe/dpe_wg_encryptor.sv "$1"/ip.dpe/dpe_wg_decryptor.sv "$1"/ip.dpe/dpe_wg_disassembler.sv
     ls "$1"/ip.lkup/lkup_pkg.sv "$1"/ip.lkup/lkup_egress.sv "$1"/ip.lkup/lkup_route_mem.sv
+    ls "$1"/ip.lkup/lkup_peer_table.sv
     ls "$1"/ip.dpe/dpe_switch.sv "$1"/ip.dpe/dpe_switch.DUMMY.sv
     ls "$1"/ip.dpe/dpe_if_pipeline.sv "$1"/ip.dpe/net_pkg.sv
   } | awk '!seen[$0]++'
 }
 
-BLOCK_TOPS="dpe_wg_encryptor dpe_wg_decryptor lkup_egress dpe_wg_disassembler"
+BLOCK_TOPS="dpe_wg_encryptor dpe_wg_decryptor lkup_egress lkup_peer_table dpe_wg_disassembler"
 
 # where a file is in a 1.hw tree: its path now, or where an older tree has it
 # (a LEQ gold from before a move or a rename); $1 = 1.hw, then the candidates
@@ -73,6 +74,7 @@ block_rtl() {
         ip.lkup/dpe_egress_ip_lookup.sv ip.dpe/dpe_egress_ip_lookup.sv)"
       x="$x $(in_tree "$d" ip.lkup/lkup_route_mem.sv ip.lkup/route_mem.sv \
         ip.lkup/dpe_route_mem.sv ip.dpe/dpe_route_mem.sv ip.infra/dpe_route_mem.sv)" ;;
+    lkup_peer_table) x="$pkg $(in_tree_opt "$d" ip.lkup/lkup_pkg.sv) $(in_tree_opt "$d" ip.lkup/lkup_peer_table.sv)" ;;
     dpe_wg_disassembler) x="$pkg $(dpe dpe_wg_disassembler.sv)" ;;
     *) echo "block_rtl: no files for top $1" >&2; return 1 ;;
   esac

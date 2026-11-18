@@ -1,0 +1,17 @@
+# SPDX-FileCopyrightText: 2026 Chili.CHIPS
+#
+# SPDX-License-Identifier: BSD-3-Clause
+
+# lkup_peer_table unit bench: make [SIM=verilator|icarus|janushdl], see ../sim.mk
+
+VFLAGS = -Wno-PINCONNECTEMPTY -Wno-UNUSEDPARAM -Wno-UNUSEDSIGNAL -Wno-GENUNNAMED -Wno-DECLFILENAME
+SRC_F  = tb.filelist
+SRC    = tb.sv
+
+include ../sim.mk
+
+# -----------------------------------------------------------------------------
+# Project:     WireGuard-FPGA
+# Description: NLnet-funded open-source implementation
+# Funding:     https://nlnet.nl/project/KlusterLab-Wireguard (2023-12 to 2025-12)
+# -----------------------------------------------------------------------------
