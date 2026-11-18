@@ -20,7 +20,7 @@ To implement LPM correctly, routing entries must be ordered by prefix length in 
 
 The module `lkup_route_mem.sv` implements the TCAM table. For each entry `k`, a hit signal `hit_vec[k]` is asserted when:
 ```
-(req_ip & cam_mask[k]) == (cam_prefix[k] & cam_mask[k])
+(req_ip & routes[k].mask) == (routes[k].prefix & routes[k].mask)
 ```
 The entries are scanned in ascending index order, and the first matching index is selected as `best_idx`. Because the table is pre-sorted by prefix length in descending order, this selection logic yields the correct longest prefix match.
 
@@ -32,11 +32,10 @@ The top-level module `lkup_egress` instantiates `lkup_route_mem` and coordinates
 - Metadata Assignment: On the outgoing AXI-Stream interface (`m_axis`), the module sets `m_axis.tuser.dst` and `m_axis.tid` from the routing table lookup result, and `m_axis.tuser.bypass_stage` from the route's `encrypt` flag (set: the encryptor after this stage encrypts the packet for that peer; clear: it passes it). A frame too short to hold its IPv4 destination goes to the CPU, peer 0, not encrypted; a `bypass_all` frame keeps its own `tuser` and `tid`. This ensures that the selected forwarding path and peer association are applied consistently to all beats of the packet.
 
 ### Lookup Table Format:
-The lookup table contains ENTRY_COUNT entries (default: 64). Each entry consists of:
+The lookup table contains ENTRY_COUNT entries (default: 64), each a `route_t` (`lkup_pkg`):
 - Prefix: 32 bits
 - Mask: 32 bits
-- Peer ID: 8 bits
-- Destination port: 3 bits
+- Its action, a `route_act_t`: peer ID (8 bits), encrypt (1 bit: through the tunnel to that peer), destination port (3 bits)
 
 Previously explained concepts are depicted in the image:
 <img width="1193" height="203" alt="image" src="https://github.com/user-attachments/assets/f559e3b9-e642-424d-a66c-2d44e0d010b7" />

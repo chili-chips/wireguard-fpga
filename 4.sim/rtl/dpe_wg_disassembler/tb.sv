@@ -67,24 +67,22 @@ module tb;
 
    logic        fcr_idle;
    wg_receiver_t wg_rcv;
-   dpe_peer_idx_t wg_idx;
-   logic        wg_idx_match;
+   rcv_rsp_t wg_peer;
 
    always_comb begin
-      wg_idx_match = 1'b1;
-      if (wg_rcv == RCV_A)      wg_idx = PEER_A;
-      else if (wg_rcv == RCV_B) wg_idx = PEER_B;
+      wg_peer.match = 1'b1;
+      if (wg_rcv == RCV_A)      wg_peer.idx = PEER_A;
+      else if (wg_rcv == RCV_B) wg_peer.idx = PEER_B;
       else begin
-         wg_idx       = '0;
-         wg_idx_match = 1'b0;
+         wg_peer.idx   = '0;
+         wg_peer.match = 1'b0;
       end
    end
 
    dpe_wg_disassembler DUT (
       .fcr_idle     (fcr_idle),
       .wg_rcv       (wg_rcv),
-      .wg_idx       (wg_idx),
-      .wg_idx_match (wg_idx_match),
+      .wg_peer      (wg_peer),
       .inp          (inp),
       .outp         (outp)
    );

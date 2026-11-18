@@ -94,10 +94,8 @@ module tb;
 
       .fcr_idle(fcr_idle),
 
-      .ram_peer_idx(),
-      .ram_peer(PEER),
-      .ram_new_send_cnt(),
-      .ram_update_send_cnt()
+      .peer_req(),
+      .peer_rsp(PEER)
    );
 
    dpe_pcapwriter #(

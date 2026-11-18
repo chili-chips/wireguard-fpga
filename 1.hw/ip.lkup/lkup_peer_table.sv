@@ -10,12 +10,12 @@
 //  Packet to Its Peer"). 64 entries of 30 words; each word is a 64-entry
 //  distributed RAM (LUTRAM), stored once and read where it is used:
 //   - the encryptor: addresses, remote_id, encrypt_key, send_cnt; its entry
-//     (wg_peer_cfg_t) is valid from the 2nd clock after enc_idx, and it
-//     writes send_cnt back (enc_update_send_cnt, for entry enc_idx)
+//     (wg_peer_cfg_t) is valid from the 2nd clock after enc_req.idx, and it
+//     writes send_cnt back (enc_req.update_send_cnt, for entry enc_req.idx)
 //   - the decryptor: decrypt_key, in dec_peer.key (the rest of dec_peer is
-//     0), valid from the 2nd clock after dec_idx
-//   - the disassembler: local_id, combinationally: rcv_idx is the receiver
-//     index's low 6 bits (the entry), rcv_match whether that entry's
+//     0), valid from the 2nd clock after dec_req.idx
+//   - the disassembler: local_id, combinationally: rcv_rsp.idx is the receiver
+//     index's low 6 bits (the entry), rcv_rsp.match whether that entry's
 //     local_id is the whole receiver index
 //  The CPU writes every word, byte by byte (byte enables), and reads it back
 //  one clock after its request. The send_cnt write-back goes in at once; a
@@ -32,27 +32,24 @@ module lkup_peer_table
   import net_pkg::*;
   import lkup_pkg::*;
 (
-    input  logic          clk,
-    input  logic          rst,
+    input  logic         clk,
+    input  logic         rst,
 
     // the CSR cryptokey_table regfile (csr.rdl)
-    input  ck_cfg_t       csr_cfg,
-    output ck_sta_t       csr_sta,
+    input  ck_cfg_t      csr_cfg,
+    output ck_sta_t      csr_sta,
 
     // the encryptor
-    input  dpe_peer_idx_t enc_idx,
-    output wg_peer_cfg_t  enc_peer,
-    input  wg_counter_t   enc_new_send_cnt,
-    input  logic          enc_update_send_cnt,
+    input  peer_req_t    enc_req,
+    output wg_peer_cfg_t enc_peer,
 
     // the decryptor
-    input  dpe_peer_idx_t dec_idx,
-    output wg_peer_cfg_t  dec_peer,
+    input  peer_req_t    dec_req,
+    output wg_peer_cfg_t dec_peer,
 
     // the disassembler
-    input  wg_receiver_t  rcv,
-    output dpe_peer_idx_t rcv_idx,
-    output logic          rcv_match
+    input  wg_receiver_t rcv,
+    output rcv_rsp_t     rcv_rsp
 );
 
   typedef logic [CK_ENTRY_W-1:0] entry_t;
@@ -70,11 +67,15 @@ module lkup_peer_table
   // the data-plane readers' entries (a peer index, tid, has 8 bits: the
   // table holds 64 peers)
   entry_t enc_e, dec_e, rcv_e;
-  logic [3:0] NC_idx_hi;
-  assign      enc_e     = enc_idx[CK_ENTRY_W-1:0];
-  assign      dec_e     = dec_idx[CK_ENTRY_W-1:0];
-  assign      rcv_e     = rcv[CK_ENTRY_W-1:0];
-  assign      NC_idx_hi = {enc_idx[7:CK_ENTRY_W], dec_idx[7:CK_ENTRY_W]};
+  logic        [3:0] NC_idx_hi;
+  wg_counter_t       NC_dec_cnt;  // the decryptor writes no counter back
+  logic  NC_dec_upd;
+  assign enc_e      = enc_req.idx[CK_ENTRY_W-1:0];
+  assign dec_e      = dec_req.idx[CK_ENTRY_W-1:0];
+  assign rcv_e      = rcv[CK_ENTRY_W-1:0];
+  assign NC_idx_hi  = {enc_req.idx[7:CK_ENTRY_W], dec_req.idx[7:CK_ENTRY_W]};
+  assign NC_dec_cnt = dec_req.new_send_cnt;
+  assign NC_dec_upd = dec_req.update_send_cnt;
 
   word_t dp_rd[CK_WORDS];  // each word at its reader's entry
   word_t cpu_rd[CK_WORDS];  // each word at the CPU's entry
@@ -103,7 +104,7 @@ module lkup_peer_table
       pw_be    <= '0;
     end
     else begin
-      pw_valid <= cpu_cnt_wr & enc_update_send_cnt;
+      pw_valid <= cpu_cnt_wr & enc_req.update_send_cnt;
       pw_e <= csr_entry;
       pw_word <= csr_word;
       pw_data <= csr_cfg.wr_data;
@@ -142,12 +143,12 @@ module lkup_peer_table
     end
 
     if (w == int'(CK_SEND_CNT_HI)) begin : g_cnt_hi
-      assign dp_we    = enc_update_send_cnt;
-      assign dp_wdata = enc_new_send_cnt[63:32];
+      assign dp_we    = enc_req.update_send_cnt;
+      assign dp_wdata = enc_req.new_send_cnt[63:32];
     end
     else if (w == int'(CK_SEND_CNT_LO)) begin : g_cnt_lo
-      assign dp_we    = enc_update_send_cnt;
-      assign dp_wdata = enc_new_send_cnt[31:0];
+      assign dp_we    = enc_req.update_send_cnt;
+      assign dp_wdata = enc_req.new_send_cnt[31:0];
     end
     else begin : g_no_wb
       assign dp_we    = 1'b0;
@@ -219,8 +220,7 @@ module lkup_peer_table
   end
 
   // the disassembler: the entry from the receiver index, checked in full
-  assign rcv_idx   = dpe_peer_idx_t'(rcv_e);
-  assign rcv_match = dp_rd[CK_LOCAL_ID] == rcv;
+  assign rcv_rsp = '{idx: dpe_peer_idx_t'(rcv_e), match: dp_rd[CK_LOCAL_ID] == rcv};
 
 endmodule
 

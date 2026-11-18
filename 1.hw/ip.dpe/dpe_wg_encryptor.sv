@@ -65,22 +65,21 @@ module dpe_wg_encryptor
   import dpe_pkg::*;
   import net_pkg::*;
 (
-    dpe_if.s_axis         inp,
-    dpe_if.m_axis         outp,
+    dpe_if.s_axis        inp,
+    dpe_if.m_axis        outp,
 
-    output logic          fcr_idle,
+    output logic         fcr_idle,
 
-    output dpe_peer_idx_t ram_peer_idx,
-    input  wg_peer_cfg_t  ram_peer,
-    output wg_counter_t   ram_new_send_cnt,
-    output logic          ram_update_send_cnt
+    // the peer table: the packet's peer, from the 2nd clock after the request
+    output peer_req_t    peer_req,
+    input  wg_peer_cfg_t peer_rsp
 );
 
   typedef enum logic [2:0] {
     IDLE,      // wait for a frame; a bypass frame passes at once
     BYPASS,    // the rest of a bypass frame
-    RAM_ADDR,  // ram_peer_idx is out
-    RAM_DATA,  // ram_peer is valid: take it
+    RAM_ADDR,  // peer_req.idx is out
+    RAM_DATA,  // peer_rsp is valid: take it
     PACKET     // feed and emit run
   } state_t;
 
@@ -314,7 +313,7 @@ module dpe_wg_encryptor
       RAM_ADDR: state_next = RAM_DATA;
 
       RAM_DATA: begin
-        peer_next     = ram_peer;
+        peer_next     = peer_rsp;
         feed_next     = FEED_ETH;
         emit_next     = EMIT_HDR_0;
         in_done_next  = 1'b0;
@@ -439,10 +438,8 @@ module dpe_wg_encryptor
     endcase
   end
 
-  assign fcr_idle            = (state == IDLE) & ~outp.tvalid;
-  assign ram_peer_idx        = peer_idx;
-  assign ram_new_send_cnt    = new_send_cnt;
-  assign ram_update_send_cnt = update_send_cnt;
+  assign fcr_idle = (state == IDLE) & ~outp.tvalid;
+  assign peer_req = '{idx: peer_idx, new_send_cnt: new_send_cnt, update_send_cnt: update_send_cnt};
 
   // Encryptor core. The nonce: 4 zero bytes, then the counter
   // (little-endian; byte 0 in [7:0])

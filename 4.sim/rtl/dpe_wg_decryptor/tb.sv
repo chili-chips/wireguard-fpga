@@ -67,10 +67,8 @@ module tb
         .inp                (to_enc),
         .outp               (from_enc),
         .fcr_idle           (enc_idle),
-        .ram_peer_idx       (),
-        .ram_peer           (PEER),
-        .ram_new_send_cnt   (),
-        .ram_update_send_cnt()
+        .peer_req (),
+        .peer_rsp (PEER)
     );
 
     dpe_tb_throttle #(.PASS_PCT(60), .SEED(16'h5A5A)) stall_mid (.inp(from_enc), .outp(wire_in));
@@ -112,10 +110,8 @@ module tb
       .inp                (to_dec),
       .outp               (from_dec),
       .fcr_idle           (dec_idle),
-      .ram_peer_idx       (),
-      .ram_peer           (PEER),
-      .ram_new_send_cnt   (),
-      .ram_update_send_cnt()
+      .peer_req (),
+      .peer_rsp (PEER)
   );
 
   dpe_tb_throttle #(.PASS_PCT(60), .SEED(16'h1D2C)) stall_out (.inp(from_dec), .outp(to_pcap));

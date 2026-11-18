@@ -88,8 +88,9 @@ module tb;
                     dst: DPE_ADDR_ETH_1};
     table_m[3]  = '{ip: ip4(192, 168, 1, 0), mask: ip4(255, 255, 255, 0), peer: 8'd7, encrypt: 0,
                     dst: DPE_ADDR_ETH_4};
-    // matches everything, unlike the defaults: a short frame must not get it
-    table_m[63] = '{ip: '0, mask: '0, peer: 8'h3F, encrypt: 1, dst: DPE_ADDR_ETH_4};
+    // 0.0.0.0/16, unlike the defaults: a short frame (its address read as 0.0.x.x)
+    // must not get it; other addresses can miss the table
+    table_m[63] = '{ip: '0, mask: ip4(255, 255, 0, 0), peer: 8'h3F, encrypt: 1, dst: DPE_ADDR_ETH_4};
   end
 
   // the peer_idx register: peer_idx in [7:0], encrypt in bit 8
@@ -304,6 +305,9 @@ module tb;
                    bypass_stage: 0, tid: 0};
     frames[11] = '{len: 33,  ip_dst: ip4(10, 1, 2, 7),     bypass_all: 0, dst: DPE_ADDR_CPU,
                    bypass_stage: 0, tid: 0};
+    // a destination no entry matches: the defaults (CPU, not encrypted)
+    frames[12] = '{len: 64,  ip_dst: ip4(203, 0, 113, 9),  bypass_all: 0, dst: DPE_ADDR_CPU,
+                   bypass_stage: 0, tid: 0};
 
     csr_cfg = '{req: 1'b0, addr: '0, req_is_wr: 1'b0, wr_data: '0, wr_biten: '0};
     n_frames = 0;
@@ -329,9 +333,13 @@ module tb;
     csr_write(60, 2, 32'h0000_0100, 32'h0000_FF00);
     table_m[60].encrypt = 1'b1;
     csr_read(60, 2, peer_word(table_m[60]));
+    // and peer_idx alone (byte 0): encrypt stays
+    csr_write(61, 2, 32'h0000_0055, 32'h0000_00FF);
+    table_m[61].peer = 8'h55;
+    csr_read(61, 2, peer_word(table_m[61]));
 
     // 2. the frames
-    n_frames = 12;
+    n_frames = 13;
     for (int t = 0; t < TIMEOUT_CLKS && rx_frame < n_frames; t++) @(negedge clk);
     if (rx_frame < n_frames) begin
       $display("ERROR: %0d of %0d frames out", rx_frame, n_frames);

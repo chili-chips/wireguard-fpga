@@ -29,10 +29,9 @@ module tb;
 
   ck_cfg_t       csr_cfg;
   ck_sta_t       csr_sta;
-  dpe_peer_idx_t enc_idx, dec_idx, rcv_idx;
+  peer_req_t     enc_req, dec_req;
+  rcv_rsp_t      rcv_rsp;
   wg_peer_cfg_t  enc_peer, dec_peer;
-  wg_counter_t   enc_new_send_cnt;
-  logic          enc_update_send_cnt, rcv_match;
   wg_receiver_t  rcv;
 
   lkup_peer_table dut (.*);
@@ -119,8 +118,8 @@ module tb;
   // clock after the index (the blocks take them on the 2nd)
   task automatic check_peer(int e_enc, int e_dec);
     @(negedge clk);
-    enc_idx = dpe_peer_idx_t'(e_enc);
-    dec_idx = dpe_peer_idx_t'(e_dec);
+    enc_req.idx = dpe_peer_idx_t'(e_enc);
+    dec_req.idx = dpe_peer_idx_t'(e_dec);
     @(negedge clk);
     if (enc_peer !== enc_want(e_enc)) begin
       $display("ERROR: encryptor entry %0d: %h", e_enc, enc_peer);
@@ -136,8 +135,8 @@ module tb;
     @(negedge clk);
     rcv = r;
     #3ns;
-    if (rcv_match !== want_match || (want_match && rcv_idx !== dpe_peer_idx_t'(want_e))) begin
-      $display("ERROR: receiver %h: match %b entry %0d, want %b %0d", r, rcv_match, rcv_idx,
+    if (rcv_rsp.match !== want_match || (want_match && rcv_rsp.idx !== dpe_peer_idx_t'(want_e))) begin
+      $display("ERROR: receiver %h: match %b entry %0d, want %b %0d", r, rcv_rsp.match, rcv_rsp.idx,
                want_match, want_e);
       errors++;
     end
@@ -145,11 +144,11 @@ module tb;
 
   initial begin
     csr_cfg = '{req: 1'b0, req_is_wr: 1'b0, addr: '0, wr_data: '0, wr_biten: '0};
-    enc_idx = '0;
-    dec_idx = '0;
+    enc_req.idx = '0;
+    dec_req = '0;
     rcv = '0;
-    enc_new_send_cnt = '0;
-    enc_update_send_cnt = 1'b0;
+    enc_req.new_send_cnt = '0;
+    enc_req.update_send_cnt = 1'b0;
     rst = 1'b1;
     repeat (4) @(negedge clk);
     rst = 1'b0;
@@ -183,36 +182,36 @@ module tb;
 
     // 4. the send_cnt write-back
     @(negedge clk);
-    enc_idx = 8'd37;
-    enc_new_send_cnt = 64'h0000_0001_8000_0002;
-    enc_update_send_cnt = 1'b1;
+    enc_req.idx = 8'd37;
+    enc_req.new_send_cnt = 64'h0000_0001_8000_0002;
+    enc_req.update_send_cnt = 1'b1;
     @(negedge clk);
-    enc_update_send_cnt = 1'b0;
+    enc_req.update_send_cnt = 1'b0;
     {model[37][CK_SEND_CNT_HI], model[37][CK_SEND_CNT_LO]} = 64'h0000_0001_8000_0002;
     check_peer(37, 2);
     csr_read(37, int'(CK_SEND_CNT_HI), 32'h0000_0001);
     csr_read(37, int'(CK_SEND_CNT_LO), 32'h8000_0002);
     // a CPU write in the write-back's clock wins (send_cnt low word)
     @(negedge clk);
-    enc_idx = 8'd37;
-    enc_new_send_cnt = 64'h0000_0001_8000_0003;
-    enc_update_send_cnt = 1'b1;
+    enc_req.idx = 8'd37;
+    enc_req.new_send_cnt = 64'h0000_0001_8000_0003;
+    enc_req.update_send_cnt = 1'b1;
     csr_cfg = '{req: 1'b1, req_is_wr: 1'b1, addr: 13'({6'd37, 5'(CK_SEND_CNT_LO), 2'b00}),
                 wr_data: 32'h5555_5555, wr_biten: '1};
     @(negedge clk);
-    enc_update_send_cnt = 1'b0;
+    enc_req.update_send_cnt = 1'b0;
     csr_cfg.req = 1'b0;
     csr_read(37, int'(CK_SEND_CNT_LO), 32'h5555_5555);
     csr_read(37, int'(CK_SEND_CNT_HI), 32'h0000_0001);  // the write-back's (unchanged)
     // a CPU write to another entry's send_cnt in the write-back's clock: both land
     @(negedge clk);
-    enc_idx = 8'd37;
-    enc_new_send_cnt = 64'h0000_0002_8000_0004;
-    enc_update_send_cnt = 1'b1;
+    enc_req.idx = 8'd37;
+    enc_req.new_send_cnt = 64'h0000_0002_8000_0004;
+    enc_req.update_send_cnt = 1'b1;
     csr_cfg = '{req: 1'b1, req_is_wr: 1'b1, addr: 13'({6'd5, 5'(CK_SEND_CNT_LO), 2'b00}),
                 wr_data: 32'hAAAA_0005, wr_biten: '1};
     @(negedge clk);
-    enc_update_send_cnt = 1'b0;
+    enc_req.update_send_cnt = 1'b0;
     csr_cfg.req = 1'b0;
     // then another counter write, a clock later (CPU requests are clocks
     // apart: the RTL asserts it)
@@ -228,13 +227,13 @@ module tb;
     // a write-back meeting a CPU write to the same word of another entry:
     // the encryptor's next read, a clock later, sees the new count
     @(negedge clk);
-    enc_idx = 8'd37;
-    enc_new_send_cnt = 64'h0000_0003_0000_0007;
-    enc_update_send_cnt = 1'b1;
+    enc_req.idx = 8'd37;
+    enc_req.new_send_cnt = 64'h0000_0003_0000_0007;
+    enc_req.update_send_cnt = 1'b1;
     csr_cfg = '{req: 1'b1, req_is_wr: 1'b1, addr: 13'({6'd9, 5'(CK_SEND_CNT_LO), 2'b00}),
                 wr_data: 32'hCCCC_0009, wr_biten: '1};
     @(negedge clk);
-    enc_update_send_cnt = 1'b0;
+    enc_req.update_send_cnt = 1'b0;
     csr_cfg.req = 1'b0;
     @(negedge clk);
     if (enc_peer.send_cnt !== 64'h0000_0003_0000_0007) begin

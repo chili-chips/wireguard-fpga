@@ -148,6 +148,23 @@ package net_pkg;
     wg_counter_t  send_cnt;     // [ 63:  0]
   } wg_peer_cfg_t;
 
+  // a block's request to the peer table (lkup_peer_table): the peer, and
+  // from the encryptor the send counter to write back (update_send_cnt
+  // pulses once a packet). The answer is the peer's wg_peer_cfg_t, from the
+  // 2nd clock after idx
+  typedef struct packed {
+    dpe_peer_idx_t idx;
+    wg_counter_t   new_send_cnt;
+    logic          update_send_cnt;
+  } peer_req_t;
+
+  // the peer table's answer to a receiver index, combinationally: its peer,
+  // and whether the index is known
+  typedef struct packed {
+    dpe_peer_idx_t idx;
+    logic          match;
+  } rcv_rsp_t;
+
   //------------------------------------------------------------------
   // Byte order, in one place
 
