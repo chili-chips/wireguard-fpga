@@ -213,7 +213,10 @@ module tb;
                 wr_data: 32'hAAAA_0005, wr_biten: '1};
     @(negedge clk);
     enc_update_send_cnt = 1'b0;
-    // and in the next clock too: the write-back waits for it
+    csr_cfg.req = 1'b0;
+    // then another counter write, a clock later (CPU requests are clocks
+    // apart: the RTL asserts it)
+    @(negedge clk);
     csr_cfg = '{req: 1'b1, req_is_wr: 1'b1, addr: 13'({6'd6, 5'(CK_SEND_CNT_HI), 2'b00}),
                 wr_data: 32'hBBBB_0006, wr_biten: '1};
     @(negedge clk);

@@ -113,6 +113,19 @@ module lkup_peer_table
     end
   end
 
+`ifdef SIM_ONLY
+  // the posted write assumes CPU requests are clocks apart (eduBOS5,
+  // PicoRV32 and the UART path give that); one in its clock would be lost
+  always_ff @(posedge clk) begin
+    if (!rst) begin
+      assert (!(pw_valid & csr_cfg.req))
+      else begin
+        $error("lkup_peer_table: a CSR request in a posted write's clock");
+      end
+    end
+  end
+`endif
+
   for (genvar w = 0; w < CK_WORDS; w++) begin : g_word
     entry_t rd_e;  // its data-plane reader's entry
     logic   dp_we;  // the encryptor's send_cnt write-back
