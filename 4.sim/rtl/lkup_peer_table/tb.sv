@@ -203,7 +203,7 @@ module tb;
     enc_update_send_cnt = 1'b0;
     csr_cfg.req = 1'b0;
     csr_read(37, int'(CK_SEND_CNT_LO), 32'h5555_5555);
-    csr_read(37, int'(CK_SEND_CNT_HI), 32'h0000_0001);  // the write-back cancelled
+    csr_read(37, int'(CK_SEND_CNT_HI), 32'h0000_0001);  // the write-back's (unchanged)
     // a CPU write to another entry's send_cnt in the write-back's clock: both land
     @(negedge clk);
     enc_idx = 8'd37;
@@ -222,6 +222,23 @@ module tb;
     csr_read(37, int'(CK_SEND_CNT_LO), 32'h8000_0004);
     csr_read(5, int'(CK_SEND_CNT_LO), 32'hAAAA_0005);
     csr_read(6, int'(CK_SEND_CNT_HI), 32'hBBBB_0006);
+    // a write-back meeting a CPU write to the same word of another entry:
+    // the encryptor's next read, a clock later, sees the new count
+    @(negedge clk);
+    enc_idx = 8'd37;
+    enc_new_send_cnt = 64'h0000_0003_0000_0007;
+    enc_update_send_cnt = 1'b1;
+    csr_cfg = '{req: 1'b1, req_is_wr: 1'b1, addr: 13'({6'd9, 5'(CK_SEND_CNT_LO), 2'b00}),
+                wr_data: 32'hCCCC_0009, wr_biten: '1};
+    @(negedge clk);
+    enc_update_send_cnt = 1'b0;
+    csr_cfg.req = 1'b0;
+    @(negedge clk);
+    if (enc_peer.send_cnt !== 64'h0000_0003_0000_0007) begin
+      $display("ERROR: send_cnt %h a clock after its write-back", enc_peer.send_cnt);
+      errors++;
+    end
+    csr_read(9, int'(CK_SEND_CNT_LO), 32'hCCCC_0009);
     // byte enables: one byte of a word
     csr_write(7, int'(CK_LOCAL_IP), 32'h1122_3344, 32'h00FF_0000);
     model[7][CK_LOCAL_IP][23:16] = 8'h22;

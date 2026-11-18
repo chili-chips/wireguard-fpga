@@ -18,9 +18,10 @@
 //     index's low 6 bits (the entry), rcv_match whether that entry's
 //     local_id is the whole receiver index
 //  The CPU writes every word, byte by byte (byte enables), and reads it back
-//  one clock after its request. The send_cnt write-back lands a clock later
-//  and waits while the CPU writes a send_cnt word; a CPU write to the same
-//  entry's send_cnt cancels it.
+//  one clock after its request. The send_cnt write-back goes in at once; a
+//  CPU send_cnt write in its clock is posted to the next (and wins on the
+//  same entry). CPU requests are clocks apart, so a posted write never
+//  meets the next one.
 //  MAC, IP and port are natural values in the CSR (byte 0 of the address
 //  in the top bits) and in bus byte order in wg_peer_cfg_t (byte 0 in
 //  [7:0]); the key is {key_255_224, ..., key_31_0}.
@@ -75,34 +76,40 @@ module lkup_peer_table
   assign      rcv_e     = rcv[CK_ENTRY_W-1:0];
   assign      NC_idx_hi = {enc_idx[7:CK_ENTRY_W], dec_idx[7:CK_ENTRY_W]};
 
-  word_t       dp_rd    [CK_WORDS];  // each word at its reader's entry
-  word_t       cpu_rd   [CK_WORDS];  // each word at the CPU's entry
+  word_t dp_rd[CK_WORDS];  // each word at its reader's entry
+  word_t cpu_rd[CK_WORDS];  // each word at the CPU's entry
 
-  // The encryptor's send_cnt write-back, a clock later. Each word has one
-  // write port: while the CPU writes a send_cnt word, the write-back waits
-  // (so a CPU write to another entry cannot drop it, which would reuse a
-  // nonce); a CPU write to the same entry's send_cnt cancels it (the CPU's
-  // value wins).
-  logic        wb_valid;
-  entry_t      wb_e;
-  wg_counter_t wb_cnt;
-  logic cpu_cnt_wr, wb_go;
+  // Each word has one write port. The encryptor's send_cnt write-back always
+  // goes in at once, so the next packet to that peer reads the new count (a
+  // stale or lost count would reuse a nonce). A CPU write to a send_cnt word
+  // in the same clock is posted: acknowledged at once, written in the next
+  // clock (the write-back pulses once a packet), so it lands after the
+  // write-back and wins on the same entry.
+  logic cpu_cnt_wr;  // the CPU writes a send_cnt word
   assign cpu_cnt_wr = csr_wr &
       ((csr_word == CK_WORD_W'(CK_SEND_CNT_HI)) | (csr_word == CK_WORD_W'(CK_SEND_CNT_LO)));
-  assign wb_go = wb_valid & ~cpu_cnt_wr;
+
+  logic                   pw_valid;  // a posted CPU write
+  entry_t                 pw_e;
+  logic   [CK_WORD_W-1:0] pw_word;
+  word_t                  pw_data;
+  logic   [          3:0] pw_be;  // its byte enables (wr_biten bit 8b: byte b)
   always_ff @(posedge clk) begin
     if (rst) begin
-      wb_valid <= 1'b0;
-      wb_e     <= '0;
-      wb_cnt   <= '0;
+      pw_valid <= 1'b0;
+      pw_e     <= '0;
+      pw_word  <= '0;
+      pw_data  <= '0;
+      pw_be    <= '0;
     end
-    else if (enc_update_send_cnt) begin
-      wb_valid <= ~(cpu_cnt_wr & (csr_entry == enc_e));  // the CPU's write wins
-      wb_e     <= enc_e;
-      wb_cnt   <= enc_new_send_cnt;
-    end
-    else if (wb_go | (cpu_cnt_wr & (csr_entry == wb_e))) begin
-      wb_valid <= 1'b0;
+    else begin
+      pw_valid <= cpu_cnt_wr & enc_update_send_cnt;
+      pw_e <= csr_entry;
+      pw_word <= csr_word;
+      pw_data <= csr_cfg.wr_data;
+      pw_be <= {
+        csr_cfg.wr_biten[24], csr_cfg.wr_biten[16], csr_cfg.wr_biten[8], csr_cfg.wr_biten[0]
+      };
     end
   end
 
@@ -122,12 +129,12 @@ module lkup_peer_table
     end
 
     if (w == int'(CK_SEND_CNT_HI)) begin : g_cnt_hi
-      assign dp_we    = wb_go;
-      assign dp_wdata = wb_cnt[63:32];
+      assign dp_we    = enc_update_send_cnt;
+      assign dp_wdata = enc_new_send_cnt[63:32];
     end
     else if (w == int'(CK_SEND_CNT_LO)) begin : g_cnt_lo
-      assign dp_we    = wb_go;
-      assign dp_wdata = wb_cnt[31:0];
+      assign dp_we    = enc_update_send_cnt;
+      assign dp_wdata = enc_new_send_cnt[31:0];
     end
     else begin : g_no_wb
       assign dp_we    = 1'b0;
@@ -139,11 +146,16 @@ module lkup_peer_table
     for (genvar b = 0; b < 4; b++) begin : g_byte
       logic [7:0] mem[CK_ENTRIES];
       always_ff @(posedge clk) begin
-        if (csr_wr & (csr_word == CK_WORD_W'(w)) & csr_cfg.wr_biten[8*b]) begin
-          mem[csr_entry] <= csr_cfg.wr_data[8*b+:8];
+        if (dp_we) begin
+          mem[enc_e] <= dp_wdata[8*b+:8];
         end
-        else if (dp_we) begin
-          mem[wb_e] <= dp_wdata[8*b+:8];
+        else if (pw_valid & (pw_word == CK_WORD_W'(w))) begin
+          if (pw_be[b]) begin
+            mem[pw_e] <= pw_data[8*b+:8];
+          end
+        end
+        else if (csr_wr & (csr_word == CK_WORD_W'(w)) & csr_cfg.wr_biten[8*b]) begin
+          mem[csr_entry] <= csr_cfg.wr_data[8*b+:8];
         end
       end
       assign dp_rd[w][8*b+:8]  = mem[rd_e];

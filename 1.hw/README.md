@@ -216,7 +216,7 @@ Each entry has a key per direction: the encryptor uses `encrypt_key` and `send_c
 | **Block RAM** | One or two BRAM36, hardly any LUTs | Two ports for four users (CPU, encryptor with its write-back, decryptor, disassembler): arbitration, and a clocked read where the disassembler wants a combinational one |
 | **Distributed RAM (LUTRAM)** | A write port and as many read ports as needed, combinational read, small | LUTs: about 2.6k for the table |
 
-LUTRAM was selected. Each word is stored once, in a 64-entry RAM beside the block that reads it: the addresses, `encrypt_key` and `send_cnt` at the encryptor; `decrypt_key` at the decryptor; `local_id` at the disassembler. The CSR writes reach every RAM, a byte at a time, and reads back through a second read port. No block ever waits for another and no arbitration is needed. Yosys maps the table to about 1.9k LUTs as RAM and 0.7k as logic: about 2% of the XC7A200T's LUTs.
+LUTRAM was selected. Each word is stored once, in a 64-entry RAM beside the block that reads it: the addresses, `encrypt_key` and `send_cnt` at the encryptor; `decrypt_key` at the decryptor; `local_id` at the disassembler. The CSR writes reach every RAM, a byte at a time, and reads back through a second read port. No data-plane block ever waits and no arbitration is needed (a CPU write to a counter in the clock of its write-back is posted to the next clock). Yosys maps the table to about 1.9k LUTs as RAM and 0.7k as logic: about 2% of the XC7A200T's LUTs.
 
 ### RTL coding rules
 
