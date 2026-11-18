@@ -218,6 +218,13 @@ is done.
 - **Duplicated code:** `perf_tb_common.packet_mismatch_message` repeats
   `tb_common_sim.check_packet_result`. The `init` kernel is the same in
   `make_pipelined_compute` and `make_shared_compute`. Share one copy of each.
+- **`--enc --soc --sim --syn_tb` fails** (2026-11-17, on `97097a87` and
+  `99e5e018`): GHDL stops at the first clock on "Poly1305 body ownership
+  delay mismatch" (`poly1305_mac_pipelined.py:285`), after metavalue
+  warnings: likely a valid bit that starts as X. `--dec` passes. The
+  exported encrypt core passes our SoC benches byte for byte, RFC 8439 tag
+  included, so the check fails, not the hardware. Reset that bit or let the
+  check skip metavalues before the first valid beat.
 - **`tag_words = 2`** in `aead_types.py` holds only for 128- and 256-bit
   beats. Add an assert against `DATA_BITWIDTHS` so a new width fails loudly.
 
@@ -228,12 +235,13 @@ too: pull before you edit `1.hw/` or `4.sim/`.
 
 - **Swapping this core in** ([#48](https://github.com/chili-chips/wireguard-fpga/issues/48),
   ours): `1.hw/ip.dpe/dpe_wg_encryptor.sv` and `dpe_wg_decryptor.sv` still
-  instantiate the old `pipelinec_build` core (non-RFC Poly1305). Standalone
-  `--enc --soc` and `--dec --soc` builds of this core (PipelineC `97097a87`,
-  Vivado 2026.1) are running; their Verilog goes to `soc/` here and their
-  `latency_profile.json` to `latency_hints/`. The ports keep the old core's
-  names, so the swap is an instance change. Keep the port names and their
-  meaning stable; tell us (issue or note here) before changing them.
+  take this core: standalone `--enc --soc` and `--dec --soc` builds
+  (PipelineC `97097a87`, Vivado 2026.1), Verilog gzip'd in `soc/*.v.gz`
+  (`4.sim/rtl/sim.mk` unpacks it; lint and LEQ read it as is), their
+  `latency_profile.json` in `latency_hints/`. With them our benches pass byte
+  for byte, RFC 8439 tags included. The ports keep the old core's names, so
+  the swap was an instance change. Keep the port names and their meaning
+  stable; tell us (issue or note here) before changing them.
 - **What the wrappers give the core** (rewritten 2026-11-17, `cedffc4`,
   `cc96f5d`): 128-bit beats at 80 MHz (`dpe_if`: `tdata[127:0]`,
   `tkeep[15:0]`, byte 0 in `[7:0]`); whole 16-byte blocks, the IPv4 packet

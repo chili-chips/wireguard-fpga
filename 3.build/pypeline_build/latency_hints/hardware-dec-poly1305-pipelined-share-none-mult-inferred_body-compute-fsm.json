@@ -1,0 +1,47 @@
+{
+ "entries": [
+  {
+   "achieved_mhz": 81.813,
+   "constraint": "unconstrained",
+   "goal_mhz": 80.0,
+   "key": "chacha20",
+   "kind": "AUTO_PIPELINE",
+   "latency": 19,
+   "mains": [
+    "decrypt_dataflow"
+   ],
+   "name": "chacha20",
+   "seed": {
+    "latency": 19,
+    "source": "latency memory (out_dir): met 95.694 MHz at a 80 MHz goal, xc7a200tffg1156-2/vivado"
+   },
+   "shape": "299d06f3dd6eda778d18e27e3f04c37651f1636da0f70862b8a96d2c17516b17",
+   "verified": true
+  },
+  {
+   "achieved_mhz": 81.813,
+   "constraint": "unconstrained",
+   "goal_mhz": 80.0,
+   "key": "poly1305_body",
+   "kind": "AUTO_PIPELINE",
+   "latency": 4,
+   "mains": [
+    "decrypt_dataflow"
+   ],
+   "name": "poly1305_body",
+   "seed": null,
+   "shape": "f8e7808a136163acbe3d1601965a40dc6545196fe00c3f2325118a225ce5ef78",
+   "verified": true
+  }
+ ],
+ "mains": {
+  "decrypt_dataflow": {
+   "achieved_mhz": 81.813,
+   "goal_mhz": 80.0,
+   "met": true
+  }
+ },
+ "part": "xc7a200tffg1156-2",
+ "schema_version": 1,
+ "tool": "vivado"
+}

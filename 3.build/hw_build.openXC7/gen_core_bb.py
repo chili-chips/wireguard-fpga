@@ -6,14 +6,15 @@
 # A black box of a generated module, for run-leq.sh: its port list and port
 # declarations only, so the LEQ compares what goes into the module and
 # shares what comes out, without reading the module itself (the PipelineC
-# ChaCha20-Poly1305 cores: 2.8 MB of generated Verilog each, the same on
+# ChaCha20-Poly1305 cores: 10 to 13 MB of generated Verilog each, the same on
 # both sides; proving them against their source is PipelineC#398).
-#   usage: gen_core_bb.py <generated .v> <module> >> bb.sv
+#   usage: gen_core_bb.py <generated .v or .v.gz> <module> >> bb.sv
+import gzip
 import re
 import sys
 
 src, name = sys.argv[1:3]
-text = open(src).read()
+text = (gzip.open(src, 'rt') if src.endswith('.gz') else open(src)).read()
 m = re.search(r'^module\s+' + re.escape(name) + r'\s*\((.*?)\);', text, re.M | re.S)
 if not m:
     sys.exit('gen_core_bb.py: no module %s in %s' % (name, src))

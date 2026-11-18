@@ -13,3 +13,5 @@ __pycache__/
 *.pyc
 /lextab.py
 /yacctab.py
+# the SoC cores: tracked gzip'd (soc/*.v.gz); 4.sim/rtl/sim.mk unpacks them
+/soc/*.v

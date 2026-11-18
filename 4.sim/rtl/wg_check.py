@@ -5,15 +5,16 @@
 """WireGuard block benches: reference frames, built here from the plaintext,
 independent of the RTL.
 
-  wg_check.py enc PLAIN.pcap OUT.pcap   encryptor output: headers and
-      ciphertext (RFC 8439 ChaCha20) byte for byte; the 16-byte tag only by
-      its place (the PipelineC core's Poly1305 is not RFC 8439, see
-      3.build/pipelinec_build/CLAUDE.md; the decryptor bench checks it)
+  wg_check.py enc PLAIN.pcap OUT.pcap   encryptor output: headers,
+      ciphertext and tag (RFC 8439 ChaCha20-Poly1305), byte for byte
   wg_check.py dec PLAIN.pcap OUT.pcap [N...]   decryptor output: the outer
       Ethernet header, then the IPv4 packet; frames N (counted from 0) must
       be missing: the bench corrupts them, so their tag must fail
   wg_check.py mix OUT.pcap IN.pcap...   one pcap of all their frames, plus a
       60-byte frame whose IPv4 packet is shorter (junk in the padding)
+  wg_check.py wg OUT.pcap PLAIN.pcap   the WireGuard frames of PLAIN, as
+      the encryptor must make them: the decryptor bench's input without the
+      encryptor (LOOPBACK=0)
 
 PEER is the benches' routing-table entry (tb.sv: PEER), as wire bytes.
 Exit 0 when all frames match; prints the first difference otherwise."""
@@ -66,6 +67,19 @@ def chacha20(key, nonce, data):  # RFC 8439 encryption: block counter from 1
     return out
 
 
+def poly1305(key, msg):  # RFC 8439 2.5
+    r = int.from_bytes(key[:16], 'little') & 0x0ffffffc0ffffffc0ffffffc0fffffff
+    s, a, p = int.from_bytes(key[16:], 'little'), 0, (1 << 130) - 5
+    for i in range(0, len(msg), 16):
+        a = (a + int.from_bytes(msg[i:i + 16] + b'\x01', 'little')) * r % p
+    return ((a + s) & ((1 << 128) - 1)).to_bytes(16, 'little')
+
+
+def aead_tag(key, nonce, ct):  # RFC 8439 2.8, no AAD
+    mac_data = ct + bytes(-len(ct) % 16) + struct.pack('<QQ', 0, len(ct))
+    return poly1305(chacha_block(key, 0, nonce)[:32], mac_data)
+
+
 def packets(path):
     with open(path, 'rb') as f:
         data = f.read()
@@ -96,7 +110,7 @@ def wg_frame(frame, p=PEER):
     udp = p['local_port'] + p['remote_port'] + (plen + 40).to_bytes(2, 'big') + bytes(2)
     wg = (struct.pack('<II', 4, p['remote_id']) + p['send_cnt'].to_bytes(8, 'little'))
     eth = p['remote_mac'] + p['local_mac'] + b'\x08\x00'
-    return eth + ipv4 + udp + wg + ct  # the tag follows: 16 bytes
+    return eth + ipv4 + udp + wg + ct + aead_tag(p['key'], nonce, ct)
 
 
 def compare(want, got, tag_len):
@@ -127,9 +141,12 @@ def main(mode, *paths):
         short[44:] = b'\xee' * 16
         write_pcap(paths[0], frames + [bytes(short)])
         return 0
+    if mode == 'wg':
+        write_pcap(paths[0], [wg_frame(f) for f in packets(paths[1])])
+        return 0
     plain, out = packets(paths[0]), packets(paths[1])
     if mode == 'enc':
-        return compare([wg_frame(f) for f in plain], out, 16)
+        return compare([wg_frame(f) for f in plain], out, 0)
     eth = PEER['remote_mac'] + PEER['local_mac'] + b'\x08\x00'
     dropped = {int(n) for n in paths[2:]}  # frames the bench corrupts
     return compare([eth + ip_packet(f) for i, f in enumerate(plain) if i not in dropped], out, 0)
@@ -137,3 +154,9 @@ def main(mode, *paths):
 
 if __name__ == '__main__':
     sys.exit(main(*sys.argv[1:]))
+
+# -----------------------------------------------------------------------------
+# Project:     WireGuard-FPGA
+# Description: NLnet-funded open-source implementation
+# Funding:     https://nlnet.nl/project/KlusterLab-Wireguard (2023-12 to 2025-12)
+# -----------------------------------------------------------------------------

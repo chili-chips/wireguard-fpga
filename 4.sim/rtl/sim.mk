@@ -33,7 +33,7 @@ SRC_ABS  = $(abspath $(SRC))
 # the make. A bench without one passes when its simulator ends without error.
 CHECK    = @! grep -q "RESULT: FAIL" output/sim.log
 
-.PHONY: all clean compile sim wave wave-alt
+.PHONY: all clean unpack compile sim wave wave-alt
 all: clean sim
 
 clean:
@@ -43,10 +43,17 @@ output/files.f: $(SRC_F)
 	@mkdir -p output
 	@for f in $(SRC_F); do $(EXPAND) $$f; done > $@
 
+# A generated core is kept gzip'd (3.build/pypeline_build/soc/*.v.gz): unpack each
+# .v the file lists name that has a newer .v.gz next to it
+unpack:
+	@for f in $$(for l in $(SRC_F); do $(EXPAND) $$l; done | grep -E '\.v$$'); do \
+	  if [ -f "$$f.gz" ] && [ ! "$$f" -nt "$$f.gz" ]; then gunzip -c "$$f.gz" > "$$f"; fi; \
+	done
+
 #------------------------
 ifeq ($(SIM),verilator)
 
-compile:
+compile: unpack
 	verilator $(VFLAGS) --cc --timing --trace-fst --trace-structs \
 		--timescale 1ns/1ns --exe versimSV.cpp --Mdir ./output \
 		../waivers.vlt +define+SIM_ONLY \
@@ -59,7 +66,7 @@ sim: compile
 #------------------------
 else ifeq ($(SIM),icarus)
 
-compile: output/files.f
+compile: unpack output/files.f
 	echo '+timescale+1ns/1ns' > output/icarus.cmd
 	iverilog -g2012 -DSIM_ONLY -o output/$(TB_NAME).vvp \
 		-s $(TB_NAME) -s sim_dump -c output/icarus.cmd -c output/files.f \
@@ -74,11 +81,11 @@ sim: compile
 # which JanusHDL 0.17 does not parse
 else ifeq ($(SIM),janushdl)
 
-compile: output/files.f
+compile: unpack output/files.f
 	jhdl --elaborate-only --top $(TB_NAME) +define+SIM_ONLY +define+SYNTHESIS \
 		-f output/files.f $(SRC)
 
-sim: output/files.f
+sim: unpack output/files.f
 	cd output; jhdl --top $(TB_NAME) +define+SIM_ONLY +define+SYNTHESIS \
 		-f files.f $(SRC_ABS) --fst wave.fst | tee sim.log
 	$(CHECK)

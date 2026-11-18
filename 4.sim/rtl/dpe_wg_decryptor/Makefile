@@ -5,7 +5,9 @@
 # dpe_wg_decryptor loopback bench (encryptor -> decryptor): make [SIM=verilator|icarus|janushdl], see ../sim.mk
 
 # MODDUP: the two PipelineC netlists share helper modules (same hashed name, same body)
-VFLAGS = -Wno-MODDUP -Wno-PINCONNECTEMPTY -Wno-UNUSEDPARAM -Wno-UNUSEDSIGNAL -Wno-GENUNNAMED -Wno-DECLFILENAME -Wno-UNOPTFLAT
+# LOOPBACK=0: wg_mix.pcap (RFC 8439 frames from ../wg_check.py) instead of the encryptor
+LOOPBACK ?= 1
+VFLAGS = -GLOOPBACK=$(LOOPBACK) -Wno-MODDUP -Wno-PINCONNECTEMPTY -Wno-UNUSEDPARAM -Wno-UNUSEDSIGNAL -Wno-GENUNNAMED -Wno-DECLFILENAME -Wno-UNOPTFLAT
 SRC_F  = tb.filelist
 SRC    = tb.sv
 

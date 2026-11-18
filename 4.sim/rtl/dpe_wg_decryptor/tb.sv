@@ -6,7 +6,7 @@
 // Wireguard-1GE FPGA * NLnet-sponsored open-source implementation
 //--------------------------------------------------------------------------
 // Description:
-//   dpe_wg_decryptor bench, as a loopback: plaintext frames into
+//   dpe_wg_decryptor bench. LOOPBACK=1 (default): plaintext frames into
 //   dpe_wg_encryptor, its WireGuard frames into dpe_wg_decryptor, its
 //   output to a pcap. Every link stalls (dpe_tb_throttle). One bit of frame
 //   CORRUPT_FRAME's ciphertext is flipped on the way: the decryptor must
@@ -14,9 +14,12 @@
 //   ../wg_check.py checks the output (see the Makefile).
 //==========================================================================
 
-module tb;
+module tb
   import dpe_pkg::*;
   import net_pkg::*;
+#(
+    parameter bit LOOPBACK = 1
+);
 
   localparam int CORRUPT_FRAME = 3;  // the Makefile's check knows it too
   localparam int CORRUPT_BEAT = 6;  // in the ciphertext of that frame
@@ -45,27 +48,38 @@ module tb;
       send_cnt: 64'd1
   };
 
+  // LOOPBACK 1: the plaintext through dpe_wg_encryptor; 0: the WireGuard
+  // frames ../wg_check.py builds (RFC 8439), so the decryptor is checked
+  // without the encryptor
   dpe_pcapreader #(
-      .PCAP_FILENAME     ("../../dpe_wg_encryptor/plaintext_mix.pcap"),
+      .PCAP_FILENAME     (LOOPBACK ? "../../dpe_wg_encryptor/plaintext_mix.pcap" :
+                                     "../wg_mix.pcap"),
       .TUSER_BYPASS_STAGE(1'b0)
   ) pcaprd (
       .outp        (from_pcap),
       .pcapfinished(pcapfinished)
   );
 
-  dpe_tb_throttle #(.PASS_PCT(60), .SEED(16'hACE1)) stall_in (.inp(from_pcap), .outp(to_enc));
+  if (LOOPBACK) begin : g_loopback
+    dpe_tb_throttle #(.PASS_PCT(60), .SEED(16'hACE1)) stall_in (.inp(from_pcap), .outp(to_enc));
 
-  dpe_wg_encryptor encryptor (
-      .inp                (to_enc),
-      .outp               (from_enc),
-      .fcr_idle           (enc_idle),
-      .ram_peer_idx       (),
-      .ram_peer           (PEER),
-      .ram_new_send_cnt   (),
-      .ram_update_send_cnt()
-  );
+    dpe_wg_encryptor encryptor (
+        .inp                (to_enc),
+        .outp               (from_enc),
+        .fcr_idle           (enc_idle),
+        .ram_peer_idx       (),
+        .ram_peer           (PEER),
+        .ram_new_send_cnt   (),
+        .ram_update_send_cnt()
+    );
 
-  dpe_tb_throttle #(.PASS_PCT(60), .SEED(16'h5A5A)) stall_mid (.inp(from_enc), .outp(wire_in));
+    dpe_tb_throttle #(.PASS_PCT(60), .SEED(16'h5A5A)) stall_mid (.inp(from_enc), .outp(wire_in));
+  end
+  else begin : g_reference
+    assign enc_idle = 1'b1;
+    assign from_enc.tvalid = 1'b0;
+    dpe_tb_throttle #(.PASS_PCT(60), .SEED(16'h5A5A)) stall_mid (.inp(from_pcap), .outp(wire_in));
+  end
 
   // the link: passes everything, but flips bit 0 of beat CORRUPT_BEAT of
   // frame CORRUPT_FRAME

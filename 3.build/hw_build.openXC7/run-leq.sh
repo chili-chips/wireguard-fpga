@@ -69,7 +69,7 @@ PYTHON=${PYTHON:-python3}
 PRIMS="PLLE2_BASE BUFG IBUFGDS BUFGMUX BUFIO BUFIO2 BUFR ODDR ODDR2"
 # The generated ChaCha20-Poly1305 cores are black boxes too (the same files
 # on both sides; their proof against the Python source is PipelineC#398)
-GEN=$BLD/pipelinec_build/generated-files
+GEN=$BLD/pypeline_build/soc  # the cores the DPE uses, gzip'd
 CORES="chacha20poly1305_encrypt chacha20poly1305_decrypt"
 # The tops: the design, and the DPE blocks it does not instantiate yet
 # (leq_tops.sv wraps each, a top cannot have interface ports)
@@ -81,7 +81,7 @@ TOPS=${LEQ_TOPS:-top $BLOCK_TOPS}
 W=$(mktemp -d); cd "$W"
 
 "$PYTHON" "$HERE/gen_xilinx_bb.py" "$("$YOSYS_CONFIG" --datdir)/xilinx" bb.sv $PRIMS >/dev/null
-for c in $CORES; do "$PYTHON" "$HERE/gen_core_bb.py" "$GEN/$c.v" $c >> bb.sv; done
+for c in $CORES; do "$PYTHON" "$HERE/gen_core_bb.py" "$GEN/$c.v.gz" $c >> bb.sv; done
 PRIMS="$PRIMS $CORES"
 
 files() {  # $1 = 1.hw dir, $2 = gold|gate; the design, and what $TOP adds to it

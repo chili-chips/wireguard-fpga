@@ -163,7 +163,7 @@ bb() {
   have "$YOSYS_CONFIG" || return 1
   "$PYTHON" "$HERE/gen_xilinx_bb.py" "$("$YOSYS_CONFIG" --datdir)/xilinx" bb.tmp $PRIMS >/dev/null &&
     for c in $CORES; do
-      "$PYTHON" "$HERE/gen_core_bb.py" "$REPO/3.build/pipelinec_build/generated-files/$c.v" $c >> bb.tmp ||
+      "$PYTHON" "$HERE/gen_core_bb.py" "$REPO/3.build/pypeline_build/soc/$c.v.gz" $c >> bb.tmp ||
         return 1
     done && mv bb.tmp bb.sv
 }
