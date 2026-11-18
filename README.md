@@ -13,6 +13,9 @@ SPDX-License-Identifier: BSD-3-Clause
 [![PeakRDL:YES](https://badgen.net/badge/PeakRDL/YES/green)](3.build/csr_build)
 [![eduBOS5:YES](https://badgen.net/badge/eduBOS5/YES/green)](https://github.com/chili-chips/openPCIE/blob/main/2.rtl/0.common.opensource/src/CPU.eduBOS5/README.md)
 [![VProc:YES](https://badgen.net/badge/VProc/YES/green)](4.sim/README.md)
+[![udpIpPg:YES](https://badgen.net/badge/udpIpPg/YES/green)](https://github.com/wyvernSemi/udpIpPg)
+[![PCAP:YES](https://badgen.net/badge/PCAP/YES/green)](4.sim/rtl/pcap_reader_writer)
+[![Wireshark:YES](https://badgen.net/badge/Wireshark/YES/green)](https://www.wireshark.org)
 [![WaveCrux:YES](https://badgen.net/badge/WaveCrux/YES/green)](https://wavecrux.app)
 [![JanusHDL:WIP](https://badgen.net/badge/JanusHDL/WIP/orange)](https://que.no/janushdl/)
 [![Lint](https://badgen.net/github/checks/chili-chips/wireguard-fpga/main/run-lint?label=Lint)](https://github.com/chili-chips/wireguard-fpga/actions/workflows/lint.yml)
@@ -223,6 +226,12 @@ The figure below shows an oveview block diagram of the test bench HDL.
 </div>
 
 More details on the architecture and usage of the Wireguard test bench can be found in the [README.md](4.sim/README.md) in the `4.sim` directory.
+
+**Protocol decoding with [WaveCrux](https://wavecrux.app).** The co-sim waveform with WaveCrux's Ethernet (GMII) decoder on two ports ([`4.sim/wave.GMII.wavecrux`](4.sim/wave.GMII.wavecrux); receive light blue, transmit orange; taken before the fix below). A UDP frame from the _udpIpPg_ model arrives on port 3 and leaves port 4 about 1.3 µs later. The decoder marks the incoming frame red: it has only 6 preamble bytes, where IEEE 802.3 needs 7. The bug is in the test model, not in our design ([#50](https://github.com/chili-chips/wireguard-fpga/issues/50)). Our MAC accepts the frame and sends it on with a full preamble (blue, right).
+
+<div align="center">
+   <img src="0.doc/sim/wavecrux-gmii-short-preamble.png" width=700>
+</div>
 
 ## HAL
 
@@ -437,6 +446,7 @@ If it was not for **Julian Kemmerer's** unreserved support helping us move our t
 | Icarus Verilog | [iverilog#1820](https://github.com/steveicarus/iverilog/issues/1820) | `unique if` / `unique0 if` / `priority if`: syntax error ([#43](https://github.com/chili-chips/wireguard-fpga/issues/43)) | open |
 | Icarus Verilog | [iverilog#1821](https://github.com/steveicarus/iverilog/issues/1821) | an interface port's parameter rejected in a constant expression ([#44](https://github.com/chili-chips/wireguard-fpga/issues/44)) | open |
 | Icarus Verilog | [iverilog#266](https://github.com/steveicarus/iverilog/issues/266) | unpacked structs (our case added; [#45](https://github.com/chili-chips/wireguard-fpga/issues/45)) | open |
+| udpIpPg (wyvernSemi) | [#50](https://github.com/chili-chips/wireguard-fpga/issues/50) | 1.0.5 sends a 6-byte GMII preamble (802.3: 7); fixed here by [`udpIpPg-preamble.patch`](4.sim/models/udpIpPg/udpIpPg-preamble.patch) | to file upstream |
 | Verible | [verible#2656](https://github.com/chipsalliance/verible/issues/2656) | feature: align `?` and `:` in conditional assigns, wrap a long one under `=` ([#46](https://github.com/chili-chips/wireguard-fpga/issues/46)) | open |
 | openXC7 nextpnr-xilinx | [nextpnr-xilinx#75](https://github.com/openXC7/nextpnr-xilinx/issues/75) | `BUFGMUX` not supported (legacy toolchain) | closed (fixed, [nextpnr-xilinx#81](https://github.com/openXC7/nextpnr-xilinx/pull/81)) |
 | openXC7 nextpnr-xilinx | [nextpnr-xilinx#74](https://github.com/openXC7/nextpnr-xilinx/issues/74) | `IBUFGDS` not supported (legacy toolchain) | closed |

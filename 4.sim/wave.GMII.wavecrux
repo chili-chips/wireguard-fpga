@@ -1,0 +1,149 @@
+{
+  "version": 4,
+  "sourceFilePath": "wave.fst",
+  "signals": [
+    {
+      "kind": "signal",
+      "id": "a36cc035-26",
+      "ref": "24",
+      "path": "TOP.tb.dut.u_eth_3.gmii_rx_clk",
+      "name": "gmii_rx_clk",
+      "color": 4282434815,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "a36cc035-27",
+      "ref": "45",
+      "path": "TOP.tb.dut.u_eth_3.gmii_rx_dv",
+      "name": "gmii_rx_dv",
+      "color": 4282434815,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "a36cc035-28",
+      "ref": "46",
+      "path": "TOP.tb.dut.u_eth_3.gmii_rx_er",
+      "name": "gmii_rx_er",
+      "color": 4282434815,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "a36cc035-29",
+      "ref": "47",
+      "path": "TOP.tb.dut.u_eth_3.gmii_rxd",
+      "name": "gmii_rxd",
+      "color": 4282434815,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "a36cc035-30",
+      "ref": "55",
+      "path": "TOP.tb.dut.u_eth_4.gmii_tx_clk",
+      "name": "gmii_tx_clk",
+      "color": 4294938880,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "a36cc035-31",
+      "ref": "56",
+      "path": "TOP.tb.dut.u_eth_4.gmii_tx_en",
+      "name": "gmii_tx_en",
+      "color": 4294938880,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "a36cc035-32",
+      "ref": "57",
+      "path": "TOP.tb.dut.u_eth_4.gmii_tx_er",
+      "name": "gmii_tx_er",
+      "color": 4294938880,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "a36cc035-33",
+      "ref": "58",
+      "path": "TOP.tb.dut.u_eth_4.gmii_txd",
+      "name": "gmii_txd",
+      "color": 4294938880,
+      "format": "hexadecimal",
+      "height": 30.0
+    }
+  ],
+  "cursor": {
+    "primary": 2000012000,
+    "secondary": null
+  },
+  "markers": {},
+  "view": {
+    "ticksPerPixel": 3000.0,
+    "panOffsetTicks": 1999800000.0,
+    "scrollOffset": 0.0
+  },
+  "panels": {
+    "signalTree": false,
+    "valueColumn": false,
+    "transactionView": false,
+    "stageView": false,
+    "statisticsStrip": false,
+    "cocotbLogPanel": false,
+    "rtlSource": false,
+    "bottomDockTab": "transactions",
+    "sizes": {
+      "left": 300.0,
+      "right": 150.0,
+      "bottom": 260.0
+    }
+  },
+  "translateFilters": {},
+  "stage": {
+    "panels": []
+  },
+  "activeTheme": "wavecrux-dark",
+  "decoders": [
+    {
+      "decoderId": "ethernet_gmii",
+      "instanceNumber": 1,
+      "config": {
+        "bindings": {
+          "rx_clk": "24",
+          "rx_dv": "45",
+          "rx_er": "46",
+          "rxd": "47",
+          "gtx_clk": "55",
+          "tx_en": "56",
+          "tx_er": "57",
+          "txd": "58"
+        },
+        "bindingPaths": {
+          "rx_clk": "TOP.tb.dut.u_eth_3.gmii_rx_clk",
+          "rx_dv": "TOP.tb.dut.u_eth_3.gmii_rx_dv",
+          "rx_er": "TOP.tb.dut.u_eth_3.gmii_rx_er",
+          "rxd": "TOP.tb.dut.u_eth_3.gmii_rxd",
+          "gtx_clk": "TOP.tb.dut.u_eth_4.gmii_tx_clk",
+          "tx_en": "TOP.tb.dut.u_eth_4.gmii_tx_en",
+          "tx_er": "TOP.tb.dut.u_eth_4.gmii_tx_er",
+          "txd": "TOP.tb.dut.u_eth_4.gmii_txd"
+        },
+        "parameters": {
+          "jumbo_enabled": false,
+          "decode_tx": true,
+          "decode_rx": true
+        }
+      }
+    }
+  ]
+}

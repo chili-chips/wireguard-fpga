@@ -1,0 +1,1387 @@
+{
+  "version": 4,
+  "sourceFilePath": "wave.fst",
+  "signals": [
+    {
+      "kind": "signal",
+      "id": "gtkw-0",
+      "ref": "434",
+      "path": "TOP.tb.dut.u_cpu.bus.vld",
+      "name": "vld",
+      "color": 4283215696,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-1",
+      "ref": "435",
+      "path": "TOP.tb.dut.u_cpu.bus.rdy",
+      "name": "rdy",
+      "color": 4280731354,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-2",
+      "ref": "437",
+      "path": "TOP.tb.dut.u_cpu.bus.we",
+      "name": "we",
+      "color": 4294962776,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-3",
+      "ref": "436",
+      "path": "TOP.tb.dut.u_cpu.bus.addr",
+      "name": "addr",
+      "color": 4293673082,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-4",
+      "ref": "439",
+      "path": "TOP.tb.dut.u_cpu.bus.rdat",
+      "name": "rdat",
+      "color": 4294944550,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-5",
+      "ref": "438",
+      "path": "TOP.tb.dut.u_cpu.bus.wdat",
+      "name": "wdat",
+      "color": 4293848814,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-6",
+      "ref": "3148",
+      "path": "TOP.tb.dut.u_uart.tick_1us",
+      "name": "tick_1us",
+      "color": 4283215696,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-7",
+      "ref": "3168",
+      "path": "TOP.tb.dut.u_uart.tx_cnt1us",
+      "name": "tx_cnt1us",
+      "color": 4294938880,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-8",
+      "ref": "3169",
+      "path": "TOP.tb.dut.u_uart.tx_cnt1us_is0",
+      "name": "tx_cnt1us_is0",
+      "color": 4294938880,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-9",
+      "ref": "3171",
+      "path": "TOP.tb.dut.u_uart.tx_data",
+      "name": "tx_data",
+      "color": 4294938880,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-10",
+      "ref": "3167",
+      "path": "TOP.tb.dut.u_uart.tx_state",
+      "name": "tx_state",
+      "color": 4294938880,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-11",
+      "ref": "60",
+      "path": "TOP.tb.dut.u_uart.uart_tx",
+      "name": "uart_tx",
+      "color": 4294938880,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-12",
+      "ref": "59",
+      "path": "TOP.tb.dut.u_uart.uart_rx",
+      "name": "uart_rx",
+      "color": 4282434815,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-13",
+      "ref": "3156",
+      "path": "TOP.tb.dut.u_uart.rx_cnt1us",
+      "name": "rx_cnt1us",
+      "color": 4282434815,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-14",
+      "ref": "3157",
+      "path": "TOP.tb.dut.u_uart.rx_cnt1us_is0",
+      "name": "rx_cnt1us_is0",
+      "color": 4282434815,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-15",
+      "ref": "3155",
+      "path": "TOP.tb.dut.u_uart.rx_state",
+      "name": "rx_state",
+      "color": 4282434815,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-16",
+      "ref": "3159",
+      "path": "TOP.tb.dut.u_uart.rx_shift",
+      "name": "rx_shift",
+      "color": 4282434815,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-17",
+      "ref": "3161",
+      "path": "TOP.tb.dut.u_uart.u_rx_fifo.full",
+      "name": "full",
+      "color": 4293848814,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-18",
+      "ref": "3205",
+      "path": "TOP.tb.dut.u_uart.u_rx_fifo.we_protected",
+      "name": "we_protected",
+      "color": 4283215696,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-19",
+      "ref": "3159",
+      "path": "TOP.tb.dut.u_uart.u_rx_fifo.din",
+      "name": "din",
+      "color": 4280731354,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-20",
+      "ref": "3163",
+      "path": "TOP.tb.dut.u_uart.u_rx_fifo.empty",
+      "name": "empty",
+      "color": 4294962776,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-21",
+      "ref": "3206",
+      "path": "TOP.tb.dut.u_uart.u_rx_fifo.re_protected",
+      "name": "re_protected",
+      "color": 4293673082,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-22",
+      "ref": "3164",
+      "path": "TOP.tb.dut.u_uart.u_rx_fifo.dout_comb",
+      "name": "dout_comb",
+      "color": 4294944550,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-23",
+      "ref": "398",
+      "path": "TOP.tb.dut.from_csr.uart.rx.data.swacc",
+      "name": "swacc",
+      "color": 4293848814,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-24",
+      "ref": "400",
+      "path": "TOP.tb.dut.from_csr.uart.tx.data.value",
+      "name": "data.value",
+      "color": 4283215696,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-25",
+      "ref": "402",
+      "path": "TOP.tb.dut.from_csr.uart.tx_trigger.write.value",
+      "name": "write.value",
+      "color": 4280731354,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-26",
+      "ref": "403",
+      "path": "TOP.tb.dut.from_csr.gpio.led1.value",
+      "name": "led1.value",
+      "color": 4294962776,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-27",
+      "ref": "404",
+      "path": "TOP.tb.dut.from_csr.gpio.led2.value",
+      "name": "led2.value",
+      "color": 4293673082,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-28",
+      "ref": "368",
+      "path": "TOP.tb.dut.to_csr.uart.rx.data.next",
+      "name": "data.next",
+      "color": 4294944550,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-29",
+      "ref": "369",
+      "path": "TOP.tb.dut.to_csr.uart.rx.oflow.next",
+      "name": "oflow.next",
+      "color": 4293848814,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-30",
+      "ref": "370",
+      "path": "TOP.tb.dut.to_csr.uart.rx.valid.next",
+      "name": "valid.next",
+      "color": 4283215696,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-31",
+      "ref": "371",
+      "path": "TOP.tb.dut.to_csr.uart.tx.busy.next",
+      "name": "busy.next",
+      "color": 4280731354,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-32",
+      "ref": "351",
+      "path": "TOP.tb.dut.from_eth_1.clk",
+      "name": "from_eth_1.clk",
+      "color": 4294962776,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-33",
+      "ref": "352",
+      "path": "TOP.tb.dut.from_eth_1.rst",
+      "name": "from_eth_1.rst",
+      "color": 4293673082,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-34",
+      "ref": "466",
+      "path": "TOP.tb.dut.from_eth_1.tdata",
+      "name": "from_eth_1.tdata",
+      "color": 4294944550,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-35",
+      "ref": "463",
+      "path": "TOP.tb.dut.from_eth_1.tid",
+      "name": "from_eth_1.tid",
+      "color": 4293848814,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-36",
+      "ref": "468",
+      "path": "TOP.tb.dut.from_eth_1.tkeep",
+      "name": "from_eth_1.tkeep",
+      "color": 4283215696,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-37",
+      "ref": "467",
+      "path": "TOP.tb.dut.from_eth_1.tlast",
+      "name": "from_eth_1.tlast",
+      "color": 4280731354,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-38",
+      "ref": "464",
+      "path": "TOP.tb.dut.from_eth_1.tready",
+      "name": "from_eth_1.tready",
+      "color": 4294962776,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-39",
+      "ref": "33",
+      "path": "TOP.tb.dut.from_eth_1.tuser.bypass_all",
+      "name": "from_eth_1.tuser.bypass_all",
+      "color": 4293673082,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-40",
+      "ref": "33",
+      "path": "TOP.tb.dut.from_eth_1.tuser.bypass_stage",
+      "name": "from_eth_1.tuser.bypass_stage",
+      "color": 4294944550,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-41",
+      "ref": "469",
+      "path": "TOP.tb.dut.from_eth_1.tuser.dst",
+      "name": "from_eth_1.tuser.dst",
+      "color": 4293848814,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-42",
+      "ref": "469",
+      "path": "TOP.tb.dut.from_eth_1.tuser.src",
+      "name": "from_eth_1.tuser.src",
+      "color": 4283215696,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-43",
+      "ref": "465",
+      "path": "TOP.tb.dut.from_eth_1.tvalid",
+      "name": "from_eth_1.tvalid",
+      "color": 4280731354,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-44",
+      "ref": "351",
+      "path": "TOP.tb.dut.to_eth_1.clk",
+      "name": "to_eth_1.clk",
+      "color": 4294962776,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-45",
+      "ref": "352",
+      "path": "TOP.tb.dut.to_eth_1.rst",
+      "name": "to_eth_1.rst",
+      "color": 4293673082,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-46",
+      "ref": "496",
+      "path": "TOP.tb.dut.to_eth_1.tdata",
+      "name": "to_eth_1.tdata",
+      "color": 4294944550,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-47",
+      "ref": "503",
+      "path": "TOP.tb.dut.to_eth_1.tid",
+      "name": "to_eth_1.tid",
+      "color": 4293848814,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-48",
+      "ref": "498",
+      "path": "TOP.tb.dut.to_eth_1.tkeep",
+      "name": "to_eth_1.tkeep",
+      "color": 4283215696,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-49",
+      "ref": "497",
+      "path": "TOP.tb.dut.to_eth_1.tlast",
+      "name": "to_eth_1.tlast",
+      "color": 4280731354,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-50",
+      "ref": "494",
+      "path": "TOP.tb.dut.to_eth_1.tready",
+      "name": "to_eth_1.tready",
+      "color": 4294962776,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-51",
+      "ref": "499",
+      "path": "TOP.tb.dut.to_eth_1.tuser.bypass_all",
+      "name": "to_eth_1.tuser.bypass_all",
+      "color": 4293673082,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-52",
+      "ref": "500",
+      "path": "TOP.tb.dut.to_eth_1.tuser.bypass_stage",
+      "name": "to_eth_1.tuser.bypass_stage",
+      "color": 4294944550,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-53",
+      "ref": "502",
+      "path": "TOP.tb.dut.to_eth_1.tuser.dst",
+      "name": "to_eth_1.tuser.dst",
+      "color": 4293848814,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-54",
+      "ref": "501",
+      "path": "TOP.tb.dut.to_eth_1.tuser.src",
+      "name": "to_eth_1.tuser.src",
+      "color": 4283215696,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-55",
+      "ref": "495",
+      "path": "TOP.tb.dut.to_eth_1.tvalid",
+      "name": "to_eth_1.tvalid",
+      "color": 4280731354,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-56",
+      "ref": "24",
+      "path": "TOP.tb.dut.u_eth_1.gmii_rx_clk",
+      "name": "gmii_rx_clk",
+      "color": 4282434815,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-57",
+      "ref": "29",
+      "path": "TOP.tb.dut.u_eth_1.gmii_rx_dv",
+      "name": "gmii_rx_dv",
+      "color": 4282434815,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-58",
+      "ref": "30",
+      "path": "TOP.tb.dut.u_eth_1.gmii_rx_er",
+      "name": "gmii_rx_er",
+      "color": 4282434815,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-59",
+      "ref": "31",
+      "path": "TOP.tb.dut.u_eth_1.gmii_rxd",
+      "name": "gmii_rxd",
+      "color": 4282434815,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-60",
+      "ref": "34",
+      "path": "TOP.tb.dut.u_eth_1.gmii_tx_clk",
+      "name": "gmii_tx_clk",
+      "color": 4294938880,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-61",
+      "ref": "35",
+      "path": "TOP.tb.dut.u_eth_1.gmii_tx_en",
+      "name": "gmii_tx_en",
+      "color": 4294938880,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-62",
+      "ref": "36",
+      "path": "TOP.tb.dut.u_eth_1.gmii_tx_er",
+      "name": "gmii_tx_er",
+      "color": 4294938880,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-63",
+      "ref": "37",
+      "path": "TOP.tb.dut.u_eth_1.gmii_txd",
+      "name": "gmii_txd",
+      "color": 4294938880,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-64",
+      "ref": "354",
+      "path": "TOP.tb.dut.u_eth_1.gtx_clk",
+      "name": "gtx_clk",
+      "color": 4294944550,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-65",
+      "ref": "355",
+      "path": "TOP.tb.dut.u_eth_1.gtx_rst",
+      "name": "gtx_rst",
+      "color": 4293848814,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-66",
+      "ref": "26",
+      "path": "TOP.tb.dut.u_eth_1.mii_tx_clk",
+      "name": "mii_tx_clk",
+      "color": 4294938880,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-67",
+      "ref": "1070",
+      "path": "TOP.tb.dut.u_eth_1.speed",
+      "name": "speed",
+      "color": 4280731354,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-68",
+      "ref": "351",
+      "path": "TOP.tb.dut.u_eth_1.rx_fifo.clk",
+      "name": "rx_fifo.clk",
+      "color": 4294962776,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-69",
+      "ref": "352",
+      "path": "TOP.tb.dut.u_eth_1.rx_fifo.rst",
+      "name": "rx_fifo.rst",
+      "color": 4293673082,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-70",
+      "ref": "466",
+      "path": "TOP.tb.dut.u_eth_1.rx_fifo.tdata",
+      "name": "rx_fifo.tdata",
+      "color": 4294944550,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-71",
+      "ref": "463",
+      "path": "TOP.tb.dut.u_eth_1.rx_fifo.tid",
+      "name": "rx_fifo.tid",
+      "color": 4293848814,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-72",
+      "ref": "468",
+      "path": "TOP.tb.dut.u_eth_1.rx_fifo.tkeep",
+      "name": "rx_fifo.tkeep",
+      "color": 4283215696,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-73",
+      "ref": "467",
+      "path": "TOP.tb.dut.u_eth_1.rx_fifo.tlast",
+      "name": "rx_fifo.tlast",
+      "color": 4280731354,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-74",
+      "ref": "464",
+      "path": "TOP.tb.dut.u_eth_1.rx_fifo.tready",
+      "name": "rx_fifo.tready",
+      "color": 4294962776,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-75",
+      "ref": "33",
+      "path": "TOP.tb.dut.u_eth_1.rx_fifo.tuser.bypass_all",
+      "name": "rx_fifo.tuser.bypass_all",
+      "color": 4293673082,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-76",
+      "ref": "33",
+      "path": "TOP.tb.dut.u_eth_1.rx_fifo.tuser.bypass_stage",
+      "name": "rx_fifo.tuser.bypass_stage",
+      "color": 4294944550,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-77",
+      "ref": "469",
+      "path": "TOP.tb.dut.u_eth_1.rx_fifo.tuser.dst",
+      "name": "rx_fifo.tuser.dst",
+      "color": 4293848814,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-78",
+      "ref": "469",
+      "path": "TOP.tb.dut.u_eth_1.rx_fifo.tuser.src",
+      "name": "rx_fifo.tuser.src",
+      "color": 4283215696,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-79",
+      "ref": "465",
+      "path": "TOP.tb.dut.u_eth_1.rx_fifo.tvalid",
+      "name": "rx_fifo.tvalid",
+      "color": 4280731354,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-80",
+      "ref": "351",
+      "path": "TOP.tb.dut.u_eth_1.tx_fifo.clk",
+      "name": "tx_fifo.clk",
+      "color": 4294962776,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-81",
+      "ref": "352",
+      "path": "TOP.tb.dut.u_eth_1.tx_fifo.rst",
+      "name": "tx_fifo.rst",
+      "color": 4293673082,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-82",
+      "ref": "496",
+      "path": "TOP.tb.dut.u_eth_1.tx_fifo.tdata",
+      "name": "tx_fifo.tdata",
+      "color": 4294944550,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-83",
+      "ref": "503",
+      "path": "TOP.tb.dut.u_eth_1.tx_fifo.tid",
+      "name": "tx_fifo.tid",
+      "color": 4293848814,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-84",
+      "ref": "498",
+      "path": "TOP.tb.dut.u_eth_1.tx_fifo.tkeep",
+      "name": "tx_fifo.tkeep",
+      "color": 4283215696,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-85",
+      "ref": "497",
+      "path": "TOP.tb.dut.u_eth_1.tx_fifo.tlast",
+      "name": "tx_fifo.tlast",
+      "color": 4280731354,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-86",
+      "ref": "494",
+      "path": "TOP.tb.dut.u_eth_1.tx_fifo.tready",
+      "name": "tx_fifo.tready",
+      "color": 4294962776,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-87",
+      "ref": "499",
+      "path": "TOP.tb.dut.u_eth_1.tx_fifo.tuser.bypass_all",
+      "name": "tx_fifo.tuser.bypass_all",
+      "color": 4293673082,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-88",
+      "ref": "500",
+      "path": "TOP.tb.dut.u_eth_1.tx_fifo.tuser.bypass_stage",
+      "name": "tx_fifo.tuser.bypass_stage",
+      "color": 4294944550,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-89",
+      "ref": "502",
+      "path": "TOP.tb.dut.u_eth_1.tx_fifo.tuser.dst",
+      "name": "tx_fifo.tuser.dst",
+      "color": 4293848814,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-90",
+      "ref": "501",
+      "path": "TOP.tb.dut.u_eth_1.tx_fifo.tuser.src",
+      "name": "tx_fifo.tuser.src",
+      "color": 4283215696,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-91",
+      "ref": "495",
+      "path": "TOP.tb.dut.u_eth_1.tx_fifo.tvalid",
+      "name": "tx_fifo.tvalid",
+      "color": 4280731354,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-92",
+      "ref": "71",
+      "path": "TOP.tb.bfm_udp.MDIO_BUFF_ADDR",
+      "name": "MDIO_BUFF_ADDR",
+      "color": 4294962776,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-93",
+      "ref": "17",
+      "path": "TOP.tb.bfm_udp.NUM_PORTS",
+      "name": "NUM_PORTS",
+      "color": 4293673082,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-94",
+      "ref": "70",
+      "path": "TOP.tb.bfm_udp.START_NODE",
+      "name": "START_NODE",
+      "color": 4294944550,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-95",
+      "ref": "25",
+      "path": "TOP.tb.bfm_udp.arst_n",
+      "name": "bfm_udp.arst_n",
+      "color": 4293848814,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-96",
+      "ref": "24",
+      "path": "TOP.tb.bfm_udp.clk",
+      "name": "bfm_udp.clk",
+      "color": 4283215696,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-97",
+      "ref": "96",
+      "path": "TOP.tb.bfm_udp.halt",
+      "name": "halt",
+      "color": 4280731354,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-98",
+      "ref": "28",
+      "path": "TOP.tb.bfm_udp.halt_req",
+      "name": "halt_req",
+      "color": 4294962776,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-99",
+      "ref": "62",
+      "path": "TOP.tb.bfm_udp.mdio",
+      "name": "mdio",
+      "color": 4293673082,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-100",
+      "ref": "63",
+      "path": "TOP.tb.bfm_udp.mdio_en",
+      "name": "mdio_en",
+      "color": 4294944550,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-101",
+      "ref": "64",
+      "path": "TOP.tb.bfm_udp.mdio_out",
+      "name": "mdio_out",
+      "color": 4293848814,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-102",
+      "ref": "65",
+      "path": "TOP.tb.bfm_udp.mdioclk",
+      "name": "mdioclk",
+      "color": 4283215696,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-103",
+      "ref": "75",
+      "path": "TOP.tb.bfm_udp.udp_gmii_rxd.udp_gmii_rxd[0]",
+      "name": "udp_gmii_rxd[0]",
+      "color": 4282434815,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-104",
+      "ref": "74",
+      "path": "TOP.tb.bfm_udp.udp_gmii_rxd.udp_gmii_rxd[1]",
+      "name": "udp_gmii_rxd[1]",
+      "color": 4282434815,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-105",
+      "ref": "73",
+      "path": "TOP.tb.bfm_udp.udp_gmii_rxd.udp_gmii_rxd[2]",
+      "name": "udp_gmii_rxd[2]",
+      "color": 4282434815,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-106",
+      "ref": "72",
+      "path": "TOP.tb.bfm_udp.udp_gmii_rxd.udp_gmii_rxd[3]",
+      "name": "udp_gmii_rxd[3]",
+      "color": 4282434815,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-107",
+      "ref": "87",
+      "path": "TOP.tb.bfm_udp.udp_gmii_txd.udp_gmii_txd[0]",
+      "name": "udp_gmii_txd[0]",
+      "color": 4294938880,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-108",
+      "ref": "86",
+      "path": "TOP.tb.bfm_udp.udp_gmii_txd.udp_gmii_txd[1]",
+      "name": "udp_gmii_txd[1]",
+      "color": 4294938880,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-109",
+      "ref": "85",
+      "path": "TOP.tb.bfm_udp.udp_gmii_txd.udp_gmii_txd[2]",
+      "name": "udp_gmii_txd[2]",
+      "color": 4294938880,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-110",
+      "ref": "84",
+      "path": "TOP.tb.bfm_udp.udp_gmii_txd.udp_gmii_txd[3]",
+      "name": "udp_gmii_txd[3]",
+      "color": 4294938880,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-111",
+      "ref": "91",
+      "path": "TOP.tb.bfm_udp.udp_gmii_txen.udp_gmii_txen[0]",
+      "name": "udp_gmii_txen[0]",
+      "color": 4294938880,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-112",
+      "ref": "90",
+      "path": "TOP.tb.bfm_udp.udp_gmii_txen.udp_gmii_txen[1]",
+      "name": "udp_gmii_txen[1]",
+      "color": 4294938880,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-113",
+      "ref": "89",
+      "path": "TOP.tb.bfm_udp.udp_gmii_txen.udp_gmii_txen[2]",
+      "name": "udp_gmii_txen[2]",
+      "color": 4294938880,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-114",
+      "ref": "88",
+      "path": "TOP.tb.bfm_udp.udp_gmii_txen.udp_gmii_txen[3]",
+      "name": "udp_gmii_txen[3]",
+      "color": 4294938880,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-115",
+      "ref": "25",
+      "path": "TOP.tb.gmii[0].arst_n",
+      "name": "gmii[0].arst_n",
+      "color": 4280731354,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-116",
+      "ref": "24",
+      "path": "TOP.tb.gmii[0].clk",
+      "name": "gmii[0].clk",
+      "color": 4294962776,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-117",
+      "ref": "31",
+      "path": "TOP.tb.gmii[0].rxd",
+      "name": "rxd",
+      "color": 4282434815,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-118",
+      "ref": "29",
+      "path": "TOP.tb.gmii[0].rxdv",
+      "name": "rxdv",
+      "color": 4282434815,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-119",
+      "ref": "30",
+      "path": "TOP.tb.gmii[0].rxer",
+      "name": "rxer",
+      "color": 4282434815,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-120",
+      "ref": "37",
+      "path": "TOP.tb.gmii[0].txd",
+      "name": "txd",
+      "color": 4294938880,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-121",
+      "ref": "35",
+      "path": "TOP.tb.gmii[0].txen",
+      "name": "txen",
+      "color": 4294938880,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-122",
+      "ref": "36",
+      "path": "TOP.tb.gmii[0].txer",
+      "name": "txer",
+      "color": 4294938880,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-123",
+      "ref": "34",
+      "path": "TOP.tb.dut.e1_gtxc",
+      "name": "e1_gtxc",
+      "color": 4293673082,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-124",
+      "ref": "33",
+      "path": "TOP.tb.dut.e1_mdc",
+      "name": "e1_mdc",
+      "color": 4294944550,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-125",
+      "ref": "33",
+      "path": "TOP.tb.dut.e1_mdio",
+      "name": "e1_mdio",
+      "color": 4293848814,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-126",
+      "ref": "32",
+      "path": "TOP.tb.dut.e1_reset",
+      "name": "e1_reset",
+      "color": 4283215696,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-127",
+      "ref": "24",
+      "path": "TOP.tb.dut.e1_rxc",
+      "name": "e1_rxc",
+      "color": 4282434815,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-128",
+      "ref": "31",
+      "path": "TOP.tb.dut.e1_rxd",
+      "name": "e1_rxd",
+      "color": 4282434815,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-129",
+      "ref": "29",
+      "path": "TOP.tb.dut.e1_rxdv",
+      "name": "e1_rxdv",
+      "color": 4282434815,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-130",
+      "ref": "30",
+      "path": "TOP.tb.dut.e1_rxer",
+      "name": "e1_rxer",
+      "color": 4282434815,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-131",
+      "ref": "26",
+      "path": "TOP.tb.dut.e1_txc",
+      "name": "e1_txc",
+      "color": 4294938880,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-132",
+      "ref": "37",
+      "path": "TOP.tb.dut.e1_txd",
+      "name": "e1_txd",
+      "color": 4294938880,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-133",
+      "ref": "35",
+      "path": "TOP.tb.dut.e1_txen",
+      "name": "e1_txen",
+      "color": 4294938880,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-134",
+      "ref": "36",
+      "path": "TOP.tb.dut.e1_txer",
+      "name": "e1_txer",
+      "color": 4294938880,
+      "format": "hexadecimal",
+      "height": 30.0
+    }
+  ],
+  "cursor": {
+    "primary": 3713660000,
+    "secondary": null
+  },
+  "markers": {},
+  "view": {
+    "ticksPerPixel": 2751.0316368638237,
+    "panOffsetTicks": 0.0,
+    "scrollOffset": 0.0
+  },
+  "panels": {
+    "signalTree": false,
+    "valueColumn": false,
+    "transactionView": false,
+    "stageView": false,
+    "statisticsStrip": false,
+    "cocotbLogPanel": false,
+    "rtlSource": false,
+    "bottomDockTab": "transactions",
+    "sizes": {
+      "left": 300.0,
+      "right": 150.0,
+      "bottom": 260.0
+    }
+  },
+  "translateFilters": {},
+  "stage": {
+    "panels": []
+  },
+  "activeTheme": "wavecrux-dark",
+  "decoders": []
+}

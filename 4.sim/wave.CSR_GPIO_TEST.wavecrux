@@ -1,0 +1,137 @@
+{
+  "version": 4,
+  "sourceFilePath": "wave.fst",
+  "signals": [
+    {
+      "kind": "signal",
+      "id": "gtkw-0",
+      "ref": "434",
+      "path": "TOP.tb.dut.u_cpu.bus.vld",
+      "name": "vld",
+      "color": 4283215696,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-1",
+      "ref": "435",
+      "path": "TOP.tb.dut.u_cpu.bus.rdy",
+      "name": "rdy",
+      "color": 4280731354,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-2",
+      "ref": "437",
+      "path": "TOP.tb.dut.u_cpu.bus.we",
+      "name": "we",
+      "color": 4294962776,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-3",
+      "ref": "436",
+      "path": "TOP.tb.dut.u_cpu.bus.addr",
+      "name": "addr",
+      "color": 4293673082,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-4",
+      "ref": "439",
+      "path": "TOP.tb.dut.u_cpu.bus.rdat",
+      "name": "rdat",
+      "color": 4294944550,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-5",
+      "ref": "438",
+      "path": "TOP.tb.dut.u_cpu.bus.wdat",
+      "name": "wdat",
+      "color": 4293848814,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-6",
+      "ref": "403",
+      "path": "TOP.tb.dut.from_csr.gpio.led1.value",
+      "name": "led1.value",
+      "color": 4283215696,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-7",
+      "ref": "404",
+      "path": "TOP.tb.dut.from_csr.gpio.led2.value",
+      "name": "led2.value",
+      "color": 4280731354,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-8",
+      "ref": "372",
+      "path": "TOP.tb.dut.to_csr.gpio.key1.next",
+      "name": "key1.next",
+      "color": 4294962776,
+      "format": "hexadecimal",
+      "height": 30.0
+    },
+    {
+      "kind": "signal",
+      "id": "gtkw-9",
+      "ref": "373",
+      "path": "TOP.tb.dut.to_csr.gpio.key2.next",
+      "name": "key2.next",
+      "color": 4293673082,
+      "format": "hexadecimal",
+      "height": 30.0
+    }
+  ],
+  "cursor": {
+    "primary": 201893750,
+    "secondary": null
+  },
+  "markers": {},
+  "view": {
+    "ticksPerPixel": 2751.0316368638237,
+    "panOffsetTicks": 0.0,
+    "scrollOffset": 0.0
+  },
+  "panels": {
+    "signalTree": false,
+    "valueColumn": false,
+    "transactionView": false,
+    "stageView": false,
+    "statisticsStrip": false,
+    "cocotbLogPanel": false,
+    "rtlSource": false,
+    "bottomDockTab": "transactions",
+    "sizes": {
+      "left": 300.0,
+      "right": 150.0,
+      "bottom": 260.0
+    }
+  },
+  "translateFilters": {},
+  "stage": {
+    "panels": []
+  },
+  "activeTheme": "wavecrux-dark",
+  "decoders": []
+}
