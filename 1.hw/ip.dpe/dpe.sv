@@ -69,10 +69,14 @@ module dpe
       .rst (from_cpu.rst)
   );
 
+  // fcr.idle: the multiplexer stopped (pause) and the switch holds no packet
+  logic  mux_idle, switch_idle;
+  assign to_csr_dpe.fcr.idle.next = mux_idle & switch_idle;
+
   // DPE multiplexer
   dpe_mux u_dpe_multiplexer (
       .pause      (from_csr.dpe.fcr.pause.value),
-      .is_idle    (to_csr_dpe.fcr.idle.next),
+      .is_idle    (mux_idle),
       .from_cpu   (from_cpu),
       .from_eth_1 (from_eth_1),
       .from_eth_2 (from_eth_2),
@@ -81,13 +85,16 @@ module dpe
       .to_dpe     (muxed_1)
   );
 
-  // DPE switch: the fixed crossbar (dpe_switch.DUMMY.sv) or the IP lookup
-  // (dpe_switch.sv), as top.filelist lists; each owns the routing table
+  // DPE switch: the fixed crossbar (dpe_switch.DUMMY.sv) or the WireGuard
+  // data path (dpe_switch.sv), as top.filelist lists; each owns both tables
   dpe_switch u_dpe_switch (
-      .inp     (muxed_1),
-      .out     (muxed_2),
-      .csr_cfg (from_csr.routing_table),
-      .csr_sta (to_csr_routing_table)
+      .inp    (muxed_1),
+      .out    (muxed_2),
+      .idle   (switch_idle),
+      .rt_cfg (from_csr.routing_table),
+      .rt_sta (to_csr_routing_table),
+      .ck_cfg (from_csr.cryptokey_table),
+      .ck_sta (to_csr_cryptokey_table)
   );
 
   // DPE demultiplexer
@@ -100,31 +107,6 @@ module dpe
       .to_eth_4 (to_eth_4)
   );
 
-  logic [31:0] ck_rd_data;
-  logic        ck_rd_ack;
-
-  tdp_ram #(
-      .ADDR_WIDTH (11)
-  ) u_cryptokey_table (
-      .clk (from_cpu.clk),
-      .we_a (from_csr.cryptokey_table.req & from_csr.cryptokey_table.req_is_wr),
-      .addr_a (from_csr.cryptokey_table.addr[12:2]),
-      .din_a (from_csr.cryptokey_table.wr_data),
-      .dout_a (ck_rd_data),
-      .we_b (1'b0),
-      .addr_b ('0),
-      .din_b ('0),
-      .dout_b (  /*LINT:OK*/)  // port B is for the DPE, which does not read the table yet
-  );
-  always_ff @(posedge from_cpu.clk) begin
-    ck_rd_ack <= from_csr.cryptokey_table.req & ~from_csr.cryptokey_table.req_is_wr;
-  end
-  always_comb begin
-    to_csr_cryptokey_table.rd_data = ck_rd_data;
-    to_csr_cryptokey_table.rd_ack = ck_rd_ack;
-    to_csr_cryptokey_table.wr_ack =
-        from_csr.cryptokey_table.req & from_csr.cryptokey_table.req_is_wr;
-  end
 endmodule
 
 // -----------------------------------------------------------------------------

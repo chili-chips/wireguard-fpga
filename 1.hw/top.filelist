@@ -79,17 +79,24 @@ ${HW_SRC}/ip.cpu/soc_cpu.EDUBOS5.sv
 ${HW_SRC}/ip.dpe/dpe.sv
 ${HW_SRC}/ip.dpe/dpe_mux.sv
 ${HW_SRC}/ip.dpe/dpe_demux.sv
-# the switch: the fixed crossbar (DUMMY, default) or the IP lookup; to
-# switch, comment out the DUMMY line and uncomment the three below it
-# (Vivado: the same in 3.build/hw_build.Vivado/wireguard.xpr). The
-# 4.sim/rtl/dpe bench checks the DUMMY's routing: it fails on the lookup
+# the switch: the fixed crossbar (DUMMY, default) or the WireGuard data path
+# (disassembler, decryptor, IP lookup, encryptor, peer table). To switch,
+# comment out the DUMMY line and uncomment the eight below it (Vivado: the
+# same in 3.build/hw_build.Vivado/wireguard.xpr). Lint and LEQ black-box
+# the ChaCha20-Poly1305 cores; a build or simulation of dpe_switch.sv also
+# needs 3.build/pypeline_build/soc/chacha20poly1305_{encrypt,decrypt}.v.gz
+# unpacked. The 4.sim/rtl/dpe bench checks the DUMMY's routing
 ${HW_SRC}/ip.dpe/net_pkg.sv
 ${HW_SRC}/ip.lkup/lkup_pkg.sv
 ${HW_SRC}/ip.dpe/dpe_switch.DUMMY.sv
 #${HW_SRC}/ip.lkup/lkup_route_mem.sv
 #${HW_SRC}/ip.lkup/lkup_egress.sv
-#${HW_SRC}/ip.dpe/dpe_switch.sv
+#${HW_SRC}/ip.lkup/lkup_peer_table.sv
+#${HW_SRC}/ip.dpe/dpe_if_pipeline.sv
 #${HW_SRC}/ip.dpe/dpe_wg_disassembler.sv
+#${HW_SRC}/ip.dpe/dpe_wg_decryptor.sv
+#${HW_SRC}/ip.dpe/dpe_wg_encryptor.sv
+#${HW_SRC}/ip.dpe/dpe_switch.sv
 
 #---TOP
 ${HW_SRC}/top.sv

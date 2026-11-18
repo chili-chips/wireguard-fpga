@@ -43,6 +43,7 @@ module tb;
   lkup_egress #(.ENTRY_COUNT(ENTRIES)) dut (
       .s_axis  (to_dut),
       .m_axis  (from_dut),
+      .fcr_idle(),
       .csr_cfg (csr_cfg),
       .csr_sta (csr_sta)
   );

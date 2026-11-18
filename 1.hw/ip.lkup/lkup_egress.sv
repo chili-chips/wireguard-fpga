@@ -67,6 +67,7 @@ module lkup_egress
 ) (
     dpe_if.s_axis    s_axis,
     dpe_if.m_axis    m_axis,
+    output logic     fcr_idle,  // no frame in it
 
     // the CSR routing_table regfile (csr.rdl): one port for the whole table
     input  csr_cfg_t csr_cfg,
@@ -405,6 +406,7 @@ module lkup_egress
           dst: decided.dst
       };
   assign m_axis.tid = decided.peer;
+  assign fcr_idle = state == S_IDLE;
 
 endmodule
 

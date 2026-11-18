@@ -77,9 +77,13 @@ module dpe_switch
 (
     dpe_if.s_axis    inp,
     dpe_if.m_axis    out,
-    // the CSR routing_table regfile (csr.rdl)
-    input  csr_cfg_t csr_cfg,
-    output csr_sta_t csr_sta
+    output logic     idle,    // nothing to wait for: the crossbar decides at once
+
+    // the CSR routing_table and cryptokey_table regfiles (csr.rdl)
+    input  csr_cfg_t rt_cfg,
+    output csr_sta_t rt_sta,
+    input  ck_cfg_t  ck_cfg,
+    output ck_sta_t  ck_sta
 );
 
   dpe_if outp_sbuff (
@@ -132,24 +136,52 @@ module dpe_switch
       .ADDR_WIDTH (8)
   ) u_routing_table (
       .clk    (inp.clk),
-      .we_a   (csr_cfg.req & csr_cfg.req_is_wr),
-      .addr_a (csr_cfg.addr[9:2]),
-      .din_a  (csr_cfg.wr_data),
+      .we_a   (rt_cfg.req & rt_cfg.req_is_wr),
+      .addr_a (rt_cfg.addr[9:2]),
+      .din_a  (rt_cfg.wr_data),
       .dout_a (rt_rd_data),
       .we_b   (1'b0),
       .addr_b ('0),
       .din_b  ('0),
-      .dout_b (  /*LINT:OK*/)                     // port B: the crossbar does not read the table
+      .dout_b (  /*LINT:OK*/)                   // port B: the crossbar does not read the table
   );
   always_ff @(posedge inp.clk) begin
-    rt_rd_ack <= csr_cfg.req & ~csr_cfg.req_is_wr;
+    rt_rd_ack <= rt_cfg.req & ~rt_cfg.req_is_wr;
   end
   always_comb begin
-    csr_sta.rd_data = rt_rd_data;
-    csr_sta.rd_ack  = rt_rd_ack;
-    csr_sta.wr_ack  = csr_cfg.req & csr_cfg.req_is_wr;
+    rt_sta.rd_data = rt_rd_data;
+    rt_sta.rd_ack  = rt_rd_ack;
+    rt_sta.wr_ack  = rt_cfg.req & rt_cfg.req_is_wr;
   end
 
+
+  // Cryptokey table: written and read back by the CPU only
+  logic [31:0] ck_rd_data;
+  logic        ck_rd_ack;
+
+  tdp_ram #(
+      .ADDR_WIDTH (11)
+  ) u_cryptokey_table (
+      .clk    (inp.clk),
+      .we_a   (ck_cfg.req & ck_cfg.req_is_wr),
+      .addr_a (ck_cfg.addr[12:2]),
+      .din_a  (ck_cfg.wr_data),
+      .dout_a (ck_rd_data),
+      .we_b   (1'b0),
+      .addr_b ('0),
+      .din_b  ('0),
+      .dout_b (  /*LINT:OK*/)                   // port B: the crossbar does not read the table
+  );
+  always_ff @(posedge inp.clk) begin
+    ck_rd_ack <= ck_cfg.req & ~ck_cfg.req_is_wr;
+  end
+  always_comb begin
+    ck_sta.rd_data = ck_rd_data;
+    ck_sta.rd_ack  = ck_rd_ack;
+    ck_sta.wr_ack  = ck_cfg.req & ck_cfg.req_is_wr;
+  end
+
+  assign idle = 1'b1;
 
   // Skid buffers
   dpe_if_skid_buffer skid_buffer_outp (
