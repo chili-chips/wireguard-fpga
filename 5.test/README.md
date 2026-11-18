@@ -95,7 +95,7 @@ Enter new cryptokey table entry:
   Remote MAC address [000000000000]: CCBACACAFA89
   Remote IP address [0.0.0.0]: 192.168.1.99
   Remote port (0-65535) [0]: 51820
-  Remote ID (8 hex digits) [00000000]: CCBACA02
+  Remote ID (8 hex digits) [00000000]: CCBACA41
   Encryption key (1st 8 hex digits) [00000000]: 01234567
   Encryption key (2nd 8 hex digits) [00000000]: 89ABCDEF
   Encryption key (3rd 8 hex digits) [00000000]: 01234567
@@ -115,7 +115,7 @@ Enter new cryptokey table entry:
   Reset send/recv counters? (y/n) [n]: y
 Cryptokey table entry updated.
   (1) Local MAC: CCBACACABDAF, Local IP: 192.168.1.98, Local port: 51820, Local ID: 0xCCBACA01
-    Remote MAC: CCBACACAFA89, Remote IP: 192.168.1.99, Remote port: 51820, Remote ID: 0xCCBACA02
+    Remote MAC: CCBACACAFA89, Remote IP: 192.168.1.99, Remote port: 51820, Remote ID: 0xCCBACA41
     Encryption key: 0x0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF
     Decryption key: 0xFEDCBA9876543210FEDCBA9876543210FEDCBA9876543210FEDCBA9876543210
     Send counter: 0x0000000000000000
@@ -147,7 +147,7 @@ Enter new cryptokey table entry:
   Local MAC address [000000000000]: CCBACACAFA89
   Local IP address [0.0.0.0]: 192.168.1.99
   Local port (0-65535) [0]: 51820
-  Local ID (8 hex digits) [00000000]: CCBACA02
+  Local ID (8 hex digits) [00000000]: CCBACA41
   Remote MAC address [000000000000]: CCBACACABDAF
   Remote IP address [0.0.0.0]: 192.168.1.98
   Remote port (0-65535) [0]: 51820
@@ -170,7 +170,7 @@ Enter new cryptokey table entry:
   Decryption key (8th 8 hex digits) [00000000]: 89ABCDEF
   Reset send/recv counters? (y/n) [n]: y
 Cryptokey table entry updated.
-  (1) Local MAC: CCBACACAFA89, Local IP: 192.168.1.99, Local port: 51820, Local ID: 0xCCBACA02
+  (1) Local MAC: CCBACACAFA89, Local IP: 192.168.1.99, Local port: 51820, Local ID: 0xCCBACA41
     Remote MAC: CCBACACABDAF, Remote IP: 192.168.1.98, Remote port: 51820, Remote ID: 0xCCBACA01
     Encryption key: 0xFEDCBA9876543210FEDCBA9876543210FEDCBA9876543210FEDCBA9876543210
     Decryption key: 0x0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF

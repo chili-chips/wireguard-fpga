@@ -197,7 +197,7 @@ Every WireGuard data message names its session by a 32-bit _receiver index_: the
 
 The firmware and the hardware split the work:
 
-- **Firmware (handshake):** for a new session it picks a free entry `e` (0 to 63) of the cryptokey table, and its own index as random upper 26 bits with `e` in the low 6 bits: `local_id = (random() & ~0x3F) | e`. It writes the session (keys, `local_id`, the peer's index, addresses) to entry `e` over the CSR, and sends `local_id` in its handshake message.
+- **Firmware (handshake):** for a new session it picks a free entry `e` (0 to 63) of the cryptokey table, and its own index as random upper 26 bits with `e` in the low 6 bits: `local_id = (random() & ~0x3F) | e`. It writes the session (keys, `local_id`, the peer's index, addresses) to entry `e` over the CSR, and sends `local_id` in its handshake message. The handshake firmware is still to come: today the CLI (`config cryptokeys`) writes the entry, and its user must follow the same rule, as the [lab setup](../5.test/README.md) does (entry 1, Local ID `CCBACA01` and `CCBACA41`).
 - **Hardware (every data packet):** the disassembler takes the entry from the low 6 bits of the packet's receiver index, reads it, and compares all 32 bits with the entry's `local_id`. A match gives the peer to the decryptor; a mismatch (a stale session, an unknown or forged index) drops the packet.
 
 Why this way:
@@ -206,7 +206,7 @@ Why this way:
 - **Indices look random on the wire,** as WireGuard intends: an observer cannot count sessions or link them across rekeys.
 - **Rekeys overlap cleanly.** The new session gets another entry, so old and new keys both work until the firmware retires the old entry.
 
-Each entry has a key per direction: the encryptor uses `encrypt_key` and `send_cnt` (and writes the counter back after each packet), the decryptor `decrypt_key`.
+Each entry has a key per direction: the encryptor uses `encrypt_key` and `send_cnt` (and writes the counter back after each packet), the decryptor `decrypt_key`. A key goes in as eight words, `*_key_255_224` first; key byte 0 (the first byte of the 32-byte key) is bits 7:0 of `*_key_31_0`. So a key stored as a byte array is written word by word from its end, not copied as it lies in memory.
 
 **Where the table lives.** 64 entries of 30 words (padded to 32, so an entry is `addr[12:7]` of the CSR address). The CPU writes and reads it over the CSR. In the data plane, the encryptor and the decryptor each read a whole entry at the start of a packet, the disassembler reads `local_id` for every WireGuard packet, and the encryptor writes `send_cnt` back. Three ways to hold it:
 
@@ -214,9 +214,9 @@ Each entry has a key per direction: the encryptor uses `encrypt_key` and `send_c
 |---|---|---|
 | **Flip-flops** | Any number of readers, simplest RTL | 61k flip-flops, about half of the Artix-7's, and wide read multiplexers that hurt timing |
 | **Block RAM** | One or two BRAM36, hardly any LUTs | Two ports for four users (CPU, encryptor with its write-back, decryptor, disassembler): arbitration, and a clocked read where the disassembler wants a combinational one |
-| **Distributed RAM (LUTRAM)** | A write port and as many read ports as needed, combinational read, small | LUTs: about 1k for the table |
+| **Distributed RAM (LUTRAM)** | A write port and as many read ports as needed, combinational read, small | LUTs: about 2.6k for the table |
 
-LUTRAM was selected. Each word is stored once, in a 64-entry RAM beside the block that reads it: the addresses, `encrypt_key` and `send_cnt` at the encryptor; `decrypt_key` at the decryptor; `local_id` at the disassembler. The CSR writes reach every RAM, and reads back through a second read port. No block ever waits for another, no arbitration is needed, and the table costs about 2% of the device's LUTs.
+LUTRAM was selected. Each word is stored once, in a 64-entry RAM beside the block that reads it: the addresses, `encrypt_key` and `send_cnt` at the encryptor; `decrypt_key` at the decryptor; `local_id` at the disassembler. The CSR writes reach every RAM, a byte at a time, and reads back through a second read port. No block ever waits for another and no arbitration is needed. Yosys maps the table to about 1.9k LUTs as RAM and 0.7k as logic: about 2% of the XC7A200T's LUTs.
 
 ### RTL coding rules
 

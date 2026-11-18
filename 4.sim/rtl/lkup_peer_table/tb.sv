@@ -115,12 +115,13 @@ module tb;
     end
   endtask
 
-  // the encryptor's and the decryptor's entries: valid from the 2nd clock
+  // the encryptor's and the decryptor's entries: registered on the first
+  // clock after the index (the blocks take them on the 2nd)
   task automatic check_peer(int e_enc, int e_dec);
     @(negedge clk);
     enc_idx = dpe_peer_idx_t'(e_enc);
     dec_idx = dpe_peer_idx_t'(e_dec);
-    repeat (2) @(negedge clk);
+    @(negedge clk);
     if (enc_peer !== enc_want(e_enc)) begin
       $display("ERROR: encryptor entry %0d: %h", e_enc, enc_peer);
       errors++;
@@ -202,7 +203,29 @@ module tb;
     enc_update_send_cnt = 1'b0;
     csr_cfg.req = 1'b0;
     csr_read(37, int'(CK_SEND_CNT_LO), 32'h5555_5555);
-    csr_read(37, int'(CK_SEND_CNT_HI), 32'h0000_0001);  // the other word took the write-back
+    csr_read(37, int'(CK_SEND_CNT_HI), 32'h0000_0001);  // the write-back cancelled
+    // a CPU write to another entry's send_cnt in the write-back's clock: both land
+    @(negedge clk);
+    enc_idx = 8'd37;
+    enc_new_send_cnt = 64'h0000_0002_8000_0004;
+    enc_update_send_cnt = 1'b1;
+    csr_cfg = '{req: 1'b1, req_is_wr: 1'b1, addr: 13'({6'd5, 5'(CK_SEND_CNT_LO), 2'b00}),
+                wr_data: 32'hAAAA_0005, wr_biten: '1};
+    @(negedge clk);
+    enc_update_send_cnt = 1'b0;
+    // and in the next clock too: the write-back waits for it
+    csr_cfg = '{req: 1'b1, req_is_wr: 1'b1, addr: 13'({6'd6, 5'(CK_SEND_CNT_HI), 2'b00}),
+                wr_data: 32'hBBBB_0006, wr_biten: '1};
+    @(negedge clk);
+    csr_cfg.req = 1'b0;
+    csr_read(37, int'(CK_SEND_CNT_HI), 32'h0000_0002);
+    csr_read(37, int'(CK_SEND_CNT_LO), 32'h8000_0004);
+    csr_read(5, int'(CK_SEND_CNT_LO), 32'hAAAA_0005);
+    csr_read(6, int'(CK_SEND_CNT_HI), 32'hBBBB_0006);
+    // byte enables: one byte of a word
+    csr_write(7, int'(CK_LOCAL_IP), 32'h1122_3344, 32'h00FF_0000);
+    model[7][CK_LOCAL_IP][23:16] = 8'h22;
+    csr_read(7, int'(CK_LOCAL_IP), model[7][CK_LOCAL_IP]);
 
     if (errors == 0) $display("RESULT: PASS (64 entries, CSR read-back, peers, receiver index)");
     else $display("RESULT: FAIL (%0d errors)", errors);
