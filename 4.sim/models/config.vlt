@@ -33,5 +33,5 @@ lint_off -rule SPECIFYIGN -file "*/models/no-change/*"
 lint_off -rule MULTIDRIVENPROC -file "*/models/no-change/*"
 // The generated CSR (PeakRDL-regblock): the cryptokey table ends at the top of
 // the 14-bit address space (0x2000 + 0x1fff), so its "addr <= end" compare
-// is always true
+// is always true (PeakRDL-regblock#225, tracked in #52: drop once fixed)
 lint_off -rule CMPCONST -file "*/csr_build/generated-files/csr.sv"
