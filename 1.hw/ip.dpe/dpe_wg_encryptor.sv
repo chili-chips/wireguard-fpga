@@ -48,9 +48,12 @@
 //   - feed: frame beats into the core. A core beat is the IPv4 packet's
 //     next 16 bytes: 2 from the frame beat before, 14 from this one
 //     (the Ethernet header is 14 bytes). Bytes past the IPv4 total length
-//     go in as zero; frame beats past the last block are dropped.
-//   - emit: 3 header beats, then the header tail (10 bytes) with the
-//     ciphertext's first 6 bytes, then the ciphertext and tag shifted by 6.
+//     go in as zero; frame beats past the last block are dropped. A frame
+//     whose IPv4 total length is under 20, or too long for the core once
+//     padded (AEAD_MAX_PT_BYTES or more), is dropped whole, nothing out.
+//   - emit: 3 header beats (from when the IPv4 length is in), then the
+//     header tail (10 bytes) with the ciphertext's first 6 bytes, then the
+//     ciphertext and tag shifted by 6.
 //   Every beat moves on its own handshake, so stalls on either side
 //   change only the timing.
 //
@@ -333,23 +336,32 @@ module dpe_wg_encryptor
           end
 
           FEED_DATA: begin
-            // the IPv4 packet's next 16 bytes; past its end, zeros
-            to_encrypt.tvalid = in_done | piped.tvalid;
-            to_encrypt.tdata = keep_bytes(
-              in_done ? beat_t'(carry) : {piped.tdata[DPE_DATA_W-CARRY_W-1:0], carry},
-              keep_first(
-                ip_len_now - fed)
-            );
-            to_encrypt.tlast = (fed + len16_t'(BEAT_BYTES)) >= ip_padded;
-            piped.tready = ~in_done & to_encrypt.tready;
-            if (enc_in_hs) begin
-              fed_next      = fed + len16_t'(BEAT_BYTES);
-              ip_len_next   = ip_len_now;
-              have_len_next = 1'b1;
-              carry_next    = in_done ? '0 : piped.tdata[DPE_DATA_W-1-:CARRY_W];
-              in_done_next  = in_done | piped.tlast;
-              if (to_encrypt.tlast) begin
-                feed_next = in_done_next ? FEED_DONE : FEED_DRAIN;
+            if (~have_len & (in_done | piped.tvalid) &
+                ((ip_len_now < len16_t'(IPV4_HDR_LEN)) | (ip_len_now >= AEAD_MAX_PT_BYTES))) begin
+              // implausible, or more than the core takes: drop it, nothing out
+              // (emit has sent nothing yet: it waits for the length)
+              emit_next = EMIT_DONE;
+              feed_next = in_done ? FEED_DONE : FEED_DRAIN;
+            end
+            else begin
+              // the IPv4 packet's next 16 bytes; past its end, zeros
+              to_encrypt.tvalid = in_done | piped.tvalid;
+              to_encrypt.tdata = keep_bytes(
+                in_done ? beat_t'(carry) : {piped.tdata[DPE_DATA_W-CARRY_W-1:0], carry},
+                keep_first(
+                  ip_len_now - fed)
+              );
+              to_encrypt.tlast = (fed + len16_t'(BEAT_BYTES)) >= ip_padded;
+              piped.tready = ~in_done & to_encrypt.tready;
+              if (enc_in_hs) begin
+                fed_next      = fed + len16_t'(BEAT_BYTES);
+                ip_len_next   = ip_len_now;
+                have_len_next = 1'b1;
+                carry_next    = in_done ? '0 : piped.tdata[DPE_DATA_W-1-:CARRY_W];
+                in_done_next  = in_done | piped.tlast;
+                if (to_encrypt.tlast) begin
+                  feed_next = in_done_next ? FEED_DONE : FEED_DRAIN;
+                end
               end
             end
           end
@@ -367,7 +379,7 @@ module dpe_wg_encryptor
         // emit: the headers, then the core's beats
         unique case (emit)
           EMIT_HDR_0: begin
-            muxed.tvalid = 1'b1;
+            muxed.tvalid = have_len;  // not before the frame is known good
             muxed.tdata  = hdr_beat(hdr, 0);
             if (muxed_hs) begin
               emit_next = EMIT_HDR_1;

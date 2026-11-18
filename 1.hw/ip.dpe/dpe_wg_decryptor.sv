@@ -41,10 +41,16 @@
 //   (Ethernet, IPv4, UDP, WireGuard headers: 58 bytes, then the encrypted
 //   IPv4 packet in 16-byte blocks, then its 16-byte tag), tid = its peer.
 //   Out: the outer Ethernet header, then the decrypted IPv4 packet, cut to
-//   its own total length. A frame whose tag does not check out (or too
-//   short to hold one block and a tag, or with an implausible IPv4 length
-//   inside) is dropped whole: the core holds the plaintext until its tag is
-//   checked (wait_to_verify), then flags it with decrypt_m_verified.
+//   its own total length. Dropped whole:
+//   - a frame whose tag does not check out: the core holds the plaintext
+//     until its tag is checked (wait_to_verify), then flags it with
+//     decrypt_m_verified;
+//   - one too short to hold a block and a tag, a WireGuard keepalive (an
+//     empty payload: the tag alone) among them: the core would give no
+//     plaintext for it, so it never reaches the core;
+//   - one whose outer IPv4 length says more than the core takes
+//     (AEAD_MAX_PT_BYTES of plaintext): skipped before the core;
+//   - one whose plaintext IPv4 length is under 20, or over the plaintext.
 //
 //   One packet at a time: the core's key and nonce stay put until the
 //   packet's plaintext has left. Inside a packet, two FSMs run side by side:
@@ -92,6 +98,7 @@ module dpe_wg_decryptor
     FEED_WG,    // frame beat 3: the counter, then the first 6 payload bytes
     FEED_DATA,  // one core beat per frame beat
     FEED_TAIL,  // the frame's last 6 bytes, when its last beat had more than 10
+    FEED_SKIP,  // the rest of a frame too long for the core: not fed
     FEED_DONE
   } feed_t;
 
@@ -104,15 +111,18 @@ module dpe_wg_decryptor
 
   // a core beat: the frame beat before's last CARRY_BYTES bytes, then
   // WG_HDR_TAIL_BYTES of this one
-  localparam int CARRY_BYTES   = BEAT_BYTES - WG_HDR_TAIL_BYTES;  // 6
-  localparam int CARRY_W       = 8 * CARRY_BYTES;
-  localparam int HEAD_W        = 8 * WG_HDR_TAIL_BYTES;           // 80
+  localparam int     CARRY_BYTES   = BEAT_BYTES - WG_HDR_TAIL_BYTES;        // 6
+  localparam int     CARRY_W       = 8 * CARRY_BYTES;
+  localparam int     HEAD_W        = 8 * WG_HDR_TAIL_BYTES;                 // 80
   // the output's first beat: the Ethernet header, then plaintext bytes
-  localparam int ETH_W         = 8 * ETH_HDR_LEN;                 // 112
-  localparam int PT_HEAD_W     = DPE_DATA_W - ETH_W;              // 16
-  localparam int PT_HEAD_BYTES = PT_HEAD_W / 8;                   // 2
+  localparam int     ETH_W         = 8 * ETH_HDR_LEN;                       // 112
+  localparam int     PT_HEAD_W     = DPE_DATA_W - ETH_W;                    // 16
+  localparam int     PT_HEAD_BYTES = PT_HEAD_W / 8;                         // 2
   // header-only beats: the payload (and the counter) start in the next
-  localparam int WG_HDR_BEATS  = WG_PAYLOAD_OFFSET / BEAT_BYTES;  // 3
+  localparam int     WG_HDR_BEATS  = WG_PAYLOAD_OFFSET / BEAT_BYTES;        // 3
+  // the outer IPv4 total length: its header beat, and the most the core takes
+  localparam int     IP_LEN_BEAT   = beat_of(IPV4_TOTAL_LEN_OFFSET);        // 1
+  localparam len16_t IP_LEN_MAX    = WG_IPV4_OVERHEAD + AEAD_MAX_PT_BYTES;
 
   state_t state, state_next;
   feed_t feed, feed_next;
@@ -129,6 +139,7 @@ module dpe_wg_decryptor
   len16_t sent, sent_next;  // IPv4 bytes out so far
   logic core_done, core_done_next;  // the core's last beat is in
   beat_t held, held_next;  // the plaintext beat before
+  len16_t core_bytes, core_bytes_next;  // bytes fed to the core: ciphertext and tag
 
   dpe_tuser_t tuser_out;
   assign tuser_out = '{bypass_all: 1'b0, bypass_stage: 1'b0, src: tuser_src, dst: tuser_dst};
@@ -168,38 +179,40 @@ module dpe_wg_decryptor
   // FSM registers
   always_ff @(posedge inp.clk) begin
     if (inp.rst) begin
-      state     <= IDLE;
-      feed      <= FEED_HDR;
-      emit      <= EMIT_FIRST;
-      tuser_dst <= DPE_ADDR_CPU;
-      tuser_src <= DPE_ADDR_CPU;
-      peer_idx  <= '0;
-      peer      <= '0;
-      hdr_k     <= '0;
-      eth_hdr   <= '0;
-      wg_cnt    <= '0;
-      carry     <= '0;
-      ip_len    <= '0;
-      sent      <= '0;
-      core_done <= 1'b0;
-      held      <= '0;
+      state      <= IDLE;
+      feed       <= FEED_HDR;
+      emit       <= EMIT_FIRST;
+      tuser_dst  <= DPE_ADDR_CPU;
+      tuser_src  <= DPE_ADDR_CPU;
+      peer_idx   <= '0;
+      peer       <= '0;
+      hdr_k      <= '0;
+      eth_hdr    <= '0;
+      wg_cnt     <= '0;
+      carry      <= '0;
+      ip_len     <= '0;
+      sent       <= '0;
+      core_done  <= 1'b0;
+      held       <= '0;
+      core_bytes <= '0;
     end
     else begin
-      state     <= state_next;
-      feed      <= feed_next;
-      emit      <= emit_next;
-      tuser_dst <= tuser_dst_next;
-      tuser_src <= tuser_src_next;
-      peer_idx  <= peer_idx_next;
-      peer      <= peer_next;
-      hdr_k     <= hdr_k_next;
-      eth_hdr   <= eth_hdr_next;
-      wg_cnt    <= wg_cnt_next;
-      carry     <= carry_next;
-      ip_len    <= ip_len_next;
-      sent      <= sent_next;
-      core_done <= core_done_next;
-      held      <= held_next;
+      state      <= state_next;
+      feed       <= feed_next;
+      emit       <= emit_next;
+      tuser_dst  <= tuser_dst_next;
+      tuser_src  <= tuser_src_next;
+      peer_idx   <= peer_idx_next;
+      peer       <= peer_next;
+      hdr_k      <= hdr_k_next;
+      eth_hdr    <= eth_hdr_next;
+      wg_cnt     <= wg_cnt_next;
+      carry      <= carry_next;
+      ip_len     <= ip_len_next;
+      sent       <= sent_next;
+      core_done  <= core_done_next;
+      held       <= held_next;
+      core_bytes <= core_bytes_next;
     end
   end
 
@@ -220,6 +233,7 @@ module dpe_wg_decryptor
     sent_next           = sent;
     core_done_next      = core_done;
     held_next           = held;
+    core_bytes_next     = core_bytes;
 
     piped.tready        = 1'b0;
 
@@ -302,6 +316,13 @@ module dpe_wg_decryptor
                 feed_next = FEED_DONE;
                 emit_next = EMIT_DONE;
               end
+              else if ((hdr_k == 2'(IP_LEN_BEAT)) & (be16(
+                      piped.tdata, IPV4_TOTAL_LEN_OFFSET % BEAT_BYTES
+                  ) > IP_LEN_MAX)) begin
+                // more than the core takes: skip it, nothing out
+                feed_next = FEED_SKIP;
+                emit_next = EMIT_DONE;
+              end
               else if (hdr_k == 2'(WG_HDR_BEATS - 1)) begin
                 feed_next = FEED_WG;
               end
@@ -311,8 +332,9 @@ module dpe_wg_decryptor
           FEED_WG: begin
             piped.tready = 1'b1;
             if (piped_hs) begin
-              wg_cnt_next = le64(piped.tdata, WG_COUNTER_OFFSET);
-              carry_next  = piped.tdata[DPE_DATA_W-1-:CARRY_W];
+              wg_cnt_next     = le64(piped.tdata, WG_COUNTER_OFFSET);
+              carry_next      = piped.tdata[DPE_DATA_W-1-:CARRY_W];
+              core_bytes_next = '0;
               if (piped.tlast) begin
                 feed_next = FEED_DONE;
                 emit_next = EMIT_DONE;
@@ -324,15 +346,27 @@ module dpe_wg_decryptor
           end
 
           FEED_DATA: begin
-            // the frame's next 16 payload bytes
-            to_decrypt.tvalid = piped.tvalid;
-            to_decrypt.tdata  = {piped.tdata[HEAD_W-1:0], carry};
-            to_decrypt.tlast  = piped.tlast & ~piped.tkeep[WG_HDR_TAIL_BYTES];
-            piped.tready      = to_decrypt.tready;
-            if (dec_in_hs) begin
-              carry_next = piped.tdata[DPE_DATA_W-1-:CARRY_W];
-              if (piped.tlast) begin
-                feed_next = piped.tkeep[WG_HDR_TAIL_BYTES] ? FEED_TAIL : FEED_DONE;
+            if ((core_bytes == '0) & piped.tlast & ~piped.tkeep[WG_HDR_TAIL_BYTES]) begin
+              // one core beat in all, the tag alone (a keepalive): the core
+              // would give no plaintext, so the frame never reaches it
+              piped.tready = 1'b1;
+              if (piped_hs) begin
+                feed_next = FEED_DONE;
+                emit_next = EMIT_DONE;
+              end
+            end
+            else begin
+              // the frame's next 16 payload bytes
+              to_decrypt.tvalid = piped.tvalid;
+              to_decrypt.tdata  = {piped.tdata[HEAD_W-1:0], carry};
+              to_decrypt.tlast  = piped.tlast & ~piped.tkeep[WG_HDR_TAIL_BYTES];
+              piped.tready      = to_decrypt.tready;
+              if (dec_in_hs) begin
+                carry_next      = piped.tdata[DPE_DATA_W-1-:CARRY_W];
+                core_bytes_next = core_bytes + len16_t'(BEAT_BYTES);
+                if (piped.tlast) begin
+                  feed_next = piped.tkeep[WG_HDR_TAIL_BYTES] ? FEED_TAIL : FEED_DONE;
+                end
               end
             end
           end
@@ -342,6 +376,14 @@ module dpe_wg_decryptor
             to_decrypt.tdata  = beat_t'(carry);
             to_decrypt.tlast  = 1'b1;
             if (dec_in_hs) begin
+              core_bytes_next = core_bytes + len16_t'(BEAT_BYTES);
+              feed_next       = FEED_DONE;
+            end
+          end
+
+          FEED_SKIP: begin
+            piped.tready = 1'b1;
+            if (piped_hs && piped.tlast) begin
               feed_next = FEED_DONE;
             end
           end
@@ -352,7 +394,9 @@ module dpe_wg_decryptor
         // emit: the plaintext, once the core has checked its tag
         unique case (emit)
           EMIT_FIRST: begin
-            if (!verified || ip_len_first < len16_t'(IPV4_HDR_LEN)) begin
+            // the feed is done by now: the core keeps the plaintext until the tag
+            if (!verified || ip_len_first < len16_t'(IPV4_HDR_LEN) ||
+                ip_len_first > core_bytes - len16_t'(POLY1305_TAG_LEN)) begin
               from_decrypt.tready = 1'b1;
               if (dec_out_hs) begin
                 emit_next = from_decrypt.tlast ? EMIT_DONE : EMIT_DROP;

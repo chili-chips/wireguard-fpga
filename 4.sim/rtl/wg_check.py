@@ -6,15 +6,22 @@
 independent of the RTL.
 
   wg_check.py enc PLAIN.pcap OUT.pcap   encryptor output: headers,
-      ciphertext and tag (RFC 8439 ChaCha20-Poly1305), byte for byte
+      ciphertext and tag (RFC 8439 ChaCha20-Poly1305), byte for byte, of the
+      plausible frames of PLAIN (IPv4 length 20 to 2031; the others dropped)
   wg_check.py dec PLAIN.pcap OUT.pcap [N...]   decryptor output: the outer
-      Ethernet header, then the IPv4 packet; frames N (counted from 0) must
-      be missing: the bench corrupts them, so their tag must fail
+      Ethernet header, then the IPv4 packet; frames N (counted from 0, among
+      the plausible ones) must be missing: the bench corrupts them, so their
+      tag must fail
+  wg_check.py decx ...   as dec, for the wgx input: then frame 0 once more
   wg_check.py mix OUT.pcap IN.pcap...   one pcap of all their frames, plus a
-      60-byte frame whose IPv4 packet is shorter (junk in the padding)
+      60-byte frame whose IPv4 packet is shorter (junk in the padding), three
+      the encryptor must drop (IPv4 length 9000, 10, 0xfff5) and frame 0 again
   wg_check.py wg OUT.pcap PLAIN.pcap   the WireGuard frames of PLAIN, as
       the encryptor must make them: the decryptor bench's input without the
       encryptor (LOOPBACK=0)
+  wg_check.py wgx OUT.pcap PLAIN.pcap   as wg, then three frames the
+      decryptor must drop (a keepalive, an IPv4 length over the plaintext,
+      one too long for the core) and frame 0 once more
 
 PEER is the benches' routing-table entry (tb.sv: PEER), as wire bytes.
 Exit 0 when all frames match; prints the first difference otherwise."""
@@ -100,11 +107,19 @@ def padded_len(n):  # net_pkg wg_padded_len()
     return (n | 15) + 1
 
 
+def plausible(frame):  # the encryptor drops the others: IPv4 length 20 to 2031
+    return 20 <= int.from_bytes(frame[16:18], 'big') < 2032  # net_pkg AEAD_MAX_PT_BYTES
+
+
 def wg_frame(frame, p=PEER):
     ip = ip_packet(frame)
-    plen = padded_len(len(ip))
+    return wg_from_pt(ip + bytes(padded_len(len(ip)) - len(ip)), p)
+
+
+def wg_from_pt(pt, p=PEER):  # a WireGuard data frame around a padded plaintext
+    plen = len(pt)
     nonce = bytes(4) + p['send_cnt'].to_bytes(8, 'little')
-    ct = chacha20(p['key'], nonce, ip + bytes(plen - len(ip)))
+    ct = chacha20(p['key'], nonce, pt)
     ipv4 = (bytes([0x45, 0]) + (plen + 60).to_bytes(2, 'big') + bytes(4) +
             bytes([64, 17, 0, 0]) + p['local_ip'] + p['remote_ip'])
     udp = p['local_port'] + p['remote_port'] + (plen + 40).to_bytes(2, 'big') + bytes(2)
@@ -139,17 +154,35 @@ def main(mode, *paths):
         short = bytearray(frames[0][:60])  # 60 bytes on the wire, IPv4 30
         short[16:18] = (30).to_bytes(2, 'big')
         short[44:] = b'\xee' * 16
-        write_pcap(paths[0], frames + [bytes(short)])
+        hostile = []  # IPv4 lengths the encryptor must drop: too long, too short, wrapping
+        for n in (9000, 10, 0xfff5):
+            h = bytearray(frames[0][:64])
+            h[16:18] = n.to_bytes(2, 'big')
+            hostile.append(bytes(h))
+        # then one good frame: the encryptor goes on after a drop
+        write_pcap(paths[0], frames + [bytes(short)] + hostile + [frames[0]])
         return 0
     if mode == 'wg':
         write_pcap(paths[0], [wg_frame(f) for f in packets(paths[1])])
         return 0
-    plain, out = packets(paths[0]), packets(paths[1])
+    if mode == 'wgx':  # as wg, then frames the decryptor must drop, then one it must not
+        plain = [f for f in packets(paths[1]) if plausible(f)]
+        ip = bytearray(ip_packet(plain[0]))
+        ip[2:4] = (len(ip) + 64).to_bytes(2, 'big')  # more than the plaintext holds
+        hostile = [wg_from_pt(b''),  # a keepalive: the tag alone
+                   wg_from_pt(bytes(ip) + bytes(padded_len(len(ip)) - len(ip))),  # authentic
+                   wg_from_pt(bytes(2048))]  # more than the core takes (2032)
+        write_pcap(paths[0], [wg_frame(f) for f in plain] + hostile + [wg_frame(plain[0])])
+        return 0
+    plain, out = [f for f in packets(paths[0]) if plausible(f)], packets(paths[1])
     if mode == 'enc':
         return compare([wg_frame(f) for f in plain], out, 0)
     eth = PEER['remote_mac'] + PEER['local_mac'] + b'\x08\x00'
     dropped = {int(n) for n in paths[2:]}  # frames the bench corrupts
-    return compare([eth + ip_packet(f) for i, f in enumerate(plain) if i not in dropped], out, 0)
+    want = [eth + ip_packet(f) for i, f in enumerate(plain) if i not in dropped]
+    if mode == 'decx':  # the wgx input: its hostile frames dropped, the last one through
+        want.append(eth + ip_packet(plain[0]))
+    return compare(want, out, 0)
 
 
 if __name__ == '__main__':

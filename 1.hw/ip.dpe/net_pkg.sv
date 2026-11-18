@@ -128,6 +128,11 @@ package net_pkg;
   localparam len16_t WG_UDP_OVERHEAD = len16_t'(UDP_HDR_LEN + WG_DATA_HDR_LEN + POLY1305_TAG_LEN);
   localparam len16_t WG_IPV4_OVERHEAD = len16_t'(IPV4_HDR_LEN) + WG_UDP_OVERHEAD;
 
+  // The ChaCha20-Poly1305 cores' plaintext limit (pypeline_build:
+  // AEAD_MAX_PLAINTEXT_BYTES): a longer packet would fill the decryptor
+  // core's verify FIFO before its tag is in, so the DPE drops it
+  localparam len16_t AEAD_MAX_PT_BYTES = len16_t'(2032);
+
   // A peer's entry in the routing table: what the encryptor and the
   // decryptor need to build its frames. MAC, IP and UDP port are in bus byte
   // order (wire byte 0 in [7:0]), the others natural values.
