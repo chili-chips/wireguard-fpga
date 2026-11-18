@@ -67,6 +67,12 @@ def prep_auth_data_wide(
     o: result_t
     o.axis_if.stream = aead_stream_null()
     o.axis_in_if.ready = 0
+    # Probes sample the registers before this cycle's transitions (simulation
+    # only, no hardware). A packet with an odd block count ends in a single
+    # block; a full queue is a timing corner.
+    perf_taps.state("prep.fsm", state, tuple(state_t.__members__))
+    perf_taps.hs("cover.prep.final_single", (count == 1) & blocks[0].last, axis_if.ready)
+    perf_taps.hs("cover.prep.queue_full", count == 4, 1)
 
     # Emit a pair, or a single final block when the packet has an odd count.
     pop: count_t = 0
@@ -172,8 +178,7 @@ def prep_auth_data_wide(
     count = remaining + push
     sim_assert(count <= 4, "Authentication formatter queue overflow")
 
-    # Simulation-only state and handshake probes.
-    perf_taps.state("prep.fsm", state, tuple(state_t.__members__))
+    # Simulation-only handshake probes.
     perf_taps.hs(
         "prep.axis_in",
         axis_in_if.stream.valid,

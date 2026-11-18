@@ -81,7 +81,7 @@ jobs:
 
       - name: Install PipelineC
         run: |
-          # The tested commit: the first non-comment line of pipelinec.ref
+          # The oldest supported commit: the first non-comment line of pipelinec.ref
           ref=$(grep -v -E '^[[:space:]]*(#|$)' 3.build/pypeline_build/pipelinec.ref | head -1)
           echo "PipelineC $ref"
           git clone -q https://github.com/JulianKemmerer/PipelineC "$RUNNER_TEMP/PipelineC"

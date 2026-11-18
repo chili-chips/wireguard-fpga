@@ -6,8 +6,10 @@
 
 Both enabled directions run concurrently using @sim_input/@sim_output. PERF
 selects coordinated packet-size phases and JSON recording instead of random
-or stress traffic. See ../README.md#simulation and #throughput-measurement for
-commands, or chacha20poly1305_syn_tb.py for the fixed-vector top.
+or stress traffic. TB_COVERAGE_JSON makes a random run write the facts that
+measure.py --coverage bins. See ../README.md#simulation, #functional-coverage and
+#throughput-measurement for commands, or chacha20poly1305_syn_tb.py for the
+fixed-vector top.
 """
 
 import wireguard_env
@@ -55,6 +57,39 @@ if common.PERF:
         sim_print(f"PERF: wrote {perf.JSON_PATH or '(no PERF_JSON set)'}")
 
 
+if common.COVERAGE_JSON and not common.PERF:
+    from aead_types import AEAD_BEAT_BYTES, AEAD_MAX_PLAINTEXT_BYTES, buffering_metadata
+    from poly1305_select import implementation_metadata
+
+    @final(sim=True)
+    def write_coverage():
+        # Runs even when a checker failed, so a failing run still leaves its facts.
+        runs = []
+        if wireguard_env.ENCRYPT:
+            runs.append((encrypt_tb.packet_log, encrypt_tb.enc_state))
+        if wireguard_env.DECRYPT:
+            runs.append((decrypt_tb.packet_log, decrypt_tb.dec_state))
+        metadata = {
+            "design": wireguard_env.DESIGN,
+            "sharing": wireguard_env.SHARING,
+            "data_bitwidth": wireguard_env.DATA_BITWIDTH,
+            "beat_bytes": AEAD_BEAT_BYTES,
+            "max_packet_bytes": AEAD_MAX_PLAINTEXT_BYTES,
+            "aad_len": common.AAD_LEN,
+            "poly1305": implementation_metadata(),
+            "buffering": buffering_metadata(),
+            "cycles": {log.direction: state["cycle"] for log, state in runs},
+            "params": {
+                "TB_STRESS": bool(common.STRESS),
+                "TB_CLOSURE": bool(common.CLOSURE),
+                "TB_SEED": common.SEED,
+                "TB_PACKETS": common.PACKETS,
+                "random_packets": common.NUM_RANDOM_PACKETS,
+            },
+        }
+        common.write_coverage(common.COVERAGE_JSON, metadata, [log for log, _ in runs])
+
+
 # Read the host-side packet counts and wait for every enabled direction.
 @sim_output
 def check_done():
@@ -62,6 +97,10 @@ def check_done():
         if perf.all_done():
             sim_finish()
         return
+    if wireguard_env.ENCRYPT:
+        common.check_progress("Encrypt", encrypt_tb.enc_state, common.NUM_RANDOM_PACKETS)
+    if wireguard_env.DECRYPT:
+        common.check_progress("Decrypt", decrypt_tb.dec_state, decrypt_tb.NUM_TOTAL_PACKETS)
     if (
         wireguard_env.ENCRYPT
         and encrypt_tb.enc_state["out_packet_idx"] < common.NUM_RANDOM_PACKETS

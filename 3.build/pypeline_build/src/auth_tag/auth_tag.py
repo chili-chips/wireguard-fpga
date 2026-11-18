@@ -52,6 +52,25 @@ def append_auth_tag(
     state: Reg[append_auth_tag_state_t]
     # Sample state before transitions.
     perf_taps.state("append.fsm", state, APPEND_AUTH_TAG_STATE_NAMES)
+    # One cover event per packet, when its final ciphertext beat is accepted: a
+    # full beat waits for output ready and the tag follows alone; a partial beat
+    # is buffered at once and merges with the tag (simulation only, no hardware).
+    perf_taps.hs(
+        "cover.append.tag_only",
+        (state == append_auth_tag_state_t.CIPHERTEXT)
+        & axis_in_if.stream.valid
+        & axis_in_if.stream.data.eod[0]
+        & axis_in_if.stream.data.frag.keep[15],
+        axis_out_if.ready,
+    )
+    perf_taps.hs(
+        "cover.append.two_beat",
+        (state == append_auth_tag_state_t.CIPHERTEXT)
+        & axis_in_if.stream.valid
+        & axis_in_if.stream.data.eod[0]
+        & ~axis_in_if.stream.data.frag.keep[15],
+        1,
+    )
     # Hold the final ciphertext beat and its valid-byte count, r in [1, 16].
     held_data_reg: Reg[uint8_t[POLY1305_AUTH_TAG_SIZE]]
     held_keep_count_reg: Reg[axis128_keep_count_t]
@@ -259,5 +278,17 @@ def strip_auth_tag(
     )
     perf_taps.hs(
         "strip.tag_out", o.auth_tag_out_if.stream.valid, auth_tag_out_if.ready
+    )
+    # One cover event per packet, when its final input beat is taken: the tag fills
+    # that beat exactly, or straddles it and the previous beat.
+    perf_taps.hs(
+        "cover.strip.exact",
+        stream_in.valid & stream_in.data.eod[0] & stream_in.data.frag.keep[15],
+        auth_tag_out_if.ready,
+    )
+    perf_taps.hs(
+        "cover.strip.straddle",
+        stream_in.valid & stream_in.data.eod[0] & ~stream_in.data.frag.keep[15],
+        auth_tag_out_if.ready,
     )
     return o

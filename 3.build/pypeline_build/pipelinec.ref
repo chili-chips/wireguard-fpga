@@ -1,6 +1,7 @@
-# PipelineC (JulianKemmerer/PipelineC) commit this design is tested with.
+# Oldest PipelineC (JulianKemmerer/PipelineC) commit this design is known to
+# work with. This commit or any newer one should work; prefer the latest.
 # CI builds the Pypeline lint with it (.github/workflows/lint.yml), and
-# build.py warns when the local pypelinec checkout differs.
-# Update it in the same commit as any design change that needs another
-# PipelineC commit. The first line that is not a comment is the hash.
+# build.py warns when the local pypelinec checkout predates it.
+# Move it forward in the same commit as any design change that needs a newer
+# PipelineC. The first line that is not a comment is the hash.
 99e5e01832c3b9a46c7e527b845af8b24f9d02c9

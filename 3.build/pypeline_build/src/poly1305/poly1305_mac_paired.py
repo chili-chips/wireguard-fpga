@@ -142,6 +142,7 @@ def make_poly1305_mac_paired(direction, share_compute=False, *, body_latency=Non
     coefficient_ap = get_coefficient_auto_pipeline(coefficient_latency)
     coefficient_cycles = coefficient_ap.latency + 2
     lanes = body_ap.latency + 2
+    FINAL_LANE_TAPS = tuple(f"cover.poly.final_lane{lane}" for lane in range(lanes))
     total_cycles = coefficient_cycles + lanes
     lane_t = make_uint_t(max(1, (lanes - 1).bit_length()))
     count_t = make_uint_t(total_cycles.bit_length())
@@ -437,6 +438,14 @@ def make_poly1305_mac_paired(direction, share_compute=False, *, body_latency=Non
         perf_taps.hs("poly1305.coefficient_in", coefficient_request.valid, 1)
         perf_taps.hs("poly1305.coefficient_out", coefficients.valid, 1)
         perf_taps.hs("poly1305.tail_in", admitted & ~paired, 1)
+        # One cover event per packet whose block count is even: the lane that
+        # takes its final pair, which decides what wraps around the accumulators.
+        for lane in range(lanes):
+            perf_taps.hs(
+                FINAL_LANE_TAPS[lane],
+                admitted & paired & data_in_if.stream.data.eod[0] & (issuing_lane == lane),
+                1,
+            )
 
         perf_taps.hs("poly1305.to_compute", request.valid, 1)
         perf_taps.hs("poly1305.from_compute", result.valid, 1)

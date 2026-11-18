@@ -108,6 +108,29 @@ def make_wait_to_verify(depth=128, *, sizing=None):
         o.axis_out_if.stream.valid = 0
         o.is_verified_out = 0
 
+        # Timing corners, sampled before the transitions (simulation only): the
+        # verdict arrives before or after the packet's plaintext is buffered, and
+        # the next verdict waits while the current packet drains.
+        perf_taps.hs(
+            "cover.wtv.verdict_first",
+            (state == wait_to_verify_state_t.WAIT_TO_VERIFY_BIT)
+            & verify_bit_if.stream.valid
+            & ~verify_fifo_out.valid,
+            1,
+        )
+        perf_taps.hs(
+            "cover.wtv.verdict_last",
+            (state == wait_to_verify_state_t.WAIT_TO_VERIFY_BIT)
+            & verify_bit_if.stream.valid
+            & verify_fifo_out.valid,
+            1,
+        )
+        perf_taps.hs(
+            "cover.wtv.verdict_wait",
+            (state == wait_to_verify_state_t.OUTPUT_PLAINTEXT) & verify_bit_if.stream.valid,
+            1,
+        )
+
         if state == wait_to_verify_state_t.WAIT_TO_VERIFY_BIT:
             # Hold plaintext until this packet's verdict is accepted.
             verify_fifo_out_ready_s = 0

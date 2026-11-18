@@ -63,6 +63,38 @@ def append_auth_tag_wide(
     for j in range(16):
         merged[held_count + j] = tag[j]
 
+    # Probes sample the registers before this cycle's transitions (simulation
+    # only, no hardware). One cover event fires per packet, when its final
+    # ciphertext beat is accepted: a full beat waits for output ready, a partial
+    # beat is buffered at once. A tag fits behind a final beat of up to 16 bytes
+    # (one merged beat) and otherwise spills into a second beat.
+    perf_taps.state("append.fsm", waiting, ("CIPHERTEXT", "TAG"))
+    perf_taps.hs(
+        "cover.append.tag_only",
+        ~waiting
+        & axis_in_if.stream.valid
+        & axis_in_if.stream.data.eod[0]
+        & axis_in_if.stream.data.frag.keep[31],
+        axis_out_if.ready,
+    )
+    perf_taps.hs(
+        "cover.append.one_beat",
+        ~waiting
+        & axis_in_if.stream.valid
+        & axis_in_if.stream.data.eod[0]
+        & ~axis_in_if.stream.data.frag.keep[16],
+        1,
+    )
+    perf_taps.hs(
+        "cover.append.two_beat",
+        ~waiting
+        & axis_in_if.stream.valid
+        & axis_in_if.stream.data.eod[0]
+        & axis_in_if.stream.data.frag.keep[16]
+        & ~axis_in_if.stream.data.frag.keep[31],
+        1,
+    )
+
     if ~waiting:
         o.axis_out_if = axis_in_if
         o.axis_out_if.stream.data.eod[0] = 0
@@ -102,7 +134,6 @@ def append_auth_tag_wide(
                 waiting = 0
             else:
                 second = 1
-    perf_taps.state("append.fsm", waiting, ("CIPHERTEXT", "TAG"))
     perf_taps.hs(
         "append.axis_in",
         axis_in_if.stream.valid,
@@ -141,6 +172,45 @@ def strip_auth_tag_wide(
     tag: Reg[uint8_t[16]]
     tag_valid: Reg[uint1_t]
     o: strip_result_t
+    # Probes sample the registers before this cycle's transitions (simulation
+    # only, no hardware). One cover event fires per packet, when its final input
+    # beat is taken: a packet of one beat, or a held beat plus a final beat whose
+    # tag straddles both, fills the final beat exactly, or leaves two tail beats.
+    # The next packet waiting behind the draining tail is a timing corner.
+    perf_taps.hs(
+        "cover.strip.single_beat",
+        ~finishing & axis_in_if.stream.valid & axis_in_if.stream.data.eod[0] & ~held_valid,
+        1,
+    )
+    perf_taps.hs(
+        "cover.strip.straddle",
+        ~finishing
+        & axis_in_if.stream.valid
+        & axis_in_if.stream.data.eod[0]
+        & held_valid
+        & ~axis_in_if.stream.data.frag.keep[15],
+        1,
+    )
+    perf_taps.hs(
+        "cover.strip.exact",
+        ~finishing
+        & axis_in_if.stream.valid
+        & axis_in_if.stream.data.eod[0]
+        & held_valid
+        & axis_in_if.stream.data.frag.keep[15]
+        & ~axis_in_if.stream.data.frag.keep[16],
+        1,
+    )
+    perf_taps.hs(
+        "cover.strip.two_tail",
+        ~finishing
+        & axis_in_if.stream.valid
+        & axis_in_if.stream.data.eod[0]
+        & held_valid
+        & axis_in_if.stream.data.frag.keep[16],
+        1,
+    )
+    perf_taps.hs("cover.strip.finish_wait", finishing & axis_in_if.stream.valid, 1)
     o.axis_in_if.ready = 0
     o.axis_out_if.stream = aead_stream_null()
     o.auth_tag_out_if.stream = poly1305_auth_tag_stream_null()

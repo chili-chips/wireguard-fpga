@@ -49,9 +49,12 @@ enc_state = {
     "printed_gen_count": 0,
     "out_packet_idx": 0,  # packets checked; also used by the completion checker
     "cycle": 0,
+    "last_move": 0,  # cycle of the last accepted input or output beat
 }
 
 _scoreboard = Scoreboard()
+# Per-packet coverage facts; chacha20poly1305_tb.py writes them out.
+packet_log = common.PacketLog("encrypt")
 _src = common.ConvergedAxisSource(aead_axis_if_t, AEAD_BEAT_BYTES)
 if common.PERF:
     import perf_tb_common as perf
@@ -74,7 +77,7 @@ def drive_in_word() -> aead_axis_if_t.stream_t:
         length = common.next_packet_length(enc_state["rng"], idx)
         plaintext, ciphertext, tag = common.generate_packet(enc_state["rng"], length)
         enc_state["gen_log"].append(length)
-        _scoreboard.expect(ciphertext + tag, idx=idx)
+        _scoreboard.expect(ciphertext + tag, idx=idx, length=length)
         _src.send(plaintext)
         enc_state["in_packet_idx"] += 1
 
@@ -93,11 +96,11 @@ def start():
         sim_print(f"Encrypt: phases = {[p['name'] for p in perf.PHASES]}")
         sim_print(f"Encrypt: seed = {perf.SEED}, json = {perf.JSON_PATH or '(none)'}")
         return
-    enc_state["rng"] = random.Random(common.DEFAULT_SEED)
+    enc_state["rng"] = random.Random(common.SEED)
     sim_print(
         "=== ChaCha20-Poly1305 Encryption Test (non-synthesizable, on-the-fly random vectors) ==="
     )
-    sim_print(f"Encrypt: RNG seed = {common.DEFAULT_SEED}")
+    sim_print(f"Encrypt: RNG seed = {common.SEED}")
     sim_print(f"Encrypt Key: {bytes(common.KEY).hex()}")
     sim_print(f"Encrypt Nonce: {bytes(common.NONCE).hex()}")
 
@@ -116,8 +119,8 @@ def report_new_packets():
 def check_out():
     # Commit input acceptance and sample output after ready/valid have settled.
     ready = int(chacha20poly1305_encrypt_ports.axis_in_if.ready)
+    incoming = chacha20poly1305_encrypt_ports.axis_in_if.stream
     if common.PERF:
-        incoming = chacha20poly1305_encrypt_ports.axis_in_if.stream
         valid = int(incoming.valid)
         _runner.note_in(
             valid=valid,
@@ -127,7 +130,10 @@ def check_out():
         )
     else:
         enc_state["cycle"] += 1
-    _src.commit(ready)
+        packet_log.note_input(
+            enc_state["cycle"], int(incoming.valid), ready, int(incoming.data.eod[0])
+        )
+    accepted_in = _src.commit(ready)
     out = chacha20poly1305_encrypt_ports.axis_out_if.stream
     if common.PERF:
         _runner.note_out(
@@ -141,6 +147,10 @@ def check_out():
             aead_axis_if_t.fwd_t(out),
             ready=chacha20poly1305_encrypt_ports.axis_out_if.ready,
         )
+        if accepted_in or (
+            int(out.valid) and int(chacha20poly1305_encrypt_ports.axis_out_if.ready)
+        ):
+            enc_state["last_move"] = enc_state["cycle"]
     result = _snk.check_nowait()
     if result is not None:
         if common.PERF:
@@ -150,6 +160,7 @@ def check_out():
         else:
             idx = result.get("idx", "?")
             common.check_packet_result("Encrypt", "Ciphertext/Tag", enc_state, result)
+            packet_log.note_output(enc_state["cycle"], result, _snk.stalled_cycles)
             sim_print(f"Encrypt: Test {idx} DONE!")
             enc_state["out_packet_idx"] += 1
     if common.PERF:

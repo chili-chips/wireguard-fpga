@@ -259,3 +259,5 @@ so it is not an end-to-end payload throughput guarantee. See the README's
 
 ChaCha20 is checked by the full AEAD testbenches against independent reference
 results; use the README's [simulation workflow](../../README.md#simulation).
+[Functional coverage](../../README.md#functional-coverage) records whether each
+packet's last block is partial or whole (`cover.chacha.last_*`).

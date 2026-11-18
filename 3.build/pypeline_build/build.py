@@ -38,21 +38,37 @@ PROFILE_PARAMS = (
 
 
 def check_pipelinec_ref(here, pypelinec_bin):
-    """Warn when the pypelinec checkout is not the commit in pipelinec.ref."""
+    """Warn when the pypelinec checkout predates pipelinec.ref.
+
+    pipelinec.ref names the oldest PipelineC commit this design is known to work
+    with; that commit or any newer one is fine, and the latest is preferred.
+    """
     try:
         with open(os.path.join(here, "pipelinec.ref")) as f:
-            tested = next(line.strip() for line in f
+            oldest = next(line.strip() for line in f
                           if line.strip() and not line.lstrip().startswith("#"))
-        exe = shutil.which(pypelinec_bin) or pypelinec_bin
+        exe = shutil.which(pypelinec_bin)
+        if exe is None:
+            raise OSError(f"{pypelinec_bin} not found")
         repo = os.path.dirname(os.path.dirname(os.path.realpath(exe)))
+        # Only a checkout of its own counts: git would otherwise answer for an
+        # enclosing repository, such as this one around a copied compiler.
+        top = subprocess.run(["git", "-C", repo, "rev-parse", "--show-toplevel"],
+                             capture_output=True, text=True, check=True).stdout.strip()
+        if os.path.realpath(top) != os.path.realpath(repo):
+            raise OSError(f"{repo} is not a git checkout")
         head = subprocess.run(["git", "-C", repo, "rev-parse", "HEAD"], capture_output=True,
                               text=True, check=True).stdout.strip()
+        # Exit 0: the checkout contains that commit; otherwise it is older, on
+        # another branch, or a shallow clone without it.
+        contained = subprocess.run(["git", "-C", repo, "merge-base", "--is-ancestor",
+                                    oldest, head], capture_output=True).returncode == 0
     except (OSError, StopIteration, subprocess.CalledProcessError):
         print("--> WARNING: cannot compare the PipelineC checkout with pipelinec.ref")
         return
-    if head != tested:
-        print(f"--> WARNING: PipelineC {head[:12]} is not the tested {tested[:12]} "
-              "(pipelinec.ref); update one of them")
+    if not contained:
+        print(f"--> WARNING: PipelineC {head[:12]} does not contain {oldest[:12]}, the "
+              "oldest commit this design is known to work with (pipelinec.ref)")
 
 
 def main():

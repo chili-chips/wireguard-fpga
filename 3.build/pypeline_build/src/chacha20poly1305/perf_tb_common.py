@@ -26,18 +26,6 @@ from aead_types import (
 )
 import tb_common_sim as common
 
-# MAIN name -> short label that qualifies tap names (`encrypt/chacha20.in`).
-# Update in place: the probes read this exact dict object.
-stream_perf_probe.MAIN_LABELS.update(
-    {
-        "encrypt_dataflow": "encrypt",
-        "decrypt_dataflow": "decrypt",
-        "chacha20_pipeline_shared": "shared",
-        "poly1305_init_shared": "shared",
-        "poly1305_finish_shared": "shared",
-    }
-)
-
 # Supported plaintext envelope; FIFO rounding does not increase this limit.
 MAX_PACKET_BYTES = AEAD_MAX_PLAINTEXT_BYTES
 BUS_BYTES = AEAD_BEAT_BYTES

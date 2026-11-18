@@ -1002,6 +1002,11 @@ tag append/strip paths. The hardware-style MAC/component modes check the one-blo
 MAC, body pipeline, arithmetic, and private/shared compute units (sharing supports
 either width). Both cover backpressure and use independent reference results.
 
+[Functional coverage](../../README.md#functional-coverage) records which MAC
+lane takes each packet's final pair (`cover.poly.final_lane*`) and whether a
+packet has fewer pairs than lanes. The lane count follows the body latency, so
+a build with another latency shows its new lanes as unreached corners.
+
 ## Legacy architecture
 
 The selectable fallback in [poly1305_legacy.py](poly1305_legacy.py) uses a single accumulator

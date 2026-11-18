@@ -382,6 +382,22 @@ def chacha20_fsm(
     perf_taps.hs(
         "chacha20.to_pipeline", o.to_pipeline_if.stream.valid, to_pipeline_if.ready
     )
+    # One cover event per packet: its last block enters the pipeline, either
+    # full (length a multiple of 64) or partial. Only a payload block carries eod.
+    perf_taps.hs(
+        "cover.chacha.last_aligned",
+        o.to_pipeline_if.stream.valid
+        & o.to_pipeline_if.stream.data.axis_in.eod[0]
+        & o.to_pipeline_if.stream.data.axis_in.frag.keep[CHACHA20_BLOCK_SIZE - 1],
+        to_pipeline_if.ready,
+    )
+    perf_taps.hs(
+        "cover.chacha.last_partial",
+        o.to_pipeline_if.stream.valid
+        & o.to_pipeline_if.stream.data.axis_in.eod[0]
+        & ~o.to_pipeline_if.stream.data.axis_in.frag.keep[CHACHA20_BLOCK_SIZE - 1],
+        to_pipeline_if.ready,
+    )
     perf_taps.hs(
         "chacha20.from_pipeline",
         from_pipeline_if.stream.valid,

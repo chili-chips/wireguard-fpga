@@ -165,14 +165,14 @@ section built around the same kind of diagram:
 | Location | Purpose |
 | --- | --- |
 | [build.py](build.py) | Hardware build, HDL export, and simulation entrypoint. |
-| [measure.py](measure.py) | Throughput, latency, timing, area, and bottleneck analysis. |
+| [measure.py](measure.py) | Throughput, latency, timing, area, and bottleneck analysis; [functional coverage](#functional-coverage) of the random testbenches. |
 | [src/wireguard_env.py](src/wireguard_env.py) | Build parameters, default profile, and source imports. |
 | [src/aead_types.py](src/aead_types.py) | Stream types, limits, and buffer factories. |
 | [src/chacha20/](src/chacha20/) | ChaCha20 arithmetic and stream processing; [pipeline and sharing design](src/chacha20/chacha20_design.md). |
 | [src/poly1305/](src/poly1305/) | Poly1305 arithmetic, packet processing, and tag verification; [architecture and throughput](src/poly1305/poly1305_design.md). |
 | [src/prep_auth_data/](src/prep_auth_data/) | Authentication framing. |
 | [src/auth_tag/](src/auth_tag/) | Tag append/strip in [auth_tag.py](src/auth_tag/auth_tag.py) (128-bit) and [auth_tag_wide.py](src/auth_tag/auth_tag_wide.py) (256-bit); plaintext verification buffering. |
-| [src/chacha20poly1305/](src/chacha20poly1305/) | Encrypt/decrypt wiring, external ports, and testbench support. |
+| [src/chacha20poly1305/](src/chacha20poly1305/) | Encrypt/decrypt wiring, external ports, testbench support, and the [functional-coverage goals](src/chacha20poly1305/func_coverage_goals.py). |
 | [src/chacha20poly1305.py](src/chacha20poly1305.py) | Hardware top. |
 | [src/chacha20poly1305_tb.py](src/chacha20poly1305_tb.py) | Native testbench top for random/stress checks and performance measurement. |
 | [src/chacha20poly1305_syn_tb.py](src/chacha20poly1305_syn_tb.py) | Fixed-vector testbench top. |
@@ -183,8 +183,10 @@ section built around the same kind of diagram:
 
 Run commands from `3.build/pypeline_build`. Use Python 3 with `cryptography`
 for reference checks, and a PypelineC checkout with its dependencies installed.
-Vivado is needed for hardware synthesis; generated-VHDL simulation uses GHDL
-and cocotb, and Verilog export additionally uses Yosys.
+Vivado is needed for hardware synthesis; 2019.2 and 2026.1 both work.
+PipelineC runs `vivado` from `PATH`, else from `$XILINX_VIVADO`, else from its
+built-in default install path. Generated-VHDL simulation uses GHDL and cocotb,
+and Verilog export additionally uses Yosys.
 
 ```bash
 export PYPELINEC=/path/to/PipelineC/src/pypelinec
@@ -194,9 +196,27 @@ export PYPELINEC=/path/to/PipelineC/src/pypelinec
 
 `build.py` also accepts `pypelinec` on `PATH`. For measurement tooling, set
 `PYPELINEC` as above or keep the compiler checkout at `../../../PipelineC`.
-Check out the PipelineC commit in [pipelinec.ref](pipelinec.ref): CI uses it,
-and `build.py` warns when the checkout differs.
+[pipelinec.ref](pipelinec.ref) names the oldest PipelineC commit known to
+work. That commit or any newer one should work, and the latest is preferred.
+CI lints with that commit, and `build.py` warns when the checkout predates it.
 `--show-config` prints the resolved settings and output paths without building.
+
+For a test campaign or a long build, clone the latest PipelineC fresh and run
+every step from that clone. Your own checkout can then change meanwhile without
+changing the generated VHDL, so the campaign's later builds and simulations
+reuse its synthesis cache entries:
+
+```bash
+clone=$PWD/generated-files/pipelinec-$(date +%Y%m%d-%H%M)
+git clone -q https://github.com/JulianKemmerer/PipelineC "$clone"  # or a local checkout, for unpushed commits
+export PYPELINEC=$clone/src/pypelinec
+```
+
+The clone brings PipelineC's committed `cache/` of per-operator delay and area
+measurements, which builds use by default. Leave `PYPELINEC_CACHE_DIR` unset in
+normal use. A CI runner may set it, after copying the clone's `cache/` there so
+it does not start empty. The shared `--syn-cache` holds module and whole-design
+syntheses instead.
 
 ### Design parameters
 
@@ -243,6 +263,10 @@ PypelineC reuses unchanged builds automatically. Its latency memory and shared
 synthesis cache avoid repeating matching pipeline searches and syntheses.
 Ordinary measurement therefore re-simulates existing hardware without synthesis
 when its sources, compiler, and settings match; changed inputs may need a build.
+The cache matches the exact generated VHDL, which records Python source line
+numbers. An edit that shifts lines in a design file therefore also misses for
+the modules after it in that file and for the syntheses that read the shared
+VHDL packages; a newer PipelineC can change the generated VHDL too.
 
 ### Measurement controls
 
@@ -253,20 +277,23 @@ when its sources, compiler, and settings match; changed inputs may need a build.
 | `--packets N` | Back-to-back packets per size/direction; default `4`. |
 | `--dirs {both,enc,dec}` | Traffic directions; default `both`. This changes stimulus, not the hardware profile. |
 | `--peak-bytes N` | Add a long-packet phase; default `0` (disabled). |
-| `--seed N` | Payload RNG seed; default `8439`. |
+| `--seed N` | Payload RNG seed; default `8439`. With `--coverage`, the seed of the random modes (`TB_SEED`). |
 | `--taps FILTER` | Internal probes; default `all`. Accepts block/direction prefixes or exact names; `--taps ''` keeps boundary measurements only. |
 | `--steady-trim N` | Exclude N warm-up and N drain packets from completion-rate measurement; default no trimming. |
 | `--require-parity` | Check the 1420/1920-byte throughput goal, direction parity, and interval stability; needs at least four packets per size and a pipelined run. |
 | `--reuse-syn` | Skip the hardware build step; requires matching, current hardware artifacts. Mutually exclusive with `--rebuild`. |
 | `--bottleneck-report RESULTS_JSON` | Print block analysis of a saved record without building, simulating, or changing it. |
-| `--parse-only` | Regenerate reports from the selected run's existing outputs without building or simulating. |
+| `--coverage MODES` | [Functional coverage](#functional-coverage) of the comma-separated modes `default`, `stress`, `closure`, instead of performance. With `--comb` nothing is built; otherwise it simulates the already-built hardware (build it first). Writes `coverage.md` and `coverage.json`; exits nonzero on a lost corner. |
+| `--coverage-report RUN` | Print a saved `--coverage` run (its label or directory) without simulating. |
+| `--coverage-diff A B` | Compare two saved `--coverage` runs: corners gained or lost, and bins redefined by a different build. |
+| `--parse-only` | Regenerate reports from the selected run's existing outputs without building or simulating; with `--coverage`, re-judge the named modes from their saved raw facts. |
 | `--update-readme` | Publish a validated result matching the default profile into this README. |
 | `--save-evidence` | Package build evidence with the local measurement. |
 | `--check-record DIR` | Check a saved record and its retained evidence without rewriting it. |
 | `--area-report LOG_OR_DIR` | Print utilization; `--per-module` adds module reports and `--json` selects JSON. |
 | `--no-per-module-area` | Skip per-module area parsing during measurement. |
 | `--audit-mcps DIR` | Inspect emitted MCP arithmetic; `--audit-directions` selects `encrypt`, `decrypt`, or `encrypt,decrypt` (default). |
-| `--selftest` | Check measurement/report tooling without synthesis; includes block analysis and saved-report checks. |
+| `--selftest` | Check measurement/report tooling without synthesis; includes block analysis, saved-report and coverage checks. |
 
 Use `./build.py --help` and `./measure.py --help` for the full CLI reference.
 
@@ -283,12 +310,24 @@ it exits zero. Random runs print their seed for reproducibility.
 | Fixed vectors, native combinational | `./build.py --sim --syn_tb --comb --native` | Fixed-vector functional check; no synthesis. |
 | Stress, native combinational | `./build.py --sim --comb --native -D TB_STRESS=1` | Directed lengths, input gaps, output stalls, and tampered-tag recovery. |
 | Random, native pipelined | `./build.py --sim --native` | Build hardware first; simulates its actual latencies and schedules. |
+| Functional coverage, native | `./measure.py --coverage default --comb` | Which corners the random runs reach, against the waiver lists; see [functional coverage](#functional-coverage). |
 | Fixed vectors, native pipelined | `./build.py --sim --syn_tb --native` | Build hardware first; fixed-vector check of that build. |
 | Fixed vectors, generated VHDL | `./build.py --sim --syn_tb` | GHDL/cocotb check before final Verilog export; includes synthesis. |
 
 Build the default hardware with `./build.py` before pipelined native simulation.
 A missing or stale build is rejected. Add `-D TB_STRESS=1` to the native random
 pipelined command to exercise backpressure with the built schedules.
+
+Testbench parameters (`-D NAME=VALUE`; none change the hardware):
+
+| Parameter | Default | Purpose |
+| --- | --- | --- |
+| `TB_STRESS` | `0` | 20 directed lengths, input gaps, output stalls, and a mid-run tampered tag. |
+| `TB_SEED` | `8439` | Seed of the random lengths and payloads. |
+| `TB_PACKETS` | `0` | Packets per direction; `0` keeps the mode's count (12, 20 with stress, the plan's with closure). Decrypt adds one tampered packet. |
+| `TB_CLOSURE` | `0` | Replace the random lengths with the coverage-closing plan of [func_coverage_goals.py](src/chacha20poly1305/func_coverage_goals.py). |
+| `TB_WATCHDOG_CYCLES` | `2000` | Fail a direction that accepts no beat for this many cycles with packets pending. |
+| `TB_COVERAGE_JSON` | none | Write the run's raw coverage facts and turn the probe taps on; `measure.py --coverage` sets it. |
 
 The native testbench defaults to random/stress checks (`PERF=0`). Its performance
 mode (`PERF=1`, selected by `--perf`) uses coordinated packet-size phases,
@@ -299,6 +338,80 @@ coordination and recording.
 Fixed-vector testbenches support both simulators; adding `--comb` to their
 generated-VHDL command skips automatic
 pipelining. Native checks are the ordinary development workflow.
+
+### Functional coverage
+
+A random run reports only pass or fail. A repeat on an improved design, or on
+the same design built differently, can pass while reaching other corners, and a
+different seed or packet count does the same. `measure.py --coverage` records
+which corners the random testbenches reached, compares them with the goals in
+[func_coverage_goals.py](src/chacha20poly1305/func_coverage_goals.py), and exits
+nonzero when a corner a mode used to reach is lost.
+
+```bash
+./measure.py --coverage default,stress,closure --comb --label cov-comb        # no build; 2 MAC lanes
+./measure.py --coverage default,stress,closure --label cov-pipe               # the built hardware
+./measure.py --coverage-diff cov-comb cov-pipe                                # what the build changed
+./measure.py --coverage default,stress,closure --label cov-comb --parse-only  # re-judge saved runs
+```
+
+Each mode simulates once through `build.py --sim --native` and leaves
+`coverage-<mode>.json` (its raw facts, with the run's exit code and revisions),
+`coverage.json` and `coverage.md` under `generated-files/measurements/<label>/`
+(default label `coverage-comb-<bits>` or `coverage-pipe-<bits>`). `--parse-only`
+re-judges the modes it names from their raw files, and `coverage.json` then
+holds those modes. A native run takes about 2 s per simulated cycle: `default`
+is 217 cycles on a comb build (about ten minutes) and `closure` 458 (about
+twenty); `stress` runs longer, so budget an hour or more. Turning the probe taps
+on costs under 1% of the simulation time.
+
+| Mode | Stimulus |
+| --- | --- |
+| `default` | The random run: 12 packets per direction, plus a tampered one for decrypt. |
+| `stress` | `-D TB_STRESS=1`: directed lengths up to 2032 bytes, input gaps, output stalls, and a mid-run tamper. |
+| `closure` | `-D TB_CLOSURE=1`: 36 packets from a greedy set cover, so every length-dependent bin below is reached for both beat widths and up to eight MAC lanes. All but the three the long length classes need (1024, 1027 and 2032 bytes) are at most 201 bytes. |
+
+**What is binned.** Functional bins must be hit; timing bins are reported.
+
+- *Stimulus, per direction* (functional): packet length class, the bytes in the
+  final beat and final Poly1305 word, how the tag meets the final beat (append
+  and strip paths), authentication block parity and the MAC lane that takes the
+  final pair (256 bits), the final ChaCha20 block, the AAD class, and the
+  verdict and its sequence.
+- *Design* (functional): every declared state of every FSM, whether each edge
+  transferred, and each arbitration requester, from the probe taps of PipelineC's
+  `stream_perf_probe`. The probes are simulation-only and add no hardware.
+- *Cover probes* (`cover.*`): one event per packet for the corners above. Where
+  the stimulus predicts an event count, the probe must report exactly it, so a
+  stale model or a probe that stops firing fails the run.
+- *Timing*: packet timing (first packet, back to back, after a gap, after a
+  drain, input gaps, output stalls, input held back), edge stalls, FIFO
+  high-water marks, arbitration blocking and contention, and races between
+  stages. These depend on the design's timing as well as the stimulus, so comb
+  and pipelined runs can differ. A mode requires only the few its stimulus
+  guarantees: input gaps and output stalls under `stress`.
+
+**The baseline is the waiver list.** [func_coverage_goals.py](src/chacha20poly1305/func_coverage_goals.py)
+names each mode's empty bins with the reason, and the holes no mode can close
+(`PERMANENT`). A run fails on an empty bin that is not listed (a lost corner),
+on a listed bin that is hit (a stale waiver to delete), on a required timing
+bin that stays empty, and on a model mismatch. With all three modes, the suite
+view also fails on a hole no mode closes. Only the default 256-bit shared build
+has lists; other profiles, such as `--soc`, are reported without gating.
+
+**What it does not cover.** Every packet carries the same key, nonce and 29-byte
+AAD, and decrypt tampers only `tag[0]`, so the AAD classes and single-pair
+packets stay permanent holes. Outputs are always ready except under `stress`,
+whose patterns are unchanged, and no run restarts after a full drain (a timing
+bin, so it is reported, not waived). The fixed-vector testbenches are not
+simulated here; their lengths are listed in the suite view only.
+
+**Builds differ.** The MAC has body latency + 2 accumulator lanes: `--comb` has
+2, the built default 5, and each lane is its own bin. A pipelined run therefore
+reaches corners a comb run cannot, and the diff of the two shows them as
+redefined bins. A build with another latency gets another lane count: its new
+lanes are unwaived holes until a mode reaches them (`closure` covers up to eight).
+Packet timing also differs between builds, which is why it is reported, not gated.
 
 ## Measuring QoR
 

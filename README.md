@@ -300,7 +300,7 @@ It it in this take that we start creating hardware Datapath and hardening Wiregu
     - https://github.com/secworks/blake2
       
 - ✅ Timing closure. Resolution of FPGA device utilization and routing congestion issues
-- [ ] Creation of cocoTB DV in the CI/CD environment, and representative test cases for datapath simulation (cocoTB tests run locally in `3.build/pypeline_build`; CI runs only lint and Verible)
+- [ ] Creation of cocoTB DV in the CI/CD environment, and representative test cases for datapath simulation (cocoTB and native tests, with [functional coverage](3.build/pypeline_build/README.md#functional-coverage), run locally in `3.build/pypeline_build`; CI runs only lint and Verible)
 
 ## Take3
 **Development and integration of embedded management software (Control Plane)**

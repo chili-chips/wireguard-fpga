@@ -37,11 +37,12 @@ the exceptions above, even though `REUSE.toml` also covers this directory.
   [earlier-design comparison](README.md#comparison-with-the-earlier-pipelinec-design).
 - Keep `import wireguard_env  # noqa: F401` as the first import in hardware
   design and testbench files. It bootstraps this tree's flat module imports.
-- [pipelinec.ref](pipelinec.ref) holds the PipelineC commit this design is
-  tested with. CI lints with that commit, and `build.py` warns when the local
-  checkout differs. A design change that needs another PipelineC commit
-  updates `pipelinec.ref` in the same commit, after `run-lint.sh ghdl
-  ghdl-verilator` passes with it.
+- [pipelinec.ref](pipelinec.ref) names the oldest PipelineC commit this design
+  is known to work with. That commit or any newer one should work, and the
+  latest is preferred; never require one exact PipelineC version. CI lints with
+  that commit, and `build.py` warns when the local checkout predates it. A
+  design change that needs a newer PipelineC moves `pipelinec.ref` forward in
+  the same commit, after `run-lint.sh ghdl ghdl-verilator` passes with it.
 - Reserve leading underscores in Python names for use within one file. APIs
   used across files should have public names; update their callers when renaming.
 - Keep profile resolution and defaults in
@@ -77,12 +78,18 @@ Use the README's [simulation workflow](README.md#simulation) and
 - When changing measurement or bottleneck tooling, run the corresponding
   existing `--selftest` described in [measurement controls](README.md#measurement-controls).
   Builds and self-tests must not depend on saved local measurement archives.
+- A change to the random testbenches, their stimulus or the probes changes what a
+  run reaches. Run `./measure.py --coverage default --comb` (about ten minutes;
+  `stress` takes longer, so run it on request) and update the waiver lists in
+  [func_coverage_goals.py](src/chacha20poly1305/func_coverage_goals.py) with the
+  reason for each corner. Never waive a bin only to make a run pass.
 - Lint the generated HDL before pushing. From the repo root, run
   `PYPELINEC=<PipelineC>/src/pypelinec bash 3.build/hw_build.openXC7/run-lint.sh ghdl ghdl-verilator`.
   It generates the VHDL with `pypelinec --no_synth`, without Vivado. GHDL
   then analyzes it, and Verilator lints its GHDL-Yosys Verilog. CI job
   `pypeline-lint` in `.github/workflows/lint.yml` runs the same check with
-  a pinned PipelineC. Fix findings in the design or in PipelineC. A waiver
+  the oldest supported PipelineC (`pipelinec.ref`). Fix findings in the design
+  or in PipelineC. A waiver
   goes in `3.build/hw_build.openXC7/run-lint-waivers.txt` only for a proven
   false positive.
 
@@ -101,8 +108,13 @@ and interpretation.
   unexpected cache misses before repeating synthesis. Do not bypass
   compatibility checks or force guessed latencies. Cold-cache build-time
   comparisons are separate work, only when requested.
-- Run long builds from a frozen compiler copy. Pass the same
-  absolute `--syn-cache` path to build and measurement from frozen copies.
+- Run each test campaign and long build from a fresh clone of the latest
+  PipelineC ([setup](README.md#setup-and-options)), so changes to your own
+  checkout cannot alter the generated VHDL midway and the campaign's later runs
+  keep hitting the synthesis cache. Pass the same absolute `--syn-cache` path to
+  every build and measurement. Outside CI, leave `PYPELINEC_CACHE_DIR` unset so
+  builds use the clone's committed `cache/`; a runner that sets it first copies
+  that `cache/` there, so it does not start empty.
 - Preserve valid synthesis logs after interruption; rename only an identified
   incomplete or failed vendor log. Distinguish cache restoration from an actual
   Vivado launch, and report whether synthesis is characterizing blocks,
@@ -117,10 +129,17 @@ in the hardware as examples.
   bodies or AUTO_PIPELINE arithmetic cores.
 - Sample state before FSM assignments and handshakes after output assignments.
 - Update `stream_perf_probe.MAIN_LABELS` in place in
-  [perf_tb_common.py](src/chacha20poly1305/perf_tb_common.py), so encrypt and
-  decrypt instances keep separate labels.
+  [tb_common_sim.py](src/chacha20poly1305/tb_common_sim.py), so encrypt and
+  decrypt instances keep separate labels in performance and coverage runs.
 - Add new blocks to `BLOCKS` in [measure.py](measure.py) for report rollups.
   Reuse the probed buffer factories in [aead_types.py](src/aead_types.py).
+- A corner for [functional coverage](README.md#functional-coverage) is a
+  `cover.<block>.<corner>` probe whose transfer marks the corner: an
+  unconditional `perf_taps.hs(name, event, ready)` at body level. Pass the
+  consumer's ready when the corner's beat can wait for it, else `1`. Build
+  `event` from existing signals, adding no local signals, and sample registers
+  before their assignments. An event that fires once per packet also needs its
+  model in `EVENTS` of [func_coverage_goals.py](src/chacha20poly1305/func_coverage_goals.py).
 
 ## Maintaining documentation and results
 
@@ -195,12 +214,8 @@ is done.
   calls `bank_state_t_..._to_slv` before its body is elaborated (GHDL
   `-Welaboration`). The lint waives it; drop the waiver and move
   `pipelinec.ref` to the fixing commit once it is fixed.
-- **Vivado 2026.1:** the project uses 2026.1, while the published results used
-  2019.2. Re-measure timing and area on 2026.1.
-- **Perf probes:** `prep.fsm` in `prep_auth_data_wide.py` and `append.fsm` in
-  `auth_tag_wide.py` sample after the FSM assignments, so they record the next
-  state. Move them before the assignments (see
-  [Adding performance probes](#adding-performance-probes)).
+- **Vivado 2026.1:** builds work with 2019.2 or 2026.1, and the published
+  results used 2019.2. Re-measure timing and area on 2026.1.
 - **Perf sim speed:** removing the native arithmetic models made the native
   perf sim about 24% slower (1.04 vs 0.84 s/cycle, same PipelineC). Restore
   the models or accept the cost.
@@ -255,6 +270,6 @@ too: pull before you edit `1.hw/` or `4.sim/`.
   the SoC profile.
 - **Routed timing:** the published 81.32 MHz is synthesis only (1.6% margin).
   Check timing after place and route, in the SoC.
-- **Reproducibility:** published results name their PipelineC commit; keep it
-  equal to `pipelinec.ref`, or say why it differs. Results from an unpinned
-  `master` may not reproduce.
+- **Reproducibility:** published results name the PipelineC commit they used,
+  which must be `pipelinec.ref` or newer. A newer PipelineC should still build
+  and pass, though its timing and area can differ.

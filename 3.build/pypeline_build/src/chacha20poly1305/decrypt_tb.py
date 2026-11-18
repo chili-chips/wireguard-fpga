@@ -53,9 +53,13 @@ dec_state = {
     "printed_gen_count": 0,
     "out_packet_idx": 0,  # packets checked; also used by the completion checker
     "cycle": 0,
+    "last_move": 0,  # cycle of the last accepted input or output beat
+    "verdict_beats": 0,  # accepted output beats whose verdict was checked
 }
 
 _scoreboard = Scoreboard()
+# Per-packet coverage facts; chacha20poly1305_tb.py writes them out.
+packet_log = common.PacketLog("decrypt")
 _src = common.ConvergedAxisSource(aead_axis_if_t, AEAD_BEAT_BYTES)
 if common.PERF:
     import perf_tb_common as perf
@@ -104,7 +108,10 @@ def drive_in_word() -> aead_axis_if_t.stream_t:
         pkt = _generate_packet(dec_state["rng"], idx)
         dec_state["gen_log"].append((len(pkt["plaintext"]), pkt["expected_verified"]))
         _scoreboard.expect(
-            pkt["plaintext"], idx=idx, expected_verified=pkt["expected_verified"]
+            pkt["plaintext"],
+            idx=idx,
+            length=len(pkt["plaintext"]),
+            expected_verified=pkt["expected_verified"],
         )
         # The tag follows ciphertext without padding; the source derives keep.
         _src.send(pkt["ciphertext"] + pkt["tag"])
@@ -125,11 +132,11 @@ def start():
         sim_print(f"Decrypt: phases = {[p['name'] for p in perf.PHASES]}")
         sim_print(f"Decrypt: seed = {perf.SEED}, json = {perf.JSON_PATH or '(none)'}")
         return
-    dec_state["rng"] = random.Random(common.DEFAULT_SEED)
+    dec_state["rng"] = random.Random(common.SEED)
     sim_print(
         "=== ChaCha20-Poly1305 Decryption Test (non-synthesizable, on-the-fly random vectors) ==="
     )
-    sim_print(f"Decrypt: RNG seed = {common.DEFAULT_SEED}")
+    sim_print(f"Decrypt: RNG seed = {common.SEED}")
     sim_print(f"Decrypt Key: {bytes(common.KEY).hex()}")
     sim_print(f"Decrypt Nonce: {bytes(common.NONCE).hex()}")
 
@@ -149,8 +156,8 @@ def report_new_packets():
 def check_out():
     # Commit input acceptance and sample output after ready/valid have settled.
     ready = int(chacha20poly1305_decrypt_ports.axis_in_if.ready)
+    incoming = chacha20poly1305_decrypt_ports.axis_in_if.stream
     if common.PERF:
-        incoming = chacha20poly1305_decrypt_ports.axis_in_if.stream
         valid = int(incoming.valid)
         _runner.note_in(
             valid=valid,
@@ -160,11 +167,29 @@ def check_out():
         )
     else:
         dec_state["cycle"] += 1
-    _src.commit(ready)
+        packet_log.note_input(
+            dec_state["cycle"], int(incoming.valid), ready, int(incoming.data.eod[0])
+        )
+    accepted_in = _src.commit(ready)
     out = chacha20poly1305_decrypt_ports.axis_out_if.stream
-    # Include the verdict in stalled-beat checks; compare its expected value
-    # below when the packet completes.
+    # Include the verdict in stalled-beat checks. PERF compares its expected
+    # value when the packet completes; otherwise every accepted beat must carry it.
     got_verified = chacha20poly1305_decrypt_ports.is_verified_out
+    accepted_out = int(out.valid) and int(chacha20poly1305_decrypt_ports.axis_out_if.ready)
+    if not common.PERF and accepted_out:
+        idx = dec_state["out_packet_idx"]
+        # An output beat with no packet in flight is reported by the scoreboard
+        # once its frame ends; here it has no verdict to compare.
+        if idx < len(dec_state["gen_log"]):
+            dec_state["verdict_beats"] += 1
+            expected_verified = dec_state["gen_log"][idx][1]
+            if int(got_verified) != expected_verified:
+                dec_state["errors"] += 1
+                sim_print(
+                    f"ERROR: Decrypt: is_verified mismatch packet {idx} on accepted "
+                    f"output beat {dec_state['verdict_beats']}. "
+                    f"expected {expected_verified} got {got_verified}"
+                )
     if common.PERF:
         _runner.note_out(
             valid=int(out.valid),
@@ -178,12 +203,14 @@ def check_out():
             ready=chacha20poly1305_decrypt_ports.axis_out_if.ready,
             sideband=got_verified,
         )
+        if accepted_in or accepted_out:
+            dec_state["last_move"] = dec_state["cycle"]
     result = _snk.check_nowait()
     if result is not None:
         idx = result.get("idx", "?")
-        expected_verified = result.get("expected_verified")
-        verdict_mismatch = expected_verified is not None and got_verified != expected_verified
         if common.PERF:
+            expected_verified = result.get("expected_verified")
+            verdict_mismatch = expected_verified is not None and got_verified != expected_verified
             message = perf.packet_mismatch_message(result, "Plaintext")
             if verdict_mismatch:
                 message = (
@@ -193,12 +220,7 @@ def check_out():
             _runner.note_checked(result["passed"] and not verdict_mismatch, message)
         else:
             common.check_packet_result("Decrypt", "Plaintext", dec_state, result)
-            if verdict_mismatch:
-                dec_state["errors"] += 1
-                sim_print(
-                    f"ERROR: Decrypt: is_verified mismatch packet {idx}. "
-                    f"expected {expected_verified} got {got_verified}"
-                )
+            packet_log.note_output(dec_state["cycle"], result, _snk.stalled_cycles, got_verified)
             sim_print(f"Decrypt: Test {idx} DONE!")
             dec_state["out_packet_idx"] += 1
     if common.PERF:

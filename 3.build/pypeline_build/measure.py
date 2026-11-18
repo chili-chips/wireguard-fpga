@@ -12,7 +12,9 @@ Cycle-domain simulation data stays separate from MHz conversion.
 
 The compiler's stream_perf_report library handles generic report formatting;
 this script adds WireGuard's block analysis. See README.md#throughput-measurement
-for usage. --selftest checks the tooling using synthetic data.
+for usage. --coverage runs the random testbenches instead and judges which
+corners they reached (README.md#functional-coverage). --selftest checks the
+tooling using synthetic data.
 """
 
 import argparse
@@ -93,6 +95,8 @@ from wireguard_env import (
     DEFAULT_PROFILE,
     SYN_CACHE_DIR,
 )
+
+import func_coverage_goals as goals  # noqa: E402
 
 BUS_BYTES = 16
 
@@ -3724,12 +3728,748 @@ def _report_selftest(directory):
     print("saved-report selftest: PASS (read-only dispatch, malformed inputs, arithmetic names)")
 
 
+# ---------------------------------------------------------------------------
+# Functional coverage (--coverage): run the random testbenches, bin what they
+# reached, and fail on a lost corner. The goals live in
+# src/chacha20poly1305/func_coverage_goals.py; README.md#functional-coverage
+# describes the workflow.
+# ---------------------------------------------------------------------------
+COVERAGE_SCHEMA = 1
+# Performance-measurement flags, which --coverage rejects unless left at their defaults.
+COVERAGE_REJECTED = (
+    "rebuild",
+    "reuse_syn",
+    "require_parity",
+    "steady_trim",
+    "update_readme",
+    "save_evidence",
+    "no_per_module_area",
+    "dirs",
+    "sizes",
+    "packets",
+    "peak_bytes",
+    "taps",
+)
+# The run facts measure.py adds to a mode's raw file after simulating it, so that
+# file alone is enough to re-judge the mode (--parse-only).
+COVERAGE_RUN_KEYS = ("cmd", "returncode", "wall_s", "comb", "pipelinec_git", "wireguard_fpga_git")
+
+
+def coverage_modes(text):
+    """Split --coverage MODES, keeping the order and rejecting unknown names."""
+    modes = []
+    for mode in (name.strip() for name in text.split(",")):
+        if mode and mode not in modes:
+            modes.append(mode)
+    unknown = [mode for mode in modes if mode not in goals.MODES]
+    if unknown or not modes:
+        raise ValueError(f"--coverage takes modes from {', '.join(goals.MODES)}; got {text!r}")
+    return modes
+
+
+def coverage_files(meas_dir, mode):
+    return (
+        os.path.join(meas_dir, f"coverage-{mode}.json"),
+        os.path.join(meas_dir, f"coverage-{mode}.log"),
+    )
+
+
+def run_coverage_mode(args, mode, meas_dir):
+    """Simulate one mode through build.py --sim --native, which writes its raw facts.
+
+    The run's command, exit code, build kind and revisions are added to that
+    file (COVERAGE_RUN_KEYS), so re-judging the mode needs nothing else.
+    """
+    raw_path, log_path = coverage_files(meas_dir, mode)
+    if os.path.exists(raw_path):
+        os.remove(raw_path)  # a stale file must not pass for this run's
+    cmd = [os.path.join(HERE, "build.py"), "--sim", "--native"] + _profile_flags(args)
+    defines = dict(goals.MODES[mode], TB_COVERAGE_JSON=raw_path)
+    if args.seed is not None:
+        defines["TB_SEED"] = args.seed
+    for name, value in defines.items():
+        cmd.extend(["-D", f"{name}={value}"])
+    if args.comb:
+        cmd.append("--comb")
+    source = git_describe(os.path.join(HERE, "..", ".."))
+    info = dict(_run_build_py(cmd, log_path), comb=bool(args.comb), wireguard_fpga_git=source)
+    if os.path.isfile(raw_path):
+        with open(raw_path) as f:
+            raw = json.load(f)
+        raw["run"] = {key: info.get(key) for key in COVERAGE_RUN_KEYS}
+        with open(raw_path, "w") as f:
+            json.dump(raw, f, indent=1)
+    return info
+
+
+def _kind_totals(bins):
+    """{kind: [hit, total]} over {id: [kind, hits]} entries."""
+    totals = {"functional": [0, 0], "timing": [0, 0]}
+    for kind, hits in bins.values():
+        totals[kind][0] += bool(hits)
+        totals[kind][1] += 1
+    return totals
+
+
+def judge_coverage_run(raw, mode):
+    """Bin one run and compare it with the mode's waivers; the result is the saved record."""
+    metadata = raw["metadata"]
+    bins = goals.collect(raw)
+    gated = goals.gated(metadata)
+    by_id = {b["id"]: b for b in bins}
+    waivers = goals.waivers(mode, metadata) if gated else {}
+    empty = [b["id"] for b in bins if b["kind"] == "functional" and not b["hits"]]
+    must_hit = goals.must_hit(mode, metadata) if gated else []
+    run = {
+        "mode": mode,
+        # From run_coverage_mode; None for raw facts that build.py wrote alone.
+        **{key: (raw.get("run") or {}).get(key) for key in COVERAGE_RUN_KEYS},
+        "gated": gated,
+        "profile": {
+            "design": metadata["design"],
+            "sharing": metadata["sharing"],
+            "data_bitwidth": metadata["data_bitwidth"],
+            "poly1305": metadata["poly1305"]["implementation"],
+            "lanes": {
+                d: v.get("accumulator_count")
+                for d, v in metadata["poly1305"].get("directions", {}).items()
+            },
+        },
+        "geometry": {
+            "beat_bytes": metadata["beat_bytes"],
+            "aad_len": metadata["aad_len"],
+            "max_packet_bytes": metadata.get("max_packet_bytes", goals.MAX_PACKET_BYTES),
+            "lanes": {
+                d: v.get("accumulator_count")
+                for d, v in metadata["poly1305"].get("directions", {}).items()
+            },
+        },
+        "params": metadata.get("params", {}),
+        "cycles": metadata.get("cycles", {}),
+        "packets": {d: len(p) for d, p in raw["packets"].items()},
+        "bins": {b["id"]: [b["kind"], b["hits"]] for b in bins},
+        "lost": [i for i in empty if i not in waivers] if gated else [],
+        "waived": {i: waivers[i] for i in empty if i in waivers},
+        "stale": sorted(i for i, b in by_id.items() if i in waivers and b["hits"]),
+        "must_hit": [i for i in must_hit if not by_id.get(i, {}).get("hits")],
+        "model": goals.model_errors(bins),
+    }
+    run["errors"] = coverage_run_errors(run)
+    return run
+
+
+def coverage_run_errors(run):
+    """Failures that fail the run; a profile without waivers is report-only."""
+    if not run["gated"]:
+        return []
+    errors = [f"lost corner: {i}" for i in run["lost"]]
+    errors += [f"stale waiver, now hit: {i}" for i in run["stale"]]
+    errors += [f"timing bin required but empty: {i}" for i in run["must_hit"]]
+    errors += [f"model: {message}" for message in run["model"]]
+    return errors
+
+
+def judge_coverage_suite(runs):
+    """Union the modes and judge it against the permanent waivers."""
+    union = {}
+    for run in runs:
+        for bin_id, (kind, hits) in run["bins"].items():
+            entry = union.setdefault(bin_id, [kind, 0])
+            entry[1] += hits
+    functional_empty = [i for i, (kind, hits) in union.items() if kind == "functional" and not hits]
+    fixed = goals.fixed_vector_bins(runs[0]["geometry"])
+    suite = {
+        "modes": [run["mode"] for run in runs],
+        "bins": union,
+        "unclosed": [i for i in functional_empty if i not in goals.PERMANENT],
+        "permanent": {i: goals.PERMANENT[i] for i in functional_empty if i in goals.PERMANENT},
+        "stale": sorted(i for i in goals.PERMANENT if union.get(i, ["", 0])[1]),
+        # None when the fixed-vector lengths could not be imported.
+        "fixed_only": None if fixed is None else [i for i in functional_empty if i in fixed],
+    }
+    suite["errors"] = [f"suite hole: {i}" for i in suite["unclosed"]] + [
+        f"stale permanent waiver, now hit: {i}" for i in suite["stale"]
+    ]
+    return suite
+
+
+def coverage_record(label, args, runs):
+    """The saved coverage.json: per-mode judgments, the suite when all modes ran.
+
+    Each mode keeps its own run facts (command, exit code, revisions); the
+    provenance here says where, and from which tree, the record was judged.
+    """
+    # The runs know whether they were comb builds; --comb only fills in for old files.
+    built = {run["comb"] for run in runs if run.get("comb") is not None}
+    record = {
+        "schema_version": COVERAGE_SCHEMA,
+        "label": label,
+        "generated_utc": datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds"),
+        "comb": built.pop() if len(built) == 1 else bool(args.comb),
+        "provenance": {
+            "wireguard_fpga_git": git_describe(os.path.join(HERE, "..", "..")),
+            "pipelinec_git": next((r["pipelinec_git"] for r in runs if r.get("pipelinec_git")), None),
+            "host": socket.gethostname(),
+        },
+        "modes": {run["mode"]: run for run in runs},
+        "suite": None,
+    }
+    gated = [run for run in runs if run["gated"]]
+    if gated and len(gated) == len(runs) and {r["mode"] for r in runs} == set(goals.SUITE):
+        record["suite"] = judge_coverage_suite(runs)
+    record["errors"] = coverage_record_errors(record)
+    record["passed"] = not record["errors"]
+    return record
+
+
+def coverage_record_errors(record):
+    errors = []
+    for mode, run in record["modes"].items():
+        if run.get("returncode"):
+            errors.append(f"{mode}: simulation exited {run['returncode']}")
+        errors += [f"{mode}: {e}" for e in run["errors"]]
+    if record["suite"]:
+        errors += [f"suite: {e}" for e in record["suite"]["errors"]]
+    return errors
+
+
+def _group_bins(ids):
+    """'enc/len_tail16:3' ... -> {'enc/len_tail16': ['3', ...]} in first-seen order."""
+    groups = {}
+    for bin_id in ids:
+        coverpoint, _, name = bin_id.rpartition(":")
+        groups.setdefault(coverpoint, []).append(name)
+    return groups
+
+
+def _bin_list(ids, indent="  "):
+    return [f"{indent}- `{cp}`: {' '.join(names)}" for cp, names in _group_bins(ids).items()]
+
+
+def coverage_markdown(record):
+    """The report for coverage.md and --coverage-report: tables first, then the holes."""
+    modes = record["modes"]
+    suite = record["suite"]
+    lines = [f"# Functional coverage: {record['label']}", ""]
+    first = next(iter(modes.values()), None)
+    if first:
+        profile = first["profile"]
+        lanes = sorted({v for v in profile["lanes"].values() if v is not None})
+        lines.append(
+            f"{profile['data_bitwidth']}-bit {profile['design']} design, {profile['poly1305']} "
+            f"Poly1305, {'comb' if record['comb'] else 'built hardware'}, "
+            f"MAC lanes {'/'.join(map(str, lanes)) or '-'}; "
+            + ("gated against the checked-in waivers" if first["gated"] else "report only: no waivers for this profile")
+        )
+        lines.append("")
+    lines.append("**Result: " + ("PASS" if record["passed"] else "FAIL") + "**")
+    lines.append("")
+    lines.append("| mode | packets | cycles | functional | timing | waived | lost | stale | req. timing | model |")
+    lines.append("|---|---|---|---|---|---|---|---|---|---|")
+    for mode, run in modes.items():
+        totals = _kind_totals(run["bins"])
+        lines.append(
+            f"| {mode} | {'/'.join(str(n) for n in run['packets'].values())} "
+            f"| {max(run['cycles'].values(), default='-')} "
+            f"| {totals['functional'][0]}/{totals['functional'][1]} "
+            f"| {totals['timing'][0]}/{totals['timing'][1]} "
+            f"| {len(run['waived'])} | {len(run['lost'])} | {len(run['stale'])} "
+            f"| {len(run['must_hit'])} | {len(run['model'])} |"
+        )
+    if suite:
+        totals = _kind_totals(suite["bins"])
+        lines.append(
+            f"| suite | | | {totals['functional'][0]}/{totals['functional'][1]} "
+            f"| {totals['timing'][0]}/{totals['timing'][1]} | {len(suite['permanent'])} "
+            f"| {len(suite['unclosed'])} | {len(suite['stale'])} | | |"
+        )
+    columns = list(modes) + (["suite"] if suite else [])
+    sources = [run["bins"] for run in modes.values()] + ([suite["bins"]] if suite else [])
+
+    def cells(kind, keep, bin_ok=lambda bin_id: True):
+        """Rows (coverpoint, [hit/total per source]) of one bin kind that `keep` accepts."""
+        names = []
+        for bins in sources:
+            for bin_id, (bin_kind, _) in bins.items():
+                name = bin_id.rpartition(":")[0]
+                if bin_kind == kind and bin_ok(bin_id) and name not in names:
+                    names.append(name)
+        rows = []
+        for name in names:
+            counts = []
+            for bins in sources:
+                mine = [
+                    h
+                    for i, (k, h) in bins.items()
+                    if k == kind and bin_ok(i) and i.rpartition(":")[0] == name
+                ]
+                counts.append((sum(1 for h in mine if h), len(mine)))
+            if keep(name, counts):
+                rows.append((name, [f"{hit}/{total}" if total else "-" for hit, total in counts]))
+        return names, rows
+
+    def table(title, rows, note=""):
+        lines.extend(["", f"## {title}", ""] + ([note, ""] if note else []))
+        if rows:
+            lines.append("| coverpoint | " + " | ".join(columns) + " |")
+            lines.append("|---|" + "---|" * len(columns))
+            lines.extend(f"| `{name}` | " + " | ".join(row) + " |" for name, row in rows)
+
+    def stimulus(name, counts):
+        return "." not in name.rpartition("/")[2]
+
+    _, rows = cells("functional", stimulus)
+    table("Stimulus coverpoints (functional bins hit/total)", rows)
+    # cells() returns every coverpoint of the kind, and the rows that `keep` accepts.
+    names, rows = cells("functional", lambda n, c: not stimulus(n, c) and any(h < t for h, t in c))
+    designed = [n for n in names if not stimulus(n, [])]
+    table(
+        "Design coverpoints with holes (FSM states, edge transfers, arbiters)",
+        rows,
+        f"{len(designed) - len(rows)} of {len(designed)} design coverpoints have every "
+        "functional bin hit."
+        if designed
+        else "",
+    )
+    # Edge backpressure is one bin per edge; packet timing, FIFO levels, arbitration
+    # and races are the rest.
+    def not_stall(bin_id):
+        return not bin_id.endswith(":stall")
+
+    timing_all, rows = cells("timing", lambda n, c: any(h < t for h, t in c), not_stall)
+    stalls = [
+        "{}/{}".format(
+            sum(1 for i, (k, h) in bins.items() if i.endswith(":stall") and h),
+            sum(1 for i in bins if i.endswith(":stall")),
+        )
+        for bins in sources
+    ]
+    table(
+        "Timing gaps (reported; bins hit/total)",
+        rows,
+        f"{len(timing_all) - len(rows)} of {len(timing_all)} timing coverpoints (packet "
+        "timing, FIFO levels, arbitration, races) have every bin hit. Edges that saw "
+        "backpressure, by "
+        + ", ".join(f"{c} {n}" for c, n in zip(columns, stalls))
+        + ".",
+    )
+    for mode, run in modes.items():
+        lines += ["", f"## {mode}", ""]
+        if run.get("returncode"):
+            lines.append(f"The simulation exited {run['returncode']}: see coverage-{mode}.log.")
+        if not run["gated"]:
+            lines.append("No waivers are checked in for this profile, so nothing here gates.")
+        for title, ids in (
+            ("Lost corners (empty functional bins no waiver covers)", run["lost"]),
+            ("Stale waivers (waived, but hit now: delete them)", run["stale"]),
+            ("Required timing bins that are empty", run["must_hit"]),
+        ):
+            if ids:
+                lines += [f"**{title}**", ""] + _bin_list(ids) + [""]
+        if run["model"]:
+            lines += ["**Model mismatches (stimulus and probes disagree)**", ""]
+            lines += [f"- {message}" for message in run["model"]] + [""]
+        if run["waived"]:
+            lines += [f"**Waived holes ({len(run['waived'])})**", ""]
+            by_reason = {}
+            for bin_id, reason in run["waived"].items():
+                by_reason.setdefault(reason, []).append(bin_id)
+            for reason, ids in by_reason.items():
+                lines += [f"- {reason}:"] + _bin_list(ids, "  ")
+            lines.append("")
+    if suite:
+        lines += ["", "## suite", ""]
+        if suite["unclosed"]:
+            lines += ["**Holes no mode closes**", ""] + _bin_list(suite["unclosed"]) + [""]
+        if suite["stale"]:
+            lines += ["**Stale permanent waivers**", ""] + _bin_list(suite["stale"]) + [""]
+        if suite["fixed_only"] is None:
+            lines += [
+                "The fixed-vector lengths could not be imported (tb_common needs the "
+                "cryptography package), so this view leaves them out.",
+                "",
+            ]
+        elif suite["fixed_only"]:
+            lines += [
+                f"**Reached only by the fixed-vector testbenches** ({len(suite['fixed_only'])}; "
+                "not simulated here, so still holes above)",
+                "",
+            ] + _bin_list(suite["fixed_only"]) + [""]
+        if suite["permanent"]:
+            by_reason = {}
+            for bin_id, reason in suite["permanent"].items():
+                by_reason.setdefault(reason, []).append(bin_id)
+            lines += [f"**Permanent holes ({len(suite['permanent'])})**", ""]
+            for reason, ids in by_reason.items():
+                lines += [f"- {reason}:"] + _bin_list(ids, "  ")
+            lines.append("")
+    return "\n".join(lines).rstrip() + "\n"
+
+
+def coverage_diff(before, after):
+    """Compare two saved records: bins gained, lost, and redefined by a different build."""
+    lines = [f"# Coverage diff: {before['label']} -> {after['label']}", ""]
+    for key in ("comb",):
+        if before[key] != after[key]:
+            lines.append(f"- {key}: {before[key]} -> {after[key]}")
+    for mode in [m for m in before["modes"] if m in after["modes"]]:
+        a, b = before["modes"][mode], after["modes"][mode]
+        lines += ["", f"## {mode}", ""]
+        if a["profile"] != b["profile"]:
+            lines.append(f"- profile: {a['profile']} -> {b['profile']}")
+        gained = [i for i in b["bins"] if i in a["bins"] and not a["bins"][i][1] and b["bins"][i][1]]
+        lost = [i for i in b["bins"] if i in a["bins"] and a["bins"][i][1] and not b["bins"][i][1]]
+        only_before = [i for i in a["bins"] if i not in b["bins"]]
+        only_after = [i for i in b["bins"] if i not in a["bins"]]
+        if not (gained or lost or only_before or only_after):
+            lines.append("same bins, same hits")
+        for title, ids in (
+            ("Corners lost", lost),
+            ("Corners gained", gained),
+            ("Bins only in the first (redefined or gone)", only_before),
+            ("Bins only in the second (redefined or new)", only_after),
+        ):
+            if ids:
+                lines += [f"**{title}** ({len(ids)})", ""] + _bin_list(ids) + [""]
+    for mode in before["modes"]:
+        if mode not in after["modes"]:
+            lines.append(f"- {mode}: only in the first record")
+    for mode in after["modes"]:
+        if mode not in before["modes"]:
+            lines.append(f"- {mode}: only in the second record")
+    return "\n".join(lines).rstrip() + "\n"
+
+
+def load_coverage_record(path):
+    """A coverage.json, or the measurement directory / label that holds one."""
+    candidates = [path, os.path.join(path, "coverage.json")]
+    candidates.append(os.path.join(HERE, GENERATED_FILES, "measurements", path, "coverage.json"))
+    for candidate in candidates:
+        if os.path.isfile(candidate):
+            with open(candidate) as f:
+                record = json.load(f)
+            if record.get("schema_version") != COVERAGE_SCHEMA:
+                raise ValueError(f"{candidate}: not a coverage record this script reads")
+            return record
+    raise ValueError(f"no coverage.json for {path!r}")
+
+
+def coverage_main(args, ap):
+    """--coverage MODES: simulate (or --parse-only re-read) each mode, judge, report."""
+    try:
+        modes = coverage_modes(args.coverage)
+    except ValueError as exc:
+        ap.error(str(exc))
+    for name in COVERAGE_REJECTED:
+        if getattr(args, name) != ap.get_default(name):
+            ap.error(f"--{name.replace('_', '-')} applies to the performance measurement only")
+    # Resolve the profile when re-judging too, so both find the same default label.
+    try:
+        args.sharing = profile_from_args(args)["sharing"]
+    except ValueError as exc:
+        ap.error(str(exc))
+    label = args.label or f"coverage-{'comb' if args.comb else 'pipe'}-{args.data_bitwidth}"
+    meas_dir = os.path.join(HERE, GENERATED_FILES, "measurements", label)
+    os.makedirs(meas_dir, exist_ok=True)
+    runs = []
+    for mode in modes:
+        raw_path, log_path = coverage_files(meas_dir, mode)
+        info = None if args.parse_only else run_coverage_mode(args, mode, meas_dir)
+        if not os.path.isfile(raw_path):
+            exited = f"simulation exited {info['returncode']}, " if info else ""
+            print(
+                f"ERROR: {mode}: {exited}no raw coverage at {raw_path} (see {log_path})",
+                file=sys.stderr,
+            )
+            return 1
+        with open(raw_path) as f:
+            runs.append(judge_coverage_run(json.load(f), mode))
+    record = coverage_record(label, args, runs)
+    with open(os.path.join(meas_dir, "coverage.json"), "w") as f:
+        json.dump(record, f, indent=1)
+    report = coverage_markdown(record)
+    with open(os.path.join(meas_dir, "coverage.md"), "w") as f:
+        f.write(report)
+    print()
+    print(report)
+    print(f"--> {os.path.join(meas_dir, 'coverage.md')}")
+    print(f"--> {os.path.join(meas_dir, 'coverage.json')}")
+    # The report above lists every bin; summarise the failures by kind.
+    titles = (
+        ("lost", "lost corners"),
+        ("stale", "stale waivers"),
+        ("must_hit", "required timing bins empty"),
+        ("model", "model mismatches"),
+    )
+    for mode, run in record["modes"].items():
+        if run.get("returncode"):
+            print(f"!! {mode}: simulation exited {run['returncode']}", file=sys.stderr)
+        for key, title in titles:
+            if run["gated"] and run[key]:
+                print(f"!! {mode}: {len(run[key])} {title}", file=sys.stderr)
+    for key, title in (("unclosed", "holes no mode closes"), ("stale", "stale permanent waivers")):
+        if record["suite"] and record["suite"][key]:
+            print(f"!! suite: {len(record['suite'][key])} {title}", file=sys.stderr)
+    return 0 if record["passed"] else 1
+
+
+def _coverage_selftest():
+    """Judge synthetic runs: bins, each failure kind, the model check, the suite, the
+    diff and the closure plan. Nothing is simulated and no saved run is read."""
+    import types
+    from unittest.mock import patch
+
+    def edge(xfer, stall=0):
+        return {"kind": "handshake", "cycles": 99, "xfer_cycles": xfer, "stall_cycles": stall}
+
+    def run_taps(direction, rows, lanes, beat_bytes):
+        """The probe taps a design would record: the model's own count of each event."""
+        taps = {
+            f"{direction}/prep.fsm": {
+                "kind": "state",
+                "cycles": 99,
+                "declared": ["IDLE", "AAD_STATE", "DRAIN"],
+                "states": {"IDLE": {"cycles": 9}, "AAD_STATE": {"cycles": 3}},
+            },
+            f"{direction}/chacha20.axis_in": edge(len(rows)),
+            f"{direction}/verify_fifo.occupancy": {
+                "kind": "buffer",
+                "cycles": 99,
+                "capacity_beats": 129,
+                "high_water_beats": 70,
+            },
+        }
+        counts = {}
+        for row in rows:
+            for item in goals.packet_bins(direction, row["length"], beat_bytes, 29, lanes):
+                counts[item] = counts.get(item, 0) + 1
+        for event, (only, coverpoint, name) in goals.EVENTS.items():
+            if only in (None, direction) and goals._probed(event, beat_bytes):
+                taps[f"{direction}/{event}"] = edge(counts.get((coverpoint, name), 0))
+        for lane in range(lanes if beat_bytes in goals.PAIRED_BEATS else 0):
+            count = counts.get(("poly_final", f"lane{lane}"), 0)
+            taps[f"{direction}/{goals.LANE_TAP}lane{lane}"] = edge(count)
+        return taps
+
+    def synthetic(lengths, lanes=2, bitwidth=256):
+        """A run sending `lengths` back to back; decrypt ends with a rejected copy of the last."""
+        packets, taps = {}, {}
+        for direction in goals.DIRECTIONS:
+            plan = list(lengths) + ([lengths[-1]] if direction == "decrypt" else [])
+            rows = []
+            for i, length in enumerate(plan):
+                row = dict(idx=i, length=length, first=3 * i + 1, last=3 * i + 3, done=3 * i + 40)
+                row.update(gap=0, stall=0, out_stall=0, passed=True)
+                if direction == "decrypt":
+                    row.update(verified=int(i < len(lengths)), expected_verified=int(i < len(lengths)))
+                rows.append(row)
+            packets[direction] = rows
+            taps.update(run_taps(direction, rows, lanes, bitwidth // 8))
+        taps["shared/pipe.arb"] = {
+            "kind": "arb",
+            "cycles": 99,
+            "per_requester": {
+                label: {"xfer_cycles": 5, "blocked_cycles": 0, "contention_cycles": 1}
+                for label in goals.DIRECTIONS
+            },
+        }
+        metadata = {
+            "design": "shared",
+            "sharing": {"chacha20": True, "poly1305": False},
+            "data_bitwidth": bitwidth,
+            "beat_bytes": bitwidth // 8,
+            "aad_len": 29,
+            "max_packet_bytes": 2032,
+            "cycles": {"encrypt": 99, "decrypt": 99},
+            "params": {},
+            "poly1305": {
+                "implementation": "pipelined",
+                "directions": {d: {"accumulator_count": lanes} for d in goals.DIRECTIONS},
+            },
+            "buffering": {
+                "decrypt/verify_fifo": {"sizing": {"terms_beats": {"held_maximum_packet": 64}}}
+            },
+        }
+        return {"metadata": metadata, "packets": packets, "taps": taps}
+
+    def hits(bins, bin_id):
+        return next(b["hits"] for b in bins if b["id"] == bin_id)
+
+    # Binning, by hand: 15 and 16 bytes end in one merged beat, 17 and 31 in two,
+    # 32 and 64 in a tag-only beat; 33 and 100 leave 1 and 4 bytes in the final beat.
+    lengths = [15, 16, 17, 31, 32, 33, 64, 100]
+    raw = synthetic(lengths)
+    bins = goals.collect(raw)
+    assert len({b["id"] for b in bins}) == len(bins), "bin ids are unique"
+    assert not goals.model_errors(bins), goals.model_errors(bins)
+    got = [hits(bins, f"encrypt/append_path:{p}") for p in ("one_beat", "two_beat", "tag_only")]
+    assert got == [4, 2, 2], got
+    # With the tag, the final input beat holds 31, 32, 33, 47, 48, 49, 80 and 116 bytes.
+    got = [hits(bins, f"decrypt/strip_path:{p}") for p in ("single_beat", "straddle", "exact", "two_tail")]
+    assert got == [2, 2, 2, 3], got  # decrypt's extra packet repeats 100 bytes
+    assert hits(bins, "encrypt/len_tail16:16") == 3 and hits(bins, "encrypt/len_tail_beat:32") == 2
+    assert [hits(bins, f"encrypt/prep_final:{p}") for p in ("single", "pair")] == [4, 4]
+    assert [hits(bins, f"encrypt/poly_final:{p}") for p in ("lane0", "lane1", "tail")] == [2, 2, 4]
+    assert hits(bins, "encrypt/start:cold") == 1 and hits(bins, "encrypt/start:back_to_back") == 7
+    assert hits(bins, "decrypt/verdict:fail") == 1 and hits(bins, "decrypt/verdict_seq:pass_to_fail") == 1
+    assert hits(bins, "decrypt/prep.fsm:DRAIN") == 0 and hits(bins, "decrypt/prep.fsm:AAD_STATE") == 3
+    assert hits(bins, "decrypt/verify_fifo.occupancy:held_packet") == 1
+    assert hits(bins, "shared/pipe.arb:encrypt.xfer") == 5
+    # Packet timing depends on the design, so it is reported; the verdicts gate.
+    kinds = {b["id"]: b["kind"] for b in bins}
+    assert kinds["encrypt/start:gap"] == kinds["decrypt/out_stall:some"] == "timing"
+    assert kinds["decrypt/verdict_seq:fail_to_pass"] == "functional"
+    # Packet context: cold, back to back, a gap, and a restart after the design drained.
+    rows = [
+        dict(first=1, last=3, done=50, gap=0, stall=0, out_stall=0, expected_verified=1),
+        dict(first=4, last=6, done=60, gap=2, stall=1, out_stall=0, expected_verified=1),
+        dict(first=9, last=10, done=70, gap=0, stall=0, out_stall=4, expected_verified=0),
+        dict(first=80, last=81, done=99, gap=0, stall=0, out_stall=0, expected_verified=1),
+    ]
+    context = goals.context_bins("decrypt", rows)
+    assert [dict(c)["start"] for c in context] == ["cold", "back_to_back", "gap", "drained"]
+    assert ("in_gap", "some") in context[1] and ("out_stall", "some") in context[2]
+    assert ("verdict_seq", "pass_to_fail") in context[2] and ("verdict_seq", "fail_to_pass") in context[3]
+    assert goals._expand("1 3..5 lane2 17-31") == ["1", "3", "4", "5", "lane2", "17-31"]
+    try:
+        coverage_modes("default,nope")
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("an unknown mode must be rejected")
+    assert coverage_modes("default,stress,default") == ["default", "stress"]
+
+    # The checked-in baseline names real bins (a typo would waive nothing).
+    valid = set()
+    for lanes in (2, 5):
+        for direction in goals.DIRECTIONS:
+            universe = goals.stimulus_universe(direction, 32, lanes)
+            universe.update({c: list(n) for c, n in goals.CONTEXT_BINS.items()})
+            valid |= {f"{direction}/{c}:{n}" for c, names in universe.items() for n in names}
+    for table in (goals.PERMANENT, *goals.HOLES.values()):
+        assert set(table) <= valid, sorted(set(table) - valid)
+    # Required packet-timing bins are real bins too (the other required ones are taps).
+    required = {i for ids in goals.MUST_HIT.values() for i in ids if "." not in i}
+    assert required and required <= valid, sorted(required - valid)
+    assert set(goals.MODES) == set(goals.HOLES) and set(goals.SUITE) <= set(goals.MODES)
+
+    def judge(raw, waived=None, required=()):
+        """Judge as a gated run whose baseline is `waived`: by default exactly its empty bins."""
+        empty = {
+            b["id"]: "test" for b in goals.collect(raw) if b["kind"] == "functional" and not b["hits"]
+        }
+        table = empty if waived is None else waived
+        with patch.object(goals, "gated", lambda _m: True), patch.object(
+            goals, "waivers", lambda _mode, _m: table
+        ), patch.object(goals, "must_hit", lambda _mode, _m: list(required)):
+            return judge_coverage_run(raw, "default")
+
+    run = judge(raw)
+    assert not run["errors"] and run["waived"] and not run["lost"] and not run["stale"], run["errors"]
+    # Dropping a waiver exposes the hole; waiving a hit bin is stale.
+    empty = [i for i, (kind, n) in run["bins"].items() if kind == "functional" and not n]
+    run = judge(raw, {i: "test" for i in empty if i != empty[0]})
+    assert run["lost"] == [empty[0]] and run["errors"] == [f"lost corner: {empty[0]}"]
+    run = judge(raw, {**{i: "test" for i in empty}, "encrypt/len_class:2-15": "test"})
+    assert run["stale"] == ["encrypt/len_class:2-15"] and run["errors"]
+    # A required timing bin that stays empty, and one that is reached.
+    assert not judge(raw, required=["decrypt/verify_fifo.occupancy:held_packet"])["errors"]
+    slow = copy.deepcopy(raw)
+    slow["taps"]["decrypt/verify_fifo.occupancy"]["high_water_beats"] = 10
+    run = judge(slow, required=["decrypt/verify_fifo.occupancy:held_packet"])
+    assert run["must_hit"] == ["decrypt/verify_fifo.occupancy:held_packet"] and run["errors"]
+    # The model check: a probe that counts differently, or is missing, fails the run.
+    off = copy.deepcopy(raw)
+    off["taps"]["encrypt/cover.append.tag_only"]["xfer_cycles"] += 1
+    run = judge(off)
+    assert len(run["model"]) == 1 and "encrypt/append_path:tag_only" in run["model"][0], run["model"]
+    gone = copy.deepcopy(raw)
+    del gone["taps"]["decrypt/cover.chacha.last_partial"]
+    assert any("no probe" in m for m in judge(gone)["model"])
+    # Another profile is reported, never failed.
+    with patch.object(goals, "gated", lambda _m: False):
+        run = judge_coverage_run(off, "default")
+    assert run["model"] and not run["errors"] and not run["lost"]
+    # 128-bit designs have no paired MAC, so no pairing bins, but model their framing.
+    narrow = goals.collect(synthetic([15, 16, 17], bitwidth=128))
+    assert not goals.model_errors(narrow) and not any("poly_final" in b["id"] for b in narrow)
+    assert [hits(narrow, f"encrypt/append_path:{p}") for p in ("two_beat", "tag_only")] == [2, 1]
+    assert [hits(narrow, f"decrypt/strip_path:{p}") for p in ("straddle", "exact")] == [3, 1]
+
+    # The suite: modes union, and only the permanent holes may remain.
+    plan = goals.closure_lengths()
+    runs = [
+        judge(synthetic(plan)),
+        judge(synthetic(lengths)),
+    ]
+    runs[0]["mode"], runs[1]["mode"] = "closure", "default"
+    union = judge_coverage_suite(runs)
+    assert union["bins"]["encrypt/len_tail_beat:32"][1] > 0
+    with patch.object(
+        goals, "PERMANENT", {**goals.PERMANENT, **{i: "test" for i in union["unclosed"]}}
+    ):
+        assert not judge_coverage_suite(runs)["unclosed"]
+    assert union["unclosed"], "the two runs leave holes without waivers"
+    fixed = goals.fixed_vector_bins(runs[0]["geometry"])
+    if fixed is not None:  # None without the cryptography package; the report says so
+        assert {"encrypt/len_tail_beat:3", "decrypt/verdict:fail"} <= fixed, sorted(fixed)
+        assert all(union["bins"][i][1] == 0 for i in union["fixed_only"])
+    # Closure serves every width and lane count at once, with mostly short packets.
+    assert plan == sorted(plan) and len(plan) <= 48 and max(plan) <= 2032, plan
+    for beat_bytes in (16, 32):
+        for lanes in range(1, 9):
+            for direction in goals.DIRECTIONS:
+                reached = {
+                    item
+                    for length in plan
+                    for item in goals.packet_bins(direction, length, beat_bytes, 29, lanes)
+                }
+                universe = goals.stimulus_universe(direction, beat_bytes, lanes)
+                missing = {
+                    (c, n)
+                    for c, names in universe.items()
+                    for n in names
+                    if c != "aad_class" and (c, n) not in reached
+                }
+                assert missing <= {("pairs_class", "one")}, (beat_bytes, lanes, direction, missing)
+
+    # Records: saved, reported and compared; a build with more lanes redefines bins.
+    # Each mode's run facts come from its raw file, and its build kind outranks --comb.
+    args = types.SimpleNamespace(comb=False)
+    ran = {"cmd": "c", "returncode": 0, "wall_s": 1, "comb": True, "pipelinec_git": "x"}
+
+    def record(label, lanes, lengths_by_mode, run_facts=ran):
+        made = []
+        for mode, lens in lengths_by_mode.items():
+            made.append(judge(dict(synthetic(lens, lanes), run=run_facts)))
+            made[-1]["mode"] = mode
+        return json.loads(json.dumps(coverage_record(label, args, made)))
+
+    first = record("a", 2, {"default": lengths, "stress": lengths, "closure": plan})
+    second = record("b", 5, {"default": lengths, "stress": lengths[:-2], "closure": plan})
+    assert first["suite"] and first["modes"]["default"]["gated"]
+    assert first["comb"] and first["provenance"]["pipelinec_git"] == "x"
+    assert "**Result:" in coverage_markdown(first) and "closure" in coverage_markdown(first)
+    diff = coverage_diff(first, second)
+    assert "only in the second" in diff and "poly_final" in diff and "lane4" in diff, diff
+    assert "same bins" in coverage_diff(first, first)
+    # A simulation that failed after writing its facts fails every judgment of them.
+    failed = record("c", 2, {"default": lengths}, dict(ran, returncode=3))
+    assert coverage_record_errors(failed) == ["default: simulation exited 3"]
+    print(
+        "coverage selftest: PASS (bins, waivers, model check, suite, diff, closure plan"
+        + ("" if fixed is not None else "; fixed vectors skipped without cryptography")
+        + ")"
+    )
+
+
 def _selftest():
     """Run without saved measurements, a compiler build, or Vivado."""
     with tempfile.TemporaryDirectory(prefix="wg-measure-fixture-") as directory:
         measurement = _measurement_selftest(Path(directory))
         analysis = _bottleneck_selftest()
         _report_selftest(Path(directory))
+        _coverage_selftest()
         return measurement or analysis
 
 
@@ -4409,7 +5149,20 @@ def _argument_parser():
         default="all",
         help="internal taps to enable: 'all' (default), a block or direction prefix ('poly1305', 'encrypt'), or exact names; pass --taps '' to measure boundaries only (see PipelineC stream/stream_perf_probe.py)",
     )
-    ap.add_argument("--seed", type=int, default=None, help="packet payload RNG seed")
+    ap.add_argument(
+        "--seed",
+        type=int,
+        default=None,
+        help="packet payload RNG seed (with --coverage: TB_SEED of the random modes)",
+    )
+    ap.add_argument(
+        "--coverage",
+        metavar="MODES",
+        help="functional coverage instead of performance: simulate these comma-separated "
+        f"modes ({', '.join(goals.MODES)}), bin what they reached, fail on a lost corner, "
+        "and write coverage.md/.json; with --comb nothing is built, otherwise the "
+        "already-built hardware is simulated; --parse-only re-judges saved runs",
+    )
     ap.add_argument(
         "--update-readme",
         action="store_true",
@@ -4435,6 +5188,17 @@ def _argument_parser():
         "--bottleneck-report",
         metavar="RESULTS_JSON",
         help="print bottleneck analysis of saved results without building or changing the record",
+    )
+    inspection.add_argument(
+        "--coverage-report",
+        metavar="RUN",
+        help="print a saved --coverage run (its label or directory) without simulating",
+    )
+    inspection.add_argument(
+        "--coverage-diff",
+        nargs=2,
+        metavar=("A", "B"),
+        help="compare two saved --coverage runs: corners gained or lost, bins redefined",
     )
     inspection.add_argument(
         "--selftest",
@@ -4530,6 +5294,12 @@ def main():
             return 0
         if args.selftest:
             return _selftest()
+        if args.coverage_report:
+            print(coverage_markdown(load_coverage_record(args.coverage_report)))
+            return 0
+        if args.coverage_diff:
+            print(coverage_diff(*(load_coverage_record(path) for path in args.coverage_diff)))
+            return 0
         if args.check_record or args.audit_mcps:
             report = (
                 check_record(args.check_record)
@@ -4560,6 +5330,8 @@ def main():
     except (OSError, ValueError, KeyError) as exc:
         print("ERROR: " + str(exc), file=sys.stderr)
         return 1
+    if args.coverage:
+        return coverage_main(args, ap)
     if args.save_evidence and args.comb:
         ap.error("--save-evidence requires synthesized timing/area evidence")
     if args.jobs is not None and args.jobs < 1:
