@@ -16,7 +16,8 @@ See the root `README.md` for the full architecture writeup (HW/SW partitioning d
 ## Repository Layout
 
 ```
-1.hw/          SystemVerilog RTL: DPE cores and their dpe_if/packages (ip.dpe/), Ethernet port glue
+1.hw/          SystemVerilog RTL: DPE cores and their dpe_if/packages (ip.dpe/), IP lookup engine
+               (ip.lkup/: route table + lookup), Ethernet port glue
                (ip.eth/: MAC/PHY wrappers, GMII), infra (ip.infra/: CSR, FIFOs, UART, clocking),
                soft CPU (ip.cpu/: eduBOS5 default, or PicoRV32), top.sv + top.filelist
 2.sw/          Bare-metal C/C++ firmware for the RISC-V control plane (app/), CSR register tests (tests/)
