@@ -95,10 +95,10 @@ module dpe_egress_ip_lookup
   dpe_peer_idx_t rdata_peer;
   dpe_addr_t     rdata_dst;
 
-  assign we_prefix = csr_wr && field == FIELD_IP;
-  assign we_mask   = csr_wr && field == FIELD_MASK;
-  assign we_peer   = csr_wr && field == FIELD_PEER;
-  assign we_dst    = csr_wr && field == FIELD_DST;
+  assign we_prefix = csr_wr & (field == FIELD_IP);
+  assign we_mask   = csr_wr & (field == FIELD_MASK);
+  assign we_peer   = csr_wr & (field == FIELD_PEER);
+  assign we_dst    = csr_wr & (field == FIELD_DST);
 
   // A write is done in its request's clock. A read answers one clock later:
   // dpe_route_mem registers the entry the request addresses (rdata_*)
@@ -201,7 +201,7 @@ module dpe_egress_ip_lookup
   logic [1:0] flush_limit, flush_limit_n;
 
   logic  in_hs;
-  assign in_hs = s_axis.tvalid && s_axis.tready;
+  assign in_hs = s_axis.tvalid & s_axis.tready;
 
   always_comb begin
     unique case (state)
@@ -386,7 +386,7 @@ module dpe_egress_ip_lookup
   assign flush_tdata = beat_buf[buf_rd_ptr].data;
   assign flush_tkeep = beat_buf[buf_rd_ptr].keep;
   assign flush_tlast = beat_buf[buf_rd_ptr].last;
-  assign flush_tvalid = (state == S_FLUSH) && beat_valid[buf_rd_ptr];
+  assign flush_tvalid = (state == S_FLUSH) & beat_valid[buf_rd_ptr];
 
   assign m_axis.tvalid = (state == S_FLUSH) ? flush_tvalid :
                          (state == S_FWD)   ? s_axis.tvalid : 1'b0;

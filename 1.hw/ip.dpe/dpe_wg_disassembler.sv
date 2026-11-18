@@ -108,8 +108,8 @@ module dpe_wg_disassembler
   // This beat completes the packet's header (or the packet ends before)
   logic  decide, is_wg, first_pass_on;
   assign first_pass_on = inp.tuser.bypass_all | inp.tuser.bypass_stage;
-  assign decide        = in_hs && !decided && (in_beat == 2'(HDR_LAST_BEAT) || inp.tlast);
-  assign is_wg         = in_beat == 2'(HDR_LAST_BEAT) && hdr_ok && beat_ok && !pass_on;
+  assign decide        = in_hs & ~decided & ((in_beat == 2'(HDR_LAST_BEAT)) | inp.tlast);
+  assign is_wg         = (in_beat == 2'(HDR_LAST_BEAT)) & hdr_ok & beat_ok & ~pass_on;
 
   always_ff @(posedge inp.clk) begin
     if (inp.rst) begin
@@ -247,7 +247,7 @@ module dpe_wg_disassembler
     end
   end
 
-  assign fcr_idle = !buffered.tvalid && !dec_avail && !dec_pending && in_beat == '0;
+  assign fcr_idle = ~buffered.tvalid & ~dec_avail & ~dec_pending & (in_beat == '0);
 endmodule
 
 // -----------------------------------------------------------------------------

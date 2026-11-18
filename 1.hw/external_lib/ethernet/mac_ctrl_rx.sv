@@ -190,19 +190,19 @@ a separate interface for processing.
   assign mcf_opcode_pfc_match    = mcf_opcode_next == cfg_mcf_rx_opcode_pfc;
 
   logic mcf_eth_dst_match;
-  assign mcf_eth_dst_match = ((mcf_eth_dst_mcast_match && cfg_mcf_rx_check_eth_dst_mcast) ||
-    (mcf_eth_dst_ucast_match && cfg_mcf_rx_check_eth_dst_ucast) ||
-    (!cfg_mcf_rx_check_eth_dst_mcast && !cfg_mcf_rx_check_eth_dst_ucast));
+  assign mcf_eth_dst_match = ((mcf_eth_dst_mcast_match & cfg_mcf_rx_check_eth_dst_mcast) |
+    (mcf_eth_dst_ucast_match & cfg_mcf_rx_check_eth_dst_ucast) |
+    (~cfg_mcf_rx_check_eth_dst_mcast & ~cfg_mcf_rx_check_eth_dst_ucast));
 
   logic mcf_opcode_match;
-  assign mcf_opcode_match = ((mcf_opcode_lfc_match && cfg_mcf_rx_check_opcode_lfc) ||
-    (mcf_opcode_pfc_match && cfg_mcf_rx_check_opcode_pfc) ||
-    (!cfg_mcf_rx_check_opcode_lfc && !cfg_mcf_rx_check_opcode_pfc));
+  assign mcf_opcode_match = ((mcf_opcode_lfc_match & cfg_mcf_rx_check_opcode_lfc) |
+    (mcf_opcode_pfc_match & cfg_mcf_rx_check_opcode_pfc) |
+    (~cfg_mcf_rx_check_opcode_lfc & ~cfg_mcf_rx_check_opcode_pfc));
 
   logic mcf_match;
-  assign mcf_match = (mcf_eth_dst_match &&
-    (mcf_eth_src_match || !cfg_mcf_rx_check_eth_src) &&
-    mcf_eth_type_match && mcf_opcode_match);
+  assign mcf_match = (mcf_eth_dst_match &
+    (mcf_eth_src_match | ~cfg_mcf_rx_check_eth_src) &
+    mcf_eth_type_match & mcf_opcode_match);
 
   always_comb begin
     read_mcf_next      = read_mcf_reg;
@@ -368,8 +368,8 @@ a separate interface for processing.
   // enable ready input next cycle if output is ready or the temp reg will
   // not be filled on the next cycle (output reg empty or no input)
   assign m_axis_tready_int_early =
-      m_axis_tready || !USE_READY ||
-      (!temp_m_axis_tvalid_reg && (!m_axis_tvalid_reg || !m_axis_tvalid_int));
+      m_axis_tready | (USE_READY == 0) |
+      (~temp_m_axis_tvalid_reg & (~m_axis_tvalid_reg | ~m_axis_tvalid_int));
 
   always_comb begin
     // transfer sink ready state to source

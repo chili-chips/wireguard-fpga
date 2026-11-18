@@ -323,9 +323,9 @@ module eth_mac_1g #(
         end
       end
 
-      assign tx_pause_req_int = tx_pause_req || (tx_lfc_pause_en ? tx_lfc_req_sync_reg_3 : 0);
+      assign tx_pause_req_int = tx_pause_req | (tx_lfc_pause_en ? tx_lfc_req_sync_reg_3 : 1'b0);
 
-      assign rx_lfc_ack_int   = rx_lfc_ack || rx_lfc_ack_sync_reg_3;
+      assign rx_lfc_ack_int   = rx_lfc_ack | rx_lfc_ack_sync_reg_3;
 
       // handle PTP TS enable bit in tuser
       logic [TX_USER_WIDTH_INT-1:0] tx_axis_tuser_in;

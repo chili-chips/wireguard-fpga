@@ -130,7 +130,7 @@ module axis_register
       // not be filled on the next cycle (output reg empty or no input)
       logic s_axis_tready_early;
       assign s_axis_tready_early =
-          m_axis_tready || (!temp_m_axis_tvalid_reg && (!m_axis_tvalid_reg || !s_axis_tvalid));
+          m_axis_tready | (~temp_m_axis_tvalid_reg & (~m_axis_tvalid_reg | ~s_axis_tvalid));
 
       always_comb begin
         // transfer sink ready state to source
@@ -231,7 +231,7 @@ module axis_register
 
       // enable ready input next cycle if output buffer will be empty
       logic  s_axis_tready_early;
-      assign s_axis_tready_early = !m_axis_tvalid_next;
+      assign s_axis_tready_early = ~m_axis_tvalid_next;
 
       always_comb begin
         // transfer sink ready state to source

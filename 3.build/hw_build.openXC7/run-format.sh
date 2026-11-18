@@ -25,7 +25,11 @@
 #   4. package imports (reported, not fixed): a module's or interface's
 #      imports in its header (module m import p::*; (...)), not after the port
 #      list; only wildcard imports (import p::*;), no selective ones
-#      (import p::name;); no p:: prefix on a name outside an import line.
+#      (import p::name;); no p:: prefix on a name outside an import line;
+#      no import outside a module or interface (at file level);
+#   5. no logical operator (&&, ||, !) in an assign (reported, not fixed): the
+#      bitwise ones (&, |, ~) on 1-bit operands; an integer parameter as a
+#      flag is (P != 0), a vector under ! is ~|v.
 #
 # usage:  bash run-format.sh            format every RTL file in place
 #         bash run-format.sh --check    only report the files that are not
@@ -249,7 +253,9 @@ for f in files:
             where = 'body' if re.search(r';\s*$', l) else 'header'
         elif where == 'header' and re.match(r'\s*\)\s*;', l):
             where = 'body'
-        elif re.match(r'\s*end(module|interface)\b', l):
+        elif re.match(r'\s*package\s+\w+', l):
+            where = 'package'  # a package imports in its body
+        elif re.match(r'\s*end(module|interface|package)\b', l):
             where = None
         imp = re.match(r'\s*import\s+(.*);', l)
         if imp:
@@ -258,6 +264,8 @@ for f in files:
                     print(f'selective import ({item.strip()}): {name}:{n}')
             if where == 'body':
                 print(f'import after the port list: {name}:{n}')
+            elif where is None:
+                print(f'import outside a module (put it in the header): {name}:{n}')
             continue
         for p in re.findall(r'\b(\w+)::\w', l):
             if p in pkgs or p.endswith('_pkg'):
@@ -267,8 +275,28 @@ PY
 [ -n "$imp_out" ] && printf '%s\n' "$imp_out"
 ni=$(printf '%s' "$imp_out" | grep -c ':[0-9]')
 echo "-- package imports: $ni finding(s)"
+
+# Logical operators in an assign: &&, || and ! (not !=, !==). Reported in both
+# modes: the bitwise rewrite needs the operand widths, so it is a manual edit.
+log_out=$(python3 - "${FILES[@]}" <<'PY'
+import re, sys
+for f in sys.argv[1:]:
+    s = open(f, encoding='utf-8', errors='replace').read()
+    s = re.sub(r'/\*.*?\*/', lambda m: re.sub(r'[^\n]', ' ', m.group(0)), s, flags=re.S)
+    s = re.sub(r'"(?:\\.|[^"\\\n])*"', lambda m: ' ' * len(m.group(0)), s)
+    s = re.sub(r'//[^\n]*', '', s)
+    for m in re.finditer(r'\bassign\b[^;]*;', s):
+        ops = sorted(set(re.findall(r'&&|\|\||!(?!=)', m.group(0))))
+        if ops:
+            line = s.count('\n', 0, m.start()) + 1
+            print(f"{' '.join(ops)} in an assign (use & | ~): {f.split('/')[-1]}:{line}")
+PY
+)
+[ -n "$log_out" ] && printf '%s\n' "$log_out"
+nlo=$(printf '%s' "$log_out" | grep -c ':[0-9]')
+echo "-- logical operators in assigns: $nlo finding(s)"
 [ $bad -eq 0 ] && [ $ncr -eq 0 ] && [ $nf -eq 0 ] && [ $nl -eq 0 ] && [ $nc -eq 0 ] && [ $np -eq 0 ] &&
-  [ $ni -eq 0 ]
+  [ $ni -eq 0 ] && [ $nlo -eq 0 ]
 
 # -----------------------------------------------------------------------------
 # Project:     WireGuard-FPGA

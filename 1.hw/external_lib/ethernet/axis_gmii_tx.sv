@@ -130,18 +130,20 @@ module axis_gmii_tx #(
   logic [31:0] crc_state = 32'hFFFFFFFF;
   logic [31:0] crc_next;
 
-  assign s_axis_tready       = s_axis_tready_reg;
+  assign s_axis_tready = s_axis_tready_reg;
 
-  assign gmii_txd            = gmii_txd_reg;
-  assign gmii_tx_en          = gmii_tx_en_reg;
-  assign gmii_tx_er          = gmii_tx_er_reg;
+  assign gmii_txd = gmii_txd_reg;
+  assign gmii_tx_en = gmii_tx_en_reg;
+  assign gmii_tx_er = gmii_tx_er_reg;
 
-  assign m_axis_ptp_ts       = PTP_TS_ENABLE                   ? m_axis_ptp_ts_reg       : 0;
-  assign m_axis_ptp_ts_tag   = PTP_TAG_ENABLE                  ? m_axis_ptp_ts_tag_reg   : 0;
-  assign m_axis_ptp_ts_valid = PTP_TS_ENABLE || PTP_TAG_ENABLE ? m_axis_ptp_ts_valid_reg : 1'b0;
+  assign m_axis_ptp_ts = PTP_TS_ENABLE ? m_axis_ptp_ts_reg : 0;
+  assign m_axis_ptp_ts_tag = PTP_TAG_ENABLE ? m_axis_ptp_ts_tag_reg : 0;
+  assign m_axis_ptp_ts_valid = ((PTP_TS_ENABLE != 0) | (PTP_TAG_ENABLE != 0))
+                             ? m_axis_ptp_ts_valid_reg
+                             : 1'b0;
 
-  assign start_packet        = start_packet_reg;
-  assign error_underflow     = error_underflow_reg;
+  assign start_packet = start_packet_reg;
+  assign error_underflow = error_underflow_reg;
 
   lfsr #(
       .LFSR_WIDTH        (32),

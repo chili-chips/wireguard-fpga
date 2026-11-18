@@ -39,8 +39,8 @@ module picorv32_pcpi_fast_mul #(
   // an RV32M instruction (MUL, MULH*, DIV*, REM*): OP opcode, funct7 0000001
   wire   insn_is_rv32m;
   wire   pcpi_insn_valid;
-  assign insn_is_rv32m   = pcpi_insn[6:0] == 7'b0110011 && pcpi_insn[31:25] == 7'b0000001;
-  assign pcpi_insn_valid = pcpi_valid && insn_is_rv32m;
+  assign insn_is_rv32m   = (pcpi_insn[6:0] == 7'b0110011) & (pcpi_insn[31:25] == 7'b0000001);
+  assign pcpi_insn_valid = pcpi_valid & insn_is_rv32m;
   reg pcpi_insn_valid_q;
 
   always @* begin

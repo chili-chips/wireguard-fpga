@@ -128,11 +128,17 @@ module mac_pause_ctrl_tx #(
   end
 
   assign mcf_valid = mcf_valid_reg;
-  assign mcf_eth_dst = (PFC_ENABLE && mcf_pfc_sel_reg) ? cfg_tx_pfc_eth_dst : cfg_tx_lfc_eth_dst;
-  assign mcf_eth_src = (PFC_ENABLE && mcf_pfc_sel_reg) ? cfg_tx_pfc_eth_src : cfg_tx_lfc_eth_src;
-  assign mcf_eth_type = (PFC_ENABLE && mcf_pfc_sel_reg) ? cfg_tx_pfc_eth_type : cfg_tx_lfc_eth_type;
-  assign mcf_opcode = (PFC_ENABLE && mcf_pfc_sel_reg) ? cfg_tx_pfc_opcode : cfg_tx_lfc_opcode;
-  assign mcf_params = (PFC_ENABLE && mcf_pfc_sel_reg) ? mcf_pfc_params    : mcf_lfc_params;
+  assign mcf_eth_dst = ((PFC_ENABLE != 0) & mcf_pfc_sel_reg)
+                     ? cfg_tx_pfc_eth_dst
+                     : cfg_tx_lfc_eth_dst;
+  assign mcf_eth_src = ((PFC_ENABLE != 0) & mcf_pfc_sel_reg)
+                     ? cfg_tx_pfc_eth_src
+                     : cfg_tx_lfc_eth_src;
+  assign mcf_eth_type = ((PFC_ENABLE != 0) & mcf_pfc_sel_reg)
+                      ? cfg_tx_pfc_eth_type
+                      : cfg_tx_lfc_eth_type;
+  assign mcf_opcode = ((PFC_ENABLE != 0) & mcf_pfc_sel_reg) ? cfg_tx_pfc_opcode : cfg_tx_lfc_opcode;
+  assign mcf_params = ((PFC_ENABLE != 0) & mcf_pfc_sel_reg) ? mcf_pfc_params    : mcf_lfc_params;
 
   assign stat_tx_lfc_pkt = stat_tx_lfc_pkt_reg;
   assign stat_tx_lfc_xon = stat_tx_lfc_xon_reg;

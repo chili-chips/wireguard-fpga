@@ -336,7 +336,7 @@ data traffic.
   // enable ready input next cycle if output is ready or the temp reg will
   // not be filled on the next cycle (output reg empty or no input)
   assign m_axis_tready_int_early =
-      m_axis_tready || (!temp_m_axis_tvalid_reg && (!m_axis_tvalid_reg || !m_axis_tvalid_int));
+      m_axis_tready | (~temp_m_axis_tvalid_reg & (~m_axis_tvalid_reg | ~m_axis_tvalid_int));
 
   always_comb begin
     // transfer sink ready state to source

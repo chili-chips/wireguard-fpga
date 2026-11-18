@@ -108,13 +108,15 @@ module axis_adapter #(
 
       assign s_axis_tready = m_axis_tready;
 
-      assign m_axis_tdata  = s_axis_tdata;
-      assign m_axis_tkeep  = (M_KEEP_ENABLE && S_KEEP_ENABLE) ? s_axis_tkeep : {M_KEEP_WIDTH{1'b1}};
+      assign m_axis_tdata = s_axis_tdata;
+      assign m_axis_tkeep  = ((M_KEEP_ENABLE != 0) & (S_KEEP_ENABLE != 0))
+                           ? s_axis_tkeep
+                           : {M_KEEP_WIDTH{1'b1}};
       assign m_axis_tvalid = s_axis_tvalid;
-      assign m_axis_tlast  = s_axis_tlast;
-      assign m_axis_tid    = ID_ENABLE   ? s_axis_tid   : {ID_WIDTH{1'b0}};
-      assign m_axis_tdest  = DEST_ENABLE ? s_axis_tdest : {DEST_WIDTH{1'b0}};
-      assign m_axis_tuser  = USER_ENABLE ? s_axis_tuser : {USER_WIDTH{1'b0}};
+      assign m_axis_tlast = s_axis_tlast;
+      assign m_axis_tid = ID_ENABLE ? s_axis_tid : {ID_WIDTH{1'b0}};
+      assign m_axis_tdest = DEST_ENABLE ? s_axis_tdest : {DEST_WIDTH{1'b0}};
+      assign m_axis_tuser = USER_ENABLE ? s_axis_tuser : {USER_WIDTH{1'b0}};
 
     end
     else if (M_BYTE_LANES > S_BYTE_LANES) begin : upsize
@@ -144,7 +146,7 @@ module axis_adapter #(
       logic [       DEST_WIDTH-1:0] m_axis_tdest_reg = {DEST_WIDTH{1'b0}};
       logic [       USER_WIDTH-1:0] m_axis_tuser_reg = {USER_WIDTH{1'b0}};
 
-      assign s_axis_tready = !s_axis_tvalid_reg;
+      assign s_axis_tready = ~s_axis_tvalid_reg;
 
       assign m_axis_tdata  = m_axis_tdata_reg;
       assign m_axis_tkeep  = M_KEEP_ENABLE ? m_axis_tkeep_reg : {M_KEEP_WIDTH{1'b1}};
@@ -247,7 +249,7 @@ module axis_adapter #(
       logic [  DEST_WIDTH-1:0] m_axis_tdest_reg = {DEST_WIDTH{1'b0}};
       logic [  USER_WIDTH-1:0] m_axis_tuser_reg = {USER_WIDTH{1'b0}};
 
-      assign s_axis_tready = !s_axis_tvalid_reg;
+      assign s_axis_tready = ~s_axis_tvalid_reg;
 
       assign m_axis_tdata  = m_axis_tdata_reg;
       assign m_axis_tkeep  = M_KEEP_ENABLE ? m_axis_tkeep_reg : {M_KEEP_WIDTH{1'b1}};

@@ -221,8 +221,8 @@ module axis_fifo
   logic                good_frame_reg = 1'b0;
 
   assign s_axis_tready = FRAME_FIFO
-                       ? (!full || (full_wr && DROP_OVERSIZE_FRAME) || DROP_WHEN_FULL)
-                       : (!full || MARK_WHEN_FULL);
+                       ? (~full | (full_wr & (DROP_OVERSIZE_FRAME != 0)) | (DROP_WHEN_FULL != 0))
+                       : (~full | (MARK_WHEN_FULL != 0));
 
   logic [WIDTH-1:0] s_axis_word;
 
@@ -285,10 +285,10 @@ module axis_fifo
 
   logic                  pipe_ready;
 
-  assign status_depth = (KEEP_ENABLE && KEEP_WIDTH > 1)
+  assign status_depth = ((KEEP_ENABLE != 0) & (KEEP_WIDTH > 1))
                       ? {depth_reg, {CL_KEEP_WDITH{1'b0}}}
                       : depth_reg;
-  assign status_depth_commit = (KEEP_ENABLE && KEEP_WIDTH > 1)
+  assign status_depth_commit = ((KEEP_ENABLE != 0) & (KEEP_WIDTH > 1))
                              ? {depth_commit_reg, {CL_KEEP_WDITH{1'b0}}}
                              : depth_commit_reg;
   assign status_overflow = overflow_reg;
@@ -298,7 +298,7 @@ module axis_fifo
   // the tuser of a beat marks a bad frame
   logic s_axis_tuser_bad;
   assign s_axis_tuser_bad =
-      DROP_BAD_FRAME && |(USER_BAD_FRAME_MASK & ~(s_axis_tuser ^ USER_BAD_FRAME_VALUE));
+      (DROP_BAD_FRAME != 0) & |(USER_BAD_FRAME_MASK & ~(s_axis_tuser ^ USER_BAD_FRAME_VALUE));
 
   // Write logic
   always_ff @(posedge clk) begin
@@ -504,7 +504,7 @@ module axis_fifo
       (* ram_style = "distributed", ramstyle = "no_rw_check, mlab" *)
       logic [USER_WIDTH-1:0] out_fifo_tuser[2**OUTPUT_FIFO_ADDR_WIDTH-1:0];
 
-      assign pipe_ready         = !out_fifo_half_full_reg;
+      assign pipe_ready         = ~out_fifo_half_full_reg;
 
       assign m_axis_tready_pipe = 1'b1;
 
@@ -559,8 +559,8 @@ module axis_fifo
       logic pause_reg = 1'b0;
       logic pause_frame_reg = 1'b0;
 
-      assign m_axis_tready_out = m_axis_tready && !pause_reg;
-      assign m_axis_tvalid     = m_axis_tvalid_out && !pause_reg;
+      assign m_axis_tready_out = m_axis_tready & ~pause_reg;
+      assign m_axis_tvalid     = m_axis_tvalid_out & ~pause_reg;
 
       assign m_axis_tdata      = m_axis_tdata_out;
       assign m_axis_tkeep      = m_axis_tkeep_out;

@@ -309,9 +309,9 @@ module axis_async_fifo #(
   // ready by the FIFO's fill, before the reset
   logic                s_axis_ready_fifo;
   assign s_axis_ready_fifo = FRAME_FIFO
-                         ? (!full || (full_wr && DROP_OVERSIZE_FRAME) || DROP_WHEN_FULL)
-                         : (!full || MARK_WHEN_FULL);
-  assign s_axis_tready = s_axis_ready_fifo && !s_rst_sync3_reg;
+                         ? (~full | (full_wr & (DROP_OVERSIZE_FRAME != 0)) | (DROP_WHEN_FULL != 0))
+                         : (~full | (MARK_WHEN_FULL != 0));
+  assign s_axis_tready = s_axis_ready_fifo & ~s_rst_sync3_reg;
 
   logic [WIDTH-1:0] s_axis;
 
@@ -379,10 +379,10 @@ module axis_async_fifo #(
 
   // verilator lint_off WIDTHEXPAND
   // verilator lint_off WIDTHTRUNC
-  assign s_status_depth = (KEEP_ENABLE && KEEP_WIDTH > 1)
+  assign s_status_depth = ((KEEP_ENABLE != 0) & (KEEP_WIDTH > 1))
                         ? {s_depth_reg, {CL_KEEP_WDITH{1'b0}}}
                         : s_depth_reg;
-  assign s_status_depth_commit = (KEEP_ENABLE && KEEP_WIDTH > 1)
+  assign s_status_depth_commit = ((KEEP_ENABLE != 0) & (KEEP_WIDTH > 1))
                                ? {s_depth_commit_reg, {CL_KEEP_WDITH{1'b0}}}
                                : s_depth_commit_reg;
   // verilator lint_on WIDTHEXPAND
@@ -393,10 +393,10 @@ module axis_async_fifo #(
 
   // verilator lint_off WIDTHEXPAND
   // verilator lint_off WIDTHTRUNC
-  assign m_status_depth = (KEEP_ENABLE && KEEP_WIDTH > 1)
+  assign m_status_depth = ((KEEP_ENABLE != 0) & (KEEP_WIDTH > 1))
                         ? {m_depth_reg, {CL_KEEP_WDITH{1'b0}}}
                         : m_depth_reg;
-  assign m_status_depth_commit = (KEEP_ENABLE && KEEP_WIDTH > 1)
+  assign m_status_depth_commit = ((KEEP_ENABLE != 0) & (KEEP_WIDTH > 1))
                                ? {m_depth_commit_reg, {CL_KEEP_WDITH{1'b0}}}
                                : m_depth_commit_reg;
   // verilator lint_on WIDTHEXPAND
@@ -437,7 +437,7 @@ module axis_async_fifo #(
   // the tuser of a beat marks a bad frame
   logic s_axis_tuser_bad;
   assign s_axis_tuser_bad =
-      DROP_BAD_FRAME && |(USER_BAD_FRAME_MASK & ~(s_axis_tuser ^ USER_BAD_FRAME_VALUE));
+      (DROP_BAD_FRAME != 0) & |(USER_BAD_FRAME_MASK & ~(s_axis_tuser ^ USER_BAD_FRAME_VALUE));
 
   // Write logic
   always_ff @(posedge s_clk) begin
@@ -705,7 +705,7 @@ module axis_async_fifo #(
   // Read logic
   // the output side takes a beat: the output FIFO, or the pipeline's last stage
   logic  m_out_ready;
-  assign m_out_ready = OUTPUT_FIFO_ENABLE ? pipe_ready : m_axis_tready_pipe || !m_axis_tvalid_pipe;
+  assign m_out_ready = OUTPUT_FIFO_ENABLE ? pipe_ready : m_axis_tready_pipe | ~m_axis_tvalid_pipe;
 
   always_ff @(posedge m_clk) begin
     if (m_axis_tready_pipe) begin
@@ -848,7 +848,7 @@ module axis_async_fifo #(
       (* ram_style = "distributed", ramstyle = "no_rw_check, mlab" *)
       logic [USER_WIDTH-1:0] out_fifo_tuser[2**OUTPUT_FIFO_ADDR_WIDTH-1:0];
 
-      assign pipe_ready         = !out_fifo_half_full_reg;
+      assign pipe_ready         = ~out_fifo_half_full_reg;
 
       assign m_axis_tready_pipe = 1'b1;
 
@@ -922,8 +922,8 @@ module axis_async_fifo #(
         s_pause_ack_sync1_reg <= pause_reg;
       end
 
-      assign m_axis_tready_out = m_axis_tready && !pause_reg;
-      assign m_axis_tvalid     = m_axis_tvalid_out && !pause_reg;
+      assign m_axis_tready_out = m_axis_tready & ~pause_reg;
+      assign m_axis_tvalid     = m_axis_tvalid_out & ~pause_reg;
 
       assign m_axis_tdata      = m_axis_tdata_out;
       assign m_axis_tkeep      = m_axis_tkeep_out;
