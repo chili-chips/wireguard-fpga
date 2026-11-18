@@ -64,15 +64,16 @@ module dpe_switch
   import net_pkg::*;
   import lkup_pkg::*;
 (
-    dpe_if.s_axis    inp,
-    dpe_if.m_axis    out,
-    output logic     idle,
+    dpe_if.s_axis     inp,
+    dpe_if.m_axis     out,
+    output logic      idle,
+    input  udp_port_t wg_port,  // the WireGuard listen port (csr.dpe.wg_port)
 
     // the CSR routing_table and cryptokey_table regfiles (csr.rdl)
-    input  csr_cfg_t rt_cfg,
-    output csr_sta_t rt_sta,
-    input  ck_cfg_t  ck_cfg,
-    output ck_sta_t  ck_sta
+    input  csr_cfg_t  rt_cfg,
+    output csr_sta_t  rt_sta,
+    input  ck_cfg_t   ck_cfg,
+    output ck_sta_t   ck_sta
 );
 
   dpe_if disassembled (
@@ -98,6 +99,7 @@ module dpe_switch
       .fcr_idle (dis_idle),
       .wg_rcv   (wg_rcv),
       .wg_peer  (wg_peer),
+      .wg_port  (wg_port),
       .inp      (inp),
       .outp     (disassembled)
   );

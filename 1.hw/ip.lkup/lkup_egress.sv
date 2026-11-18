@@ -176,6 +176,8 @@ module lkup_egress
     S_IDLE,
     S_COLLECT,
     S_DECIDE,
+    S_SRC,      // a decrypted packet: is its inner source its peer's?
+    S_DROP,     // no: drop it
     S_FLUSH,
     S_FWD
   } state_e;
@@ -187,9 +189,16 @@ module lkup_egress
   localparam logic [1:0] DA_LO_BEAT = 2'(beat_of(IPV4_DST_OFFSET + 2));  // 2
 
   // the frame's own tuser fields, from its first beat
-  dpe_addr_t frame_src;
-  logic      frame_bypass_all;
-  logic      da_ok;  // the frame holds its whole IPv4 destination
+  dpe_addr_t            frame_src;
+  logic                 frame_bypass_all;
+  logic                 da_ok;  // the frame holds its whole IPv4 destination
+  logic                 ipv4;  // EtherType IPv4: anything else takes the default route
+  // decrypted: it came out of the decryptor (bypass_stage clear), from peer
+  // from_peer (tid); its inner source must be one that peer may use
+  logic                 decrypted;
+  dpe_peer_idx_t        from_peer;
+  logic          [31:0] src_ip;
+  logic                 last_in;  // the frame's last beat is in the buffer
 
   typedef struct packed {
     dpe_data_t data;
@@ -210,10 +219,11 @@ module lkup_egress
 
   always_comb begin
     unique case (state)
-      S_IDLE, S_COLLECT: s_axis.tready = 1'b1;
-      S_DECIDE, S_FLUSH: s_axis.tready = 1'b0;
-      S_FWD:             s_axis.tready = m_axis.tready;
-      default:           s_axis.tready = 1'b0;
+      S_IDLE, S_COLLECT:        s_axis.tready = 1'b1;
+      S_DECIDE, S_SRC, S_FLUSH: s_axis.tready = 1'b0;
+      S_DROP:                   s_axis.tready = ~last_in;
+      S_FWD:                    s_axis.tready = m_axis.tready;
+      default:                  s_axis.tready = 1'b0;
     endcase
   end
 
@@ -259,8 +269,22 @@ module lkup_egress
         // route says so (the routing entry's encrypt flag). A frame that ends
         // before its IPv4 destination does takes the defaults: to the CPU,
         // never into the tunnel
-        decided_n  = da_ok ? route : ROUTE_DEFAULT;
-        state_next = S_FLUSH;
+        // Not IPv4 (ARP, ...): the defaults as well
+        decided_n  = (da_ok & ipv4) ? route : ROUTE_DEFAULT;
+        state_next = (decrypted & da_ok & ipv4) ? S_SRC : S_FLUSH;
+      end
+
+      // route now answers for the inner source (route_req_ip, loaded in
+      // S_DECIDE): through the tunnel from that peer, or the packet goes
+      // (WireGuard's AllowedIPs)
+      S_SRC: begin
+        state_next = (route.encrypt & (route.peer == from_peer)) ? S_FLUSH : S_DROP;
+      end
+
+      S_DROP: begin
+        if (last_in || (in_hs && s_axis.tlast)) begin
+          state_next = S_IDLE;
+        end
       end
 
       S_FLUSH: begin
@@ -301,6 +325,11 @@ module lkup_egress
       frame_src        <= DPE_ADDR_CPU;
       frame_bypass_all <= 1'b0;
       da_ok            <= 1'b0;
+      ipv4             <= 1'b0;
+      decrypted        <= 1'b0;
+      from_peer        <= '0;
+      src_ip           <= '0;
+      last_in          <= 1'b0;
     end
     else begin
       state       <= state_next;
@@ -310,6 +339,16 @@ module lkup_egress
         frame_src        <= s_axis.tuser.src;
         frame_bypass_all <= s_axis.tuser.bypass_all;
         da_ok            <= 1'b0;
+        ipv4             <= be16(s_axis.tdata, ETH_TYPE_OFFSET) == ETHERTYPE_IPV4;
+        decrypted        <= ~s_axis.tuser.bypass_all & ~s_axis.tuser.bypass_stage;
+        from_peer        <= s_axis.tid;
+      end
+
+      if ((state == S_IDLE || state == S_COLLECT) && in_hs) begin
+        last_in <= s_axis.tlast;
+      end
+      if (state == S_DECIDE) begin
+        route_req_ip <= src_ip;  // the next lookup: the inner source
       end
 
       if (state == S_IDLE) begin
@@ -336,6 +375,7 @@ module lkup_egress
 
         if (beat == DA_HI_BEAT) begin
           route_req_ip[31:16] <= be16(s_axis.tdata, IPV4_DST_OFFSET);
+          src_ip <= {be16(s_axis.tdata, IPV4_SRC_OFFSET), be16(s_axis.tdata, IPV4_SRC_OFFSET + 2)};
         end
         if (beat == DA_LO_BEAT) begin
           route_req_ip[15:0] <= be16(s_axis.tdata, IPV4_DST_OFFSET + 2);

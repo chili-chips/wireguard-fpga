@@ -24,7 +24,7 @@ module tb;
   import lkup_pkg::*;
 
   localparam int ENTRIES = 64;
-  localparam int MAX_FRAMES = 16;
+  localparam int MAX_FRAMES = 20;
   localparam int TIMEOUT_CLKS = 20000;
 
   logic clk, rst;
@@ -170,11 +170,18 @@ module tb;
 
   frame_t frames[MAX_FRAMES];
   int     n_frames;
+  // each frame's IPv4 source (bytes 26 to 29) and EtherType
+  logic [31:0] ip_src [MAX_FRAMES];
+  logic [15:0] eth_type[MAX_FRAMES];
 
   function automatic byte_t frame_byte(int f, int n);
     unique case (n)
-      12: return 8'h08;  // EtherType IPv4
-      13: return 8'h00;
+      12: return eth_type[f][15:8];
+      13: return eth_type[f][7:0];
+      26: return ip_src[f][31:24];
+      27: return ip_src[f][23:16];
+      28: return ip_src[f][15:8];
+      29: return ip_src[f][7:0];
       14: return 8'h45;
       30: return frames[f].ip_dst[31:24];
       31: return frames[f].ip_dst[23:16];
@@ -217,6 +224,19 @@ module tb;
     from_src.tvalid = 1'b0;
   end
 
+  // IPv4 with its whole destination: routed; anything else takes the defaults
+  function automatic logic routed(int f);
+    return frames[f].len >= 34 && eth_type[f] == 16'h0800;
+  endfunction
+
+  // a decrypted frame (bypass_stage clear) whose inner source is not its
+  // peer's (the source route: encrypted, to that peer) is dropped
+  function automatic logic dropped(int f);
+    route_t rs = lookup(ip_src[f]);
+    return !frames[f].bypass_all && !frames[f].bypass_stage && routed(f) &&
+        !(rs.encrypt && rs.peer == frames[f].tid);
+  endfunction
+
   // the sink: always ready (stall_out makes the backpressure); checks
   // every beat against the frame it belongs to
   assign to_snk.tready = 1'b1;
@@ -224,6 +244,7 @@ module tb;
 
   always @(posedge clk) begin
     if (!rst && to_snk.tvalid && to_snk.tready) begin
+      while (rx_beat == 0 && rx_frame < n_frames && dropped(rx_frame)) rx_frame++;
       if (rx_frame >= n_frames) begin
         $display("ERROR: a beat after the last frame");
         errors++;
@@ -232,7 +253,7 @@ module tb;
         automatic int f = rx_frame;
         automatic int beats = (frames[f].len + 15) / 16;
         // a frame shorter than its IPv4 destination: the defaults (CPU, not encrypted)
-        automatic route_t r = (frames[f].len >= 34) ? lookup(frames[f].ip_dst) :
+        automatic route_t r = routed(f) ? lookup(frames[f].ip_dst) :
             '{ip: '0, mask: '0, peer: '0, encrypt: 0, dst: DPE_ADDR_CPU};
         automatic dpe_tuser_t want_user;
         automatic dpe_peer_idx_t want_tid;
@@ -282,19 +303,19 @@ module tb;
     frames[0] = '{len: 60,   ip_dst: ip4(10, 1, 2, 3),     bypass_all: 0, dst: DPE_ADDR_CPU,
                   bypass_stage: 0, tid: 0};
     frames[1] = '{len: 64,   ip_dst: ip4(10, 1, 9, 9),     bypass_all: 0, dst: DPE_ADDR_CPU,
-                  bypass_stage: 0, tid: 0};
+                  bypass_stage: 1, tid: 0};
     frames[2] = '{len: 77,   ip_dst: ip4(10, 200, 0, 1),   bypass_all: 0, dst: DPE_ADDR_CPU,
                   bypass_stage: 1, tid: 0};
     frames[3] = '{len: 128,  ip_dst: ip4(192, 168, 1, 77), bypass_all: 0, dst: DPE_ADDR_CPU,
-                  bypass_stage: 0, tid: 0};
+                  bypass_stage: 1, tid: 0};
     frames[4] = '{len: 48,   ip_dst: ip4(8, 8, 8, 8),      bypass_all: 0, dst: DPE_ADDR_CPU,
-                  bypass_stage: 0, tid: 0};
+                  bypass_stage: 1, tid: 0};
     frames[5] = '{len: 100,  ip_dst: ip4(10, 1, 2, 200),   bypass_all: 1, dst: DPE_ADDR_ETH_2,
                   bypass_stage: 1, tid: 8'h42};
     frames[6] = '{len: 1514, ip_dst: ip4(192, 168, 1, 1),  bypass_all: 0, dst: DPE_ADDR_CPU,
-                  bypass_stage: 0, tid: 0};
+                  bypass_stage: 1, tid: 0};
     frames[7] = '{len: 34,   ip_dst: ip4(10, 1, 2, 4),     bypass_all: 0, dst: DPE_ADDR_CPU,
-                  bypass_stage: 0, tid: 0};
+                  bypass_stage: 1, tid: 0};
     frames[8] = '{len: 20,   ip_dst: ip4(10, 1, 2, 5),     bypass_all: 0, dst: DPE_ADDR_CPU,
                   bypass_stage: 1, tid: 0};
     frames[9] = '{len: 14,   ip_dst: ip4(10, 1, 2, 6),     bypass_all: 0, dst: DPE_ADDR_CPU,
@@ -303,12 +324,41 @@ module tb;
     // destination bytes, the 4th left from the frame before; it must take the
     // defaults, not entry 0
     frames[10] = '{len: 100, ip_dst: ip4(10, 1, 2, 7),     bypass_all: 0, dst: DPE_ADDR_CPU,
-                   bypass_stage: 0, tid: 0};
+                   bypass_stage: 1, tid: 0};
     frames[11] = '{len: 33,  ip_dst: ip4(10, 1, 2, 7),     bypass_all: 0, dst: DPE_ADDR_CPU,
                    bypass_stage: 0, tid: 0};
     // a destination no entry matches: the defaults (CPU, not encrypted)
     frames[12] = '{len: 64,  ip_dst: ip4(203, 0, 113, 9),  bypass_all: 0, dst: DPE_ADDR_CPU,
-                   bypass_stage: 0, tid: 0};
+                   bypass_stage: 1, tid: 0};
+
+    for (int f = 0; f < MAX_FRAMES; f++) begin
+      ip_src[f]   = ip4(198, 51, 100, f);  // no route: dropped if decrypted
+      eth_type[f] = 16'h0800;
+    end
+    // decrypted from peer 9, whose route (entry 0) has its source
+    frames[0].tid = 8'd9;
+    ip_src[0]     = ip4(10, 1, 2, 77);
+    // 13: decrypted from peer 9, its source; to 192.168.1.5 (ETH_4, plain)
+    frames[13] = '{len: 80,  ip_dst: ip4(192, 168, 1, 5),  bypass_all: 0, dst: DPE_ADDR_CPU,
+                   bypass_stage: 0, tid: 8'd9};
+    ip_src[13] = ip4(10, 1, 2, 50);
+    // 14: decrypted from peer 9, a source of peer 3's (entry 2): dropped
+    frames[14] = '{len: 80,  ip_dst: ip4(192, 168, 1, 5),  bypass_all: 0, dst: DPE_ADDR_CPU,
+                   bypass_stage: 0, tid: 8'd9};
+    ip_src[14] = ip4(10, 200, 0, 9);
+    // 15: decrypted from peer 5, its route (entry 1) not encrypted: dropped
+    frames[15] = '{len: 80,  ip_dst: ip4(192, 168, 1, 5),  bypass_all: 0, dst: DPE_ADDR_CPU,
+                   bypass_stage: 0, tid: 8'd5};
+    ip_src[15] = ip4(10, 1, 9, 1);
+    // 16: ARP, its bytes 30 to 33 like entry 0's: the defaults (to the CPU)
+    frames[16] = '{len: 60,  ip_dst: ip4(10, 1, 2, 3),     bypass_all: 0, dst: DPE_ADDR_CPU,
+                   bypass_stage: 1, tid: 0};
+    eth_type[16] = 16'h0806;
+    // 17: decrypted, no source route: dropped; 18: a plain frame after it
+    frames[17] = '{len: 64,  ip_dst: ip4(10, 1, 9, 9),     bypass_all: 0, dst: DPE_ADDR_CPU,
+                   bypass_stage: 0, tid: 8'd9};
+    frames[18] = '{len: 64,  ip_dst: ip4(10, 1, 9, 9),     bypass_all: 0, dst: DPE_ADDR_CPU,
+                   bypass_stage: 1, tid: 0};
 
     csr_cfg = '{req: 1'b0, addr: '0, req_is_wr: 1'b0, wr_data: '0, wr_biten: '0};
     n_frames = 0;
@@ -340,8 +390,11 @@ module tb;
     csr_read(61, 2, peer_word(table_m[61]));
 
     // 2. the frames
-    n_frames = 13;
-    for (int t = 0; t < TIMEOUT_CLKS && rx_frame < n_frames; t++) @(negedge clk);
+    n_frames = 19;
+    for (int t = 0; t < TIMEOUT_CLKS && rx_frame < n_frames; t++) begin
+      @(negedge clk);
+      while (rx_frame < n_frames && dropped(rx_frame) && !to_snk.tvalid) rx_frame++;
+    end
     if (rx_frame < n_frames) begin
       $display("ERROR: %0d of %0d frames out", rx_frame, n_frames);
       errors++;

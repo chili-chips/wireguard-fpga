@@ -37,9 +37,10 @@
 //              https://opensource.org/license/bsd-3-clause
 //--------------------------------------------------------------------------
 // Description:
-//   DPE switch, DUMMY: a fixed crossbar, swapped for the IP lookup
-//   (dpe_switch.sv) in top.filelist. The routing table is a RAM the CPU
-//   writes and reads back over the CSR; the crossbar does not read it
+//   DPE switch, DUMMY: a fixed crossbar, swapped for the WireGuard data
+//   path (dpe_switch.sv) in top.filelist. The routing and cryptokey
+//   tables are RAMs the CPU writes and reads back over the CSR; the
+//   crossbar reads neither
 //--------------------------------------------------------------------------
 // Default configuration
 // (can be overridden by assertion of tuser_bypass_all or tuser_bypass_stage)
@@ -75,15 +76,18 @@ module dpe_switch
   import dpe_pkg::*;
   import lkup_pkg::*;
 (
-    dpe_if.s_axis    inp,
-    dpe_if.m_axis    out,
-    output logic     idle,    // nothing to wait for: the crossbar decides at once
+    dpe_if.s_axis           inp,
+    dpe_if.m_axis           out,
+    output logic            idle,     // nothing to wait for: the crossbar decides at once
+    // verilator lint_off UNUSEDSIGNAL
+    input  logic     [15:0] wg_port,  // not used: the crossbar knows no WireGuard
+    // verilator lint_on UNUSEDSIGNAL
 
     // the CSR routing_table and cryptokey_table regfiles (csr.rdl)
-    input  csr_cfg_t rt_cfg,
-    output csr_sta_t rt_sta,
-    input  ck_cfg_t  ck_cfg,
-    output ck_sta_t  ck_sta
+    input  csr_cfg_t        rt_cfg,
+    output csr_sta_t        rt_sta,
+    input  ck_cfg_t         ck_cfg,
+    output ck_sta_t         ck_sta
 );
 
   dpe_if outp_sbuff (

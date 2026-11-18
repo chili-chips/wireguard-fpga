@@ -198,7 +198,8 @@ Every WireGuard data message names its session by a 32-bit _receiver index_: the
 The firmware and the hardware split the work:
 
 - **Firmware (handshake):** for a new session it picks a free entry `e` (0 to 63) of the cryptokey table, and its own index as random upper 26 bits with `e` in the low 6 bits: `local_id = (random() & ~0x3F) | e`. It writes the session (keys, `local_id`, the peer's index, addresses) to entry `e` over the CSR, and sends `local_id` in its handshake message. The handshake firmware is still to come: today the CLI (`config cryptokeys`) writes the entry, and its user must follow the same rule, as the [lab setup](../5.test/README.md) does (entry 1, Local ID `CCBACA01` and `CCBACA41`).
-- **Hardware (every data packet):** the disassembler takes the entry from the low 6 bits of the packet's receiver index, reads it, and compares all 32 bits with the entry's `local_id`. A match gives the peer to the decryptor; a mismatch (a stale session, an unknown or forged index) drops the packet.
+- **Hardware (every data packet):** the disassembler takes the entry from the low 6 bits of the packet's receiver index, reads it, and compares all 32 bits with the entry's `local_id`. A match gives the peer to the decryptor; a mismatch (a stale session, an unknown or forged index) drops the packet. WireGuard packets are IPv4 UDP to the listen port (`csr.dpe.wg_port`, default 51820). Handshake messages (types 1 to 3) go to the CPU untouched.
+- **Hardware (after decryption):** the IP lookup routes the plaintext packet by its destination, and also looks up its source. The source route must be encrypted and lead to the same peer the packet was decrypted for, else the packet is dropped (WireGuard's AllowedIPs, step 52).
 
 Why this way:
 

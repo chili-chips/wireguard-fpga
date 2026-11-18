@@ -88,13 +88,14 @@ module dpe
   // DPE switch: the fixed crossbar (dpe_switch.DUMMY.sv) or the WireGuard
   // data path (dpe_switch.sv), as top.filelist lists; each owns both tables
   dpe_switch u_dpe_switch (
-      .inp    (muxed_1),
-      .out    (muxed_2),
-      .idle   (switch_idle),
-      .rt_cfg (from_csr.routing_table),
-      .rt_sta (to_csr_routing_table),
-      .ck_cfg (from_csr.cryptokey_table),
-      .ck_sta (to_csr_cryptokey_table)
+      .inp     (muxed_1),
+      .out     (muxed_2),
+      .idle    (switch_idle),
+      .wg_port (from_csr.dpe.wg_port.port.value),
+      .rt_cfg  (from_csr.routing_table),
+      .rt_sta  (to_csr_routing_table),
+      .ck_cfg  (from_csr.cryptokey_table),
+      .ck_sta  (to_csr_cryptokey_table)
   );
 
   // DPE demultiplexer

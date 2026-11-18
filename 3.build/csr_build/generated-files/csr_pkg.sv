@@ -418,7 +418,16 @@ package csr_pkg;
     } csr__dpe__fcr__out_t;
 
     typedef struct {
+        logic [15:0] value;
+    } csr__dpe__wg_port__port__out_t;
+
+    typedef struct {
+        csr__dpe__wg_port__port__out_t port;
+    } csr__dpe__wg_port__out_t;
+
+    typedef struct {
         csr__dpe__fcr__out_t fcr;
+        csr__dpe__wg_port__out_t wg_port;
     } csr__dpe__out_t;
 
     typedef struct {

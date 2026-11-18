@@ -104,6 +104,7 @@ module csr (
         logic hw_version;
         struct {
             logic fcr;
+            logic wg_port;
         } dpe;
         logic cycle;
         logic routing_table;
@@ -153,7 +154,8 @@ module csr (
         decoded_reg_strb.hw_id = cpuif_req_masked & (cpuif_addr == 14'h7c) & !cpuif_req_is_wr;
         decoded_reg_strb.hw_version = cpuif_req_masked & (cpuif_addr == 14'h80) & !cpuif_req_is_wr;
         decoded_reg_strb.dpe.fcr = cpuif_req_masked & (cpuif_addr == 14'h84);
-        decoded_reg_strb.cycle = cpuif_req_masked & (cpuif_addr == 14'h88) & !cpuif_req_is_wr;
+        decoded_reg_strb.dpe.wg_port = cpuif_req_masked & (cpuif_addr == 14'h88);
+        decoded_reg_strb.cycle = cpuif_req_masked & (cpuif_addr == 14'h8c) & !cpuif_req_is_wr;
         decoded_reg_strb.routing_table = cpuif_req_masked & (cpuif_addr >= 14'h400) & (cpuif_addr <= 14'h400 + 14'h3ff);
         is_external |= cpuif_req_masked & (cpuif_addr >= 14'h400) & (cpuif_addr <= 14'h400 + 14'h3ff);
         is_valid_rw |= cpuif_req_masked & (cpuif_addr >= 14'h400) & (cpuif_addr <= 14'h400 + 14'h3ff);
@@ -310,6 +312,12 @@ module csr (
                     logic load_next;
                 } pause;
             } fcr;
+            struct {
+                struct {
+                    logic [15:0] next;
+                    logic load_next;
+                } port;
+            } wg_port;
         } dpe;
         struct {
             struct {
@@ -422,6 +430,11 @@ module csr (
                     logic value;
                 } pause;
             } fcr;
+            struct {
+                struct {
+                    logic [15:0] value;
+                } port;
+            } wg_port;
         } dpe;
         struct {
             struct {
@@ -912,6 +925,29 @@ module csr (
         end
     end
     assign hwif_out.dpe.fcr.pause.value = field_storage.dpe.fcr.pause.value;
+    // Field: csr.dpe.wg_port.port
+    always_comb begin
+        automatic logic [15:0] next_c;
+        automatic logic load_next_c;
+        next_c = field_storage.dpe.wg_port.port.value;
+        load_next_c = '0;
+        if(decoded_reg_strb.dpe.wg_port && decoded_req_is_wr) begin // SW write
+            next_c = (field_storage.dpe.wg_port.port.value & ~decoded_wr_biten[15:0]) | (decoded_wr_data[15:0] & decoded_wr_biten[15:0]);
+            load_next_c = '1;
+        end
+        field_combo.dpe.wg_port.port.next = next_c;
+        field_combo.dpe.wg_port.port.load_next = load_next_c;
+    end
+    always_ff @(posedge clk) begin
+        if(rst) begin
+            field_storage.dpe.wg_port.port.value <= 16'hca6c;
+        end else begin
+            if(field_combo.dpe.wg_port.port.load_next) begin
+                field_storage.dpe.wg_port.port.value <= field_combo.dpe.wg_port.port.next;
+            end
+        end
+    end
+    assign hwif_out.dpe.wg_port.port.value = field_storage.dpe.wg_port.port.value;
     // Field: csr.cycle.count
     always_comb begin
         automatic logic [31:0] next_c;
@@ -1098,6 +1134,9 @@ module csr (
             readback_data_var[1] = field_storage.dpe.fcr.pause.value;
         end
         if(rd_mux_addr == 14'h88) begin
+            readback_data_var[15:0] = field_storage.dpe.wg_port.port.value;
+        end
+        if(rd_mux_addr == 14'h8c) begin
             readback_data_var[31:0] = field_storage.cycle.count.value;
         end
         if((rd_mux_addr >= 14'h400) && (rd_mux_addr <= 14'h400 + 14'h3ff)) begin

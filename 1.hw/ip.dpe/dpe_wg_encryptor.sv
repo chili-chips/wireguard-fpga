@@ -57,8 +57,8 @@
 //   Every beat moves on its own handshake, so stalls on either side
 //   change only the timing.
 //
-//   The peer table answers a synchronous read: ram_peer is valid from the
-//   2nd clock after ram_peer_idx.
+//   The peer table answers a synchronous read: peer_rsp is valid from the
+//   2nd clock after peer_req.idx.
 //==========================================================================
 
 module dpe_wg_encryptor
@@ -113,7 +113,7 @@ module dpe_wg_encryptor
   dpe_addr_t tuser_dst, tuser_dst_next;
   dpe_addr_t tuser_src, tuser_src_next;
   dpe_peer_idx_t peer_idx, peer_idx_next;
-  wg_peer_cfg_t peer, peer_next;  // the packet's peer, from the routing table
+  wg_peer_cfg_t peer, peer_next;  // the packet's peer, from the peer table
   wg_counter_t new_send_cnt, new_send_cnt_next;
   logic update_send_cnt, update_send_cnt_next;
   logic [CARRY_W-1:0] carry, carry_next;  // the frame beat before: its last bytes
@@ -438,7 +438,7 @@ module dpe_wg_encryptor
     endcase
   end
 
-  assign fcr_idle = (state == IDLE) & ~outp.tvalid;
+  assign fcr_idle = (state == IDLE) & ~piped.tvalid & ~outp.tvalid;
   assign peer_req = '{idx: peer_idx, new_send_cnt: new_send_cnt, update_send_cnt: update_send_cnt};
 
   // Encryptor core. The nonce: 4 zero bytes, then the counter

@@ -139,17 +139,17 @@ The hardware architecture essentially follows the HW/SW partitioning and consist
 
 The soft CPU is [eduBOS5](1.hw/ip.cpu/cpu.EDUBOS5/README.md) (default; its store fix passes the [`UART_BUS_STRESS`](4.sim/README.md#uart-bus-master-test-uart_bus_stress) simulation, hardware check pending) or PicoRV32, picked in [`1.hw/top.filelist`](1.hw/top.filelist). It runs from on-chip memory: 64 kB IMEM and 64 kB DMEM ([`1.hw/top.sv`](1.hw/top.sv)). This memory serves only the control plane and does not store packets. The connection between the control and data planes is established through a CSR-based HAL.
 
-The data plane consists of several IP cores, including data plane engine (DPE) and supporting components, which are listed and explained in the direction of network traffic propagation. Stages marked (planned) are not built yet; today the DPE is multiplexer -> pass-through dummy switch -> demultiplexer ([`1.hw/top.filelist`](1.hw/top.filelist)).
+The data plane consists of several IP cores, including data plane engine (DPE) and supporting components, which are listed and explained in the direction of network traffic propagation. The default build's DPE is multiplexer -> dummy switch (a fixed crossbar) -> demultiplexer. Swapping in [`dpe_switch.sv`](1.hw/ip.dpe/dpe_switch.sv) puts the WireGuard data path between them: disassembler, decryptor, IP lookup and encryptor ([`1.hw/top.filelist`](1.hw/top.filelist)). It is linted, but not yet simulated or built as a whole.
 - _PHY Controller_ - initial configuration of Realtek PHYs and monitoring link activity (link up/down events)
 - _1G MAC_ - execution of the 1G Ethernet protocol (framing, flow control, FCS, etc.)
 - _Rx FIFOs_ - clock domain crossing, bus width conversion, and store & forward packet handling
 - _Per-Packet Round Robin Multiplexer_ - servicing Rx FIFOs on a per-packet basis using a round-robin algorithm
-- _Header Parser_ (planned) - extraction of WireGuard-related information from packet headers (IP addresses, UDP ports, WireGuard message type, peer ID, etc.)
-- _Wireguard/UDP Packet Disassembler_ (planned) - decapsulation of the payload from the Wireguard data packet for decryption of tunneled traffic
-- _ChaCha20-Poly1305 Decryptor_ (planned) - decryption and authentication of tunneled traffic
-- _IP Lookup Engine_ (planned) - routing/forwarding table lookup, mapping packets to the appropriate WireGuard peer, and making packet accept/reject decisions
-- _ChaCha20-Poly1305 Encryptor_ (planned) - encryption and authentication of traffic to be tunneled
-- _Wireguard/UDP Packet Assembler_ (planned) - encapsulation of the encrypted packet into a WireGuard data packet for tunneling to the remote peer
+- _Header Parser_ (in the disassembler) - extraction of WireGuard-related information from packet headers (IP addresses, UDP ports, WireGuard message type, peer ID, etc.)
+- _Wireguard/UDP Packet Disassembler_ - finding the WireGuard data packets and their peer for decryption of tunneled traffic; handshakes go to the CPU, packets of an unknown receiver index are dropped
+- _ChaCha20-Poly1305 Decryptor_ - decapsulation, decryption and authentication of tunneled traffic
+- _IP Lookup Engine_ - routing/forwarding table lookup, mapping packets to the appropriate WireGuard peer, and making packet accept/reject decisions (a decrypted packet's source must belong to its peer)
+- _ChaCha20-Poly1305 Encryptor_ - encryption and authentication of traffic to be tunneled
+- _Wireguard/UDP Packet Assembler_ (in the encryptor) - encapsulation of the encrypted packet into a WireGuard data packet for tunneling to the remote peer
 - _Per-Packet Demultiplexer_ - forwarding packets to Tx FIFOs based on packet type and destination
 - _Tx FIFOs_ - clock domain crossing, bus width conversion, and store & forward packet handling
 

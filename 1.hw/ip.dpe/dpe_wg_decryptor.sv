@@ -63,9 +63,9 @@
 //   Every beat moves on its own handshake, so stalls on either side change
 //   only the timing.
 //
-//   The peer table answers a synchronous read: ram_peer is valid from the
-//   2nd clock after ram_peer_idx. The receiver does not advance the send
-//   counter; ram_new_send_cnt and ram_update_send_cnt stay 0.
+//   The peer table answers a synchronous read: peer_rsp is valid from the
+//   2nd clock after peer_req.idx. The receiver does not advance the send
+//   counter; peer_req.new_send_cnt and update_send_cnt stay 0.
 //   TODO: the receive key (wg_peer_cfg_t has one key for both directions),
 //   the replay window on the counter.
 //==========================================================================
@@ -129,7 +129,7 @@ module dpe_wg_decryptor
   dpe_addr_t tuser_dst, tuser_dst_next;
   dpe_addr_t tuser_src, tuser_src_next;
   dpe_peer_idx_t peer_idx, peer_idx_next;
-  wg_peer_cfg_t peer, peer_next;  // the packet's peer, from the routing table
+  wg_peer_cfg_t peer, peer_next;  // the packet's peer, from the peer table
   logic [1:0] hdr_k, hdr_k_next;  // header beats in so far
   logic [ETH_W-1:0] eth_hdr, eth_hdr_next;  // the outer Ethernet header
   wg_counter_t wg_cnt, wg_cnt_next;  // the packet's counter: the nonce
@@ -462,7 +462,7 @@ module dpe_wg_decryptor
     endcase
   end
 
-  assign fcr_idle = (state == IDLE) & ~outp.tvalid;
+  assign fcr_idle = (state == IDLE) & ~piped.tvalid & ~outp.tvalid;
   // the receiver does not advance the send counter
   assign peer_req = '{idx: peer_idx, new_send_cnt: '0, update_send_cnt: 1'b0};
 

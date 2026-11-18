@@ -41,13 +41,16 @@
 //   peer, for the decryptor.
 //
 //   It parses each packet's headers (net_pkg) as it comes in: Ethernet II
-//   with IPv4, protocol UDP, WireGuard type 4 (transport data), and the
-//   receiver index. The receiver index goes out on wg_rcv; the lookup
-//   answers combinationally from it with wg_idx_match and the peer, wg_idx,
-//   sampled one clock later. The packet waits in a buffer until then, so
-//   its first beat goes out with the answer:
-//     - a WireGuard data packet of a known peer: tid = wg_idx, bypass_stage
-//       clear (the decryptor takes the peer from tid);
+//   with IPv4, protocol UDP to wg_port (the listen port, CSR), the
+//   WireGuard message type, and the receiver index. The receiver index
+//   goes out on wg_rcv; the peer table answers combinationally from it
+//   with wg_peer (match, idx), sampled one clock later. The packet waits
+//   in a buffer until then, so its first beat goes out with the answer:
+//     - WireGuard data of a known receiver index: tid = its peer,
+//       bypass_stage clear (the decryptor takes the peer from tid);
+//     - a WireGuard handshake (types 1 to 3): bypass_all, dst CPU;
+//     - WireGuard data of an unknown or stale index, or of no defined
+//       type: dropped;
 //     - any other packet: bypass_stage set (the decryptor passes it on);
 //     - a packet that comes in with bypass_all or bypass_stage: unchanged.
 //   The data is never changed.
@@ -56,7 +59,7 @@
 //         |                                (8 beats)     |   (tid, tuser
 //         '--> parser --> wg_rcv --> lookup               |    from the
 //                |                     |                  |    decision)
-//                '-------> decision FIFO <-- wg_idx_match, wg_idx
+//                '-------> decision FIFO <-- wg_peer (match, idx)
 //==========================================================================
 
 module dpe_wg_disassembler
@@ -66,6 +69,7 @@ module dpe_wg_disassembler
     output logic         fcr_idle,  // no packet in the disassembler
     output wg_receiver_t wg_rcv,    // receiver index of the packet just parsed
     input  rcv_rsp_t     wg_peer,   // its peer (lookup, combinational on wg_rcv)
+    input  udp_port_t    wg_port,   // the WireGuard UDP listen port (CSR)
     dpe_if.s_axis        inp,
     dpe_if.m_axis        outp
 );
@@ -99,16 +103,21 @@ module dpe_wg_disassembler
           IPV4_PROTO_OFFSET
       )):
       beat_ok = byte_at(inp.tdata, IPV4_PROTO_OFFSET) == IP_PROTO_UDP;
-      2'(beat_of(WG_TYPE_OFFSET)): beat_ok = le32(inp.tdata, WG_TYPE_OFFSET) == WG_TYPE_DATA;
+      2'(beat_of(UDP_DST_PORT_OFFSET)): beat_ok = be16(inp.tdata, UDP_DST_PORT_OFFSET) == wg_port;
       default: beat_ok = 1'b1;
     endcase
   end
 
   // This beat completes the packet's header (or the packet ends before)
-  logic  decide, is_wg, first_pass_on;
+  logic decide, is_wg, first_pass_on;
+  logic [31:0] wg_type;  // the WireGuard message type, from its beat (below)
+  logic        is_hs;  // a handshake message (types 1 to 3): for the CPU
+  assign is_hs   = (in_beat == 2'(HDR_LAST_BEAT)) & hdr_ok & beat_ok & ~pass_on &
+      (wg_type >= 32'd1) & (wg_type <= 32'd3);
   assign first_pass_on = inp.tuser.bypass_all | inp.tuser.bypass_stage;
-  assign decide        = in_hs & ~decided & ((in_beat == 2'(HDR_LAST_BEAT)) | inp.tlast);
-  assign is_wg         = (in_beat == 2'(HDR_LAST_BEAT)) & hdr_ok & beat_ok & ~pass_on;
+  assign decide = in_hs & ~decided & ((in_beat == 2'(HDR_LAST_BEAT)) | inp.tlast);
+  // a WireGuard packet of another type (none is defined) is dropped as a bad one
+  assign is_wg = (in_beat == 2'(HDR_LAST_BEAT)) & hdr_ok & beat_ok & ~pass_on & ~is_hs;
 
   always_ff @(posedge inp.clk) begin
     if (inp.rst) begin
@@ -117,6 +126,7 @@ module dpe_wg_disassembler
       hdr_ok  <= 1'b0;
       pass_on <= 1'b0;
       rcv_lo  <= '0;
+      wg_type <= '0;
     end
     else if (in_hs) begin
       if (inp.tlast) begin
@@ -135,6 +145,9 @@ module dpe_wg_disassembler
       if (in_beat == '0) begin
         pass_on <= first_pass_on;
       end
+      if (in_beat == 2'(beat_of(WG_TYPE_OFFSET))) begin
+        wg_type <= le32(inp.tdata, WG_TYPE_OFFSET);
+      end
       if (in_beat == 2'(beat_of(WG_RECEIVER_OFFSET))) begin
         rcv_lo <= le16(inp.tdata, WG_RECEIVER_OFFSET);
       end
@@ -144,13 +157,17 @@ module dpe_wg_disassembler
   //------------------------------------------------------------------
   // Lookup: wg_rcv registered at the decision, its answer a clock later
   logic dec_pending;  // a decision waits for the lookup's answer
-  logic dec_is_wg;  // ... of a WireGuard data packet
+  logic dec_is_wg;  // ... of a WireGuard data packet (or a bad WireGuard one)
+  logic dec_is_data;  // ... and of type data
+  logic dec_is_hs;  // ... of a WireGuard handshake: for the CPU
   logic dec_pass_on;  // ... of a packet to pass on unchanged
 
   always_ff @(posedge inp.clk) begin
     if (inp.rst) begin
       dec_pending <= 1'b0;
       dec_is_wg   <= 1'b0;
+      dec_is_data <= 1'b0;
+      dec_is_hs   <= 1'b0;
       dec_pass_on <= 1'b0;
       wg_rcv      <= '0;
     end
@@ -158,6 +175,8 @@ module dpe_wg_disassembler
       dec_pending <= decide;
       if (decide) begin
         dec_is_wg   <= is_wg;
+        dec_is_data <= wg_type == WG_TYPE_DATA;
+        dec_is_hs   <= is_hs;
         dec_pass_on <= (in_beat == '0) ? first_pass_on : pass_on;
         if (is_wg) begin
           wg_rcv <= {le16(inp.tdata, WG_RECEIVER_OFFSET + 2), rcv_lo};
@@ -170,6 +189,8 @@ module dpe_wg_disassembler
   // Decision FIFO: one entry per packet, in packet order
   typedef struct packed {
     logic          to_peer;  // tid = peer, bypass_stage clear
+    logic          to_cpu;   // a handshake: bypass_all, to the CPU
+    logic          drop;     // WireGuard data of an unknown receiver index, or bad
     logic          pass_on;  // unchanged
     dpe_peer_idx_t peer;
   } decision_t;
@@ -188,7 +209,9 @@ module dpe_wg_disassembler
           DEC_DEPTH
       )-1:0]] <=
       '{
-          to_peer: dec_is_wg & wg_peer.match & !dec_pass_on,
+          to_peer: dec_is_wg & dec_is_data & wg_peer.match & !dec_pass_on,
+          to_cpu: dec_is_hs & !dec_pass_on,
+          drop: dec_is_wg & !(dec_is_data & wg_peer.match) & !dec_pass_on,
           pass_on: dec_pass_on,
           peer: wg_peer.idx
       };
@@ -233,9 +256,9 @@ module dpe_wg_disassembler
 
   //------------------------------------------------------------------
   // Output: each beat with its packet's decision
-  assign outp.tvalid     = buffered.tvalid & dec_avail;
-  assign buffered.tready = outp.tready & dec_avail;
-  assign dec_pop         = outp.tvalid & outp.tready & buffered.tlast;
+  assign outp.tvalid     = buffered.tvalid & dec_avail & ~dec.drop;
+  assign buffered.tready = (outp.tready | dec.drop) & dec_avail;
+  assign dec_pop         = buffered.tvalid & buffered.tready & buffered.tlast;
 
   assign outp.tdata      = buffered.tdata;
   assign outp.tkeep      = buffered.tkeep;
@@ -244,7 +267,11 @@ module dpe_wg_disassembler
   always_comb begin
     outp.tuser = buffered.tuser;
     outp.tid   = buffered.tid;
-    if (!dec.pass_on) begin
+    if (dec.to_cpu) begin
+      outp.tuser.bypass_all = 1'b1;
+      outp.tuser.dst        = DPE_ADDR_CPU;
+    end
+    else if (!dec.pass_on) begin
       outp.tuser.bypass_stage = !dec.to_peer;
       if (dec.to_peer) begin
         outp.tid = dec.peer;

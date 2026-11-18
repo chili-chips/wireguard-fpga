@@ -522,6 +522,18 @@ addrmap csr {
             hw = w;
          } idle[0:0] = 0;
       } fcr;
+
+      reg {
+         name = "csr.dpe.wg_port";
+         desc = "WireGuard UDP listen port: the disassembler takes IPv4 UDP packets to this port as WireGuard";
+
+         field {
+            name = "csr.dpe.wg_port.port";
+            desc = "UDP port number (default 51820)";
+            sw = rw;
+            hw = r;
+         } port[15:0] = 51820;
+      } wg_port;
    } dpe;
 
    reg {
