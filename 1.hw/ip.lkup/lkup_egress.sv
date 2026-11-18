@@ -41,7 +41,7 @@
 //
 //   Functionality:
 //   1. Control Plane: Acts as a bridge between the CSR interface and the internal
-//      Routing Memory (`route_mem`). Handles address decoding/multiplexing
+//      Routing Memory (`lkup_route_mem`). Handles address decoding/multiplexing
 //      for writing and reading routing rules.
 //
 //   2. Data Plane: Parses incoming AXI Stream packets to extract the IPv4
@@ -102,7 +102,7 @@ module lkup_egress
   assign we_dst    = csr_wr & (field == FIELD_DST);
 
   // A write is done in its request's clock. A read answers one clock later:
-  // route_mem registers the entry the request addresses (rdata_*)
+  // lkup_route_mem registers the entry the request addresses (rdata_*)
   logic      rd_ack;
   rt_field_e rd_field;
   always_ff @(posedge s_axis.clk) begin
@@ -135,7 +135,7 @@ module lkup_egress
   dpe_peer_idx_t        route_peer;
   logic          [31:0] route_req_ip;
 
-  route_mem #(
+  lkup_route_mem #(
       .ENTRY_COUNT (ENTRY_COUNT)
   ) u_mem (
       .clk (s_axis.clk),

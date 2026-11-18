@@ -13,7 +13,7 @@
 //      back, with bubbles in and backpressure out (dpe_tb_throttle). Each
 //      must come out unchanged, with tuser.dst and tid of the entry its
 //      IPv4 destination selects (the first entry that matches, as
-//      route_mem does), and a bypass_all frame with its own.
+//      lkup_route_mem does), and a bypass_all frame with its own.
 //   Every output beat is checked: tdata (kept bytes), tkeep, tlast, tuser,
 //   tid.
 //==========================================================================
@@ -90,11 +90,11 @@ module tb;
     table_m[63] = '{ip: '0, mask: '0, peer: 8'd0, dst: DPE_ADDR_CPU};
   end
 
-  // the entry route_mem picks: the first that matches
+  // the entry lkup_route_mem picks: the first that matches
   function automatic route_t lookup(logic [31:0] ip);
     for (int i = 0; i < ENTRIES; i++)
       if ((ip & table_m[i].mask) == (table_m[i].ip & table_m[i].mask)) return table_m[i];
-    return '{ip: '0, mask: '0, peer: '0, dst: DPE_ADDR_CPU};  // route_mem defaults
+    return '{ip: '0, mask: '0, peer: '0, dst: DPE_ADDR_CPU};  // lkup_route_mem defaults
   endfunction
 
   //------------------------------------------------------------------

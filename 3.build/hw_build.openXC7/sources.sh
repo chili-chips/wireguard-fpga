@@ -36,7 +36,7 @@ own_rtl() {
     ls "$1"/external_lib/*/*.sv
     # the DPE blocks top does not instantiate yet (run-leq.sh proves them too)
     ls "$1"/ip.dpe/dpe_wg_encryptor.sv "$1"/ip.dpe/dpe_wg_decryptor.sv "$1"/ip.dpe/dpe_wg_disassembler.sv
-    ls "$1"/ip.lkup/lkup_pkg.sv "$1"/ip.lkup/lkup_egress.sv "$1"/ip.lkup/route_mem.sv
+    ls "$1"/ip.lkup/lkup_pkg.sv "$1"/ip.lkup/lkup_egress.sv "$1"/ip.lkup/lkup_route_mem.sv
     ls "$1"/ip.dpe/dpe_switch.sv "$1"/ip.dpe/dpe_switch.DUMMY.sv
     ls "$1"/ip.dpe/dpe_if_pipeline.sv "$1"/ip.dpe/net_pkg.sv
   } | awk '!seen[$0]++'
@@ -64,14 +64,15 @@ block_rtl() {
   local d=$2 pkg x
   pkg=$(in_tree "$d" ip.dpe/net_pkg.sv ip.infra/net_pkg.sv)
   dpe() { in_tree "$d" "ip.dpe/$1" "ip.infra/$1"; }
-  lkup() { in_tree "$d" "ip.lkup/$1" "ip.lkup/dpe_$1" "ip.dpe/dpe_$1" "ip.infra/dpe_$1"; }
   case $1 in
     dpe_wg_encryptor) x="$pkg $(dpe dpe_wg_encryptor.sv) $(dpe dpe_if_pipeline.sv)" ;;
     dpe_wg_decryptor) x="$pkg $(dpe dpe_wg_decryptor.sv) $(dpe dpe_if_pipeline.sv)" ;;
     lkup_egress)
       x="$pkg $(in_tree_opt "$d" ip.lkup/lkup_pkg.sv)"
       x="$x $(in_tree "$d" ip.lkup/lkup_egress.sv ip.lkup/egress_ip_lookup.sv \
-        ip.lkup/dpe_egress_ip_lookup.sv ip.dpe/dpe_egress_ip_lookup.sv) $(lkup route_mem.sv)" ;;
+        ip.lkup/dpe_egress_ip_lookup.sv ip.dpe/dpe_egress_ip_lookup.sv)"
+      x="$x $(in_tree "$d" ip.lkup/lkup_route_mem.sv ip.lkup/route_mem.sv \
+        ip.lkup/dpe_route_mem.sv ip.dpe/dpe_route_mem.sv ip.infra/dpe_route_mem.sv)" ;;
     dpe_wg_disassembler) x="$pkg $(dpe dpe_wg_disassembler.sv)" ;;
     *) echo "block_rtl: no files for top $1" >&2; return 1 ;;
   esac
