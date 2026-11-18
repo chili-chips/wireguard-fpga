@@ -8,42 +8,46 @@
 //--------------------------------------------------------------------------
 
 module picorv32_pcpi_fast_mul #(
-    parameter EXTRA_MUL_FFS  = 0,
-    parameter EXTRA_INSN_FFS = 0,
-    parameter MUL_CLKGATE    = 0
+    parameter int EXTRA_MUL_FFS  = 0,
+    parameter int EXTRA_INSN_FFS = 0,
+    parameter int MUL_CLKGATE    = 0
 ) (
-    input         clk,
+    input  logic        clk,
     resetn,
 
-    input         pcpi_valid,
-    input  [31:0] pcpi_insn,
-    input  [31:0] pcpi_rs1,
-    input  [31:0] pcpi_rs2,
+    input  logic        pcpi_valid,
+    input  logic [31:0] pcpi_insn,
+    input  logic [31:0] pcpi_rs1,
+    input  logic [31:0] pcpi_rs2,
 
-    output        pcpi_wr,
-    output [31:0] pcpi_rd,
-    output        pcpi_wait,
-    output        pcpi_ready
+    output logic        pcpi_wr,
+    output logic [31:0] pcpi_rd,
+    output logic        pcpi_wait,
+    output logic        pcpi_ready
 );
-  reg instr_mul, instr_mulh, instr_mulhsu, instr_mulhu;
-  wire       instr_any_mul = |{instr_mul, instr_mulh, instr_mulhsu, instr_mulhu};
-  wire       instr_any_mulh = |{instr_mulh, instr_mulhsu, instr_mulhu};
-  wire       instr_rs1_signed = |{instr_mulh, instr_mulhsu};
-  wire       instr_rs2_signed = |{instr_mulh};
+  logic  instr_mul, instr_mulh, instr_mulhsu, instr_mulhu;
+  logic  instr_any_mul;
+  assign instr_any_mul    = |{instr_mul, instr_mulh, instr_mulhsu, instr_mulhu};
+  logic  instr_any_mulh;
+  assign instr_any_mulh   = |{instr_mulh, instr_mulhsu, instr_mulhu};
+  logic  instr_rs1_signed;
+  assign instr_rs1_signed = |{instr_mulh, instr_mulhsu};
+  logic  instr_rs2_signed;
+  assign instr_rs2_signed = |{instr_mulh};
 
-  reg        shift_out;
-  reg  [3:0] active;
-  reg [32:0] rs1, rs2, rs1_q, rs2_q;
-  reg [63:0] rd, rd_q;
+  logic       shift_out;
+  logic [3:0] active;
+  logic [32:0] rs1, rs2, rs1_q, rs2_q;
+  logic [63:0] rd, rd_q;
 
   // an RV32M instruction (MUL, MULH*, DIV*, REM*): OP opcode, funct7 0000001
-  wire   insn_is_rv32m;
-  wire   pcpi_insn_valid;
+  logic  insn_is_rv32m;
+  logic  pcpi_insn_valid;
   assign insn_is_rv32m   = (pcpi_insn[6:0] == 7'b0110011) & (pcpi_insn[31:25] == 7'b0000001);
   assign pcpi_insn_valid = pcpi_valid & insn_is_rv32m;
-  reg pcpi_insn_valid_q;
+  logic  pcpi_insn_valid_q;
 
-  always @* begin
+  always_comb begin
     instr_mul    = 0;
     instr_mulh   = 0;
     instr_mulhsu = 0;

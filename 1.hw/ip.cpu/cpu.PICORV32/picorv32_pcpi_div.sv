@@ -12,28 +12,29 @@
  ***************************************************************/
 
 module picorv32_pcpi_div (
-    input             clk,
+    input  logic        clk,
     resetn,
 
-    input             pcpi_valid,
-    input      [31:0] pcpi_insn,
-    input      [31:0] pcpi_rs1,
-    input      [31:0] pcpi_rs2,
+    input  logic        pcpi_valid,
+    input  logic [31:0] pcpi_insn,
+    input  logic [31:0] pcpi_rs1,
+    input  logic [31:0] pcpi_rs2,
 
-    output reg        pcpi_wr,
-    output reg [31:0] pcpi_rd,
-    output reg        pcpi_wait,
-    output reg        pcpi_ready
+    output logic        pcpi_wr,
+    output logic [31:0] pcpi_rd,
+    output logic        pcpi_wait,
+    output logic        pcpi_ready
 );
-  reg instr_div, instr_divu, instr_rem, instr_remu;
-  wire  instr_any_div_rem = |{instr_div, instr_divu, instr_rem, instr_remu};
+  logic  instr_div, instr_divu, instr_rem, instr_remu;
+  logic  instr_any_div_rem;
+  assign instr_any_div_rem = |{instr_div, instr_divu, instr_rem, instr_remu};
 
-  reg   pcpi_wait_q;
+  logic  pcpi_wait_q;
   logic  start;
   assign start = pcpi_wait & ~pcpi_wait_q;
 
   // an RV32M instruction (MUL, MULH*, DIV*, REM*): OP opcode, funct7 0000001
-  wire   insn_is_rv32m;
+  logic  insn_is_rv32m;
   assign insn_is_rv32m = (pcpi_insn[6:0] == 7'b0110011) & (pcpi_insn[31:25] == 7'b0000001);
 
   always_ff @(posedge clk) begin
@@ -57,12 +58,12 @@ module picorv32_pcpi_div (
     pcpi_wait_q <= pcpi_wait && resetn;
   end
 
-  reg [31:0] dividend;
-  reg [62:0] divisor;
-  reg [31:0] quotient;
-  reg [31:0] quotient_msk;
-  reg        running;
-  reg        outsign;
+  logic [31:0] dividend;
+  logic [62:0] divisor;
+  logic [31:0] quotient;
+  logic [31:0] quotient_msk;
+  logic        running;
+  logic        outsign;
 
   always_ff @(posedge clk) begin
     pcpi_ready <= 0;
