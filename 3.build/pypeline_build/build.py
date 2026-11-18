@@ -23,7 +23,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "src
 from wireguard_env import (
     IMPLEMENTATIONS, selected_target,
     MULT_IMPLEMENTATIONS, DATA_BITWIDTHS, COMPUTE_IMPLEMENTATIONS,
-    profile_from_args, profile_out_dir, hardware_out_dir, BUILT_HARDWARE_FILE,
+    profile_from_args, profile_name, GENERATED_FILES, BUILT_HARDWARE_FILE,
     add_sharing_arguments, add_soc_argument, sharing_name, share_name_for,
     SYN_CACHE_DIR, LATENCY_HINTS_DIR,
 )
@@ -180,15 +180,10 @@ def main():
 
     pypelinec_bin = os.environ.get("PYPELINEC") or "pypelinec"
     check_pipelinec_ref(here, pypelinec_bin)
-    profile = (args.poly1305, sharing, args.poly1305_mult, args.poly1305_compute,
-               args.target_mhz, args.data_bitwidth, args.poly1305_prologue_cap, args.poly1305_epilogue_cap)
-    hardware_dir = args.out_dir or hardware_out_dir(design_short, *profile)
-    if not args.out_dir and os.path.isfile(os.path.join(hardware_dir, BUILT_HARDWARE_FILE)):
+    hardware_name = profile_name("hardware-" + design_short, resolved)
+    out_dir = args.out_dir or os.path.join(".", GENERATED_FILES, hardware_name)
+    if not args.out_dir and os.path.isfile(os.path.join(out_dir, BUILT_HARDWARE_FILE)):
         args.continue_build = True
-    if args.show_config:
-        print(json.dumps(dict(profile=resolved,
-                              out_dir=hardware_dir, syn_cache=args.syn_cache), indent=2))
-        return 0
     # Use the hardware build's latencies; synthesis can remove unexercised testbench logic.
     on_built_hardware = args.sim and args.native and not args.comb
     if args.sim:
@@ -198,8 +193,9 @@ def main():
         dir_parts = [kind, "comb" if args.comb else "pipe", design_short]
         if args.native:
             dir_parts.append("native")
-        out_dir = (hardware_dir if on_built_hardware
-                   else args.out_dir or profile_out_dir("-".join(dir_parts), *profile))
+        if not on_built_hardware and not args.out_dir:
+            sim_name = profile_name("-".join(dir_parts), resolved)
+            out_dir = os.path.join(".", GENERATED_FILES, sim_name)
         options = ["--sim"]
         if args.comb:
             options.append("--comb")
@@ -208,7 +204,6 @@ def main():
         options.extend(["--run", "all"])  # Testbenches finish themselves.
     else:
         src_file = "./src/chacha20poly1305.py"
-        out_dir = hardware_dir
         options = ["--top", f"chacha20poly1305_{design_name}"]
         if args.verilog:
             options.append("--verilog")
@@ -217,11 +212,14 @@ def main():
         # Starting depths: the given files, else this profile's tracked one
         hints = args.latency_hints
         if not hints:
-            tracked = os.path.join(here, LATENCY_HINTS_DIR, os.path.basename(out_dir) + ".json")
+            tracked = os.path.join(here, LATENCY_HINTS_DIR, hardware_name + ".json")
             hints = [tracked] if os.path.exists(tracked) else []
         for hint in hints:
             if hint != "none":
                 options.extend(["--latency_hints", os.path.abspath(hint)])
+    if args.show_config:
+        print(json.dumps(dict(profile=resolved, out_dir=out_dir, syn_cache=args.syn_cache), indent=2))
+        return 0
     if on_built_hardware and not os.path.exists(os.path.join(out_dir, BUILT_HARDWARE_FILE)):
         parser.error(f"{out_dir} holds no hardware build that met timing: build it first with "
                      "this profile's flags and no --sim")
