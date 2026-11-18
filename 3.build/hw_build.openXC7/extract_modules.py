@@ -74,8 +74,8 @@ EXPECTED_MODULES = {
     
     # DPE modules
     'dpe': 'module',
-    'dpe_demultiplexer': 'module',
-    'dpe_multiplexer': 'module',
+    'dpe_demux': 'module',
+    'dpe_mux': 'module',
     'dpe_switch': 'module',
     
     # CPU modules

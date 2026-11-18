@@ -1,12 +1,12 @@
-# SPDX-FileCopyrightText: 2026 Chili.CHIPS*ba
+# SPDX-FileCopyrightText: 2026 Chili.CHIPS
 #
 # SPDX-License-Identifier: BSD-3-Clause
 
-# dpe_demultiplexer block-level bench: make [SIM=verilator|icarus|janushdl], see ../sim.mk
+# lkup_egress unit bench: make [SIM=verilator|icarus|janushdl], see ../sim.mk
 
-VFLAGS = -Wall -Wno-PINCONNECTEMPTY -Wno-UNUSEDPARAM -Wno-GENUNNAMED
+VFLAGS = -Wno-PINCONNECTEMPTY -Wno-UNUSEDPARAM -Wno-UNUSEDSIGNAL -Wno-GENUNNAMED -Wno-DECLFILENAME
 SRC_F  = tb.filelist
-SRC    = ../dpe_tb_pkg.sv ../dpe_tb_src.sv ../dpe_tb_sink.sv tb.sv
+SRC    = tb.sv
 
 include ../sim.mk
 

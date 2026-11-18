@@ -89,7 +89,7 @@ module tb;
     end
 
     // DUT instantiation
-    dpe_demultiplexer DUT (
+    dpe_demux DUT (
         .from_dpe(from_dpe),
         .to_cpu(to_cpu),
         .to_eth_1(to_eth_1),

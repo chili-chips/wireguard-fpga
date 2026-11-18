@@ -8,7 +8,7 @@
 # (read_slang), chip view (SYNTHESIS defined). Use it to prove that a cleanup
 # does not change behaviour. The DPE blocks top does not instantiate yet are
 # tops of their own, interface ports and all: dpe_wg_encryptor, dpe_wg_decryptor,
-# egress_ip_lookup, dpe_wg_disassembler; the encryptor's and the decryptor's
+# lkup_egress, dpe_wg_disassembler; the encryptor's and the decryptor's
 # generated ChaCha20-Poly1305 cores are black boxes (gen_core_bb.py).
 # LEQ_TOPS="top dpe_wg_encryptor ..." picks the tops (default: all).
 #

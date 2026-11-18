@@ -89,7 +89,7 @@ module tb;
     end
 
     // DUT instantiation
-    dpe_multiplexer DUT (
+    dpe_mux DUT (
         .pause(pause),
         .is_idle(),
         .from_cpu(from_cpu),

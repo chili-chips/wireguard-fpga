@@ -6,7 +6,7 @@
 // Wireguard-1GE FPGA * NLnet-sponsored open-source implementation
 //--------------------------------------------------------------------------
 // Description:
-//   egress_ip_lookup unit bench.
+//   lkup_egress unit bench.
 //   1. The CPU's view: all 64 routing-table entries written over the CSR
 //      port, then each field of a few read back.
 //   2. The data plane: Ethernet/IPv4 frames of several lengths, back to
@@ -40,7 +40,7 @@ module tb;
   dpe_tb_throttle #(.PASS_PCT(60), .SEED(16'hACE1)) stall_in  (.inp(from_src), .outp(to_dut));
   dpe_tb_throttle #(.PASS_PCT(60), .SEED(16'h1D2C)) stall_out (.inp(from_dut), .outp(to_snk));
 
-  egress_ip_lookup #(.ENTRY_COUNT(ENTRIES)) dut (
+  lkup_egress #(.ENTRY_COUNT(ENTRIES)) dut (
       .s_axis  (to_dut),
       .m_axis  (from_dut),
       .csr_cfg (csr_cfg),

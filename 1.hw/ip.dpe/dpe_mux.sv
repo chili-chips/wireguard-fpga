@@ -40,7 +40,7 @@
 //   DPE multiplexer
 //==========================================================================
 
-module dpe_multiplexer
+module dpe_mux
   import dpe_pkg::*;
 (
     input  logic  pause,

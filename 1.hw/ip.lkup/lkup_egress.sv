@@ -54,7 +54,7 @@
 //==========================================================================
 
 
-module egress_ip_lookup
+module lkup_egress
   import csr_pkg::*;
   import dpe_pkg::*;
   import net_pkg::*;

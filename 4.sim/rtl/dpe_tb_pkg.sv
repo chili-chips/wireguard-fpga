@@ -26,7 +26,7 @@ package dpe_tb_pkg;
   // Output ports: bit 0 the CPU, bits 1 to 4 ETH 1 to 4
   typedef logic [4:0] ports_t;
 
-  // The outputs a destination selects (dpe_demultiplexer.sv)
+  // The outputs a destination selects (dpe_demux.sv)
   function automatic ports_t ports_of(dpe_addr_t dst);
     ports_of[0] = (dst == DPE_ADDR_CPU)   || (dst == DPE_ADDR_BCAST);
     ports_of[1] = (dst == DPE_ADDR_ETH_1) || (dst == DPE_ADDR_MCAST_13) || (dst == DPE_ADDR_BCAST);

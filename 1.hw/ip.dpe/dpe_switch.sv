@@ -51,7 +51,7 @@ module dpe_switch
     input  csr_cfg_t csr_cfg,
     output csr_sta_t csr_sta
 );
-  egress_ip_lookup #(
+  lkup_egress #(
       .ENTRY_COUNT (64)
   ) u_egress (
       .s_axis  (inp),

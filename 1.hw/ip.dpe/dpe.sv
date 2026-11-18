@@ -70,7 +70,7 @@ module dpe
   );
 
   // DPE multiplexer
-  dpe_multiplexer u_dpe_multiplexer (
+  dpe_mux u_dpe_multiplexer (
       .pause      (from_csr.dpe.fcr.pause.value),
       .is_idle    (to_csr_dpe.fcr.idle.next),
       .from_cpu   (from_cpu),
@@ -91,7 +91,7 @@ module dpe
   );
 
   // DPE demultiplexer
-  dpe_demultiplexer u_dpe_demultiplexer (
+  dpe_demux u_dpe_demultiplexer (
       .from_dpe (muxed_2),
       .to_cpu   (to_cpu),
       .to_eth_1 (to_eth_1),

@@ -19,7 +19,7 @@ The rules are in [`sim.mk`](sim.mk): timescale `1ns/1ns`, `output/sim.log` and `
 
 ## Self-checking DPE benches
 
-`dpe`, `dpe_multiplexer` and `dpe_demultiplexer` share [`dpe_tb_pkg.sv`](dpe_tb_pkg.sv), [`dpe_tb_src.sv`](dpe_tb_src.sv) and [`dpe_tb_sink.sv`](dpe_tb_sink.sv):
+`dpe`, `dpe_mux` and `dpe_demux` share [`dpe_tb_pkg.sv`](dpe_tb_pkg.sv), [`dpe_tb_src.sv`](dpe_tb_src.sv) and [`dpe_tb_sink.sv`](dpe_tb_sink.sv):
 
 - A test packet (`test_pkt_t`) carries its destination, its length and its bytes. The bench keeps one per port in a struct with a field per port.
 - `dpe_tb_src.send()` drives a packet: one byte per beat, `tkeep` `0x0001`, `tlast` on the last byte.
@@ -31,8 +31,8 @@ The rules are in [`sim.mk`](sim.mk): timescale `1ns/1ns`, `output/sim.log` and `
 | Bench | Verilator | Icarus | JanusHDL |
 |---|---|---|---|
 | `dpe` | PASS | no: PeakRDL `csr_pkg.sv` uses unpacked structs | no: `tdp_ram.sv` written by two `always_ff` ([#1](https://github.com/chili-chips/wireguard-fpga/issues/1)) |
-| `dpe_multiplexer` | PASS | PASS | no: a member of a struct in an interface (`x.tuser.src`, [#41](https://github.com/chili-chips/wireguard-fpga/issues/41)) |
-| `dpe_demultiplexer` | PASS | PASS | no: a member of a struct in an interface (`x.tuser.dst`, [#41](https://github.com/chili-chips/wireguard-fpga/issues/41)) |
+| `dpe_mux` | PASS | PASS | no: a member of a struct in an interface (`x.tuser.src`, [#41](https://github.com/chili-chips/wireguard-fpga/issues/41)) |
+| `dpe_demux` | PASS | PASS | no: a member of a struct in an interface (`x.tuser.dst`, [#41](https://github.com/chili-chips/wireguard-fpga/issues/41)) |
 | `pcap_reader_writer` | runs | runs | no: `$fread` into a memory |
 | `gmii2gmii_test` | runs | no: compiles all of `top.filelist` (`csr_pkg.sv`) | runs |
 | `chacha20poly1305_encrypt` | runs | no: nested unpacked array pattern (`tb.sv:62`) | runs |

@@ -311,14 +311,14 @@
           <Attr Name="UsedIn" Val="simulation"/>
         </FileInfo>
       </File>
-      <File Path="$PPRDIR/../../1.hw/ip.dpe/dpe_demultiplexer.sv">
+      <File Path="$PPRDIR/../../1.hw/ip.dpe/dpe_demux.sv">
         <FileInfo>
           <Attr Name="UsedIn" Val="synthesis"/>
           <Attr Name="UsedIn" Val="implementation"/>
           <Attr Name="UsedIn" Val="simulation"/>
         </FileInfo>
       </File>
-      <File Path="$PPRDIR/../../1.hw/ip.dpe/dpe_multiplexer.sv">
+      <File Path="$PPRDIR/../../1.hw/ip.dpe/dpe_mux.sv">
         <FileInfo>
           <Attr Name="UsedIn" Val="synthesis"/>
           <Attr Name="UsedIn" Val="implementation"/>
