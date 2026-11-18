@@ -5,4 +5,4 @@
 # Move it forward in the same commit as any design change that needs a newer
 # PipelineC. The first line that is not a comment is the hash.
 # Requires both the PipelineC#394 and #395 fixes.
-4038e33db0e60641722fc191efd0628bdf8580a9
+0b710cca1036f88eb1e115519680a69c929e002c
