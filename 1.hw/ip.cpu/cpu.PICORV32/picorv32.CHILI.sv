@@ -41,27 +41,14 @@
 `ifdef CPU_DEBUGFSM
 longint dbgfsm_clk_cnt[2];
 longint dbgfsm_insn_cnt;
-
-`define CPU_DBGFSM(debug_command) debug_command
-`else
-`define CPU_DBGFSM(debug_command)
 `endif
 
 `ifdef CPU_FORMAL
 `define FORMAL_KEEP (* keep *)
-`define ASSERT(assert_expr) assert(assert_expr)
-
-`else
-`ifdef CPU_DEBUGNETS
+`elsif CPU_DEBUGNETS
 `define FORMAL_KEEP (* keep *)
 `else
 `define FORMAL_KEEP
-`endif
-
-// In non-formal mode `ASSERT calls empty_statement, a no-op task declared
-// inside module picorv32 below (empty statements are unsupported by plain
-// Verilog syntax).
-`define ASSERT(assert_expr) empty_statement
 `endif
 
 // uncomment this for register file in extra module
@@ -169,13 +156,16 @@ module picorv32 #(
     output logic [35:0] trace_data
 );
 
-`ifndef CPU_FORMAL
-  // This task is used by the `ASSERT directive in non-formal mode to
-  // avoid empty statement (which are unsupported by plain Verilog syntax).
-  // Declared inside the module, not at file ($unit) scope, so that tools
-  // without $unit support - and Verilog-2005 flows - accept it.
-  task automatic empty_statement();
-  endtask
+  // the formal checks (CPU_FORMAL) and the FSM trace (CPU_DEBUGFSM), as flags
+`ifdef CPU_FORMAL
+  localparam bit FORMAL = 1'b1;
+`else
+  localparam bit FORMAL = 1'b0;
+`endif
+`ifdef CPU_DEBUGFSM
+  localparam bit DEBUGFSM = 1'b1;
+`else
+  localparam bit DEBUGFSM = 1'b0;
 `endif
 
   localparam int IRQ_TIMER = 0;
@@ -369,19 +359,33 @@ module picorv32 #(
     end
   end
 
+  // the CPU state (the FSM below); the memory interface prints it too
+  typedef enum logic [2:0] {
+    TRAP_HOLD    = 3'd0,
+    FETCH_WR_REG = 3'd1,
+    RD_REG       = 3'd2,
+    RD_REG2      = 3'd3,
+    EXEC         = 3'd4,
+    SHIFT        = 3'd5,
+    WR_MEM       = 3'd6,
+    RD_MEM       = 3'd7
+  } cpu_state_t;
+
+  cpu_state_t        cpu_state;
+
   //=============================================================
   // Memory Interface
   //=============================================================
-  logic [ 1:0] mem_state;
-  logic [ 1:0] mem_wordsize;
-  logic [31:0] mem_rdata_word;
-  logic [31:0] mem_rdata_q;
-  logic        mem_do_prefetch;
-  logic        mem_do_rinst;
-  logic        mem_do_rdata;
-  logic        mem_do_wdata;
+  logic       [ 1:0] mem_state;
+  logic       [ 1:0] mem_wordsize;
+  logic       [31:0] mem_rdata_word;
+  logic       [31:0] mem_rdata_q;
+  logic              mem_do_prefetch;
+  logic              mem_do_rinst;
+  logic              mem_do_rdata;
+  logic              mem_do_wdata;
 
-  logic        mem_xfer;
+  logic              mem_xfer;
   logic mem_la_secondword, mem_la_firstword_reg, last_mem_valid;
 
   logic mem_la_firstword;
@@ -506,12 +510,14 @@ module picorv32 #(
 
       if (mem_instr == 1'b0) begin
         if (mem_wstrb == '0) begin  // read
-          `CPU_DBGFSM($display("%14s| [%08X]=>%08X", cpu_state.name, mem_addr, mem_rdata);)
+          if (DEBUGFSM) begin
+            $display("%14s| [%08X]=>%08X", cpu_state.name, mem_addr, mem_rdata);
+          end
         end
         else begin  // write
-          `CPU_DBGFSM($display(
-                      "%14s| [%08X]<=%08X (WE=%b)", cpu_state.name, mem_addr, mem_wdata, mem_wstrb
-                      );)
+          if (DEBUGFSM) begin
+            $display("%14s| [%08X]<=%08X (WE=%b)", cpu_state.name, mem_addr, mem_wdata, mem_wstrb);
+          end
         end
       end
 
@@ -717,19 +723,29 @@ module picorv32 #(
   always_ff @(posedge clk) begin
     if (resetn && !trap) begin
       if (mem_do_prefetch || mem_do_rinst || mem_do_rdata) begin
-        `ASSERT(!mem_do_wdata);
+        if (FORMAL) begin
+          assert (!mem_do_wdata);
+        end
       end
       if (mem_do_prefetch || mem_do_rinst) begin
-        `ASSERT(!mem_do_rdata);
+        if (FORMAL) begin
+          assert (!mem_do_rdata);
+        end
       end
       if (mem_do_rdata) begin
-        `ASSERT(!mem_do_prefetch && !mem_do_rinst);
+        if (FORMAL) begin
+          assert (!mem_do_prefetch && !mem_do_rinst);
+        end
       end
       if (mem_do_wdata) begin
-        `ASSERT(!(mem_do_prefetch || mem_do_rinst || mem_do_rdata));
+        if (FORMAL) begin
+          assert (!(mem_do_prefetch || mem_do_rinst || mem_do_rdata));
+        end
       end
       if (mem_state == 2'd2 || mem_state == 2'd3) begin
-        `ASSERT(mem_valid || mem_do_prefetch);
+        if (FORMAL) begin
+          assert (mem_valid || mem_do_prefetch);
+        end
       end
     end
   end
@@ -781,10 +797,18 @@ module picorv32 #(
           end
           //-------
           2'd1: begin
-            `ASSERT(mem_wstrb == 0);
-            `ASSERT(mem_do_prefetch | mem_do_rinst | mem_do_rdata);
-            `ASSERT(mem_valid == ~mem_la_use_prefetched_high_word);
-            `ASSERT(mem_instr == (mem_do_prefetch | mem_do_rinst));
+            if (FORMAL) begin
+              assert (mem_wstrb == 0);
+            end
+            if (FORMAL) begin
+              assert (mem_do_prefetch | mem_do_rinst | mem_do_rdata);
+            end
+            if (FORMAL) begin
+              assert (mem_valid == ~mem_la_use_prefetched_high_word);
+            end
+            if (FORMAL) begin
+              assert (mem_instr == (mem_do_prefetch | mem_do_rinst));
+            end
 
             if (mem_xfer) begin
               if (COMPRESSED_ISA && mem_la_read) begin
@@ -814,8 +838,12 @@ module picorv32 #(
           end
           //-------
           2'd2: begin
-            `ASSERT(mem_wstrb != 0);
-            `ASSERT(mem_do_wdata);
+            if (FORMAL) begin
+              assert (mem_wstrb != 0);
+            end
+            if (FORMAL) begin
+              assert (mem_do_wdata);
+            end
 
             if (mem_xfer) begin
               mem_valid <= '0;
@@ -824,8 +852,12 @@ module picorv32 #(
           end
           //-------
           2'd3: begin
-            `ASSERT(mem_wstrb == 0);
-            `ASSERT(mem_do_prefetch);
+            if (FORMAL) begin
+              assert (mem_wstrb == 0);
+            end
+            if (FORMAL) begin
+              assert (mem_do_prefetch);
+            end
 
             if (mem_do_rinst) begin
               mem_state <= 2'd0;
@@ -1353,30 +1385,17 @@ module picorv32 #(
   //=============================================================
   // ALU
   //=============================================================
-  typedef enum logic [2:0] {
-    TRAP_HOLD    = 3'd0,
-    FETCH_WR_REG = 3'd1,
-    RD_REG       = 3'd2,
-    RD_REG2      = 3'd3,
-    EXEC         = 3'd4,
-    SHIFT        = 3'd5,
-    WR_MEM       = 3'd6,
-    RD_MEM       = 3'd7
-  } cpu_state_t;
+  logic [              1:0] irq_state;
 
-  cpu_state_t                     cpu_state;
-
-  logic       [              1:0] irq_state;
-
-  logic                           latched_store;
-  logic                           latched_stalu;
-  logic                           latched_branch;
-  logic                           latched_compr;
-  logic                           latched_trace;
-  logic                           latched_is_lu;
-  logic                           latched_is_lh;
-  logic                           latched_is_lb;
-  logic       [REGINDEX_BITS-1:0] latched_rdst;
+  logic                     latched_store;
+  logic                     latched_stalu;
+  logic                     latched_branch;
+  logic                     latched_compr;
+  logic                     latched_trace;
+  logic                     latched_is_lu;
+  logic                     latched_is_lh;
+  logic                     latched_is_lb;
+  logic [REGINDEX_BITS-1:0] latched_rdst;
 
   assign next_pc = (latched_store & latched_branch) ? reg_out[31:1] : reg_next_pc[31:1];
 `ifdef CPU_DEBUG
@@ -2030,8 +2049,10 @@ module picorv32 #(
             //--------------RD_REG:Case1
             (CATCH_ILLINSN || WITH_PCPI) && instr_trap: begin
               if (WITH_PCPI) begin
-                `CPU_DBGFSM($display("%14s| X%-2d=> %08x(port1)", cpu_state.name, decoded_rsrc1,
-                                     cpuregs_rsrc1);)
+                if (DEBUGFSM) begin
+                  $display("%14s| X%-2d=> %08x(port1)", cpu_state.name, decoded_rsrc1,
+                           cpuregs_rsrc1);
+                end
 
                 reg_op1 <= cpuregs_rsrc1;
 
@@ -2041,8 +2062,10 @@ module picorv32 #(
 `endif
 
                 if (ENABLE_REGS_DUALPORT) begin
-                  `CPU_DBGFSM($display("%14s| X%-2d=> %08x(port2)", cpu_state.name, decoded_rsrc2,
-                                       cpuregs_rsrc2);)
+                  if (DEBUGFSM) begin
+                    $display("%14s| X%-2d=> %08x(port2)", cpu_state.name, decoded_rsrc2,
+                             cpuregs_rsrc2);
+                  end
 
                   pcpi_valid <= 1;
                   reg_sh     <= cpuregs_rsrc2;
@@ -2061,8 +2084,9 @@ module picorv32 #(
                     cpu_state     <= FETCH_WR_REG;
                   end
                   else if (CATCH_ILLINSN && (pcpi_timeout || instr_ecall_ebreak)) begin
-                    `CPU_DBGFSM($display("%14s| EBREAK OR UNSUPPORTED INSN @[%08x]",
-                                         cpu_state.name, reg_pc);)
+                    if (DEBUGFSM) begin
+                      $display("%14s| EBREAK OR UNSUPPORTED INSN @[%08x]", cpu_state.name, reg_pc);
+                    end
                     pcpi_valid <= '0;
 
                     if (ebreak_irq_allowed) begin
@@ -2078,8 +2102,9 @@ module picorv32 #(
                 end
               end
               else begin
-                `CPU_DBGFSM($display(
-                            "%14s| EBREAK OR UNSUPPORTED INSN @[%08x]", cpu_state.name, reg_pc);)
+                if (DEBUGFSM) begin
+                  $display("%14s| EBREAK OR UNSUPPORTED INSN @[%08x]", cpu_state.name, reg_pc);
+                end
 
                 if (ebreak_irq_allowed) begin
                   cpu_state <= FETCH_WR_REG;
@@ -2125,9 +2150,9 @@ module picorv32 #(
 
             //--------------RD_REG:Case4
             ENABLE_IRQ && ENABLE_IRQ_QREGS && instr_getq: begin
-              `CPU_DBGFSM($display(
-                          "%14s| X%-2d=> %08x(port1)", cpu_state.name, decoded_rsrc1, cpuregs_rsrc1
-                          );)
+              if (DEBUGFSM) begin
+                $display("%14s| X%-2d=> %08x(port1)", cpu_state.name, decoded_rsrc1, cpuregs_rsrc1);
+              end
 
               reg_out <= cpuregs_rsrc1;
 
@@ -2142,9 +2167,9 @@ module picorv32 #(
 
             //--------------RD_REG:Case5
             ENABLE_IRQ && ENABLE_IRQ_QREGS && instr_setq: begin
-              `CPU_DBGFSM($display(
-                          "%14s| X%-2d=> %08x(port1)", cpu_state.name, decoded_rsrc1, cpuregs_rsrc1
-                          );)
+              if (DEBUGFSM) begin
+                $display("%14s| X%-2d=> %08x(port1)", cpu_state.name, decoded_rsrc1, cpuregs_rsrc1);
+              end
 
               reg_out <= cpuregs_rsrc1;
 
@@ -2160,9 +2185,9 @@ module picorv32 #(
 
             //--------------RD_REG:Case6
             ENABLE_IRQ && instr_retirq: begin
-              `CPU_DBGFSM($display(
-                          "%14s| X%-2d=> %08x(port1)", cpu_state.name, decoded_rsrc1, cpuregs_rsrc1
-                          );)
+              if (DEBUGFSM) begin
+                $display("%14s| X%-2d=> %08x(port1)", cpu_state.name, decoded_rsrc1, cpuregs_rsrc1);
+              end
 
               reg_out <= CATCH_MISALIGN ? (cpuregs_rsrc1 & 32'hFFFF_FFFE) : cpuregs_rsrc1;
 
@@ -2181,9 +2206,9 @@ module picorv32 #(
 
             //--------------RD_REG:Case7
             ENABLE_IRQ && instr_maskirq: begin
-              `CPU_DBGFSM($display(
-                          "%14s| X%-2d=> %08x(port1)", cpu_state.name, decoded_rsrc1, cpuregs_rsrc1
-                          );)
+              if (DEBUGFSM) begin
+                $display("%14s| X%-2d=> %08x(port1)", cpu_state.name, decoded_rsrc1, cpuregs_rsrc1);
+              end
 
               latched_store <= 1;
               reg_out       <= irq_mask;
@@ -2199,9 +2224,9 @@ module picorv32 #(
 
             //--------------RD_REG:Case8
             ENABLE_IRQ && ENABLE_IRQ_TIMER && instr_timer: begin
-              `CPU_DBGFSM($display(
-                          "%14s| X#%0d=>%08x(port1)", cpu_state.name, decoded_rsrc1, cpuregs_rsrc1
-                          );)
+              if (DEBUGFSM) begin
+                $display("%14s| X#%0d=>%08x(port1)", cpu_state.name, decoded_rsrc1, cpuregs_rsrc1);
+              end
 
               latched_store <= 1;
               reg_out       <= irq_timer;
@@ -2216,9 +2241,9 @@ module picorv32 #(
             end
 
             is_lb_lh_lw_lbu_lhu && !instr_trap: begin
-              `CPU_DBGFSM($display(
-                          "%14s| X%-2d=> %08x(port1)", cpu_state.name, decoded_rsrc1, cpuregs_rsrc1
-                          );)
+              if (DEBUGFSM) begin
+                $display("%14s| X%-2d=> %08x(port1)", cpu_state.name, decoded_rsrc1, cpuregs_rsrc1);
+              end
 
               reg_op1 <= cpuregs_rsrc1;
 
@@ -2233,9 +2258,9 @@ module picorv32 #(
 
             //--------------RD_REG:Case9
             is_slli_srli_srai && !BARREL_SHIFTER: begin
-              `CPU_DBGFSM($display(
-                          "%14s| X%-2d=> %08x(port1)", cpu_state.name, decoded_rsrc1, cpuregs_rsrc1
-                          );)
+              if (DEBUGFSM) begin
+                $display("%14s| X%-2d=> %08x(port1)", cpu_state.name, decoded_rsrc1, cpuregs_rsrc1);
+              end
 
               reg_op1 <= cpuregs_rsrc1;
 
@@ -2250,9 +2275,9 @@ module picorv32 #(
 
             //--------------RD_REG:Case10
             is_jalr_addi_slti_sltiu_xori_ori_andi, is_slli_srli_srai && BARREL_SHIFTER: begin
-              `CPU_DBGFSM($display(
-                          "%14s| X%-2d=> %08x(port1)", cpu_state.name, decoded_rsrc1, cpuregs_rsrc1
-                          );)
+              if (DEBUGFSM) begin
+                $display("%14s| X%-2d=> %08x(port1)", cpu_state.name, decoded_rsrc1, cpuregs_rsrc1);
+              end
 
               reg_op1 <= cpuregs_rsrc1;
 
@@ -2277,9 +2302,9 @@ module picorv32 #(
 
             //--------------RD_REG:Case11
             default: begin
-              `CPU_DBGFSM($display(
-                          "%14s| X%-2d=> %08x(port1)", cpu_state.name, decoded_rsrc1, cpuregs_rsrc1
-                          );)
+              if (DEBUGFSM) begin
+                $display("%14s| X%-2d=> %08x(port1)", cpu_state.name, decoded_rsrc1, cpuregs_rsrc1);
+              end
 
               reg_op1 <= cpuregs_rsrc1;
 
@@ -2289,8 +2314,10 @@ module picorv32 #(
 `endif
 
               if (ENABLE_REGS_DUALPORT) begin
-                `CPU_DBGFSM($display("%14s| X%-2d=> %08x(port2)", cpu_state.name, decoded_rsrc2,
-                                     cpuregs_rsrc2);)
+                if (DEBUGFSM) begin
+                  $display("%14s| X%-2d=> %08x(port2)", cpu_state.name, decoded_rsrc2,
+                           cpuregs_rsrc2);
+                end
 
                 reg_sh  <=  /*[JI] cpuregs_rsrc2*/ cpuregs_rsrc2[4:0];
                 reg_op2 <= cpuregs_rsrc2;
@@ -2333,8 +2360,9 @@ module picorv32 #(
 
         //=================RD_REG2:
         RD_REG2: begin
-          `CPU_DBGFSM($display(
-                      "%14s| X%-2d=> %08x(port2)", cpu_state.name, decoded_rsrc2, cpuregs_rsrc2);)
+          if (DEBUGFSM) begin
+            $display("%14s| X%-2d=> %08x(port2)", cpu_state.name, decoded_rsrc2, cpuregs_rsrc2);
+          end
 
           reg_sh  <=  /*[JI] cpuregs_rsrc2*/ cpuregs_rsrc2[4:0];
           reg_op2 <= cpuregs_rsrc2;
@@ -2359,8 +2387,9 @@ module picorv32 #(
                 cpu_state     <= FETCH_WR_REG;
               end
               else if (CATCH_ILLINSN && (pcpi_timeout || instr_ecall_ebreak)) begin
-                `CPU_DBGFSM($display("%14s| EBREAK OR UNSUPPORTED INSN @[%08x]", cpu_state.name,
-                                     reg_pc);)
+                if (DEBUGFSM) begin
+                  $display("%14s| EBREAK OR UNSUPPORTED INSN @[%08x]", cpu_state.name, reg_pc);
+                end
 
                 pcpi_valid <= 0;
 
@@ -2555,7 +2584,9 @@ module picorv32 #(
       //------MISALIGNED DATA
       if (CATCH_MISALIGN && (mem_do_rdata || mem_do_wdata)) begin
         if ((mem_wordsize == 2'd0) && (reg_op1[1:0] != '0)) begin
-          `CPU_DBGFSM($display("%14s| MISALIGNED DATA WORD %08x", cpu_state.name, reg_op1);)
+          if (DEBUGFSM) begin
+            $display("%14s| MISALIGNED DATA WORD %08x", cpu_state.name, reg_op1);
+          end
 
           if (!buserror_irq_allowed) begin
             cpu_state <= TRAP_HOLD;
@@ -2563,7 +2594,9 @@ module picorv32 #(
         end
 
         if ((mem_wordsize == 2'd1) & (reg_op1[0] != '0)) begin
-          `CPU_DBGFSM($display("%14s| MISALIGNED DATA HALFWORD %08x", cpu_state.name, reg_op1);)
+          if (DEBUGFSM) begin
+            $display("%14s| MISALIGNED DATA HALFWORD %08x", cpu_state.name, reg_op1);
+          end
 
           if (!buserror_irq_allowed) begin
             cpu_state <= TRAP_HOLD;
@@ -2573,7 +2606,9 @@ module picorv32 #(
 
       //------MISALIGNED INSTRUCTION
       if (CATCH_MISALIGN && mem_do_rinst && (COMPRESSED_ISA ? reg_pc[0] : |reg_pc[1:0])) begin
-        `CPU_DBGFSM($display("%14s| MISALIGNED INSTRUCTION @[%08x]", cpu_state.name, reg_pc);)
+        if (DEBUGFSM) begin
+          $display("%14s| MISALIGNED INSTRUCTION @[%08x]", cpu_state.name, reg_pc);
+        end
 
         if (!buserror_irq_allowed) begin
           cpu_state <= TRAP_HOLD;
@@ -2583,7 +2618,9 @@ module picorv32 #(
       //------ILLEGAL INSTRUCTION
       if (!CATCH_ILLINSN && decoder_trigger_q && !decoder_pseudo_trigger_q &&
           instr_ecall_ebreak) begin
-        `CPU_DBGFSM($display("%14s| ILLEGAL INSTRUCTION @[%08x]", cpu_state.name, reg_pc);)
+        if (DEBUGFSM) begin
+          $display("%14s| ILLEGAL INSTRUCTION @[%08x]", cpu_state.name, reg_pc);
+        end
 
         cpu_state <= TRAP_HOLD;
       end
