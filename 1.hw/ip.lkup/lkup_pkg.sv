@@ -8,8 +8,8 @@
 // Description: the IP lookup engine's (ip.lkup) types. Its CSR port is the
 //  routing_table regfile of csr.rdl (external): the generated structs by
 //  short names, named from the lookup's side
-//   - csr_cfg_t: CPU to table: request, write, address, data
-//   - csr_sta_t: table to CPU: write and read acknowledge, read data
+//   - rt_cfg_t: CPU to table: request, write, address, data
+//   - rt_sta_t: table to CPU: write and read acknowledge, read data
 //  and the same for the cryptokey_table regfile (the peer table,
 //  lkup_peer_table), ck_cfg_t and ck_sta_t, with its word map
 //==========================================================================
@@ -21,9 +21,9 @@ package lkup_pkg;
   // what a route does with a packet: to dst, for peer, through the tunnel
   // when encrypt is set
   typedef struct packed {
-    dpe_peer_idx_t peer;     // [11:4]
-    logic          encrypt;  // [   3]
-    dpe_addr_t     dst;      // [ 2:0]
+    dpe_peer_idx_t peer_idx;  // [11:4]
+    logic          encrypt;   // [   3]
+    dpe_addr_t     dst;       // [ 2:0]
   } route_act_t;
 
   // a routing-table entry (csr.rdl routing_table.entry): a packet whose IPv4
@@ -38,16 +38,16 @@ package lkup_pkg;
   typedef struct packed {
     logic prefix;
     logic mask;
-    logic peer;
+    logic peer_idx;
     logic encrypt;
     logic dst;
   } route_we_t;
 
   // no route matches: to the CPU, as it is
-  localparam route_act_t ROUTE_DEFAULT = '{peer: '0, encrypt: 1'b0, dst: DPE_ADDR_CPU};
+  localparam route_act_t ROUTE_DEFAULT = '{peer_idx: '0, encrypt: 1'b0, dst: DPE_ADDR_CPU};
 
-  typedef csr__routing_table__external__out_t csr_cfg_t;
-  typedef csr__routing_table__external__in_t csr_sta_t;
+  typedef csr__routing_table__external__out_t rt_cfg_t;
+  typedef csr__routing_table__external__in_t rt_sta_t;
 
   typedef csr__cryptokey_table__external__out_t ck_cfg_t;
   typedef csr__cryptokey_table__external__in_t ck_sta_t;
@@ -77,7 +77,7 @@ package lkup_pkg;
     CK_SEND_CNT_LO   = 5'd27,
     CK_RECV_CNT_HI   = 5'd28,
     CK_RECV_CNT_LO   = 5'd29
-  } ck_word_e;
+  } ck_word_t;
 
 endpackage
 

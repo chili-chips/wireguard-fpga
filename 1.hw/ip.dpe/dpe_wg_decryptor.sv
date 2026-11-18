@@ -77,7 +77,7 @@ module dpe_wg_decryptor
     dpe_if.s_axis        inp,
     dpe_if.m_axis        outp,
 
-    output logic         fcr_idle,
+    output logic         idle,
 
     // the peer table: the packet's peer, from the 2nd clock after the request
     output peer_req_t    peer_req,
@@ -86,9 +86,9 @@ module dpe_wg_decryptor
 
   typedef enum logic [2:0] {
     IDLE,      // wait for a frame; a bypass frame passes at once
-    BYPASS,    // the rest of a bypass frame
-    RAM_ADDR,  // peer_req.idx is out
-    RAM_DATA,  // peer_rsp is valid: take it
+    PASS,      // the rest of a bypass frame
+    PEER_REQ,  // peer_req.idx is out
+    PEER_RSP,  // peer_rsp is valid: take it
     PACKET     // feed and emit run
   } state_t;
 
@@ -129,10 +129,10 @@ module dpe_wg_decryptor
   dpe_addr_t tuser_dst, tuser_dst_next;
   dpe_addr_t tuser_src, tuser_src_next;
   dpe_peer_idx_t peer_idx, peer_idx_next;
-  wg_peer_cfg_t peer, peer_next;  // the packet's peer, from the peer table
+  wg_peer_cfg_t peer_cfg, peer_cfg_next;  // the packet's peer, from the peer table
   logic [1:0] hdr_k, hdr_k_next;  // header beats in so far
   logic [ETH_W-1:0] eth_hdr, eth_hdr_next;  // the outer Ethernet header
-  wg_counter_t wg_cnt, wg_cnt_next;  // the packet's counter: the nonce
+  wg_counter_t counter, wg_cnt_next;  // the packet's counter: the nonce
   logic [CARRY_W-1:0] carry, carry_next;  // the frame beat before: its last bytes
   len16_t ip_len, ip_len_next;  // the plaintext IPv4 total length
   len16_t sent, sent_next;  // IPv4 bytes out so far
@@ -184,10 +184,10 @@ module dpe_wg_decryptor
       tuser_dst  <= DPE_ADDR_CPU;
       tuser_src  <= DPE_ADDR_CPU;
       peer_idx   <= '0;
-      peer       <= '0;
+      peer_cfg   <= '0;
       hdr_k      <= '0;
       eth_hdr    <= '0;
-      wg_cnt     <= '0;
+      counter    <= '0;
       carry      <= '0;
       ip_len     <= '0;
       sent       <= '0;
@@ -202,10 +202,10 @@ module dpe_wg_decryptor
       tuser_dst  <= tuser_dst_next;
       tuser_src  <= tuser_src_next;
       peer_idx   <= peer_idx_next;
-      peer       <= peer_next;
+      peer_cfg   <= peer_cfg_next;
       hdr_k      <= hdr_k_next;
       eth_hdr    <= eth_hdr_next;
-      wg_cnt     <= wg_cnt_next;
+      counter    <= wg_cnt_next;
       carry      <= carry_next;
       ip_len     <= ip_len_next;
       sent       <= sent_next;
@@ -223,10 +223,10 @@ module dpe_wg_decryptor
     tuser_dst_next      = tuser_dst;
     tuser_src_next      = tuser_src;
     peer_idx_next       = peer_idx;
-    peer_next           = peer;
+    peer_cfg_next       = peer_cfg;
     hdr_k_next          = hdr_k;
     eth_hdr_next        = eth_hdr;
-    wg_cnt_next         = wg_cnt;
+    wg_cnt_next         = counter;
     carry_next          = carry;
     ip_len_next         = ip_len;
     sent_next           = sent;
@@ -264,7 +264,7 @@ module dpe_wg_decryptor
             muxed.tid    = piped.tid;
             piped.tready = muxed.tready;
             if (piped_hs && !piped.tlast) begin
-              state_next = BYPASS;
+              state_next = PASS;
             end
           end
           else begin
@@ -272,12 +272,12 @@ module dpe_wg_decryptor
             tuser_dst_next = piped.tuser.dst;
             tuser_src_next = piped.tuser.src;
             peer_idx_next  = piped.tid;
-            state_next     = RAM_ADDR;
+            state_next     = PEER_REQ;
           end
         end
       end
 
-      BYPASS: begin
+      PASS: begin
         muxed.tvalid = piped.tvalid;
         muxed.tdata  = piped.tdata;
         muxed.tkeep  = piped.tkeep;
@@ -290,14 +290,14 @@ module dpe_wg_decryptor
         end
       end
 
-      RAM_ADDR: state_next = RAM_DATA;
+      PEER_REQ: state_next = PEER_RSP;
 
-      RAM_DATA: begin
-        peer_next  = peer_rsp;
-        feed_next  = FEED_HDR;
-        emit_next  = EMIT_FIRST;
-        hdr_k_next = '0;
-        state_next = PACKET;
+      PEER_RSP: begin
+        peer_cfg_next = peer_rsp;
+        feed_next     = FEED_HDR;
+        emit_next     = EMIT_FIRST;
+        hdr_k_next    = '0;
+        state_next    = PACKET;
       end
 
       PACKET: begin
@@ -462,7 +462,7 @@ module dpe_wg_decryptor
     endcase
   end
 
-  assign fcr_idle = (state == IDLE) & ~piped.tvalid & ~outp.tvalid;
+  assign idle     = (state == IDLE) & ~piped.tvalid & ~outp.tvalid;
   // the receiver does not advance the send counter
   assign peer_req = '{idx: peer_idx, new_send_cnt: '0, update_send_cnt: 1'b0};
 
@@ -470,8 +470,8 @@ module dpe_wg_decryptor
   // (little-endian; byte 0 in [7:0])
   chacha20poly1305_decrypt u_chacha20poly1305_decrypt (
       .clk_80p0              (inp.clk),
-      .decrypt_key           (peer.key),
-      .decrypt_nonce         ({wg_cnt, 32'd0}),
+      .decrypt_key           (peer_cfg.key),
+      .decrypt_nonce         ({counter, 32'd0}),
       .decrypt_aad           (256'd0),
       .decrypt_aad_len       (8'd0),
       .decrypt_s_axis_tdata  (to_decrypt.tdata),

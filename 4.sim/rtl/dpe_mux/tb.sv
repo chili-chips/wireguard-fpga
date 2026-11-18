@@ -91,7 +91,7 @@ module tb;
     // DUT instantiation
     dpe_mux DUT (
         .pause(pause),
-        .is_idle(),
+        .idle(),
         .from_cpu(from_cpu),
         .from_eth_1(from_eth_1),
         .from_eth_2(from_eth_2),

@@ -68,7 +68,7 @@ module dpe_wg_encryptor
     dpe_if.s_axis        inp,
     dpe_if.m_axis        outp,
 
-    output logic         fcr_idle,
+    output logic         idle,
 
     // the peer table: the packet's peer, from the 2nd clock after the request
     output peer_req_t    peer_req,
@@ -77,9 +77,9 @@ module dpe_wg_encryptor
 
   typedef enum logic [2:0] {
     IDLE,      // wait for a frame; a bypass frame passes at once
-    BYPASS,    // the rest of a bypass frame
-    RAM_ADDR,  // peer_req.idx is out
-    RAM_DATA,  // peer_rsp is valid: take it
+    PASS,      // the rest of a bypass frame
+    PEER_REQ,  // peer_req.idx is out
+    PEER_RSP,  // peer_rsp is valid: take it
     PACKET     // feed and emit run
   } state_t;
 
@@ -113,7 +113,7 @@ module dpe_wg_encryptor
   dpe_addr_t tuser_dst, tuser_dst_next;
   dpe_addr_t tuser_src, tuser_src_next;
   dpe_peer_idx_t peer_idx, peer_idx_next;
-  wg_peer_cfg_t peer, peer_next;  // the packet's peer, from the peer table
+  wg_peer_cfg_t peer_cfg, peer_cfg_next;  // the packet's peer, from the peer table
   wg_counter_t new_send_cnt, new_send_cnt_next;
   logic update_send_cnt, update_send_cnt_next;
   logic [CARRY_W-1:0] carry, carry_next;  // the frame beat before: its last bytes
@@ -130,8 +130,8 @@ module dpe_wg_encryptor
   assign hdr = wg_frame_bytes(
       '{
           eth: '{
-              dst: bswap48(peer.remote_mac),
-              src: bswap48(peer.local_mac),
+              dst: bswap48(peer_cfg.remote_mac),
+              src: bswap48(peer_cfg.local_mac),
               ethertype: ETHERTYPE_IPV4
           },
           ipv4: '{
@@ -144,16 +144,20 @@ module dpe_wg_encryptor
               ttl: IPV4_TTL,
               proto: IP_PROTO_UDP,
               checksum: '0,
-              src: bswap32(peer.local_ip),
-              dst: bswap32(peer.remote_ip)
+              src: bswap32(peer_cfg.local_ip),
+              dst: bswap32(peer_cfg.remote_ip)
           },
           udp: '{
-              src_port: bswap16(peer.local_port),
-              dst_port: bswap16(peer.remote_port),
+              src_port: bswap16(peer_cfg.local_port),
+              dst_port: bswap16(peer_cfg.remote_port),
               len: wg_padded_len(ip_len) + WG_UDP_OVERHEAD,
               checksum: '0
           },
-          wg: '{msg_type: WG_TYPE_DATA, receiver: peer.remote_id, counter: peer.send_cnt}
+          wg: '{
+              msg_type: WG_TYPE_DATA,
+              receiver: peer_cfg.remote_id,
+              counter: peer_cfg.send_cnt
+          }
       }
   );
 
@@ -207,7 +211,7 @@ module dpe_wg_encryptor
       tuser_dst       <= DPE_ADDR_CPU;
       tuser_src       <= DPE_ADDR_CPU;
       peer_idx        <= '0;
-      peer            <= '0;
+      peer_cfg        <= '0;
       new_send_cnt    <= '0;
       update_send_cnt <= 1'b0;
       carry           <= '0;
@@ -224,7 +228,7 @@ module dpe_wg_encryptor
       tuser_dst       <= tuser_dst_next;
       tuser_src       <= tuser_src_next;
       peer_idx        <= peer_idx_next;
-      peer            <= peer_next;
+      peer_cfg        <= peer_cfg_next;
       new_send_cnt    <= new_send_cnt_next;
       update_send_cnt <= update_send_cnt_next;
       carry           <= carry_next;
@@ -244,7 +248,7 @@ module dpe_wg_encryptor
     tuser_dst_next       = tuser_dst;
     tuser_src_next       = tuser_src;
     peer_idx_next        = peer_idx;
-    peer_next            = peer;
+    peer_cfg_next        = peer_cfg;
     new_send_cnt_next    = new_send_cnt;
     update_send_cnt_next = 1'b0;
     carry_next           = carry;
@@ -284,7 +288,7 @@ module dpe_wg_encryptor
             muxed.tid    = piped.tid;
             piped.tready = muxed.tready;
             if (piped_hs && !piped.tlast) begin
-              state_next = BYPASS;
+              state_next = PASS;
             end
           end
           else begin
@@ -292,12 +296,12 @@ module dpe_wg_encryptor
             tuser_dst_next = piped.tuser.dst;
             tuser_src_next = piped.tuser.src;
             peer_idx_next  = piped.tid;
-            state_next     = RAM_ADDR;
+            state_next     = PEER_REQ;
           end
         end
       end
 
-      BYPASS: begin
+      PASS: begin
         muxed.tvalid = piped.tvalid;
         muxed.tdata  = piped.tdata;
         muxed.tkeep  = piped.tkeep;
@@ -310,10 +314,10 @@ module dpe_wg_encryptor
         end
       end
 
-      RAM_ADDR: state_next = RAM_DATA;
+      PEER_REQ: state_next = PEER_RSP;
 
-      RAM_DATA: begin
-        peer_next     = peer_rsp;
+      PEER_RSP: begin
+        peer_cfg_next = peer_rsp;
         feed_next     = FEED_ETH;
         emit_next     = EMIT_HDR_0;
         in_done_next  = 1'b0;
@@ -420,7 +424,7 @@ module dpe_wg_encryptor
             muxed.tkeep  = keep_first(len16_t'(WG_HDR_TAIL_BYTES));
             muxed.tlast  = 1'b1;
             if (muxed_hs) begin
-              new_send_cnt_next    = peer.send_cnt + 1;
+              new_send_cnt_next    = peer_cfg.send_cnt + 1;
               update_send_cnt_next = 1'b1;
               emit_next            = EMIT_DONE;
             end
@@ -438,15 +442,15 @@ module dpe_wg_encryptor
     endcase
   end
 
-  assign fcr_idle = (state == IDLE) & ~piped.tvalid & ~outp.tvalid;
+  assign idle     = (state == IDLE) & ~piped.tvalid & ~outp.tvalid;
   assign peer_req = '{idx: peer_idx, new_send_cnt: new_send_cnt, update_send_cnt: update_send_cnt};
 
   // Encryptor core. The nonce: 4 zero bytes, then the counter
   // (little-endian; byte 0 in [7:0])
   chacha20poly1305_encrypt u_chacha20poly1305_encrypt (
       .clk_80p0              (inp.clk),
-      .encrypt_key           (peer.key),
-      .encrypt_nonce         ({peer.send_cnt, 32'd0}),
+      .encrypt_key           (peer_cfg.key),
+      .encrypt_nonce         ({peer_cfg.send_cnt, 32'd0}),
       .encrypt_aad           (256'd0),
       .encrypt_aad_len       (8'd0),
       .encrypt_s_axis_tdata  (to_encrypt.tdata),

@@ -90,7 +90,7 @@ module soc_cpu #(
     soc_if.MST          bus,
 
     // access point for reloading CPU program memory
-    input  logic        imem_cpu_rstn,
+    input  logic        imem_cpu_rst_n,
     input  logic        imem_we,
     input  logic [31:2] imem_waddr,
     input  logic [31:0] imem_wdat
@@ -177,8 +177,8 @@ module soc_cpu #(
       .CATCH_MISALIGN (1),
       .CATCH_ILLINSN  (1)
   ) u_cpu (
-      .clk    (bus.clk),                    //i
-      .resetn (bus.arst_n & imem_cpu_rstn), //i
+      .clk    (bus.clk),                     //i
+      .resetn (bus.arst_n & imem_cpu_rst_n), //i
 
       .trap (  /*LINT:OK*/),  // not monitored
 

@@ -55,7 +55,7 @@ static uint32_t        extirq          = 0;
 static uint32_t        swirq           = 0;
 
 // The CPU reset, VProc interrupt bit 3 (soc_cpu.VPROC.sv: bus.arst_n and
-// imem_cpu_rstn, as for the RTL cores). Assumed asserted until the first
+// imem_cpu_rst_n, as for the RTL cores). Assumed asserted until the first
 // interrupt callback says otherwise.
 static volatile bool   in_reset        = true;
 

@@ -44,7 +44,7 @@
 //   with IPv4, protocol UDP to wg_port (the listen port, CSR), the
 //   WireGuard message type, and the receiver index. The receiver index
 //   goes out on wg_rcv; the peer table answers combinationally from it
-//   with wg_peer (match, idx), sampled one clock later. The packet waits
+//   with rcv_rsp (match, idx), sampled one clock later. The packet waits
 //   in a buffer until then, so its first beat goes out with the answer:
 //     - WireGuard data of a known receiver index: tid = its peer,
 //       bypass_stage clear (the decryptor takes the peer from tid);
@@ -59,17 +59,17 @@
 //         |                                (8 beats)     |   (tid, tuser
 //         '--> parser --> wg_rcv --> lookup               |    from the
 //                |                     |                  |    decision)
-//                '-------> decision FIFO <-- wg_peer (match, idx)
+//                '-------> decision FIFO <-- rcv_rsp (match, idx)
 //==========================================================================
 
 module dpe_wg_disassembler
   import dpe_pkg::*;
   import net_pkg::*;
 (
-    output logic         fcr_idle,  // no packet in the disassembler
-    output wg_receiver_t wg_rcv,    // receiver index of the packet just parsed
-    input  rcv_rsp_t     wg_peer,   // its peer (lookup, combinational on wg_rcv)
-    input  udp_port_t    wg_port,   // the WireGuard UDP listen port (CSR)
+    output logic         idle,     // no packet in the disassembler
+    output wg_receiver_t wg_rcv,   // receiver index of the packet just parsed
+    input  rcv_rsp_t     rcv_rsp,  // its peer (lookup, combinational on wg_rcv)
+    input  udp_port_t    wg_port,  // the WireGuard UDP listen port (CSR)
     dpe_if.s_axis        inp,
     dpe_if.m_axis        outp
 );
@@ -77,7 +77,7 @@ module dpe_wg_disassembler
   // of the receiver index (the counter is not needed here)
   localparam int HDR_LAST_BEAT = beat_of(WG_RECEIVER_OFFSET + 3);  // 3
   localparam int FIFO_BEATS = 8;  // more than the header's beats: no deadlock
-  localparam int DEC_DEPTH = 16;  // a decision for every packet the data FIFO can hold
+  localparam int DCSN_DEPTH = 16;  // a decision for every packet the data FIFO can hold
 
   logic  in_hs;
   assign in_hs = inp.tvalid & inp.tready;
@@ -85,9 +85,9 @@ module dpe_wg_disassembler
   //------------------------------------------------------------------
   // Parser: one check per header beat, as the beats come in
   logic [ 1:0] in_beat;  // beat number in the packet, held at HDR_LAST_BEAT
-  logic        decided;  // this packet's decision is made
+  logic        hdr_done;  // this packet's decision is made
   logic        hdr_ok;  // every check so far passed
-  logic        pass_on;  // came in with bypass_all or bypass_stage: no change
+  logic        keep_tuser;  // came in with bypass_all or bypass_stage: no change
   logic [15:0] rcv_lo;  // receiver index, the bytes in beat 2
 
   logic        beat_ok;  // the check of this beat
@@ -109,41 +109,41 @@ module dpe_wg_disassembler
   end
 
   // This beat completes the packet's header (or the packet ends before)
-  logic decide, is_wg, first_pass_on;
+  logic decide, is_wg, first_keep_tuser;
   logic [31:0] wg_type;  // the WireGuard message type, from its beat (below)
   logic        is_hs;  // a handshake message (types 1 to 3): for the CPU
-  assign is_hs   = (in_beat == 2'(HDR_LAST_BEAT)) & hdr_ok & beat_ok & ~pass_on &
+  assign is_hs   = (in_beat == 2'(HDR_LAST_BEAT)) & hdr_ok & beat_ok & ~keep_tuser &
       (wg_type >= 32'd1) & (wg_type <= 32'd3);
-  assign first_pass_on = inp.tuser.bypass_all | inp.tuser.bypass_stage;
-  assign decide = in_hs & ~decided & ((in_beat == 2'(HDR_LAST_BEAT)) | inp.tlast);
+  assign first_keep_tuser = inp.tuser.bypass_all | inp.tuser.bypass_stage;
+  assign decide = in_hs & ~hdr_done & ((in_beat == 2'(HDR_LAST_BEAT)) | inp.tlast);
   // a WireGuard packet of another type (none is defined) is dropped as a bad one
-  assign is_wg = (in_beat == 2'(HDR_LAST_BEAT)) & hdr_ok & beat_ok & ~pass_on & ~is_hs;
+  assign is_wg = (in_beat == 2'(HDR_LAST_BEAT)) & hdr_ok & beat_ok & ~keep_tuser & ~is_hs;
 
   always_ff @(posedge inp.clk) begin
     if (inp.rst) begin
-      in_beat <= '0;
-      decided <= 1'b0;
-      hdr_ok  <= 1'b0;
-      pass_on <= 1'b0;
-      rcv_lo  <= '0;
-      wg_type <= '0;
+      in_beat    <= '0;
+      hdr_done   <= 1'b0;
+      hdr_ok     <= 1'b0;
+      keep_tuser <= 1'b0;
+      rcv_lo     <= '0;
+      wg_type    <= '0;
     end
     else if (in_hs) begin
       if (inp.tlast) begin
-        in_beat <= '0;
-        decided <= 1'b0;
+        in_beat  <= '0;
+        hdr_done <= 1'b0;
       end
       else begin
         if (in_beat != 2'(HDR_LAST_BEAT)) begin
           in_beat <= in_beat + 2'd1;
         end
         if (decide) begin
-          decided <= 1'b1;
+          hdr_done <= 1'b1;
         end
       end
       hdr_ok <= (in_beat == '0) ? beat_ok : hdr_ok & beat_ok;
       if (in_beat == '0) begin
-        pass_on <= first_pass_on;
+        keep_tuser <= first_keep_tuser;
       end
       if (in_beat == 2'(beat_of(WG_TYPE_OFFSET))) begin
         wg_type <= le32(inp.tdata, WG_TYPE_OFFSET);
@@ -156,28 +156,28 @@ module dpe_wg_disassembler
 
   //------------------------------------------------------------------
   // Lookup: wg_rcv registered at the decision, its answer a clock later
-  logic dec_pending;  // a decision waits for the lookup's answer
-  logic dec_is_wg;  // ... of a WireGuard data packet (or a bad WireGuard one)
-  logic dec_is_data;  // ... and of type data
-  logic dec_is_hs;  // ... of a WireGuard handshake: for the CPU
-  logic dec_pass_on;  // ... of a packet to pass on unchanged
+  logic dcsn_pending;  // a decision waits for the lookup's answer
+  logic dcsn_is_wg;  // ... of a WireGuard data packet (or a bad WireGuard one)
+  logic dcsn_is_data;  // ... and of type data
+  logic dcsn_is_hs;  // ... of a WireGuard handshake: for the CPU
+  logic dcsn_keep_tuser;  // ... of a packet to pass on unchanged
 
   always_ff @(posedge inp.clk) begin
     if (inp.rst) begin
-      dec_pending <= 1'b0;
-      dec_is_wg   <= 1'b0;
-      dec_is_data <= 1'b0;
-      dec_is_hs   <= 1'b0;
-      dec_pass_on <= 1'b0;
-      wg_rcv      <= '0;
+      dcsn_pending    <= 1'b0;
+      dcsn_is_wg      <= 1'b0;
+      dcsn_is_data    <= 1'b0;
+      dcsn_is_hs      <= 1'b0;
+      dcsn_keep_tuser <= 1'b0;
+      wg_rcv          <= '0;
     end
     else begin
-      dec_pending <= decide;
+      dcsn_pending <= decide;
       if (decide) begin
-        dec_is_wg   <= is_wg;
-        dec_is_data <= wg_type == WG_TYPE_DATA;
-        dec_is_hs   <= is_hs;
-        dec_pass_on <= (in_beat == '0) ? first_pass_on : pass_on;
+        dcsn_is_wg      <= is_wg;
+        dcsn_is_data    <= wg_type == WG_TYPE_DATA;
+        dcsn_is_hs      <= is_hs;
+        dcsn_keep_tuser <= (in_beat == '0) ? first_keep_tuser : keep_tuser;
         if (is_wg) begin
           wg_rcv <= {le16(inp.tdata, WG_RECEIVER_OFFSET + 2), rcv_lo};
         end
@@ -188,47 +188,47 @@ module dpe_wg_disassembler
   //------------------------------------------------------------------
   // Decision FIFO: one entry per packet, in packet order
   typedef struct packed {
-    logic          to_peer;  // tid = peer, bypass_stage clear
-    logic          to_cpu;   // a handshake: bypass_all, to the CPU
-    logic          drop;     // WireGuard data of an unknown receiver index, or bad
-    logic          pass_on;  // unchanged
-    dpe_peer_idx_t peer;
-  } decision_t;
+    logic          decrypt;     // tid = peer, bypass_stage clear
+    logic          to_cpu;      // a handshake: bypass_all, to the CPU
+    logic          drop;        // WireGuard data of an unknown receiver index, or bad
+    logic          keep_tuser;  // unchanged
+    dpe_peer_idx_t peer_idx;
+  } dcsn_t;
 
-  decision_t dec_mem[DEC_DEPTH];
-  logic [$clog2(DEC_DEPTH):0] dec_wr, dec_rd;  // one bit more: full and empty
-  logic dec_avail, dec_pop;
-  decision_t dec;
+  dcsn_t dcsn_mem[DCSN_DEPTH];
+  logic [$clog2(DCSN_DEPTH):0] dcsn_wr, dcsn_rd;  // one bit more: full and empty
+  logic dcsn_avail, dcsn_pop;
+  dcsn_t dcsn;
 
-  assign dec_avail = dec_wr != dec_rd;
-  assign dec       = dec_mem[dec_rd[$clog2(DEC_DEPTH)-1:0]];
+  assign dcsn_avail = dcsn_wr != dcsn_rd;
+  assign dcsn       = dcsn_mem[dcsn_rd[$clog2(DCSN_DEPTH)-1:0]];
 
   always_ff @(posedge inp.clk) begin
-    if (dec_pending) begin
-      dec_mem[dec_wr[$clog2(
-          DEC_DEPTH
+    if (dcsn_pending) begin
+      dcsn_mem[dcsn_wr[$clog2(
+          DCSN_DEPTH
       )-1:0]] <=
       '{
-          to_peer: dec_is_wg & dec_is_data & wg_peer.match & !dec_pass_on,
-          to_cpu: dec_is_hs & !dec_pass_on,
-          drop: dec_is_wg & !(dec_is_data & wg_peer.match) & !dec_pass_on,
-          pass_on: dec_pass_on,
-          peer: wg_peer.idx
+          decrypt: dcsn_is_wg & dcsn_is_data & rcv_rsp.match & !dcsn_keep_tuser,
+          to_cpu: dcsn_is_hs & !dcsn_keep_tuser,
+          drop: dcsn_is_wg & !(dcsn_is_data & rcv_rsp.match) & !dcsn_keep_tuser,
+          keep_tuser: dcsn_keep_tuser,
+          peer_idx: rcv_rsp.idx
       };
     end
   end
 
   always_ff @(posedge inp.clk) begin
     if (inp.rst) begin
-      dec_wr <= '0;
-      dec_rd <= '0;
+      dcsn_wr <= '0;
+      dcsn_rd <= '0;
     end
     else begin
-      if (dec_pending) begin
-        dec_wr <= dec_wr + 1'b1;
+      if (dcsn_pending) begin
+        dcsn_wr <= dcsn_wr + 1'b1;
       end
-      if (dec_pop) begin
-        dec_rd <= dec_rd + 1'b1;
+      if (dcsn_pop) begin
+        dcsn_rd <= dcsn_rd + 1'b1;
       end
     end
   end
@@ -256,9 +256,9 @@ module dpe_wg_disassembler
 
   //------------------------------------------------------------------
   // Output: each beat with its packet's decision
-  assign outp.tvalid     = buffered.tvalid & dec_avail & ~dec.drop;
-  assign buffered.tready = (outp.tready | dec.drop) & dec_avail;
-  assign dec_pop         = buffered.tvalid & buffered.tready & buffered.tlast;
+  assign outp.tvalid     = buffered.tvalid & dcsn_avail & ~dcsn.drop;
+  assign buffered.tready = (outp.tready | dcsn.drop) & dcsn_avail;
+  assign dcsn_pop        = buffered.tvalid & buffered.tready & buffered.tlast;
 
   assign outp.tdata      = buffered.tdata;
   assign outp.tkeep      = buffered.tkeep;
@@ -267,19 +267,19 @@ module dpe_wg_disassembler
   always_comb begin
     outp.tuser = buffered.tuser;
     outp.tid   = buffered.tid;
-    if (dec.to_cpu) begin
+    if (dcsn.to_cpu) begin
       outp.tuser.bypass_all = 1'b1;
       outp.tuser.dst        = DPE_ADDR_CPU;
     end
-    else if (!dec.pass_on) begin
-      outp.tuser.bypass_stage = !dec.to_peer;
-      if (dec.to_peer) begin
-        outp.tid = dec.peer;
+    else if (!dcsn.keep_tuser) begin
+      outp.tuser.bypass_stage = !dcsn.decrypt;
+      if (dcsn.decrypt) begin
+        outp.tid = dcsn.peer_idx;
       end
     end
   end
 
-  assign fcr_idle = ~buffered.tvalid & ~dec_avail & ~dec_pending & (in_beat == '0);
+  assign idle = ~buffered.tvalid & ~dcsn_avail & ~dcsn_pending & (in_beat == '0);
 endmodule
 
 // -----------------------------------------------------------------------------

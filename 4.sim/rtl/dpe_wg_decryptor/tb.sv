@@ -66,7 +66,7 @@ module tb
     dpe_wg_encryptor encryptor (
         .inp                (to_enc),
         .outp               (from_enc),
-        .fcr_idle           (enc_idle),
+        .idle           (enc_idle),
         .peer_req (),
         .peer_rsp (PEER)
     );
@@ -109,7 +109,7 @@ module tb
   dpe_wg_decryptor decryptor (
       .inp                (to_dec),
       .outp               (from_dec),
-      .fcr_idle           (dec_idle),
+      .idle           (dec_idle),
       .peer_req (),
       .peer_rsp (PEER)
   );

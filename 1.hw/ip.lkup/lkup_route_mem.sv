@@ -68,9 +68,9 @@ module lkup_route_mem
 
     // Lookup Interface: the first entry that matches req_ip
     input  logic       [           31:0] req_ip,
-    output logic                         resp_hit,
-    output logic       [ROUTE_IDX_W-1:0] resp_route_idx,
-    output route_act_t                   resp             // what it does
+    output logic                         rsp_hit,
+    output logic       [ROUTE_IDX_W-1:0] rsp_route_idx,
+    output route_act_t                   rsp             // what it does
 );
 
   route_t routes[ENTRY_COUNT];
@@ -85,8 +85,8 @@ module lkup_route_mem
     if (we.mask) begin
       routes[waddr].mask <= wdata.mask;
     end
-    if (we.peer) begin
-      routes[waddr].act.peer <= wdata.act.peer;
+    if (we.peer_idx) begin
+      routes[waddr].act.peer_idx <= wdata.act.peer_idx;
     end
     if (we.encrypt) begin
       routes[waddr].act.encrypt <= wdata.act.encrypt;
@@ -129,9 +129,9 @@ module lkup_route_mem
     end
   end
 
-  assign resp_hit       = hit_found;
-  assign resp_route_idx = hit_found ? best_idx             : '0;
-  assign resp           = hit_found ? routes[best_idx].act : DEFAULT;
+  assign rsp_hit       = hit_found;
+  assign rsp_route_idx = hit_found ? best_idx             : '0;
+  assign rsp           = hit_found ? routes[best_idx].act : DEFAULT;
 
 endmodule
 

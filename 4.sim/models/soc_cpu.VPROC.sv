@@ -92,7 +92,7 @@ module soc_cpu #(
    soc_if.MST         bus,
 
 // access point for reloading CPU program memory
-   input logic        imem_cpu_rstn,
+   input logic        imem_cpu_rst_n,
    input logic        imem_we,
    input logic [31:2] imem_waddr,
    input logic [31:0] imem_wdat
@@ -190,11 +190,11 @@ end
 //-----------------------------------------------------
 
 // CPU reset, as the RTL cores take it (soc_cpu.PICORV32/EDUBOS5): the bus
-// reset, or imem_cpu_rstn while the UART reprograms IMEM. It drives VProc
+// reset, or imem_cpu_rst_n while the UART reprograms IMEM. It drives VProc
 // interrupt bit 3; the ISS (models/rv32/usercode) waits for its release and
 // restarts at the reset vector on a new reset. Native code ignores it.
 logic                 cpu_rst;
-assign cpu_rst        = ~(bus.arst_n & imem_cpu_rstn);
+assign cpu_rst        = ~(bus.arst_n & imem_cpu_rst_n);
 
    VProc #(
       .INT_WIDTH             (4),

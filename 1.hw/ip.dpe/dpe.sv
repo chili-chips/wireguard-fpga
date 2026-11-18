@@ -74,9 +74,9 @@ module dpe
   assign to_csr_dpe.fcr.idle.next = mux_idle & switch_idle;
 
   // DPE multiplexer
-  dpe_mux u_dpe_multiplexer (
+  dpe_mux u_dpe_mux (
       .pause      (from_csr.dpe.fcr.pause.value),
-      .is_idle    (mux_idle),
+      .idle       (mux_idle),
       .from_cpu   (from_cpu),
       .from_eth_1 (from_eth_1),
       .from_eth_2 (from_eth_2),
@@ -89,7 +89,7 @@ module dpe
   // data path (dpe_switch.sv), as top.filelist lists; each owns both tables
   dpe_switch u_dpe_switch (
       .inp     (muxed_1),
-      .out     (muxed_2),
+      .outp    (muxed_2),
       .idle    (switch_idle),
       .wg_port (from_csr.dpe.wg_port.port.value),
       .rt_cfg  (from_csr.routing_table),
@@ -99,7 +99,7 @@ module dpe
   );
 
   // DPE demultiplexer
-  dpe_demux u_dpe_demultiplexer (
+  dpe_demux u_dpe_demux (
       .from_dpe (muxed_2),
       .to_cpu   (to_cpu),
       .to_eth_1 (to_eth_1),

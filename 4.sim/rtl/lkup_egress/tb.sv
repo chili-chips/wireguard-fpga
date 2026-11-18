@@ -34,16 +34,16 @@ module tb;
   dpe_if from_dut (.clk(clk), .rst(rst));
   dpe_if to_snk   (.clk(clk), .rst(rst));
 
-  csr_cfg_t csr_cfg;
-  csr_sta_t csr_sta;
+  rt_cfg_t csr_cfg;
+  rt_sta_t csr_sta;
 
   dpe_tb_throttle #(.PASS_PCT(60), .SEED(16'hACE1)) stall_in  (.inp(from_src), .outp(to_dut));
   dpe_tb_throttle #(.PASS_PCT(60), .SEED(16'h1D2C)) stall_out (.inp(from_dut), .outp(to_snk));
 
   lkup_egress #(.ENTRY_COUNT(ENTRIES)) dut (
-      .s_axis  (to_dut),
-      .m_axis  (from_dut),
-      .fcr_idle(),
+      .inp  (to_dut),
+      .outp  (from_dut),
+      .idle(),
       .csr_cfg (csr_cfg),
       .csr_sta (csr_sta)
   );
@@ -64,9 +64,9 @@ module tb;
   // route; entries 4 to 62: host routes nothing here uses
   //------------------------------------------------------------------
   typedef struct {
-    logic [31:0]   ip;
+    logic [31:0]   prefix;
     logic [31:0]   mask;
-    dpe_peer_idx_t peer;
+    dpe_peer_idx_t peer_idx;
     logic          encrypt;  // through the tunnel to peer
     dpe_addr_t     dst;
   } route_t;
@@ -79,31 +79,31 @@ module tb;
 
   initial begin
     for (int i = 0; i < ENTRIES; i++)
-      table_m[i] = '{ip: ip4(172, 31, 255, i), mask: '1, peer: dpe_peer_idx_t'(8'h40 + i),
+      table_m[i] = '{prefix: ip4(172, 31, 255, i), mask: '1, peer_idx: dpe_peer_idx_t'(8'h40 + i),
                      encrypt: i[0], dst: DPE_ADDR_CPU};
-    table_m[0]  = '{ip: ip4(10, 1, 2, 0),    mask: ip4(255, 255, 255, 0), peer: 8'd9, encrypt: 1,
+    table_m[0]  = '{prefix: ip4(10, 1, 2, 0),    mask: ip4(255, 255, 255, 0), peer_idx: 8'd9, encrypt: 1,
                     dst: DPE_ADDR_ETH_3};
-    table_m[1]  = '{ip: ip4(10, 1, 0, 0),    mask: ip4(255, 255, 0, 0),   peer: 8'd5, encrypt: 0,
+    table_m[1]  = '{prefix: ip4(10, 1, 0, 0),    mask: ip4(255, 255, 0, 0),   peer_idx: 8'd5, encrypt: 0,
                     dst: DPE_ADDR_ETH_2};
-    table_m[2]  = '{ip: ip4(10, 0, 0, 0),    mask: ip4(255, 0, 0, 0),     peer: 8'd3, encrypt: 1,
+    table_m[2]  = '{prefix: ip4(10, 0, 0, 0),    mask: ip4(255, 0, 0, 0),     peer_idx: 8'd3, encrypt: 1,
                     dst: DPE_ADDR_ETH_1};
-    table_m[3]  = '{ip: ip4(192, 168, 1, 0), mask: ip4(255, 255, 255, 0), peer: 8'd7, encrypt: 0,
+    table_m[3]  = '{prefix: ip4(192, 168, 1, 0), mask: ip4(255, 255, 255, 0), peer_idx: 8'd7, encrypt: 0,
                     dst: DPE_ADDR_ETH_4};
     // 0.0.0.0/16, unlike the defaults: a short frame (its address read as 0.0.x.x)
     // must not get it; other addresses can miss the table
-    table_m[63] = '{ip: '0, mask: ip4(255, 255, 0, 0), peer: 8'h3F, encrypt: 1, dst: DPE_ADDR_ETH_4};
+    table_m[63] = '{prefix: '0, mask: ip4(255, 255, 0, 0), peer_idx: 8'h3F, encrypt: 1, dst: DPE_ADDR_ETH_4};
   end
 
   // the peer_idx register: peer_idx in [7:0], encrypt in bit 8
   function automatic logic [31:0] peer_word(route_t e);
-    return {23'd0, e.encrypt, e.peer};
+    return {23'd0, e.encrypt, e.peer_idx};
   endfunction
 
   // the entry lkup_route_mem picks: the first that matches
-  function automatic route_t lookup(logic [31:0] ip);
+  function automatic route_t lookup(logic [31:0] prefix);
     for (int i = 0; i < ENTRIES; i++)
-      if ((ip & table_m[i].mask) == (table_m[i].ip & table_m[i].mask)) return table_m[i];
-    return '{ip: '0, mask: '0, peer: '0, encrypt: 0, dst: DPE_ADDR_CPU};  // the defaults
+      if ((prefix & table_m[i].mask) == (table_m[i].prefix & table_m[i].mask)) return table_m[i];
+    return '{prefix: '0, mask: '0, peer_idx: '0, encrypt: 0, dst: DPE_ADDR_CPU};  // the defaults
   endfunction
 
   //------------------------------------------------------------------
@@ -234,7 +234,7 @@ module tb;
   function automatic logic dropped(int f);
     route_t rs = lookup(ip_src[f]);
     return !frames[f].bypass_all && !frames[f].bypass_stage && routed(f) &&
-        !(rs.encrypt && rs.peer == frames[f].tid);
+        !(rs.encrypt && rs.peer_idx == frames[f].tid);
   endfunction
 
   // the sink: always ready (stall_out makes the backpressure); checks
@@ -254,7 +254,7 @@ module tb;
         automatic int beats = (frames[f].len + 15) / 16;
         // a frame shorter than its IPv4 destination: the defaults (CPU, not encrypted)
         automatic route_t r = routed(f) ? lookup(frames[f].ip_dst) :
-            '{ip: '0, mask: '0, peer: '0, encrypt: 0, dst: DPE_ADDR_CPU};
+            '{prefix: '0, mask: '0, peer_idx: '0, encrypt: 0, dst: DPE_ADDR_CPU};
         automatic dpe_tuser_t want_user;
         automatic dpe_peer_idx_t want_tid;
         automatic logic bad = 1'b0;
@@ -267,7 +267,7 @@ module tb;
           // the encryptor next: bypassed unless the route goes through the tunnel
           want_user = '{bypass_all: 1'b0, bypass_stage: ~r.encrypt,
                         src: DPE_ADDR_CPU, dst: r.dst};
-          want_tid = r.peer;
+          want_tid = r.peer_idx;
         end
         if (to_snk.tkeep !== keep_of(f, rx_beat) || to_snk.tlast !== (rx_beat == beats - 1))
           bad = 1'b1;
@@ -368,13 +368,13 @@ module tb;
 
     // 1. the table, over the CSR port, then read back
     for (int i = 0; i < ENTRIES; i++) begin
-      csr_write(i, 0, table_m[i].ip);
+      csr_write(i, 0, table_m[i].prefix);
       csr_write(i, 1, table_m[i].mask);
       csr_write(i, 2, peer_word(table_m[i]));
       csr_write(i, 3, 32'(table_m[i].dst));
     end
     for (int i = 0; i < 4; i++) begin
-      csr_read(i, 0, table_m[i].ip);
+      csr_read(i, 0, table_m[i].prefix);
       csr_read(i, 1, table_m[i].mask);
       csr_read(i, 2, peer_word(table_m[i]));
       csr_read(i, 3, 32'(table_m[i].dst));
@@ -386,7 +386,7 @@ module tb;
     csr_read(60, 2, peer_word(table_m[60]));
     // and peer_idx alone (byte 0): encrypt stays
     csr_write(61, 2, 32'h0000_0055, 32'h0000_00FF);
-    table_m[61].peer = 8'h55;
+    table_m[61].peer_idx = 8'h55;
     csr_read(61, 2, peer_word(table_m[61]));
 
     // 2. the frames

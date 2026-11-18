@@ -42,7 +42,7 @@
 //
 //   inp --> disassembler --> decryptor --> egress lookup --> encryptor --> out
 //               |  ^             |  ^         (routing      |  ^
-//         wg_rcv|  |wg_peer       peer_req     table, CSR)  peer_req
+//         wg_rcv|  |rcv_rsp       peer_req     table, CSR)  peer_req
 //               v  |             v  |                       v  |
 //            +-------------------------------------------------------+
 //            |   peer table (cryptokey table, CSR): lkup_peer_table   |
@@ -65,13 +65,13 @@ module dpe_switch
   import lkup_pkg::*;
 (
     dpe_if.s_axis     inp,
-    dpe_if.m_axis     out,
+    dpe_if.m_axis     outp,
     output logic      idle,
     input  udp_port_t wg_port,  // the WireGuard listen port (csr.dpe.wg_port)
 
     // the CSR routing_table and cryptokey_table regfiles (csr.rdl)
-    input  csr_cfg_t  rt_cfg,
-    output csr_sta_t  rt_sta,
+    input  rt_cfg_t   rt_cfg,
+    output rt_sta_t   rt_sta,
     input  ck_cfg_t   ck_cfg,
     output ck_sta_t   ck_sta
 );
@@ -90,24 +90,24 @@ module dpe_switch
   );
 
   wg_receiver_t wg_rcv;
-  rcv_rsp_t     wg_peer;
+  rcv_rsp_t     rcv_rsp;
   peer_req_t dec_req, enc_req;
   wg_peer_cfg_t dec_peer, enc_peer;
   logic dis_idle, dec_idle, lkup_idle, enc_idle;
 
   dpe_wg_disassembler u_disassembler (
-      .fcr_idle (dis_idle),
-      .wg_rcv   (wg_rcv),
-      .wg_peer  (wg_peer),
-      .wg_port  (wg_port),
-      .inp      (inp),
-      .outp     (disassembled)
+      .idle    (dis_idle),
+      .wg_rcv  (wg_rcv),
+      .rcv_rsp (rcv_rsp),
+      .wg_port (wg_port),
+      .inp     (inp),
+      .outp    (disassembled)
   );
 
   dpe_wg_decryptor u_decryptor (
       .inp      (disassembled),
       .outp     (decrypted),
-      .fcr_idle (dec_idle),
+      .idle     (dec_idle),
       .peer_req (dec_req),
       .peer_rsp (dec_peer)
   );
@@ -115,17 +115,17 @@ module dpe_switch
   lkup_egress #(
       .ENTRY_COUNT (64)
   ) u_egress (
-      .s_axis   (decrypted),
-      .m_axis   (routed),
-      .fcr_idle (lkup_idle),
-      .csr_cfg  (rt_cfg),
-      .csr_sta  (rt_sta)
+      .inp     (decrypted),
+      .outp    (routed),
+      .idle    (lkup_idle),
+      .csr_cfg (rt_cfg),
+      .csr_sta (rt_sta)
   );
 
   dpe_wg_encryptor u_encryptor (
       .inp      (routed),
-      .outp     (out),
-      .fcr_idle (enc_idle),
+      .outp     (outp),
+      .idle     (enc_idle),
       .peer_req (enc_req),
       .peer_rsp (enc_peer)
   );
@@ -140,7 +140,7 @@ module dpe_switch
       .dec_req  (dec_req),
       .dec_peer (dec_peer),
       .rcv      (wg_rcv),
-      .rcv_rsp  (wg_peer)
+      .rcv_rsp  (rcv_rsp)
   );
 
   assign idle = dis_idle & dec_idle & lkup_idle & enc_idle;

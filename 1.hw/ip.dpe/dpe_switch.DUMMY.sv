@@ -76,18 +76,18 @@ module dpe_switch
   import dpe_pkg::*;
   import lkup_pkg::*;
 (
-    dpe_if.s_axis           inp,
-    dpe_if.m_axis           out,
-    output logic            idle,     // nothing to wait for: the crossbar decides at once
+    dpe_if.s_axis          inp,
+    dpe_if.m_axis          outp,
+    output logic           idle,     // nothing to wait for: the crossbar decides at once
     // verilator lint_off UNUSEDSIGNAL
-    input  logic     [15:0] wg_port,  // not used: the crossbar knows no WireGuard
+    input  logic    [15:0] wg_port,  // not used: the crossbar knows no WireGuard
     // verilator lint_on UNUSEDSIGNAL
 
     // the CSR routing_table and cryptokey_table regfiles (csr.rdl)
-    input  csr_cfg_t        rt_cfg,
-    output csr_sta_t        rt_sta,
-    input  ck_cfg_t         ck_cfg,
-    output ck_sta_t         ck_sta
+    input  rt_cfg_t        rt_cfg,
+    output rt_sta_t        rt_sta,
+    input  ck_cfg_t        ck_cfg,
+    output ck_sta_t        ck_sta
 );
 
   dpe_if outp_sbuff (
@@ -190,7 +190,7 @@ module dpe_switch
   // Skid buffers
   dpe_if_skid_buffer skid_buffer_outp (
       .inp  (outp_sbuff),
-      .outp (out)
+      .outp (outp)
   );
 endmodule
 

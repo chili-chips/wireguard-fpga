@@ -48,7 +48,7 @@ module tb;
    logic clk;
    logic rst;
    logic pcapfinished;
-   logic fcr_idle;
+   logic idle;
 
    dpe_if from_pcap(.clk(clk), .rst(rst));
    dpe_if to_encryptor(.clk(clk), .rst(rst));
@@ -92,7 +92,7 @@ module tb;
       .inp(to_encryptor),
       .outp(from_encryptor),
 
-      .fcr_idle(fcr_idle),
+      .idle(idle),
 
       .peer_req(),
       .peer_rsp(PEER)
@@ -124,7 +124,7 @@ module tb;
 	      @(negedge clk);
 	   end
 
-      while (~fcr_idle) begin
+      while (~idle) begin
 	      @(negedge clk);
 	   end
 

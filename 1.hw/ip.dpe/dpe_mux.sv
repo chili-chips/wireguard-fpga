@@ -44,7 +44,7 @@ module dpe_mux
   import dpe_pkg::*;
 (
     input  logic  pause,
-    output logic  is_idle,
+    output logic  idle,
 
     dpe_if.s_axis from_cpu,
     dpe_if.s_axis from_eth_1,
@@ -68,7 +68,7 @@ module dpe_mux
     S4
   } state_t;
 
-  state_t state, next_state;
+  state_t state, state_next;
 
   dpe_if to_dpe_sbuff (
       .clk (from_cpu.clk),
@@ -81,144 +81,144 @@ module dpe_mux
       state <= IDLE;
     end
     else begin
-      state <= next_state;
+      state <= state_next;
     end
   end
 
   // FSM transition logic
   always_comb begin
-    next_state = state;
+    state_next = state;
 
     unique case (state)
       IDLE: begin
         if (!pause) begin
-          next_state = R0;
+          state_next = R0;
         end
       end
 
       R0: begin
         if (from_cpu.tvalid && to_dpe_sbuff.tready) begin
-          next_state = S0;
+          state_next = S0;
         end
         else if (pause) begin
-          next_state = IDLE;
+          state_next = IDLE;
         end
         else if (!from_cpu.tvalid && to_dpe_sbuff.tready) begin
-          next_state = R1;
+          state_next = R1;
         end
       end
 
       S0: begin
         if (from_cpu.tlast && from_cpu.tvalid && to_dpe_sbuff.tready) begin
           if (pause) begin
-            next_state = IDLE;
+            state_next = IDLE;
           end
           else begin
-            next_state = R1;
+            state_next = R1;
           end
         end
       end
 
       R1: begin
         if (from_eth_1.tvalid && to_dpe_sbuff.tready) begin
-          next_state = S1;
+          state_next = S1;
         end
         else if (pause) begin
-          next_state = IDLE;
+          state_next = IDLE;
         end
         else if (!from_eth_1.tvalid && to_dpe_sbuff.tready) begin
-          next_state = R2;
+          state_next = R2;
         end
       end
 
       S1: begin
         if (from_eth_1.tlast && from_eth_1.tvalid && to_dpe_sbuff.tready) begin
           if (pause) begin
-            next_state = IDLE;
+            state_next = IDLE;
           end
           else begin
-            next_state = R2;
+            state_next = R2;
           end
         end
       end
 
       R2: begin
         if (from_eth_2.tvalid && to_dpe_sbuff.tready) begin
-          next_state = S2;
+          state_next = S2;
         end
         else if (pause) begin
-          next_state = IDLE;
+          state_next = IDLE;
         end
         else if (!from_eth_2.tvalid && to_dpe_sbuff.tready) begin
-          next_state = R3;
+          state_next = R3;
         end
       end
 
       S2: begin
         if (from_eth_2.tlast && from_eth_2.tvalid && to_dpe_sbuff.tready) begin
           if (pause) begin
-            next_state = IDLE;
+            state_next = IDLE;
           end
           else begin
-            next_state = R3;
+            state_next = R3;
           end
         end
       end
 
       R3: begin
         if (from_eth_3.tvalid && to_dpe_sbuff.tready) begin
-          next_state = S3;
+          state_next = S3;
         end
         else if (pause) begin
-          next_state = IDLE;
+          state_next = IDLE;
         end
         else if (!from_eth_3.tvalid && to_dpe_sbuff.tready) begin
-          next_state = R4;
+          state_next = R4;
         end
       end
 
       S3: begin
         if (from_eth_3.tlast && from_eth_3.tvalid && to_dpe_sbuff.tready) begin
           if (pause) begin
-            next_state = IDLE;
+            state_next = IDLE;
           end
           else begin
-            next_state = R4;
+            state_next = R4;
           end
         end
       end
 
       R4: begin
         if (from_eth_4.tvalid && to_dpe_sbuff.tready) begin
-          next_state = S4;
+          state_next = S4;
         end
         else if (pause) begin
-          next_state = IDLE;
+          state_next = IDLE;
         end
         else if (!from_eth_4.tvalid && to_dpe_sbuff.tready) begin
-          next_state = R0;
+          state_next = R0;
         end
       end
 
       S4: begin
         if (from_eth_4.tlast && from_eth_4.tvalid && to_dpe_sbuff.tready) begin
           if (pause) begin
-            next_state = IDLE;
+            state_next = IDLE;
           end
           else begin
-            next_state = R0;
+            state_next = R0;
           end
         end
       end
 
-      default: next_state = state;
+      default: state_next = state;
     endcase
   end
 
   // Outputs logic
   always_comb begin
     // Default assignments
-    is_idle             = 1'b0;
+    idle                = 1'b0;
     to_dpe_sbuff.tvalid = 1'b0;
     to_dpe_sbuff.tdata  = '0;
     to_dpe_sbuff.tlast  = 1'b0;
@@ -233,11 +233,11 @@ module dpe_mux
 
     unique case (state)
       IDLE: begin
-        is_idle = !to_dpe.tvalid;
+        idle = !to_dpe.tvalid;
       end
 
       R0, S0: begin
-        is_idle                = 1'b0;
+        idle                   = 1'b0;
         to_dpe_sbuff.tvalid    = from_cpu.tvalid;
         to_dpe_sbuff.tdata     = from_cpu.tdata;
         to_dpe_sbuff.tlast     = from_cpu.tlast;
@@ -248,7 +248,7 @@ module dpe_mux
       end
 
       R1, S1: begin
-        is_idle                = 1'b0;
+        idle                   = 1'b0;
         to_dpe_sbuff.tvalid    = from_eth_1.tvalid;
         to_dpe_sbuff.tdata     = from_eth_1.tdata;
         to_dpe_sbuff.tlast     = from_eth_1.tlast;
@@ -259,7 +259,7 @@ module dpe_mux
       end
 
       R2, S2: begin
-        is_idle                = 1'b0;
+        idle                   = 1'b0;
         to_dpe_sbuff.tvalid    = from_eth_2.tvalid;
         to_dpe_sbuff.tdata     = from_eth_2.tdata;
         to_dpe_sbuff.tlast     = from_eth_2.tlast;
@@ -270,7 +270,7 @@ module dpe_mux
       end
 
       R3, S3: begin
-        is_idle                = 1'b0;
+        idle                   = 1'b0;
         to_dpe_sbuff.tvalid    = from_eth_3.tvalid;
         to_dpe_sbuff.tdata     = from_eth_3.tdata;
         to_dpe_sbuff.tlast     = from_eth_3.tlast;
@@ -281,7 +281,7 @@ module dpe_mux
       end
 
       R4, S4: begin
-        is_idle                = 1'b0;
+        idle                   = 1'b0;
         to_dpe_sbuff.tvalid    = from_eth_4.tvalid;
         to_dpe_sbuff.tdata     = from_eth_4.tdata;
         to_dpe_sbuff.tlast     = from_eth_4.tlast;
@@ -291,7 +291,7 @@ module dpe_mux
         from_eth_4.tready      = to_dpe_sbuff.tready;
       end
 
-      default: is_idle = !to_dpe.tvalid;
+      default: idle = !to_dpe.tvalid;
     endcase
   end
 

@@ -70,7 +70,7 @@ module bfm_egress #(
      logic [31:0] netmask;
      int          prefix_len;
      logic [2:0]  dst_port;
-     logic [7:0]  peer_id;
+     logic [7:0]  peer_idx;
   } route_t;
 
   // Route queue
@@ -138,7 +138,7 @@ module bfm_egress #(
       csr_write_word(base_addr + 4, r.netmask);
       
       // Write PEER (offset 8)
-      csr_write_word(base_addr + 8, {24'd0, r.peer_id});
+      csr_write_word(base_addr + 8, {24'd0, r.peer_idx});
 
       // Write DST (offset 12)
       csr_write_word(base_addr + 12, {29'd0, r.dst_port});
@@ -154,7 +154,7 @@ module bfm_egress #(
      r.prefix_len = len;
      r.netmask    = mask_from_len(len);
      r.dst_port   = dst[2:0];
-     r.peer_id    = peer[7:0];
+     r.peer_idx    = peer[7:0];
      
      route_queue.push_back(r);
   endfunction

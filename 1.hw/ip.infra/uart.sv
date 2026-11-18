@@ -69,7 +69,7 @@ module uart
     output csr__uart__in_t        to_csr,
 
     // IMEM Write port, for live updates of CPU program
-    output logic                  imem_cpu_rstn,
+    output logic                  imem_cpu_rst_n,
     output logic                  imem_we,
     output logic           [31:2] imem_waddr,
     output logic           [31:0] imem_wdat,
@@ -614,7 +614,7 @@ module uart
   assign uart_rx_data  = rx_shift;
   assign uart_rx_valid = rx_fifo_we;
 
-  logic cpu_rstn, cpu_rstn_next;
+  logic cpu_rst_n, cpu_rst_n_next;
   logic [15:0] data_length, data_length_next;
   logic [15:0] data_cnt, data_cnt_next;
   logic ram_wen, ram_wen_next;
@@ -630,7 +630,7 @@ module uart
   always_ff @(negedge arst_n or posedge clk) begin
     if (arst_n == 1'b0) begin
       state         <= T_STATES_WAIT_SOP;
-      cpu_rstn      <= 1'b1;
+      cpu_rst_n     <= 1'b1;
       data_length   <= '0;
       data_cnt      <= '0;
       ram_wen       <= 1'b0;
@@ -648,7 +648,7 @@ module uart
     end
     else begin
       state         <= state_next;
-      cpu_rstn      <= cpu_rstn_next;
+      cpu_rst_n     <= cpu_rst_n_next;
       data_length   <= data_length_next;
       data_cnt      <= data_cnt_next;
       ram_wen       <= ram_wen_next;
@@ -668,7 +668,7 @@ module uart
 
   always_comb begin
     state_next         = state;
-    cpu_rstn_next      = cpu_rstn;
+    cpu_rst_n_next     = cpu_rst_n;
     data_length_next   = data_length;
     data_cnt_next      = data_cnt;
     ram_wen_next       = ram_wen;
@@ -696,11 +696,11 @@ module uart
         if (uart_rx_valid == 1'b1) begin
           unique case (uart_rx_data)
             C_IMPR: begin
-              cpu_rstn_next = 1'b0;
-              data_cnt_next = '0;
-              checksum_next = '0;
-              timeout_next  = '0;
-              state_next    = T_STATES_IMPR_WAIT_LEN_LB;
+              cpu_rst_n_next = 1'b0;
+              data_cnt_next  = '0;
+              checksum_next  = '0;
+              timeout_next   = '0;
+              state_next     = T_STATES_IMPR_WAIT_LEN_LB;
             end
             C_BUSW: begin
               checksum_next = '0;
@@ -849,7 +849,7 @@ module uart
       end
 
       T_STATES_IMPR_DONE: begin
-        cpu_rstn_next      = 1'b1;
+        cpu_rst_n_next     = 1'b1;
         uart_tx_valid_next = 1'b0;
         state_next         = T_STATES_WAIT_CMD;
       end
@@ -1260,14 +1260,14 @@ module uart
       T_STATES_TIMEOUT: begin
         uart_tx_valid_next = 1'b0;
         ram_wen_next       = 1'b0;
-        cpu_rstn_next      = 1'b1;
+        cpu_rst_n_next     = 1'b1;
         bus_vld_next       = 1'b0;
         state_next         = T_STATES_WAIT_SOP;
       end
 
       default: begin
         state_next         = state;
-        cpu_rstn_next      = cpu_rstn;
+        cpu_rst_n_next     = cpu_rst_n;
         data_length_next   = data_length;
         data_cnt_next      = data_cnt;
         ram_wen_next       = ram_wen;
@@ -1286,7 +1286,7 @@ module uart
     endcase
   end
 
-  assign imem_cpu_rstn    = cpu_rstn;
+  assign imem_cpu_rst_n   = cpu_rst_n;
   assign imem_we          = ram_wen;
   assign imem_waddr[31:2] = ram_addr[31:2];
   assign imem_wdat        = ram_data;

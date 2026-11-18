@@ -66,24 +66,24 @@ module tb;
    dpe_if inp (.clk(clk), .rst(rst));
    dpe_if outp(.clk(clk), .rst(rst));
 
-   logic        fcr_idle;
+   logic        idle;
    wg_receiver_t wg_rcv;
-   rcv_rsp_t wg_peer;
+   rcv_rsp_t rcv_rsp;
 
    always_comb begin
-      wg_peer.match = 1'b1;
-      if (wg_rcv == RCV_A)      wg_peer.idx = PEER_A;
-      else if (wg_rcv == RCV_B) wg_peer.idx = PEER_B;
+      rcv_rsp.match = 1'b1;
+      if (wg_rcv == RCV_A)      rcv_rsp.idx = PEER_A;
+      else if (wg_rcv == RCV_B) rcv_rsp.idx = PEER_B;
       else begin
-         wg_peer.idx   = '0;
-         wg_peer.match = 1'b0;
+         rcv_rsp.idx   = '0;
+         rcv_rsp.match = 1'b0;
       end
    end
 
    dpe_wg_disassembler DUT (
-      .fcr_idle     (fcr_idle),
+      .idle     (idle),
       .wg_rcv       (wg_rcv),
-      .wg_peer      (wg_peer),
+      .rcv_rsp      (rcv_rsp),
       .wg_port      (WG_PORT),
       .inp          (inp),
       .outp         (outp)
@@ -271,7 +271,7 @@ module tb;
          errors++;
          $display("FAIL: %0d of %0d packets out", rx_pkt, NPKT);
       end
-      if (!fcr_idle) begin
+      if (!idle) begin
          errors++;
          $display("FAIL: not idle at the end");
       end

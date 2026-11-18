@@ -204,7 +204,7 @@ module top
       .clk    (sys_clk)
   );
 
-  logic        imem_cpu_rstn;
+  logic        imem_cpu_rst_n;
   logic        imem_we;
   logic [31:2] imem_waddr;
   logic [31:0] imem_wdat;
@@ -216,10 +216,10 @@ module top
   ) u_cpu (
       .bus (bus_cpu),  //MST
 
-      .imem_cpu_rstn (imem_cpu_rstn),  //-\ access point
-      .imem_we       (imem_we),        //-| for
-      .imem_waddr    (imem_waddr),     // | reloading CPU
-      .imem_wdat     (imem_wdat)       //-/ program memory
+      .imem_cpu_rst_n (imem_cpu_rst_n),  //-\ access point
+      .imem_we        (imem_we),         //-| for
+      .imem_waddr     (imem_waddr),      // | reloading CPU
+      .imem_wdat      (imem_wdat)        //-/ program memory
   );
 
   //---------------------------------
@@ -256,10 +256,10 @@ module top
       .from_csr (from_csr),    //i
       .to_csr   (to_csr.uart), //o
 
-      .imem_cpu_rstn (imem_cpu_rstn),  //o
-      .imem_we       (imem_we),        //o
-      .imem_waddr    (imem_waddr),     //o[31:2]
-      .imem_wdat     (imem_wdat),      //o[31:0]
+      .imem_cpu_rst_n (imem_cpu_rst_n),  //o
+      .imem_we        (imem_we),         //o
+      .imem_waddr     (imem_waddr),      //o[31:2]
+      .imem_wdat      (imem_wdat),       //o[31:0]
 
       .bus (bus_uart)  //MST
   );

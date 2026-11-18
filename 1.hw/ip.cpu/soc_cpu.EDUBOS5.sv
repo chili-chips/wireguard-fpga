@@ -17,7 +17,7 @@
 //   eduBOS5 is Harvard. It fetches on the IMEM read port, which answers in
 //   one cycle, as eduBOS5 expects. Its data loads from IMEM space go to IMEM
 //   port B, which also takes the UART program writes; those come while the
-//   CPU is held in reset (imem_cpu_rstn), so the two do not meet. Stores to
+//   CPU is held in reset (imem_cpu_rst_n), so the two do not meet. Stores to
 //   IMEM space are dropped, as with PicoRV32 (IMEM has no CPU write path).
 //
 //   eduBOS5 stores are one-cycle requests that do not wait for ready. So
@@ -42,7 +42,7 @@ module soc_cpu
     soc_if.MST          bus,
 
     // access point for reloading CPU program memory
-    input  logic        imem_cpu_rstn,
+    input  logic        imem_cpu_rst_n,
     input  logic        imem_we,
     input  logic [31:2] imem_waddr,
     input  logic [31:0] imem_wdat
@@ -127,7 +127,7 @@ module soc_cpu
       .STORE_WAITS_RDY (1'b1)                // the UART can hold the bus (#61)
   ) u_cpu (
       .clk    (bus.clk),
-      .arst_n (bus.arst_n & imem_cpu_rstn),
+      .arst_n (bus.arst_n & imem_cpu_rst_n),
 
       .imem_addr (imem_addr),
       .imem_rdat (imem_rdat),
