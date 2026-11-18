@@ -88,7 +88,8 @@ module tb;
                     dst: DPE_ADDR_ETH_1};
     table_m[3]  = '{ip: ip4(192, 168, 1, 0), mask: ip4(255, 255, 255, 0), peer: 8'd7, encrypt: 0,
                     dst: DPE_ADDR_ETH_4};
-    table_m[63] = '{ip: '0, mask: '0, peer: 8'd0, encrypt: 0, dst: DPE_ADDR_CPU};
+    // matches everything, unlike the defaults: a short frame must not get it
+    table_m[63] = '{ip: '0, mask: '0, peer: 8'h3F, encrypt: 1, dst: DPE_ADDR_ETH_4};
   end
 
   // the peer_idx register: peer_idx in [7:0], encrypt in bit 8
@@ -296,6 +297,13 @@ module tb;
                   bypass_stage: 1, tid: 0};
     frames[9] = '{len: 14,   ip_dst: ip4(10, 1, 2, 6),     bypass_all: 0, dst: DPE_ADDR_CPU,
                   bypass_stage: 0, tid: 0};
+    // a frame of entry 0 (encrypted), then one of 33 bytes: 3 of its 4 IPv4
+    // destination bytes, the 4th left from the frame before; it must take the
+    // defaults, not entry 0
+    frames[10] = '{len: 100, ip_dst: ip4(10, 1, 2, 7),     bypass_all: 0, dst: DPE_ADDR_CPU,
+                   bypass_stage: 0, tid: 0};
+    frames[11] = '{len: 33,  ip_dst: ip4(10, 1, 2, 7),     bypass_all: 0, dst: DPE_ADDR_CPU,
+                   bypass_stage: 0, tid: 0};
 
     csr_cfg = '{req: 1'b0, addr: '0, req_is_wr: 1'b0, wr_data: '0, wr_biten: '0};
     n_frames = 0;
@@ -323,7 +331,7 @@ module tb;
     csr_read(60, 2, peer_word(table_m[60]));
 
     // 2. the frames
-    n_frames = 10;
+    n_frames = 12;
     for (int t = 0; t < TIMEOUT_CLKS && rx_frame < n_frames; t++) @(negedge clk);
     if (rx_frame < n_frames) begin
       $display("ERROR: %0d of %0d frames out", rx_frame, n_frames);

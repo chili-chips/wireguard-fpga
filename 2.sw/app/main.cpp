@@ -460,8 +460,11 @@ void config_routes(void) {
    umask = ((uint32_t)mask[0] << 24) | ((uint32_t)mask[1] << 16) | ((uint32_t)mask[2] << 8) | (uint32_t)mask[3];
    CSR_REG32(routing_table.entry[entry_idx].ip) = uip;
    CSR_REG32(routing_table.entry[entry_idx].mask) = umask;
-   CSR_SET(routing_table.entry[entry_idx].peer_idx, CSR__ROUTING_TABLE__ENTRY__PEER_IDX__PEER_IDX, peer_idx);
-   CSR_SET(routing_table.entry[entry_idx].peer_idx, CSR__ROUTING_TABLE__ENTRY__PEER_IDX__ENCRYPT, encrypt);
+   // peer_idx and encrypt in one word write: a byte store reaches every lane on
+   // this bus, and the DUMMY switch's table ignores byte enables
+   CSR_REG32(routing_table.entry[entry_idx].peer_idx) =
+      ((peer_idx << CSR__ROUTING_TABLE__ENTRY__PEER_IDX__PEER_IDX_bp) & CSR__ROUTING_TABLE__ENTRY__PEER_IDX__PEER_IDX_bm) |
+      ((encrypt << CSR__ROUTING_TABLE__ENTRY__PEER_IDX__ENCRYPT_bp) & CSR__ROUTING_TABLE__ENTRY__PEER_IDX__ENCRYPT_bm);
    CSR_SET(routing_table.entry[entry_idx].dst, CSR__ROUTING_TABLE__ENTRY__DST__DST, dst);
 
    uart_send("Routing table entry updated.\r\n");
