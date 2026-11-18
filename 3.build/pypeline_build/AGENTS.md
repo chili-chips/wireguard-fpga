@@ -266,6 +266,16 @@ too: pull before you edit `1.hw/` or `4.sim/`.
 - **`pipelinec.ref`** is `4038e33d` (includes the #394 and #395 fixes). The SoC
   builds above started on `97097a87` with the old workaround; the lint and
   the native random sim pass on `99e5e018`.
+- **Fast rebuild, proposed for `build.py`:** with a warm synthesis cache and
+  the tracked `latency_hints/` profile, `pypelinec ... --syn_cache <shared
+  store> --latency_hints <profile>.json --no_sweep` rebuilt the `--enc --soc`
+  Verilog in 14 min with no Vivado run, byte-identical to the 2.5 h build
+  (2026-11-17, on `99e5e018`). Proposal: a `build.py --no-sweep` option, and
+  a default `--syn-cache` shared across output directories (today each
+  build's cache sits inside its own copy). Valid while the source is
+  unchanged; a design change needs one full build to re-verify 80 MHz and
+  refresh the hints. We also skip `--sim --syn_tb` for the SoC cores: our
+  benches check the exported Verilog against RFC 8439.
 - **Size the core to the board** ([#40](https://github.com/chili-chips/wireguard-fpga/issues/40)):
   the published default uses about 61% of the
   xc7a200t's LUTs and 45% of its DSPs (81,489 LUT, 332 DSP48) and gives
