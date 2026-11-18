@@ -6,14 +6,14 @@
 // Wireguard-1GE FPGA * NLnet-sponsored open-source implementation
 //--------------------------------------------------------------------------
 // Description:
-//   dpe_egress_ip_lookup unit bench.
+//   egress_ip_lookup unit bench.
 //   1. The CPU's view: all 64 routing-table entries written over the CSR
 //      port, then each field of a few read back.
 //   2. The data plane: Ethernet/IPv4 frames of several lengths, back to
 //      back, with bubbles in and backpressure out (dpe_tb_throttle). Each
 //      must come out unchanged, with tuser.dst and tid of the entry its
 //      IPv4 destination selects (the first entry that matches, as
-//      dpe_route_mem does), and a bypass_all frame with its own.
+//      route_mem does), and a bypass_all frame with its own.
 //   Every output beat is checked: tdata (kept bytes), tkeep, tlast, tuser,
 //   tid.
 //==========================================================================
@@ -39,7 +39,7 @@ module tb;
   dpe_tb_throttle #(.PASS_PCT(60), .SEED(16'hACE1)) stall_in  (.inp(from_src), .outp(to_dut));
   dpe_tb_throttle #(.PASS_PCT(60), .SEED(16'h1D2C)) stall_out (.inp(from_dut), .outp(to_snk));
 
-  dpe_egress_ip_lookup #(.ENTRY_COUNT(ENTRIES)) dut (
+  egress_ip_lookup #(.ENTRY_COUNT(ENTRIES)) dut (
       .s_axis  (to_dut),
       .m_axis  (from_dut),
       .hwif_out(hwif_out),
@@ -89,11 +89,11 @@ module tb;
     table_m[63] = '{ip: '0, mask: '0, peer: 8'd0, dst: DPE_ADDR_CPU};
   end
 
-  // the entry dpe_route_mem picks: the first that matches
+  // the entry route_mem picks: the first that matches
   function automatic route_t lookup(logic [31:0] ip);
     for (int i = 0; i < ENTRIES; i++)
       if ((ip & table_m[i].mask) == (table_m[i].ip & table_m[i].mask)) return table_m[i];
-    return '{ip: '0, mask: '0, peer: '0, dst: DPE_ADDR_CPU};  // dpe_route_mem defaults
+    return '{ip: '0, mask: '0, peer: '0, dst: DPE_ADDR_CPU};  // route_mem defaults
   endfunction
 
   //------------------------------------------------------------------

@@ -98,7 +98,7 @@ module dpe
   );
 
   // DPE egress Engine
-  //   dpe_egress_ip_lookup #(
+  //   egress_ip_lookup #(
   //      .ENTRY_COUNT(64)
   //   ) u_egress (
   //      .s_axis               (muxed_1),

@@ -47,7 +47,7 @@
 //     where the most specific route is at Index 0.
 //==========================================================================
 
-module dpe_route_mem
+module route_mem
   import dpe_pkg::*;
 #(
     parameter int            ENTRY_COUNT      = 64,

@@ -41,7 +41,7 @@
 //
 //   Functionality:
 //   1. Control Plane: Acts as a bridge between the CSR interface and the internal
-//      Routing Memory (`dpe_route_mem`). Handles address decoding/multiplexing
+//      Routing Memory (`route_mem`). Handles address decoding/multiplexing
 //      for writing and reading routing rules.
 //
 //   2. Data Plane: Parses incoming AXI Stream packets to extract the IPv4
@@ -54,7 +54,7 @@
 //==========================================================================
 
 
-module dpe_egress_ip_lookup
+module egress_ip_lookup
   import csr_pkg::*;
   import dpe_pkg::*;
   import net_pkg::*;
@@ -101,7 +101,7 @@ module dpe_egress_ip_lookup
   assign we_dst    = csr_wr & (field == FIELD_DST);
 
   // A write is done in its request's clock. A read answers one clock later:
-  // dpe_route_mem registers the entry the request addresses (rdata_*)
+  // route_mem registers the entry the request addresses (rdata_*)
   logic      rd_ack;
   rt_field_e rd_field;
   always_ff @(posedge s_axis.clk) begin
@@ -134,7 +134,7 @@ module dpe_egress_ip_lookup
   dpe_peer_idx_t        route_peer;
   logic          [31:0] route_req_ip;
 
-  dpe_route_mem #(
+  route_mem #(
       .ENTRY_COUNT (ENTRY_COUNT)
   ) u_mem (
       .clk (s_axis.clk),

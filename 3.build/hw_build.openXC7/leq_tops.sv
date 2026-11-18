@@ -90,8 +90,8 @@ module leq_dpe_wg_decryptor
 endmodule
 `endif
 
-`ifdef LEQ_TOP_leq_dpe_egress_ip_lookup
-module leq_dpe_egress_ip_lookup
+`ifdef LEQ_TOP_leq_egress_ip_lookup
+module leq_egress_ip_lookup
   import csr_pkg::*;
   import dpe_pkg::*;
 (
@@ -104,7 +104,7 @@ module leq_dpe_egress_ip_lookup
 );
   `LEQ_DPE_S_IF(s_axis)
   `LEQ_DPE_M_IF(m_axis)
-  dpe_egress_ip_lookup #(.ENTRY_COUNT(64)) u_dut (.*);
+  egress_ip_lookup #(.ENTRY_COUNT(64)) u_dut (.*);
 endmodule
 `endif
 

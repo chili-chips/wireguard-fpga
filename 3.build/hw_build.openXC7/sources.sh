@@ -36,20 +36,31 @@ own_rtl() {
     ls "$1"/external_lib/*/*.sv
     # the DPE blocks top does not instantiate yet (run-leq.sh proves them too)
     ls "$1"/ip.dpe/dpe_wg_encryptor.sv "$1"/ip.dpe/dpe_wg_decryptor.sv "$1"/ip.dpe/dpe_wg_disassembler.sv
-    ls "$1"/ip.lkup/dpe_egress_ip_lookup.sv "$1"/ip.lkup/dpe_route_mem.sv
+    ls "$1"/ip.lkup/egress_ip_lookup.sv "$1"/ip.lkup/route_mem.sv
     ls "$1"/ip.dpe/dpe_if_pipeline.sv "$1"/ip.dpe/net_pkg.sv
   } | awk '!seen[$0]++'
 }
 
-BLOCK_TOPS="leq_dpe_wg_encryptor leq_dpe_wg_decryptor leq_dpe_egress_ip_lookup leq_dpe_wg_disassembler"
+BLOCK_TOPS="leq_dpe_wg_encryptor leq_dpe_wg_decryptor leq_egress_ip_lookup leq_dpe_wg_disassembler"
+
+# where a file is in a 1.hw tree: its path now, or where an older tree has it
+# (a LEQ gold from before a move or a rename); $1 = 1.hw, then the candidates
+in_tree() {
+  local d=$1 p; shift
+  for p; do [ -f "$d/$p" ] && { echo "$d/$p"; return; }; done
+  echo "$d/$1"
+}
 
 block_rtl() {
-  local d=$2
+  local d=$2 pkg dpe lkup
+  pkg=$(in_tree "$d" ip.dpe/net_pkg.sv ip.infra/net_pkg.sv)
+  dpe() { in_tree "$d" "ip.dpe/$1" "ip.infra/$1"; }
+  lkup() { in_tree "$d" "ip.lkup/$1" "ip.lkup/dpe_$1" "ip.dpe/dpe_$1" "ip.infra/dpe_$1"; }
   case $1 in
-    leq_dpe_wg_encryptor) echo "$d/ip.dpe/net_pkg.sv $d/ip.dpe/dpe_wg_encryptor.sv $d/ip.dpe/dpe_if_pipeline.sv" ;;
-    leq_dpe_wg_decryptor) echo "$d/ip.dpe/net_pkg.sv $d/ip.dpe/dpe_wg_decryptor.sv $d/ip.dpe/dpe_if_pipeline.sv" ;;
-    leq_dpe_egress_ip_lookup) echo "$d/ip.dpe/net_pkg.sv $d/ip.lkup/dpe_egress_ip_lookup.sv $d/ip.lkup/dpe_route_mem.sv" ;;
-    leq_dpe_wg_disassembler) echo "$d/ip.dpe/net_pkg.sv $d/ip.dpe/dpe_wg_disassembler.sv" ;;
+    leq_dpe_wg_encryptor) echo "$pkg $(dpe dpe_wg_encryptor.sv) $(dpe dpe_if_pipeline.sv)" ;;
+    leq_dpe_wg_decryptor) echo "$pkg $(dpe dpe_wg_decryptor.sv) $(dpe dpe_if_pipeline.sv)" ;;
+    leq_egress_ip_lookup) echo "$pkg $(lkup egress_ip_lookup.sv) $(lkup route_mem.sv)" ;;
+    leq_dpe_wg_disassembler) echo "$pkg $(dpe dpe_wg_disassembler.sv)" ;;
     *) echo "block_rtl: no files for top $1" >&2; return 1 ;;
   esac
 }
