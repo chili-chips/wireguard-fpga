@@ -81,10 +81,13 @@ module dpe
       .to_dpe     (muxed_1)
   );
 
-  // DPE dummy switch
-  dpe_dummy_switch u_dpe_dummy_switch (
-      .inp  (muxed_1),
-      .outp (muxed_2)
+  // DPE switch: the fixed crossbar (dpe_switch.DUMMY.sv) or the IP lookup
+  // (dpe_switch.sv), as top.filelist lists; each owns the routing table
+  dpe_switch u_dpe_switch (
+      .inp     (muxed_1),
+      .out     (muxed_2),
+      .csr_cfg (from_csr.routing_table),
+      .csr_sta (to_csr_routing_table)
   );
 
   // DPE demultiplexer
@@ -96,42 +99,6 @@ module dpe
       .to_eth_3 (to_eth_3),
       .to_eth_4 (to_eth_4)
   );
-
-  // DPE egress Engine
-  //   egress_ip_lookup #(
-  //      .ENTRY_COUNT(64)
-  //   ) u_egress (
-  //      .s_axis               (muxed_1),
-  //      .m_axis               (muxed_2),
-
-  //      .csr_cfg              (from_csr.dpe.routing_table),
-  //      .csr_sta              (to_csr.dpe.routing_table)
-  //   );
-
-  logic [31:0] rt_rd_data;
-  logic        rt_rd_ack;
-
-  tdp_ram #(
-      .ADDR_WIDTH (8)
-  ) u_routing_table (
-      .clk (from_cpu.clk),
-      .we_a (from_csr.routing_table.req & from_csr.routing_table.req_is_wr),
-      .addr_a (from_csr.routing_table.addr[9:2]),
-      .din_a (from_csr.routing_table.wr_data),
-      .dout_a (rt_rd_data),
-      .we_b (1'b0),
-      .addr_b ('0),
-      .din_b ('0),
-      .dout_b (  /*LINT:OK*/)  // port B is for the DPE, which does not read the table yet
-  );
-  always_ff @(posedge from_cpu.clk) begin
-    rt_rd_ack <= from_csr.routing_table.req & ~from_csr.routing_table.req_is_wr;
-  end
-  always_comb begin
-    to_csr_routing_table.rd_data = rt_rd_data;
-    to_csr_routing_table.rd_ack  = rt_rd_ack;
-    to_csr_routing_table.wr_ack  = from_csr.routing_table.req & from_csr.routing_table.req_is_wr;
-  end
 
   logic [31:0] ck_rd_data;
   logic        ck_rd_ack;

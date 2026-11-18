@@ -37,7 +37,9 @@
 //              https://opensource.org/license/bsd-3-clause
 //--------------------------------------------------------------------------
 // Description:
-//   DPE dummy switch
+//   DPE switch, DUMMY: a fixed crossbar, swapped for the IP lookup
+//   (dpe_switch.sv) in top.filelist. The routing table is a RAM the CPU
+//   writes and reads back over the CSR; the crossbar does not read it
 //--------------------------------------------------------------------------
 // Default configuration
 // (can be overridden by assertion of tuser_bypass_all or tuser_bypass_stage)
@@ -69,11 +71,15 @@
 //
 //==========================================================================
 
-module dpe_dummy_switch
+module dpe_switch
   import dpe_pkg::*;
+  import lkup_pkg::*;
 (
-    dpe_if.s_axis inp,
-    dpe_if.m_axis outp
+    dpe_if.s_axis    inp,
+    dpe_if.m_axis    out,
+    // the CSR routing_table regfile (csr.rdl)
+    input  csr_cfg_t csr_cfg,
+    output csr_sta_t csr_sta
 );
 
   dpe_if outp_sbuff (
@@ -118,10 +124,37 @@ module dpe_dummy_switch
     end
   end
 
+  // Routing table: written and read back by the CPU only
+  logic [31:0] rt_rd_data;
+  logic        rt_rd_ack;
+
+  tdp_ram #(
+      .ADDR_WIDTH (8)
+  ) u_routing_table (
+      .clk    (inp.clk),
+      .we_a   (csr_cfg.req & csr_cfg.req_is_wr),
+      .addr_a (csr_cfg.addr[9:2]),
+      .din_a  (csr_cfg.wr_data),
+      .dout_a (rt_rd_data),
+      .we_b   (1'b0),
+      .addr_b ('0),
+      .din_b  ('0),
+      .dout_b (  /*LINT:OK*/)                     // port B: the crossbar does not read the table
+  );
+  always_ff @(posedge inp.clk) begin
+    rt_rd_ack <= csr_cfg.req & ~csr_cfg.req_is_wr;
+  end
+  always_comb begin
+    csr_sta.rd_data = rt_rd_data;
+    csr_sta.rd_ack  = rt_rd_ack;
+    csr_sta.wr_ack  = csr_cfg.req & csr_cfg.req_is_wr;
+  end
+
+
   // Skid buffers
   dpe_if_skid_buffer skid_buffer_outp (
       .inp  (outp_sbuff),
-      .outp (outp)
+      .outp (out)
   );
 endmodule
 

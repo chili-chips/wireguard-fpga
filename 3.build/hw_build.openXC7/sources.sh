@@ -37,6 +37,7 @@ own_rtl() {
     # the DPE blocks top does not instantiate yet (run-leq.sh proves them too)
     ls "$1"/ip.dpe/dpe_wg_encryptor.sv "$1"/ip.dpe/dpe_wg_decryptor.sv "$1"/ip.dpe/dpe_wg_disassembler.sv
     ls "$1"/ip.lkup/lkup_pkg.sv "$1"/ip.lkup/egress_ip_lookup.sv "$1"/ip.lkup/route_mem.sv
+    ls "$1"/ip.dpe/dpe_switch.sv "$1"/ip.dpe/dpe_switch.DUMMY.sv
     ls "$1"/ip.dpe/dpe_if_pipeline.sv "$1"/ip.dpe/net_pkg.sv
   } | awk '!seen[$0]++'
 }
@@ -51,18 +52,31 @@ in_tree() {
   echo "$d/$1"
 }
 
+# the same, for a file an older tree may not have at all: nothing then
+in_tree_opt() {
+  local d=$1 p; shift
+  for p; do [ -f "$d/$p" ] && { echo "$d/$p"; return; }; done
+}
+
+# a block top's files on top of the design's (design_rtl): those the design
+# does not list already
 block_rtl() {
-  local d=$2 pkg dpe lkup
+  local d=$2 pkg x
   pkg=$(in_tree "$d" ip.dpe/net_pkg.sv ip.infra/net_pkg.sv)
   dpe() { in_tree "$d" "ip.dpe/$1" "ip.infra/$1"; }
   lkup() { in_tree "$d" "ip.lkup/$1" "ip.lkup/dpe_$1" "ip.dpe/dpe_$1" "ip.infra/dpe_$1"; }
   case $1 in
-    dpe_wg_encryptor) echo "$pkg $(dpe dpe_wg_encryptor.sv) $(dpe dpe_if_pipeline.sv)" ;;
-    dpe_wg_decryptor) echo "$pkg $(dpe dpe_wg_decryptor.sv) $(dpe dpe_if_pipeline.sv)" ;;
-    egress_ip_lookup) echo "$pkg $(lkup lkup_pkg.sv) $(lkup egress_ip_lookup.sv) $(lkup route_mem.sv)" ;;
-    dpe_wg_disassembler) echo "$pkg $(dpe dpe_wg_disassembler.sv)" ;;
+    dpe_wg_encryptor) x="$pkg $(dpe dpe_wg_encryptor.sv) $(dpe dpe_if_pipeline.sv)" ;;
+    dpe_wg_decryptor) x="$pkg $(dpe dpe_wg_decryptor.sv) $(dpe dpe_if_pipeline.sv)" ;;
+    egress_ip_lookup)
+      x="$pkg $(in_tree_opt "$d" ip.lkup/lkup_pkg.sv) $(lkup egress_ip_lookup.sv) $(lkup route_mem.sv)" ;;
+    dpe_wg_disassembler) x="$pkg $(dpe dpe_wg_disassembler.sv)" ;;
     *) echo "block_rtl: no files for top $1" >&2; return 1 ;;
   esac
+  # a file the design already lists would be read twice (MODDUP)
+  local listed
+  listed=$(design_rtl "$d" "${3:-}" 2>/dev/null)
+  for f in $x; do grep -qxF "$f" <<< "$listed" || echo -n "$f "; done
 }
 
 cpu_select() {

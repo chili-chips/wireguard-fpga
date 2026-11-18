@@ -72,7 +72,9 @@ PRIMS="PLLE2_BASE BUFG IBUFGDS BUFGMUX BUFIO BUFIO2 BUFR ODDR ODDR2"
 GEN=$BLD/pypeline_build/soc  # the cores the DPE uses, gzip'd
 CORES="chacha20poly1305_encrypt chacha20poly1305_decrypt"
 # The tops: the design, and the DPE blocks it does not instantiate yet, whose
-# dpe_if ports read_slang turns into top ports (--allow-toplevel-iface-ports)
+# dpe_if ports read_slang turns into top ports (--allow-toplevel-iface-ports).
+# Each interface brings its own clock input (inp.clk, outp.clk): the proof
+# does not see a flop moved from one to the other (one clock in the DPE)
 TOPS=${LEQ_TOPS:-top $BLOCK_TOPS}
 W=$(mktemp -d); cd "$W"
 

@@ -76,7 +76,7 @@ EXPECTED_MODULES = {
     'dpe': 'module',
     'dpe_demultiplexer': 'module',
     'dpe_multiplexer': 'module',
-    'dpe_dummy_switch': 'module',
+    'dpe_switch': 'module',
     
     # CPU modules
     'picorv32': 'module',

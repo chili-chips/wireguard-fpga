@@ -62,7 +62,7 @@ module tb;
    dpe_if to_eth_4(.clk(clk), .rst(rst));
 
    // One test packet per input port. dst is where the DPE delivers it: its
-   // dpe_dummy_switch picks the output from the source port (CPU to ETH 1,
+   // dpe_switch.DUMMY.sv picks the output from the source port (CPU to ETH 1,
    // ETH 1 and ETH 2 to the CPU, ETH 3 and ETH 4 to each other).
    typedef struct packed {
       test_pkt_t cpu;

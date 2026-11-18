@@ -71,7 +71,13 @@ ${HW_SRC}/ip.infra/tdp_ram.sv
 ${HW_SRC}/ip.dpe/dpe.sv
 ${HW_SRC}/ip.dpe/dpe_multiplexer.sv
 ${HW_SRC}/ip.dpe/dpe_demultiplexer.sv
-${HW_SRC}/ip.dpe/dpe_dummy_switch.sv
+# the switch: the fixed crossbar (DUMMY, default) or the IP lookup; to
+# switch, comment out the DUMMY line and uncomment the three below it
+${HW_SRC}/ip.lkup/lkup_pkg.sv
+${HW_SRC}/ip.dpe/dpe_switch.DUMMY.sv
+#${HW_SRC}/ip.lkup/route_mem.sv
+#${HW_SRC}/ip.lkup/egress_ip_lookup.sv
+#${HW_SRC}/ip.dpe/dpe_switch.sv
 #${HW_SRC}/ip.dpe/dpe_wg_disassembler.sv
 
 #---TOP
