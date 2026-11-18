@@ -148,7 +148,9 @@ begin
 
     // Node must be assigned before the call to VInit (upstream: a #0 here,
     // `MINDELAY): a non-blocking assignment, whose update comes after every
-    // time-0 assignment, starts it
+    // time-0 assignment, makes the edge that starts it. InitReq is set to 0
+    // first, so that a random initial value cannot hide that edge
+    InitReq                             = 1'b0;
     InitReq                            <= 1'b1;
 end
 

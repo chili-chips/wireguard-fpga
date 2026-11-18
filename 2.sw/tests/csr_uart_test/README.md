@@ -26,7 +26,7 @@ is visible.
 | **2. Build firmware** | `make -f MakefileSW` | **`3.build/`** | `MakefileSW` builds the app by default: first comment out `SW_MAIN := $(SW_APP)` in `3.build/MakefileSW` and uncomment `SW_MAIN := $(SW_TESTS)/csr_uart_test`. |
 | **3. Configure simulation** | Edit **`4.sim/vusermain.cfg`** →<br>```text vusermain0 -r -H -R -c -x 0x10000000 -X 0x3FFFFFFF -t ../3.build/sw_build/main.elf ``` | **`4.sim/`** | Full range is mandatory; the old GPIO span cuts off DMEM. |
 | **4. Run co‑simulation** | `make -f MakefileVProc.mk clean && make -f MakefileVProc.mk BUILD=ISS run` | **`4.sim/`** | Generates `wave.fst`. |
-| **5. View results** | `gtkwave wave.fst` → **File → Read Save File →** `wave.CSR_UART_TEST.gtkw` | **`4.sim/`** | Inspect RX data and `oflow`. |
+| **5. View results** | `make -f MakefileVProc.mk BUILD=ISS gui`, then WaveCrux **File → Open →** `wave.CSR_UART_TEST.wavecrux` | **`4.sim/`** | Inspect RX data and `oflow`. |
 
 ---
 
