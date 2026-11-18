@@ -73,6 +73,9 @@ ${HW_SRC}/ip.dpe/dpe_mux.sv
 ${HW_SRC}/ip.dpe/dpe_demux.sv
 # the switch: the fixed crossbar (DUMMY, default) or the IP lookup; to
 # switch, comment out the DUMMY line and uncomment the three below it
+# (Vivado: the same in 3.build/hw_build.Vivado/wireguard.xpr). The
+# 4.sim/rtl/dpe bench checks the DUMMY's routing: it fails on the lookup
+${HW_SRC}/ip.dpe/net_pkg.sv
 ${HW_SRC}/ip.lkup/lkup_pkg.sv
 ${HW_SRC}/ip.dpe/dpe_switch.DUMMY.sv
 #${HW_SRC}/ip.lkup/route_mem.sv
