@@ -86,10 +86,6 @@ def selected_blocks_per_cycle(value=None, implementation="pipelined"):
     return choice
 
 
-def blocks_out_dir(base, blocks=1):
-    return base if blocks == 1 else f"{base}-blocks{selected_blocks_per_cycle(blocks)}"
-
-
 def selected_sharing(chacha20=True, poly1305=True, *, implementation=None):
     """The shared-resource set: {"chacha20": bool, "poly1305": bool}."""
     result = {"chacha20": bool(chacha20), "poly1305": bool(poly1305)}
@@ -148,11 +144,6 @@ def selected_mult(value=None, implementation="pipelined"):
     return choice
 
 
-def mult_out_dir(base, multiplier):
-    # None is reserved for pre-selector measurement records.
-    return base if multiplier is None else f"{base}-mult-{multiplier}"
-
-
 def selected_compute(value=None):
     choice = DEFAULT_COMPUTE_IMPL if value is None else value
     if choice not in COMPUTE_IMPLEMENTATIONS:
@@ -191,20 +182,6 @@ def selected_prologue_cap(value=None, data_bitwidth=None):
 def selected_epilogue_cap(value=None, data_bitwidth=None):
     cap = default_compute_caps(data_bitwidth)[1] if value is None else value
     return _selected_compute_cap(cap, "POLY1305_EPILOGUE_MAX_LATENCY")
-
-
-def prologue_cap_out_dir(base, cap):
-    # Historical cap-64 directories keep their identity when defaults change.
-    return base if cap in (None, HISTORICAL_COMPUTE_CAP) else f"{base}-procap{cap}"
-
-
-def epilogue_cap_out_dir(base, cap):
-    return base if cap in (None, HISTORICAL_COMPUTE_CAP) else f"{base}-epicap{cap}"
-
-
-def compute_out_dir(base, compute):
-    # None identifies historical records, before this selector existed.
-    return base if compute is None else f"{base}-compute-{selected_compute(compute)}"
 
 
 def resolve_profile(design="shared", implementation=None, share="auto", target_mhz=None,
@@ -249,16 +226,6 @@ def share_name_for(sharing):
     if sharing["chacha20"]:
         return "chacha20"
     return "poly1305" if sharing["poly1305"] else "none"
-
-
-def implementation_out_dir(base, implementation):
-    return f"{base}-poly1305-{selected_implementation(implementation)}"
-
-
-def target_out_dir(base, target_mhz):
-    target = selected_target(target_mhz)
-    # Preserve all historical default-clock directory names.
-    return base if target == LEGACY_TARGET_MHZ else f"{base}-{target}mhz"
 
 
 def add_sharing_arguments(parser):
@@ -332,10 +299,6 @@ def sharing_name(sharing):
     return "-".join(name for name in ("chacha20", "poly1305") if sharing[name]) or "none"
 
 
-def sharing_out_dir(base, sharing):
-    return f"{base}-share-{sharing_name(sharing)}"
-
-
 # Every build/measure output directory lives under generated-files/<name>/.
 GENERATED_FILES = "generated-files"
 # The synthesis store every build shares (pypelinec --syn_cache), relative to this tree
@@ -345,37 +308,18 @@ SYN_CACHE_DIR = os.path.join(GENERATED_FILES, "syn_cache")
 LATENCY_HINTS_DIR = "latency_hints"
 
 
-def profile_out_dir(kind, implementation, sharing, multiplier, compute, target_mhz,
-                    data_bitwidth, prologue_cap, epilogue_cap=HISTORICAL_COMPUTE_CAP):
-    """Return a generated-files path identified by build kind and profile."""
-    out_dir = implementation_out_dir(os.path.join(".", GENERATED_FILES, kind), implementation)
-    out_dir = sharing_out_dir(out_dir, sharing)
-    out_dir = mult_out_dir(out_dir, multiplier)
-    out_dir = compute_out_dir(out_dir, compute if implementation == "pipelined" else None)
-    out_dir = target_out_dir(out_dir, target_mhz)
-    out_dir = blocks_out_dir(out_dir, data_bitwidth // 128)
-    if implementation == "pipelined" and compute == "fsm":
-        out_dir = prologue_cap_out_dir(out_dir, prologue_cap)
-        out_dir = epilogue_cap_out_dir(out_dir, epilogue_cap)
-    return out_dir
-
-
-def hardware_out_dir(design_short, *profile):
-    """Output path shared by a hardware build and its pipelined native simulations."""
-    return profile_out_dir("hardware-" + design_short, *profile)
+def profile_name(kind, profile):
+    """Name a build or measurement using all resolved hardware profile options."""
+    return (
+        f"{kind}-poly1305-{profile['implementation']}-share-{sharing_name(profile['sharing'])}"
+        f"-mult-{profile['multiplier']}-compute-{profile['compute']}"
+        f"-{profile['data_bitwidth']}bit-{profile['target_mhz']}mhz"
+        f"-procap{profile['prologue_cap']}-epicap{profile['epilogue_cap']}"
+    )
 
 
 # PypelineC writes this into a build's output directory once it meets timing.
 BUILT_HARDWARE_FILE = "built_hardware.json"
-
-
-def generated_out_dir(path):
-    """Map a pre-relayout `generated-files-<name>` path to `generated-files/<name>`."""
-    head, name = os.path.split(os.path.normpath(path))
-    prefix = GENERATED_FILES + "-"
-    if name.startswith(prefix) and not os.path.exists(path):
-        return os.path.join(head, GENERATED_FILES, name[len(prefix):])
-    return path
 
 
 # ─── This build's profile ───────────────────────────────────────────────────

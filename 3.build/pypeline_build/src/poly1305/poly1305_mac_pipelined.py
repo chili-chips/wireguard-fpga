@@ -42,13 +42,10 @@ body_out_stream_t = make_stream_t(uint130_t)
 
 
 @hw_func
-def poly1305_body(x: body_in_stream_t) -> body_out_stream_t:
-    o: body_out_stream_t
-    c: uint130_t = array_to_uint_le(x.data.block)
+def poly1305_body(x: body_in_t) -> uint130_t:
+    c: uint130_t = array_to_uint_le(x.block)
     c = c | (1 << 128)  # Complete, AEAD-padded 16-byte authentication block.
-    o.data = feedback_mul_add_mod(x.data.accumulator, x.data.stride, c)
-    o.valid = x.valid
-    return o
+    return feedback_mul_add_mod(x.accumulator, x.stride, c)
 
 
 # Architectural storage/phase boundaries, also consumed by FIFO sizing.
@@ -109,6 +106,7 @@ def make_poly1305_mac_pipelined(direction, share_compute=False, *, body_latency=
     """Build one MAC with private packet state and optional shared compute."""
     body_ap = get_body_auto_pipeline(body_latency)
     lanes = body_ap.latency + 2
+    valid_delay_t = make_uint_t(lanes)
     lane_t = make_uint_t(max(1, (lanes - 1).bit_length()))
     count_t = make_uint_t(lanes.bit_length())
     compute = make_pipelined_compute(lanes)
@@ -117,11 +115,17 @@ def make_poly1305_mac_pipelined(direction, share_compute=False, *, body_latency=
 
     @hw_func
     def body_pipeline(x: body_in_stream_t) -> body_out_stream_t:
-        input_reg: Reg[body_in_stream_t]
-        output_reg: Reg[body_out_stream_t]
-        result: body_out_stream_t = output_reg
+        input_reg: Reg[body_in_t]
+        output_reg: Reg[uint130_t]
+        # AUTO_PIPELINE data can be unknown at power-up. An initially empty
+        # valid line covers the same core and both boundary registers.
+        valid_delay: Reg[valid_delay_t]
+        result: body_out_stream_t
+        result.data = output_reg
+        result.valid = valid_delay[lanes - 1]
         output_reg = body_ap(input_reg)
-        input_reg = x
+        input_reg = x.data
+        valid_delay = (valid_delay << 1) | x.valid
         return result
 
     if share_compute:

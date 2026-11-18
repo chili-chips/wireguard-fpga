@@ -67,31 +67,22 @@ from stream.stream_perf import stream_fifo_capacity_beats
 sys.path.insert(0, os.path.join(HERE, "src"))
 from wireguard_env import (
     IMPLEMENTATIONS,
-    implementation_out_dir,
     selected_target,
-    default_target_mhz,
-    target_out_dir,
     GENERATED_FILES,
-    generated_out_dir,
     MULT_IMPLEMENTATIONS,
-    mult_out_dir,
     DATA_BITWIDTHS,
-    blocks_out_dir,
     COMPUTE_IMPLEMENTATIONS,
-    compute_out_dir,
     selected_prologue_cap,
     selected_epilogue_cap,
-    prologue_cap_out_dir,
-    epilogue_cap_out_dir,
+    profile_name,
     profile_from_args,
     resolve_profile,
-    hardware_out_dir,
     BUILT_HARDWARE_FILE,
     add_sharing_arguments,
     add_soc_argument,
     sharing_from_args,
     sharing_name,
-    sharing_out_dir,
+    share_name_for,
     DEFAULT_PROFILE,
     SYN_CACHE_DIR,
 )
@@ -1515,24 +1506,13 @@ def historical_target_mhz(implementation, sharing=None):
     return 80 if implementation == "legacy" else 30
 
 
-def out_dir_for(
-    comb, implementation, target_mhz=None, sharing=None, multiplier=None, compute=None, blocks=1
-):
-    if target_mhz is None:
-        # Records without sharing metadata predate the sharing-both default.
-        target_mhz = (
-            historical_target_mhz(implementation, sharing)
-            if multiplier is None
-            else default_target_mhz(implementation, sharing)
-        )
-    base = os.path.join(HERE, GENERATED_FILES, f"perf-{'comb' if comb else 'pipe'}-shared-native")
-    base = implementation_out_dir(base, implementation)
-    # None means a historical record, whose directory predates sharing flags.
-    if sharing is not None:
-        base = sharing_out_dir(base, sharing)
-    return blocks_out_dir(
-        target_out_dir(compute_out_dir(mult_out_dir(base, multiplier), compute), target_mhz), blocks
-    )
+def measurement_build_dir(args, profile):
+    if args.out_dir:
+        return os.path.abspath(args.out_dir)
+    kind = "hardware-shared"
+    if args.comb:
+        kind = "sim-comb-shared-native" if args.coverage else "perf-comb-shared-native"
+    return os.path.join(HERE, GENERATED_FILES, profile_name(kind, profile))
 
 
 def build_metadata(out_dir):
@@ -1674,25 +1654,11 @@ def _run_build_py(cmd, log_path):
     }
 
 
-def run_hardware_build(args, log_path):
+def run_hardware_build(args, log_path, out_dir):
     """Build the real top (build.py without --sim): the source of fmax, area and
     every latency the performance simulation then simulates."""
     cmd = [os.path.join(HERE, "build.py")] + _profile_flags(args)
-    output = args.out_dir or os.path.join(
-        HERE,
-        hardware_out_dir(
-            "shared",
-            args.poly1305,
-            args.sharing,
-            args.poly1305_mult,
-            args.poly1305_compute,
-            args.target_mhz,
-            args.data_bitwidth,
-            args.poly1305_prologue_cap,
-            args.poly1305_epilogue_cap,
-        ),
-    )
-    if os.path.isfile(os.path.join(output, BUILT_HARDWARE_FILE)):
+    if os.path.isfile(os.path.join(out_dir, BUILT_HARDWARE_FILE)):
         cmd.append("--continue")
     if args.rebuild:
         cmd.append("--rebuild")
@@ -4154,22 +4120,8 @@ def load_coverage_record(path):
     raise ValueError(f"no coverage.json for {path!r}")
 
 
-def coverage_main(args, ap):
+def coverage_main(args, modes, label, meas_dir):
     """--coverage MODES: simulate (or --parse-only re-read) each mode, judge, report."""
-    try:
-        modes = coverage_modes(args.coverage)
-    except ValueError as exc:
-        ap.error(str(exc))
-    for name in COVERAGE_REJECTED:
-        if getattr(args, name) != ap.get_default(name):
-            ap.error(f"--{name.replace('_', '-')} applies to the performance measurement only")
-    # Resolve the profile when re-judging too, so both find the same default label.
-    try:
-        args.sharing = profile_from_args(args)["sharing"]
-    except ValueError as exc:
-        ap.error(str(exc))
-    label = args.label or f"coverage-{'comb' if args.comb else 'pipe'}-{args.data_bitwidth}"
-    meas_dir = os.path.join(HERE, GENERATED_FILES, "measurements", label)
     os.makedirs(meas_dir, exist_ok=True)
     runs = []
     for mode in modes:
@@ -4600,12 +4552,14 @@ def _measurement_selftest(fixture_dir):
                 pass
             else:
                 raise ValueError("Invalid compute cap was accepted: " + repr(invalid))
-    if prologue_cap_out_dir("historical", 64) != "historical":
-        raise ValueError("Historical initialization directory identity changed")
-    if epilogue_cap_out_dir("historical", 64) != "historical":
-        raise ValueError("Historical finalization directory identity changed")
-    if epilogue_cap_out_dir(prologue_cap_out_dir("run", 44), 45) != "run-procap44-epicap45":
-        raise ValueError("Nonhistorical caps must have distinct directory identities")
+    for profile, suffix in (
+        (default, "256bit-80mhz-procap44-epicap45"),
+        (narrow, "128bit-30mhz-procap64-epicap64"),
+        (resolve_profile(data_bitwidth=128, target_mhz=80), "128bit-80mhz-procap64-epicap64"),
+    ):
+        expected = "hardware-shared-poly1305-pipelined-share-chacha20-mult-inferred_body-compute-fsm-" + suffix
+        if profile_name("hardware-shared", profile) != expected:
+            raise ValueError(f"Expected hardware directory name {expected}")
     with tempfile.TemporaryDirectory(prefix="wg-caps-") as directory:
         path = Path(directory) / "source_provenance.json"
         path.write_text(json.dumps({"design_params": []}))
@@ -5249,24 +5203,9 @@ def _restore_run_config(args, perf_raw, mac_config, meas_dir):
             or perf_raw.get("config", {}).get("target_mhz")
             or historical_target_mhz(args.poly1305, recorded_sharing)
         )
-        out_dir = out_dir_for(
-            args.comb,
-            args.poly1305,
-            args.target_mhz,
-            recorded_sharing,
-            recorded_multiplier,
-            recorded_compute,
-            args.poly1305_blocks_per_cycle,
-        )
     else:
         args.poly1305 = "legacy"
         args.target_mhz = 80
-        out_dir = os.path.join(
-            HERE, GENERATED_FILES, f"perf-{'comb' if args.comb else 'pipe'}-shared-native"
-        )
-    recorded_dir = previous.get("config", {}).get("out_dir")
-    if recorded_dir:
-        out_dir = generated_out_dir(os.path.join(HERE, recorded_dir))
     args.sharing = perf_raw.get("config", {}).get("sharing", {"chacha20": True, "poly1305": False})
     for phase in ("prologue", "epilogue"):
         key = "poly1305_" + phase + "_max_latency"
@@ -5275,6 +5214,17 @@ def _restore_run_config(args, perf_raw, mac_config, meas_dir):
             cap = perf_raw.get("config", {}).get(key, 64)
         setattr(args, "poly1305_" + phase + "_cap", cap)
 
+    recorded_dir = previous.get("config", {}).get("out_dir")
+    if recorded_dir:
+        out_dir = os.path.join(HERE, recorded_dir)
+    else:
+        profile = resolve_profile(
+            implementation=args.poly1305, share=share_name_for(args.sharing),
+            target_mhz=args.target_mhz, multiplier=args.poly1305_mult,
+            data_bitwidth=args.data_bitwidth, compute=args.poly1305_compute,
+            prologue_cap=args.poly1305_prologue_cap, epilogue_cap=args.poly1305_epilogue_cap,
+        )
+        out_dir = measurement_build_dir(args, profile)
     return previous, out_dir
 
 
@@ -5305,7 +5255,7 @@ def main():
                 check_record(args.check_record)
                 if args.check_record
                 else audit_poly1305_hdl(
-                    generated_out_dir(args.audit_mcps),
+                    args.audit_mcps,
                     tuple(args.audit_directions.split(",")),
                     shared=sharing_from_args(args)["poly1305"],
                 )
@@ -5315,7 +5265,7 @@ def main():
         if args.area_report:
             if os.path.isdir(args.area_report):
                 report = parse_out_dir(
-                    generated_out_dir(args.area_report), per_module=args.per_module
+                    args.area_report, per_module=args.per_module
                 )
                 if args.json:
                     print(json.dumps(report, indent=2))
@@ -5330,95 +5280,31 @@ def main():
     except (OSError, ValueError, KeyError) as exc:
         print("ERROR: " + str(exc), file=sys.stderr)
         return 1
-    if args.coverage:
-        return coverage_main(args, ap)
     if args.save_evidence and args.comb:
         ap.error("--save-evidence requires synthesized timing/area evidence")
     if args.jobs is not None and args.jobs < 1:
         ap.error("--jobs must be at least 1")
     try:
-        if args.parse_only:
-            # Resolve only neutral argument defaults; the saved record supplies
-            # its own architecture/sharing/caps below, including legacy records.
-            profile = resolve_profile(
-                implementation=args.poly1305,
-                target_mhz=args.target_mhz,
-                multiplier=args.poly1305_mult,
-                data_bitwidth=args.data_bitwidth,
-                compute=args.poly1305_compute,
-                prologue_cap=args.poly1305_prologue_cap,
-                epilogue_cap=args.poly1305_epilogue_cap,
-            )
-            args.poly1305 = profile["implementation"]
-            args.data_bitwidth = profile["data_bitwidth"]
-            args.poly1305_mult = profile["multiplier"]
-            args.poly1305_compute = profile["compute"]
-            args.poly1305_prologue_cap = profile["prologue_cap"]
-            args.poly1305_epilogue_cap = profile["epilogue_cap"]
-            args.target_mhz = profile["target_mhz"]
-            args.sharing = None
-        else:
-            profile = profile_from_args(args)
-            args.sharing = profile["sharing"]
+        profile = profile_from_args(args)
+        args.sharing = profile["sharing"]
         args.poly1305_blocks_per_cycle = args.data_bitwidth // 128
     except ValueError as exc:
         ap.error(str(exc))
 
-    label = args.label or (
-        (
-            "comb-smoke" + (f"-{args.target_mhz}mhz" if args.target_mhz != 80 else "")
-            if args.comb
-            else f"shared-{args.target_mhz}mhz"
-        )
-        + "-poly1305-"
-        + args.poly1305
-        + ("-share-" + sharing_name(args.sharing) if args.sharing is not None else "")
-        + "-mult-"
-        + args.poly1305_mult
-        + ("-compute-" + args.poly1305_compute if args.poly1305 == "pipelined" else "")
-    )
-    if args.label is None and args.poly1305 == "pipelined" and args.poly1305_compute == "fsm":
-        label = prologue_cap_out_dir(label, args.poly1305_prologue_cap)
-        label = epilogue_cap_out_dir(label, args.poly1305_epilogue_cap)
-    if args.label is None:
-        label = blocks_out_dir(label, args.poly1305_blocks_per_cycle)
-    meas_dir = os.path.join(HERE, GENERATED_FILES, "measurements", label)
-    json_path = os.path.join(meas_dir, "perf_raw.json")
-    log_path = os.path.join(meas_dir, "pypelinec.log")
-    hardware_log_path = os.path.join(meas_dir, "pypelinec-hardware.log")
-    if args.comb or args.parse_only:
-        # A comb rig check builds nothing; parse-only reads the recorded directory below
-        out_dir = out_dir_for(
-            args.comb,
-            args.poly1305,
-            args.target_mhz,
-            args.sharing,
-            args.poly1305_mult,
-            args.poly1305_compute if args.poly1305 == "pipelined" else None,
-            args.poly1305_blocks_per_cycle,
-        )
-        if args.poly1305 == "pipelined" and args.poly1305_compute == "fsm":
-            out_dir = prologue_cap_out_dir(out_dir, args.poly1305_prologue_cap)
-            out_dir = epilogue_cap_out_dir(out_dir, args.poly1305_epilogue_cap)
+    if args.coverage:
+        try:
+            modes = coverage_modes(args.coverage)
+        except ValueError as exc:
+            ap.error(str(exc))
+        for name in COVERAGE_REJECTED:
+            if getattr(args, name) != ap.get_default(name):
+                ap.error(f"--{name.replace('_', '-')} applies to the performance measurement only")
+        kind = "coverage-comb-shared" if args.comb else "coverage-pipe-shared"
     else:
-        out_dir = os.path.normpath(
-            os.path.join(
-                HERE,
-                hardware_out_dir(
-                    "shared",
-                    args.poly1305,
-                    args.sharing,
-                    args.poly1305_mult,
-                    args.poly1305_compute,
-                    args.target_mhz,
-                    args.data_bitwidth,
-                    args.poly1305_prologue_cap,
-                    args.poly1305_epilogue_cap,
-                ),
-            )
-        )
-    if args.out_dir:
-        out_dir = os.path.abspath(args.out_dir)
+        kind = "comb-smoke-shared" if args.comb else "shared"
+    label = args.label or profile_name(kind, profile)
+    meas_dir = os.path.join(HERE, GENERATED_FILES, "measurements", label)
+    out_dir = measurement_build_dir(args, profile)
     if args.show_config:
         print(
             json.dumps(
@@ -5432,7 +5318,12 @@ def main():
             )
         )
         return 0
+    if args.coverage:
+        return coverage_main(args, modes, label, meas_dir)
     os.makedirs(meas_dir, exist_ok=True)
+    json_path = os.path.join(meas_dir, "perf_raw.json")
+    log_path = os.path.join(meas_dir, "pypelinec.log")
+    hardware_log_path = os.path.join(meas_dir, "pypelinec-hardware.log")
 
     build_info = {"skipped": True}
     hardware_info = {"skipped": True}
@@ -5443,7 +5334,7 @@ def main():
         else:
             # pypelinec does nothing when that hardware is already built from
             # these exact inputs (up to date), unless --rebuild
-            hardware_info = run_hardware_build(args, hardware_log_path)
+            hardware_info = run_hardware_build(args, hardware_log_path, out_dir)
             if hardware_info["returncode"] != 0:
                 print(
                     f"!! hardware build exited {hardware_info['returncode']} -- nothing to "
@@ -5466,7 +5357,6 @@ def main():
     with open(json_path) as f:
         perf_raw = json.load(f)
 
-    # Historical records predate the selector and used unsuffixed output dirs.
     # For parse-only runs the recorded design, not today's default, wins.
     config = perf_raw.get("config", {})
     mac_config = config.get("poly1305")

@@ -242,6 +242,12 @@ that inspired the multiplication choices.
 
 ### Build and simulation controls
 
+Generated build directories and default measurement labels include the top, Poly1305
+architecture, sharing, multiplier, compute implementation, datapath width, target
+clock, and both latency caps. The default hardware directory ends in
+`-256bit-80mhz-procap44-epicap45`. With `--soc` it ends in
+`-128bit-80mhz-procap64-epicap64`. Use `--show-config` to print the full paths.
+
 | Option | Purpose |
 | --- | --- |
 | `--show-config` | Print resolved profile and paths; available in both scripts. |
@@ -257,7 +263,7 @@ that inspired the multiplication choices.
 | `--rebuild` | Force a hardware build; available in both scripts. |
 | `--out-dir DIR` | Select a hardware output directory; pass the same directory to measurement or pipelined native simulation. Available in both scripts. |
 | `--syn-cache DIR` | Select the shared synthesis store; default `generated-files/syn_cache`, or `none` to disable. Available in both scripts. |
-| `--latency-hints FILE` | Starting pipeline depths for a hardware build (`pypelinec --latency_hints`), from an earlier build's `latency_profile.json`; repeatable. Default: the profile's tracked file in [latency_hints/](latency_hints/), named after its output directory; `none` skips it. `build.py` only. |
+| `--latency-hints FILE` | Start a hardware build with depths from an earlier build's `latency_profile.json` (`pypelinec --latency_hints`). Repeatable. By default, `build.py` looks in [latency_hints/](latency_hints/) for the profile's generated hardware directory name plus `.json`, including with a custom `--out-dir`. Use `none` to skip hints. |
 
 PypelineC reuses unchanged builds automatically. Its latency memory and shared
 synthesis cache avoid repeating matching pipeline searches and syntheses.
@@ -358,7 +364,8 @@ nonzero when a corner a mode used to reach is lost.
 Each mode simulates once through `build.py --sim --native` and leaves
 `coverage-<mode>.json` (its raw facts, with the run's exit code and revisions),
 `coverage.json` and `coverage.md` under `generated-files/measurements/<label>/`
-(default label `coverage-comb-<bits>` or `coverage-pipe-<bits>`). `--parse-only`
+(default label starts with `coverage-comb-shared` or `coverage-pipe-shared`
+and includes the full profile). `--parse-only`
 re-judges the modes it names from their raw files, and `coverage.json` then
 holds those modes. A native run takes about 2 s per simulated cycle: `default`
 is 217 cycles on a comb build (about ten minutes) and `closure` 458 (about
