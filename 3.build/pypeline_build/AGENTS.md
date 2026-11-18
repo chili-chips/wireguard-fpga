@@ -218,7 +218,7 @@ is done.
 - **Duplicated code:** `perf_tb_common.packet_mismatch_message` repeats
   `tb_common_sim.check_packet_result`. The `init` kernel is the same in
   `make_pipelined_compute` and `make_shared_compute`. Share one copy of each.
-- **`--enc --soc --sim --syn_tb` fails** (2026-11-17, on `97097a87` and
+- **`--enc --soc --sim --syn_tb` fails** ([#49](https://github.com/chili-chips/wireguard-fpga/issues/49), yours; 2026-11-17, on `97097a87` and
   `99e5e018`): GHDL stops at the first clock on "Poly1305 body ownership
   delay mismatch" (`poly1305_mac_pipelined.py:285`), after metavalue
   warnings: likely a valid bit that starts as X. `--dec` passes. The
@@ -233,9 +233,9 @@ is done.
 Where it stands (2026-11-17). Chili.CHIPS works on the SoC side, on `main`
 too: pull before you edit `1.hw/` or `4.sim/`.
 
-- **Swapping this core in** ([#48](https://github.com/chili-chips/wireguard-fpga/issues/48),
-  ours): `1.hw/ip.dpe/dpe_wg_encryptor.sv` and `dpe_wg_decryptor.sv` still
-  take this core: standalone `--enc --soc` and `--dec --soc` builds
+- **Swapped in** ([#48](https://github.com/chili-chips/wireguard-fpga/issues/48), `98cc510`,
+  2026-11-17): `1.hw/ip.dpe/dpe_wg_encryptor.sv` and `dpe_wg_decryptor.sv`
+  now take this core: standalone `--enc --soc` and `--dec --soc` builds
   (PipelineC `97097a87`, Vivado 2026.1), Verilog gzip'd in `soc/*.v.gz`
   (`4.sim/rtl/sim.mk` unpacks it; lint and LEQ read it as is), their
   `latency_profile.json` in `latency_hints/`. With them our benches pass byte
@@ -263,9 +263,10 @@ too: pull before you edit `1.hw/` or `4.sim/`.
   needs one instance for both wrappers: our call at integration
   ([#27](https://github.com/chili-chips/wireguard-fpga/issues/27)). If
   PipelineC can prefix or uniquify module names per top, say so.
-- **`pipelinec.ref`** is `4038e33d` (includes the #394 and #395 fixes). The SoC
+- **`pipelinec.ref`** is `0b710cca` (includes the #394 and #395 fixes). The SoC
   builds above started on `97097a87` with the old workaround; the lint and
-  the native random sim pass on `99e5e018`.
+  the native random sim pass on `99e5e018`; on `0b710cca` the GHDL lints
+  pass with no waiver (the #395 one is gone).
 - **Fast rebuild, proposed for `build.py`:** with a warm synthesis cache and
   the tracked `latency_hints/` profile, `pypelinec ... --syn_cache <shared
   store> --latency_hints <profile>.json --no_sweep` rebuilt the `--enc --soc`
