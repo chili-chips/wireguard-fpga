@@ -94,22 +94,30 @@ module lkup_egress
   assign field   = rt_field_e'(csr_cfg.addr[3:2]);
   assign wr_data = csr_cfg.wr_data;
 
-  logic we_prefix, we_mask, we_peer, we_encrypt, we_dst;
-  logic [31:0] rdata_prefix, rdata_mask;
-  dpe_peer_idx_t rdata_peer;
-  logic          rdata_encrypt;
-  dpe_addr_t     rdata_dst;
-
-  assign we_prefix  = csr_wr & (field == FIELD_IP);
-  assign we_mask    = csr_wr & (field == FIELD_MASK);
-  // the peer_idx register: peer_idx in byte 0, encrypt in byte 1 (bit 8);
-  // the CPU writes a field's byte lanes only
-  assign we_peer    = csr_wr & (field == FIELD_PEER) & csr_cfg.wr_biten[0];
-  assign we_encrypt = csr_wr & (field == FIELD_PEER) & csr_cfg.wr_biten[8];
-  assign we_dst     = csr_wr & (field == FIELD_DST);
+  // the CPU writes one register of an entry: the fields it holds. The
+  // peer_idx register has peer_idx in byte 0 and encrypt in byte 1 (bit 8),
+  // each written with its byte lane
+  route_we_t we;
+  route_t wdata, rdata;
+  assign we = '{
+          prefix: csr_wr & (field == FIELD_IP),
+          mask: csr_wr & (field == FIELD_MASK),
+          peer: csr_wr & (field == FIELD_PEER) & csr_cfg.wr_biten[0],
+          encrypt: csr_wr & (field == FIELD_PEER) & csr_cfg.wr_biten[8],
+          dst: csr_wr & (field == FIELD_DST)
+      };
+  assign wdata = '{
+          prefix: wr_data,
+          mask: wr_data,
+          act: '{
+              peer: dpe_peer_idx_t'(wr_data),
+              encrypt: wr_data[8],
+              dst: dpe_addr_t'(wr_data[$bits(dpe_addr_t)-1:0])
+          }
+      };
 
   // A write is done in its request's clock. A read answers one clock later:
-  // lkup_route_mem registers the entry the request addresses (rdata_*)
+  // lkup_route_mem registers the entry the request addresses (rdata)
   logic      rd_ack;
   rt_field_e rd_field;
   always_ff @(posedge s_axis.clk) begin
@@ -128,51 +136,35 @@ module lkup_egress
   logic [CSR_DATA_WIDTH-1:0] rd_data;
   always_comb begin
     unique case (rd_field)
-      FIELD_IP:   rd_data = rdata_prefix;
-      FIELD_MASK: rd_data = rdata_mask;
-      FIELD_PEER: rd_data = CSR_DATA_WIDTH'({rdata_encrypt, rdata_peer});
-      FIELD_DST:  rd_data = CSR_DATA_WIDTH'(rdata_dst);
+      FIELD_IP:   rd_data = rdata.prefix;
+      FIELD_MASK: rd_data = rdata.mask;
+      FIELD_PEER: rd_data = CSR_DATA_WIDTH'({rdata.act.encrypt, rdata.act.peer});
+      FIELD_DST:  rd_data = CSR_DATA_WIDTH'(rdata.act.dst);
     endcase
   end
   assign csr_sta.wr_ack  = csr_wr;
   assign csr_sta.rd_ack  = rd_ack;
   assign csr_sta.rd_data = rd_data;
 
-  dpe_addr_t            route_dst;
-  dpe_peer_idx_t        route_peer;
-  logic                 route_encrypt;
-  logic          [31:0] route_req_ip;
+  route_act_t        route;  // what the entry the lookup picks for route_req_ip does
+  logic       [31:0] route_req_ip;
 
   lkup_route_mem #(
       .ENTRY_COUNT (ENTRY_COUNT)
   ) u_mem (
       .clk (s_axis.clk),
 
-      .waddr         (mem_idx),
-      .we_prefix     (we_prefix),
-      .wdata_prefix  (wr_data),
-      .we_mask       (we_mask),
-      .wdata_mask    (wr_data),
-      .we_peer       (we_peer),
-      .wdata_peer    (dpe_peer_idx_t'(wr_data)),
-      .we_encrypt    (we_encrypt),
-      .wdata_encrypt (wr_data[8]),
-      .we_dst        (we_dst),
-      .wdata_dst     (dpe_addr_t'(wr_data[$bits(dpe_addr_t)-1:0])),
+      .waddr (mem_idx),
+      .we    (we),
+      .wdata (wdata),
 
-      .raddr         (mem_idx),
-      .rdata_prefix  (rdata_prefix),
-      .rdata_mask    (rdata_mask),
-      .rdata_peer    (rdata_peer),
-      .rdata_encrypt (rdata_encrypt),
-      .rdata_dst     (rdata_dst),
+      .raddr (mem_idx),
+      .rdata (rdata),
 
       .req_ip         (route_req_ip),
       .resp_hit       (  /*LINT:OK*/),  // a miss takes the defaults
-      .resp_route_idx (  /*LINT:OK*/),  // not needed: dst and peer come with it
-      .resp_dst       (route_dst),
-      .resp_peer      (route_peer),
-      .resp_encrypt   (route_encrypt)
+      .resp_route_idx (  /*LINT:OK*/),  // not needed: the entry comes with it
+      .resp           (route)
   );
 
   // --------------------------------------------------------------------------
@@ -208,9 +200,7 @@ module lkup_egress
   logic        beat_valid [3];  // which of them hold a beat
   logic  [1:0] buf_rd_ptr;
 
-  dpe_addr_t decided_dst, decided_dst_n;
-  dpe_peer_idx_t decided_peer, decided_peer_n;
-  logic decided_bypass, decided_bypass_n;
+  route_act_t decided, decided_n;  // what happens to the frame
 
   logic [1:0] flush_limit, flush_limit_n;
 
@@ -227,21 +217,21 @@ module lkup_egress
   end
 
   always_comb begin
-    state_next       = state;
-    decided_dst_n    = decided_dst;
-    decided_peer_n   = decided_peer;
-    decided_bypass_n = decided_bypass;
-    flush_limit_n    = flush_limit;
+    state_next    = state;
+    decided_n     = decided;
+    flush_limit_n = flush_limit;
 
     unique case (state)
       S_IDLE: begin
         if (in_hs) begin
           if (s_axis.tuser.bypass_all) begin
-            decided_dst_n    = s_axis.tuser.dst;
-            decided_peer_n   = s_axis.tid;
-            decided_bypass_n = s_axis.tuser.bypass_stage;
-            flush_limit_n    = 2'd0;
-            state_next       = S_FLUSH;
+            decided_n = '{
+                peer: s_axis.tid,
+                encrypt: ~s_axis.tuser.bypass_stage,
+                dst: s_axis.tuser.dst
+            };
+            flush_limit_n = 2'd0;
+            state_next = S_FLUSH;
           end
           else if (s_axis.tlast) begin
             // no IPv4 destination in it: the lookup takes what there is
@@ -268,10 +258,8 @@ module lkup_egress
         // route says so (the routing entry's encrypt flag). A frame that ends
         // before its IPv4 destination does takes the defaults: to the CPU,
         // never into the tunnel
-        decided_dst_n    = da_ok ? route_dst : DPE_ADDR_CPU;
-        decided_peer_n   = da_ok ? route_peer : dpe_peer_idx_t'(0);
-        decided_bypass_n = ~(da_ok & route_encrypt);
-        state_next       = S_FLUSH;
+        decided_n  = da_ok ? route : ROUTE_DEFAULT;
+        state_next = S_FLUSH;
       end
 
       S_FLUSH: begin
@@ -306,9 +294,7 @@ module lkup_egress
       beat_valid[0]    <= 1'b0;
       beat_valid[1]    <= 1'b0;
       beat_valid[2]    <= 1'b0;
-      decided_dst      <= DPE_ADDR_CPU;
-      decided_peer     <= '0;
-      decided_bypass   <= 1'b0;
+      decided          <= ROUTE_DEFAULT;
       route_req_ip     <= 32'd0;
       flush_limit      <= 2'd0;
       frame_src        <= DPE_ADDR_CPU;
@@ -375,9 +361,7 @@ module lkup_egress
         buf_rd_ptr    <= 2'd0;
       end
 
-      decided_dst    <= decided_dst_n;
-      decided_peer   <= decided_peer_n;
-      decided_bypass <= decided_bypass_n;
+      decided <= decided_n;
     end
   end
 
@@ -413,11 +397,14 @@ module lkup_egress
   assign m_axis.tkeep = (state == S_FLUSH) ? flush_tkeep : (state == S_FWD) ? s_axis.tkeep : '0;
   assign m_axis.tlast = (state == S_FLUSH) ? flush_tlast : (state == S_FWD) ? s_axis.tlast : 1'b0;
 
-  assign m_axis.tuser.bypass_all = frame_bypass_all;
-  assign m_axis.tuser.src = frame_src;
-  assign m_axis.tuser.bypass_stage = decided_bypass;
-  assign m_axis.tuser.dst = decided_dst;
-  assign m_axis.tid = decided_peer;
+  // the encryptor after this stage takes bypass_stage: clear to encrypt
+  assign m_axis.tuser = '{
+          bypass_all: frame_bypass_all,
+          bypass_stage: ~decided.encrypt,
+          src: frame_src,
+          dst: decided.dst
+      };
+  assign m_axis.tid = decided.peer;
 
 endmodule
 

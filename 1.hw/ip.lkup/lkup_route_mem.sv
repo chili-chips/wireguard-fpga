@@ -38,7 +38,8 @@
 //--------------------------------------------------------------------------
 // Description:
 //   Data Plane Engine (DPE) Routing Memory (TCAM & RAM).
-//   Stores IPv4 routing rules (Prefix, Mask) and actions (Destination, Peer).
+//   Stores IPv4 routing rules (Prefix, Mask) and actions (Destination, Peer,
+//   Encrypt): one route_t (lkup_pkg) per entry.
 //
 //   Architecture:
 //   - Implements a TCAM-like structure for parallel IP lookup.
@@ -49,71 +50,49 @@
 
 module lkup_route_mem
   import dpe_pkg::*;
+  import lkup_pkg::*;
 #(
-    parameter int            ENTRY_COUNT      = 64,
-    parameter int            ROUTE_IDX_W      = $clog2(ENTRY_COUNT),
-    parameter dpe_addr_t     DEFAULT_DST_PORT = DPE_ADDR_CPU,
-    parameter dpe_peer_idx_t DEFAULT_PEER_IDX = '0
+    parameter int         ENTRY_COUNT = 64,
+    parameter int         ROUTE_IDX_W = $clog2(ENTRY_COUNT),
+    parameter route_act_t DEFAULT     = ROUTE_DEFAULT         // no entry matches
 ) (
-    input  logic                            clk,
-    // Write Interface
-    input  logic          [ROUTE_IDX_W-1:0] waddr,
-    input  logic                            we_prefix,
-    input  logic          [           31:0] wdata_prefix,
-    input  logic                            we_mask,
-    input  logic          [           31:0] wdata_mask,
-    input  logic                            we_peer,
-    input  dpe_peer_idx_t                   wdata_peer,
-    input  logic                            we_encrypt,
-    input  logic                            wdata_encrypt,
-    input  logic                            we_dst,
-    input  dpe_addr_t                       wdata_dst,
+    input  logic                         clk,
+    // Write Interface: the fields of entry waddr that we selects
+    input  logic       [ROUTE_IDX_W-1:0] waddr,
+    input  route_we_t                    we,
+    input  route_t                       wdata,
 
-    // Read Interface
-    input  logic          [ROUTE_IDX_W-1:0] raddr,
-    output logic          [           31:0] rdata_prefix,
-    output logic          [           31:0] rdata_mask,
-    output dpe_peer_idx_t                   rdata_peer,
-    output logic                            rdata_encrypt,
-    output dpe_addr_t                       rdata_dst,
+    // Read Interface: entry raddr, a clock later
+    input  logic       [ROUTE_IDX_W-1:0] raddr,
+    output route_t                       rdata,
 
-    // Lookup Interface
-    input  logic          [           31:0] req_ip,
-    output logic                            resp_hit,
-    output logic          [ROUTE_IDX_W-1:0] resp_route_idx,
-    output dpe_addr_t                       resp_dst,
-    output dpe_peer_idx_t                   resp_peer,
-    output logic                            resp_encrypt     // through the tunnel to resp_peer
+    // Lookup Interface: the first entry that matches req_ip
+    input  logic       [           31:0] req_ip,
+    output logic                         resp_hit,
+    output logic       [ROUTE_IDX_W-1:0] resp_route_idx,
+    output route_act_t                   resp             // what it does
 );
 
-  // Storage arrays
-  logic          [31:0] cam_prefix [ENTRY_COUNT];
-  logic          [31:0] cam_mask   [ENTRY_COUNT];
-
-
-  dpe_addr_t            ram_dst    [ENTRY_COUNT];
-  dpe_peer_idx_t        ram_peer   [ENTRY_COUNT];
-  logic                 ram_encrypt[ENTRY_COUNT];
-
+  route_t routes[ENTRY_COUNT];
 
   // ---------------------------
   // WRITE LOGIC
   // ---------------------------
   always_ff @(posedge clk) begin
-    if (we_prefix) begin
-      cam_prefix[waddr] <= wdata_prefix;
+    if (we.prefix) begin
+      routes[waddr].prefix <= wdata.prefix;
     end
-    if (we_mask) begin
-      cam_mask[waddr] <= wdata_mask;
+    if (we.mask) begin
+      routes[waddr].mask <= wdata.mask;
     end
-    if (we_peer) begin
-      ram_peer[waddr] <= wdata_peer;
+    if (we.peer) begin
+      routes[waddr].act.peer <= wdata.act.peer;
     end
-    if (we_encrypt) begin
-      ram_encrypt[waddr] <= wdata_encrypt;
+    if (we.encrypt) begin
+      routes[waddr].act.encrypt <= wdata.act.encrypt;
     end
-    if (we_dst) begin
-      ram_dst[waddr] <= wdata_dst;
+    if (we.dst) begin
+      routes[waddr].act.dst <= wdata.act.dst;
     end
   end
 
@@ -121,11 +100,7 @@ module lkup_route_mem
   // READ LOGIC
   // ---------------------------
   always_ff @(posedge clk) begin
-    rdata_prefix  <= cam_prefix[raddr];
-    rdata_mask    <= cam_mask[raddr];
-    rdata_peer    <= ram_peer[raddr];
-    rdata_encrypt <= ram_encrypt[raddr];
-    rdata_dst     <= ram_dst[raddr];
+    rdata <= routes[raddr];
   end
 
   // ---------------------------
@@ -133,12 +108,9 @@ module lkup_route_mem
   // ---------------------------
   logic [ENTRY_COUNT-1:0] hit_vec;
 
-  genvar k;
-  generate
-    for (k = 0; k < ENTRY_COUNT; k++) begin : g_cam_match
-      assign hit_vec[k] = ((req_ip & cam_mask[k]) == (cam_prefix[k] & cam_mask[k]));
-    end
-  endgenerate
+  for (genvar k = 0; k < ENTRY_COUNT; k++) begin : g_cam_match
+    assign hit_vec[k] = ((req_ip & routes[k].mask) == (routes[k].prefix & routes[k].mask));
+  end
 
   logic [ROUTE_IDX_W-1:0] best_idx;
   logic                   hit_found;
@@ -158,11 +130,8 @@ module lkup_route_mem
   end
 
   assign resp_hit       = hit_found;
-  assign resp_route_idx = hit_found ? best_idx : '0;
-
-  assign resp_dst       = hit_found ? ram_dst[best_idx]  : DEFAULT_DST_PORT;
-  assign resp_peer      = hit_found ? ram_peer[best_idx] : DEFAULT_PEER_IDX;
-  assign resp_encrypt   = hit_found & ram_encrypt[best_idx];  // a miss: as it is
+  assign resp_route_idx = hit_found ? best_idx             : '0;
+  assign resp           = hit_found ? routes[best_idx].act : DEFAULT;
 
 endmodule
 

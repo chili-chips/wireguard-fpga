@@ -16,6 +16,35 @@
 
 package lkup_pkg;
   import csr_pkg::*;
+  import dpe_pkg::*;
+
+  // what a route does with a packet: to dst, for peer, through the tunnel
+  // when encrypt is set
+  typedef struct packed {
+    dpe_peer_idx_t peer;     // [11:4]
+    logic          encrypt;  // [   3]
+    dpe_addr_t     dst;      // [ 2:0]
+  } route_act_t;
+
+  // a routing-table entry (csr.rdl routing_table.entry): a packet whose IPv4
+  // destination matches prefix under mask gets act
+  typedef struct packed {
+    logic [31:0] prefix;  // [75:44]
+    logic [31:0] mask;    // [43:12]
+    route_act_t  act;     // [11: 0]
+  } route_t;
+
+  // a write enable per field: the CPU writes one field per access
+  typedef struct packed {
+    logic prefix;
+    logic mask;
+    logic peer;
+    logic encrypt;
+    logic dst;
+  } route_we_t;
+
+  // no route matches: to the CPU, as it is
+  localparam route_act_t ROUTE_DEFAULT = '{peer: '0, encrypt: 1'b0, dst: DPE_ADDR_CPU};
 
   typedef csr__routing_table__external__out_t csr_cfg_t;
   typedef csr__routing_table__external__in_t csr_sta_t;
