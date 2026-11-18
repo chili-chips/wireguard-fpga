@@ -15,7 +15,10 @@ TOPFILELIST      = top.filelist
 SOCCPUMATCH      = ip.cpu
 USRSIMOPTS       =
 USRCFLAGS        =
-WAVESAVEFILE     = wave.CSR_ETHERNET_TEST.gtkw
+# make gui: the WaveCrux session to open, and WaveCrux itself (under WSL, its
+# Windows .exe works too: WAVECRUX=/mnt/d/1.Tools/WaveCrux/wavecrux_pro.exe)
+WAVESESSION      = wave.GMII.wavecrux
+WAVECRUX        ?= wavecrux
 BUILD            = DEFAULT
 # vproc: VProc is soc_cpu (BUILD=DEFAULT or ISS); rtl: the RTL soc_cpu that
 # 1.hw/top.filelist lists (PicoRV32 or eduBOS5), running 3.build/sw_build
@@ -292,14 +295,6 @@ else ifneq ("$(SIM)", "verilator")
   $(error SIM must be verilator or janushdl (got "$(SIM)"))
 endif
 
-#
-# GTKWave variables
-#
-GTKWAVEOPTS    = --saveonexit                                 \
-                 --stems   ./tb.stems                         \
-                 --logfile sim.log                            \
-                 --dump    $(WAVEFILE)
-
 WAVEFILE         = wave.fst
 
 #
@@ -412,21 +407,6 @@ $(MEMMODELDIR):
 	@git clone -q $(MEMMODEL_REPO) $(MEMMODELDIR)
 	@git -C $(MEMMODELDIR) -c advice.detachedHead=false checkout -q $(MEMVERSION)
 
-xml2stems: $(TOPFILELIST)
-	@verilator                                            \
-            $(WARNOPTS)                                   \
-	        --timing                                      \
-	        -xml-only                                     \
-	        -xml-output tb.xml                            \
-	        --timescale 1ns/1ns                           \
-	        $(SIMINCLPATHS) $(SIMDEFS)                    \
-	        -F $(TOPFILELIST)                             \
-	        -F $(TBFILELIST)                              \
-	        -MAKEFLAGS "$(SIMMAKEFLAGS)"                  \
-	        -Wno-WIDTH                                    \
-	        --top-module $(TB_NAME)
-	@xml2stems tb.xml tb.stems
-
 #======================================================
 # EXECUTION RULES
 #======================================================
@@ -434,13 +414,13 @@ xml2stems: $(TOPFILELIST)
 run: all
 	@$(SIMCMD)
 
-rungui: all xml2stems
+# run, then show the waveform in WaveCrux; the session (decoders, colors) is
+# opened with File > Open, as WaveCrux takes only a waveform on its command line
+rungui: all
 	@$(SIMEXE) | tee sim.log
-	@if [ -e $(WAVESAVEFILE) ]; then                      \
-	    gtkwave -a $(WAVESAVEFILE) $(GTKWAVEOPTS);        \
-	else                                                  \
-	    gtkwave $(GTKWAVEOPTS);                           \
-	fi
+	@case "$(WAVECRUX)" in *.exe) w=$$(wslpath -w $(WAVEFILE));; *) w=$(WAVEFILE);; esac; \
+	    "$(WAVECRUX)" "$$w" >/dev/null 2>&1 &
+	@echo "WaveCrux: File > Open $(WAVESESSION) for the decoded view"
 
 gui: rungui
 
@@ -460,7 +440,8 @@ help:
 	@$(info $(SPC) $(SPC) TOPFILELIST:      RTL file list name (default top.filelist))
 	@$(info $(SPC) $(SPC) SOCCPUMATCH:      string to match for soc_cpu filtering in h/w file list (default ip.cpu))
 	@$(info $(SPC) $(SPC) USRSIMOPTS:       additional Verilator flags, such as setting generics (default blank))
-	@$(info $(SPC) $(SPC) WAVESAVEFILE:     name of .gtkw file to use when displaying waveforms (default wave.CSR_ETHERNET_TEST.gtkw))
+	@$(info $(SPC) $(SPC) WAVESESSION:      WaveCrux session to open after make gui (default wave.GMII.wavecrux))
+	@$(info $(SPC) $(SPC) WAVECRUX:         WaveCrux program (default wavecrux; a Windows .exe works under WSL))
 	@$(info $(SPC) $(SPC) BUILD:            Select build type from DEFAULT or ISS (default DEFAULT))
 	@$(info $(SPC) $(SPC) CPU:              vproc (VProc soc_cpu) or rtl (the RTL soc_cpu in 1.hw/top.filelist) (default vproc))
 	@$(info $(SPC) $(SPC) SIM:              verilator or janushdl; janushdl has the run target only (default verilator))

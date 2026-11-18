@@ -67,7 +67,7 @@ openXC7 needs the software built first for `imem.INIT.vh`. `FRONTEND=sv2v` conve
 ```bash
 make -f MakefileVProc.mk run                 # build + run batch sim, native VUserMain0.cpp test code
 make -f MakefileVProc.mk BUILD=ISS run        # run RISC-V-compiled code on the rv32 ISS instead
-make -f MakefileVProc.mk gui                  # same, with GTKWave
+make -f MakefileVProc.mk gui                  # same, then WaveCrux (WAVECRUX=...; File > Open wave.GMII.wavecrux)
 make -f MakefileVProc.mk clean
 ```
 `soc_cpu` is auto-selected between RTL (eduBOS5/PicoRV32; IBEX exists only as an ISS timing model) and the VProc virtual-processor model depending on which files are in `top.filelist`; see `4.sim/README.md` for the full picture (co-sim HAL usage, ISS timing models, PCAP replay, gdb debugging). A standalone RTL-only `4.sim/Makefile` also exists for cycle-accurate sim without VProc; it reads `1.hw/top.filelist`, so it simulates PicoRV32 by default.
@@ -104,4 +104,4 @@ RTL conventions: [`1.hw/README.md#rtl-coding-rules`](1.hw/README.md#rtl-coding-r
 
 ## Licensing
 
-REUSE-compliant; BSD-3-Clause is the default project license, and the other texts in `LICENSES/` cover third-party files through their own SPDX headers. `REUSE.toml` has one annotation: files without an SPDX header under `0.doc/`, `99.warmup/`, `3.build/csr_build/generated-files/`, `hw_build.openXC7/{build_artifacts,converted}/`, `hw_build.Vivado/`, `sw_build/`, `pipelinec_build/`, `pypeline_build/measurements/`, and `4.sim` waveform/PCAP files (`*.gtkw`, `*.fst`, `*.ron`, `*.pcap`) get BSD-3-Clause, © Chili.CHIPS*ba (`precedence = "aggregate"`, so a file's own header still applies). Other new files need their own SPDX header.
+REUSE-compliant; BSD-3-Clause is the default project license, and the other texts in `LICENSES/` cover third-party files through their own SPDX headers. `REUSE.toml` has one annotation: files without an SPDX header under `0.doc/`, `99.warmup/`, `3.build/csr_build/generated-files/`, `hw_build.openXC7/{build_artifacts,converted}/`, `hw_build.Vivado/`, `sw_build/`, `pipelinec_build/`, `pypeline_build/measurements/`, and `4.sim` waveform, session and PCAP files (`*.gtkw`, `*.wavecrux`, `*.fst`, `*.ron`, `*.pcap`) get BSD-3-Clause, © Chili.CHIPS*ba (`precedence = "aggregate"`, so a file's own header still applies). Other new files need their own SPDX header.

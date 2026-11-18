@@ -47,10 +47,10 @@ Shown in the diagram is the Wireguard FPGA top level component (<tt>top</tt>) wi
 ## VerilatorSimCtrl (interactive run control)
 
 What it does:
-- Interactive CLI inside the simulation (node 15) for `run/for/until/finish` and forces `wave.fst` flush so GTKWave sees fresh samples without restarting.
-- Opens GTKWave in a separate thread (see `GTKWAVEOPTS` and `WAVESAVEFILE` in `MakefileVProc.mk`).
+- Interactive CLI inside the simulation (node 15) for `run/for/until/finish` and forces `wave.fst` flush so the waveform viewer sees fresh samples without restarting.
+- Opens the waveform in [WaveCrux](https://wavecrux.app) (`WAVECRUX` in `MakefileVProc.mk`; under WSL its Windows `.exe` works). Then File > Open `wave.GMII.wavecrux` (`WAVESESSION`) for the Ethernet decoders; the other `wave.*.wavecrux` sessions show the CPU bus, CSRs, UART and GPIO.
 
-- Reload GTKWave to view new samples: `File -> Reload Waveform` (or `Ctrl+Shift+R`), then zoom/end to the latest time.
+- Reload the waveform in the viewer (WaveCrux: File > Reload) to see new samples, then zoom to the latest time.
 
 How to enable:
 - Pass `DISABLE_SIM_CTRL=0`, e.g.:  
@@ -63,7 +63,7 @@ Key commands at the `VerSimCtrl>` prompt:
 - `continue`/`c` — same as `run`
 - `finish`/`quit`/`exit` — ends simulation (`$finish`)
 - Units: `ps | ns | us | ms | s | cycle(s)`; default is cycles if omitted.
-- Each command flushes waves; in GTKWave hit reload + zoom-to-end to see the new range.
+- Each command flushes waves; in the viewer, reload and zoom to the end to see the new range.
 
 ## Auto-selection of soc_cpu Component
 
@@ -260,7 +260,8 @@ Command line configurable variables:
   TOPFILELIST:      RTL file list name (default top.filelist)
   SOCCPUMATCH:      string to match for soc_cpu filtering in h/w file list (default ip.cpu)
   USRSIMOPTS:       additional Verilator flags, such as setting generics (default blank)
-  WAVESAVEFILE:     name of .gtkw file to use when displaying waveforms (default wave.CSR_ETHERNET_TEST.gtkw)
+  WAVESESSION:      WaveCrux session to open after make gui (default wave.GMII.wavecrux)
+  WAVECRUX:         WaveCrux program (default wavecrux; a Windows .exe works under WSL)
   BUILD:            Select build type from DEFAULT or ISS (default DEFAULT)
   SIM:              verilator or janushdl; janushdl has the run target only (default verilator)
   TIMEOUTUS:        Test bench timeout period in microseconds (default 10000)
@@ -273,7 +274,7 @@ By default, without a named target, the simulation executable will be built but 
 
 The make file has a set of variables (with default settings) that can be overridden on running <tt>make</tt>. E.g. <tt>make VAR=NewVal</tt>. The help output shows these variables with brief decriptions. Entries with multiple values should be enclosed in double quotes. By default the firmware is built for the host, but if <tt>BUILD</tt> is set to <tt>ISS</tt>, then the rv32 ISS and VProc program is compiled and, in this case, the <tt>USER_C</tt> and <tt>USRCODEDIR</tt> are ignored as the make file compiles the supplied source code for the ISS.
 
-The <tt>USER_C</tt> and <tt>USERCODEDIR</tt> make file variable allows different (and multiple) user source file names to override the defaults, and to change the location of where the user code is located (if not the ISS build). This allows different programs to be run by simply changing these variable, and to organise the different source code in different directories etc. By default, the VProc code is compiled for debugging (<tt>-g</tt>), but this can be overridden by changing <tt>OPTFLAG</tt>. The trace and timing options can also be overridden to allow a faster executable. The Wireguard <tt>top.filelist</tt> filename can be overridden to allow multiple configurations to be selected from, if required. The processing of this file to remove the listed <tt>soc_cpu</tt> HDL files is selected on a pattern (<tt>ip.cpu</tt>) but this can be changed using <tt>SOCCPUMATCH</tt>. If any additional options for Verilator are required, then these can be added to <tt>USRSIMOPTS</tt>. The GTKWave waveform file can be selected with <tt>WAVESAVEFILE</tt>.
+The <tt>USER_C</tt> and <tt>USERCODEDIR</tt> make file variable allows different (and multiple) user source file names to override the defaults, and to change the location of where the user code is located (if not the ISS build). This allows different programs to be run by simply changing these variable, and to organise the different source code in different directories etc. By default, the VProc code is compiled for debugging (<tt>-g</tt>), but this can be overridden by changing <tt>OPTFLAG</tt>. The trace and timing options can also be overridden to allow a faster executable. The Wireguard <tt>top.filelist</tt> filename can be overridden to allow multiple configurations to be selected from, if required. The processing of this file to remove the listed <tt>soc_cpu</tt> HDL files is selected on a pattern (<tt>ip.cpu</tt>) but this can be changed using <tt>SOCCPUMATCH</tt>. If any additional options for Verilator are required, then these can be added to <tt>USRSIMOPTS</tt>. WaveCrux is selected with <tt>WAVECRUX</tt>, and the session it suggests with <tt>WAVESESSION</tt>.
 
 The simulation ends when the test is done: the last receiving UDP node (<tt>VUserMainUdp.cpp</tt>: both frames in; <tt>VUserMainPcap.cpp</tt>: every replayed frame in) sets the _udpIpPg_ halt, and <tt>tb.sv</tt> stops 10 us later. <tt>TIMEOUTUS</tt>, in microseconds, is the time limit for a test that never finishes. Some example commands using the make file are shown below:
 
@@ -573,7 +574,7 @@ Payload (64 bytes):
   - Outputs of interest in `./output/`:
     - `node2_out.pcap`, `node4_out.pcap` – RX captures with corrected timestamps
     - `merge_node2.pcap`, `merge_node4.pcap` – TX+RX merged on a single timeline
-  - In Wireshark: set Time Display to “Seconds Since Epoch” or “Date and Time of Day”. Start-to-start latency (TX→RX) should match what you measure in `wave.fst` via GTKWave.
+  - In Wireshark: set Time Display to “Seconds Since Epoch” or “Date and Time of Day”. Start-to-start latency (TX→RX) should match what you measure in `wave.fst` in WaveCrux.
 
 ## HAL
 
