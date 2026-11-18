@@ -31,3 +31,7 @@ lint_off -rule SPECIFYIGN -file "*/models/no-change/*"
 // and they write one variable from several plain always blocks (ODDR: both
 // clock edges and the async set/reset): legal, and simulates as written
 lint_off -rule MULTIDRIVENPROC -file "*/models/no-change/*"
+// The generated CSR (PeakRDL-regblock): the cryptokey table ends at the top of
+// the 14-bit address space (0x2000 + 0x1fff), so its "addr <= end" compare
+// is always true
+lint_off -rule CMPCONST -file "*/csr_build/generated-files/csr.sv"

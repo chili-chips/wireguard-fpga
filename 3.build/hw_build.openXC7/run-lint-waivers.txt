@@ -51,6 +51,10 @@ verilator ^%Warning-MULTIDRIVEN: bld/csr_build/generated-files/csr\.sv:[0-9]+:[0
 verilator ^%Warning-GENUNNAMED: bld/csr_build/generated-files/csr\.sv:[0-9]+:[0-9]+: Unnamed generate block 'genblk[0-9]+'
 verilator ^%Warning-UNUSEDSIGNAL: bld/csr_build/generated-files/csr\.sv:[0-9]+:[0-9]+: Bits of signal are not used: 'decoded_addr'
 verilator ^%Warning-UNUSEDPARAM: bld/csr_build/generated-files/csr_pkg\.sv:[0-9]+:[0-9]+: Parameter is not used: '(CSR_DATA_WIDTH|CSR_SIZE)'$
+# - the cryptokey table ends at the top of the 14-bit CSR address space
+#   (0x2000 + 0x1fff, entries padded to 32 words): its "addr <= end" decode
+#   compare is always true
+verilator ^%Warning-CMPCONST: bld/csr_build/generated-files/csr\.sv:[0-9]+:[0-9]+: Comparison is constant due to limited range$
 
 # verilog-ethernet (third party, external_lib): eth_mac_1g_gmii leaves the PTP
 # timestamp inputs of eth_mac_1g open. PTP is off (PTP_TS_ENABLE = 0), so the

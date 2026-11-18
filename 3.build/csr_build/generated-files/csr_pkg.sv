@@ -5,7 +5,7 @@ package csr_pkg;
 
     localparam CSR_DATA_WIDTH = 32;
     localparam CSR_MIN_ADDR_WIDTH = 14;
-    localparam CSR_SIZE = 'h3e00;
+    localparam CSR_SIZE = 'h4000;
 
     typedef struct {
         logic next;

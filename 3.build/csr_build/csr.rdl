@@ -936,7 +936,7 @@ addrmap csr {
                we;
             } cnt[31:0];
          } recv_cnt_31_0;
-      } entry[64];
+      } entry[64] += 0x80;  // 30 words, padded to 32: entry = addr[12:7], word = addr[6:2]
    } cryptokey_table @ 0x2000;
 };
 

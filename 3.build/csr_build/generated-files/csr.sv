@@ -157,9 +157,9 @@ module csr (
         decoded_reg_strb.routing_table = cpuif_req_masked & (cpuif_addr >= 14'h400) & (cpuif_addr <= 14'h400 + 14'h3ff);
         is_external |= cpuif_req_masked & (cpuif_addr >= 14'h400) & (cpuif_addr <= 14'h400 + 14'h3ff);
         is_valid_rw |= cpuif_req_masked & (cpuif_addr >= 14'h400) & (cpuif_addr <= 14'h400 + 14'h3ff);
-        decoded_reg_strb.cryptokey_table = cpuif_req_masked & (cpuif_addr >= 14'h2000) & (cpuif_addr <= 14'h2000 + 14'h1dff);
-        is_external |= cpuif_req_masked & (cpuif_addr >= 14'h2000) & (cpuif_addr <= 14'h2000 + 14'h1dff);
-        is_valid_rw |= cpuif_req_masked & (cpuif_addr >= 14'h2000) & (cpuif_addr <= 14'h2000 + 14'h1dff);
+        decoded_reg_strb.cryptokey_table = cpuif_req_masked & (cpuif_addr >= 14'h2000) & (cpuif_addr <= 14'h2000 + 14'h1fff);
+        is_external |= cpuif_req_masked & (cpuif_addr >= 14'h2000) & (cpuif_addr <= 14'h2000 + 14'h1fff);
+        is_valid_rw |= cpuif_req_masked & (cpuif_addr >= 14'h2000) & (cpuif_addr <= 14'h2000 + 14'h1fff);
         decoded_err = '0;
         decoded_req_is_external = is_external;
     end
@@ -1103,7 +1103,7 @@ module csr (
         if((rd_mux_addr >= 14'h400) && (rd_mux_addr <= 14'h400 + 14'h3ff)) begin
             readback_data_var = hwif_in.routing_table.rd_data;
         end
-        if((rd_mux_addr >= 14'h2000) && (rd_mux_addr <= 14'h2000 + 14'h1dff)) begin
+        if((rd_mux_addr >= 14'h2000) && (rd_mux_addr <= 14'h2000 + 14'h1fff)) begin
             readback_data_var = hwif_in.cryptokey_table.rd_data;
         end
         readback_data = readback_data_var;

@@ -924,11 +924,12 @@ typedef struct __attribute__ ((__packed__)) {
     csr__cryptokey_table__entry__send_cnt_31_0_t send_cnt_31_0;
     csr__cryptokey_table__entry__recv_cnt_63_32_t recv_cnt_63_32;
     csr__cryptokey_table__entry__recv_cnt_31_0_t recv_cnt_31_0;
-} csr__cryptokey_table__entry_t;
+    uint8_t RESERVED_78_7f[0x8];
+} csr__cryptokey_table__entry__stride80_t;
 
 // regfile - csr::cryptokey_table
 typedef struct __attribute__ ((__packed__)) {
-    csr__cryptokey_table__entry_t entry[64];
+    csr__cryptokey_table__entry__stride80_t entry[64];
 } csr__cryptokey_table_t;
 
 // addrmap - csr
@@ -957,7 +958,7 @@ typedef struct __attribute__ ((__packed__)) {
 } wireguard_t;
 
 
-static_assert(sizeof(wireguard_t) == 0x20003e00, "Packing error");
+static_assert(sizeof(wireguard_t) == 0x20004000, "Packing error");
 
 #ifdef __cplusplus
 }
