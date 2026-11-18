@@ -240,27 +240,26 @@ a separate interface for processing.
         mcf_dest_next = s_axis_tdest;
         mcf_user_next = s_axis_tuser;
 
-        `define _HEADER_FIELD_(offset, field) \
-                if (ptr_reg == offset/BYTE_LANES) begin \
-                    field = s_axis_tdata[(offset%BYTE_LANES)*8 +: 8]; \
-                end
-
-        `_HEADER_FIELD_(0, mcf_eth_dst_next[5*8+:8])
-        `_HEADER_FIELD_(1, mcf_eth_dst_next[4*8+:8])
-        `_HEADER_FIELD_(2, mcf_eth_dst_next[3*8+:8])
-        `_HEADER_FIELD_(3, mcf_eth_dst_next[2*8+:8])
-        `_HEADER_FIELD_(4, mcf_eth_dst_next[1*8+:8])
-        `_HEADER_FIELD_(5, mcf_eth_dst_next[0*8+:8])
-        `_HEADER_FIELD_(6, mcf_eth_src_next[5*8+:8])
-        `_HEADER_FIELD_(7, mcf_eth_src_next[4*8+:8])
-        `_HEADER_FIELD_(8, mcf_eth_src_next[3*8+:8])
-        `_HEADER_FIELD_(9, mcf_eth_src_next[2*8+:8])
-        `_HEADER_FIELD_(10, mcf_eth_src_next[1*8+:8])
-        `_HEADER_FIELD_(11, mcf_eth_src_next[0*8+:8])
-        `_HEADER_FIELD_(12, mcf_eth_type_next[1*8+:8])
-        `_HEADER_FIELD_(13, mcf_eth_type_next[0*8+:8])
-        `_HEADER_FIELD_(14, mcf_opcode_next[1*8+:8])
-        `_HEADER_FIELD_(15, mcf_opcode_next[0*8+:8])
+        for (int k = 0; k < 6; k++) begin  // eth_dst: header bytes 0 to 5
+          if (ptr_reg == (0 + k) / BYTE_LANES) begin
+            mcf_eth_dst_next[(5-k)*8+:8] = s_axis_tdata[((0+k)%BYTE_LANES)*8+:8];
+          end
+        end
+        for (int k = 0; k < 6; k++) begin  // eth_src: header bytes 6 to 11
+          if (ptr_reg == (6 + k) / BYTE_LANES) begin
+            mcf_eth_src_next[(5-k)*8+:8] = s_axis_tdata[((6+k)%BYTE_LANES)*8+:8];
+          end
+        end
+        for (int k = 0; k < 2; k++) begin  // eth_type: header bytes 12 to 13
+          if (ptr_reg == (12 + k) / BYTE_LANES) begin
+            mcf_eth_type_next[(1-k)*8+:8] = s_axis_tdata[((12+k)%BYTE_LANES)*8+:8];
+          end
+        end
+        for (int k = 0; k < 2; k++) begin  // opcode: header bytes 14 to 15
+          if (ptr_reg == (14 + k) / BYTE_LANES) begin
+            mcf_opcode_next[(1-k)*8+:8] = s_axis_tdata[((14+k)%BYTE_LANES)*8+:8];
+          end
+        end
 
         if (ptr_reg == 0 / BYTE_LANES) begin
           // ensure params field gets cleared
@@ -282,7 +281,6 @@ a separate interface for processing.
           read_mcf_next = 1'b0;
         end
 
-        `undef _HEADER_FIELD_
       end
 
       if (s_axis_tlast) begin

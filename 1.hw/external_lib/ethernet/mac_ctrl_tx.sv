@@ -231,28 +231,30 @@ data traffic.
         m_axis_tdest_int  = mcf_dest;
         m_axis_tuser_int  = mcf_user;
 
-        `define _HEADER_FIELD_(offset, field) \
-                if (ptr_reg == offset/BYTE_LANES) begin \
-                    m_axis_tdata_int[(offset%BYTE_LANES)*8 +: 8] = field; \
-                    m_axis_tkeep_int[offset%BYTE_LANES] = 1'b1; \
-                end
-
-        `_HEADER_FIELD_(0, mcf_eth_dst[5*8+:8])
-        `_HEADER_FIELD_(1, mcf_eth_dst[4*8+:8])
-        `_HEADER_FIELD_(2, mcf_eth_dst[3*8+:8])
-        `_HEADER_FIELD_(3, mcf_eth_dst[2*8+:8])
-        `_HEADER_FIELD_(4, mcf_eth_dst[1*8+:8])
-        `_HEADER_FIELD_(5, mcf_eth_dst[0*8+:8])
-        `_HEADER_FIELD_(6, mcf_eth_src[5*8+:8])
-        `_HEADER_FIELD_(7, mcf_eth_src[4*8+:8])
-        `_HEADER_FIELD_(8, mcf_eth_src[3*8+:8])
-        `_HEADER_FIELD_(9, mcf_eth_src[2*8+:8])
-        `_HEADER_FIELD_(10, mcf_eth_src[1*8+:8])
-        `_HEADER_FIELD_(11, mcf_eth_src[0*8+:8])
-        `_HEADER_FIELD_(12, mcf_eth_type[1*8+:8])
-        `_HEADER_FIELD_(13, mcf_eth_type[0*8+:8])
-        `_HEADER_FIELD_(14, mcf_opcode[1*8+:8])
-        `_HEADER_FIELD_(15, mcf_opcode[0*8+:8])
+        for (int k = 0; k < 6; k++) begin  // eth_dst: header bytes 0 to 5
+          if (ptr_reg == (0 + k) / BYTE_LANES) begin
+            m_axis_tdata_int[((0+k)%BYTE_LANES)*8+:8] = mcf_eth_dst[(5-k)*8+:8];
+            m_axis_tkeep_int[(0+k)%BYTE_LANES]        = 1'b1;
+          end
+        end
+        for (int k = 0; k < 6; k++) begin  // eth_src: header bytes 6 to 11
+          if (ptr_reg == (6 + k) / BYTE_LANES) begin
+            m_axis_tdata_int[((6+k)%BYTE_LANES)*8+:8] = mcf_eth_src[(5-k)*8+:8];
+            m_axis_tkeep_int[(6+k)%BYTE_LANES]        = 1'b1;
+          end
+        end
+        for (int k = 0; k < 2; k++) begin  // eth_type: header bytes 12 to 13
+          if (ptr_reg == (12 + k) / BYTE_LANES) begin
+            m_axis_tdata_int[((12+k)%BYTE_LANES)*8+:8] = mcf_eth_type[(1-k)*8+:8];
+            m_axis_tkeep_int[(12+k)%BYTE_LANES]        = 1'b1;
+          end
+        end
+        for (int k = 0; k < 2; k++) begin  // opcode: header bytes 14 to 15
+          if (ptr_reg == (14 + k) / BYTE_LANES) begin
+            m_axis_tdata_int[((14+k)%BYTE_LANES)*8+:8] = mcf_opcode[(1-k)*8+:8];
+            m_axis_tkeep_int[(14+k)%BYTE_LANES]        = 1'b1;
+          end
+        end
 
         for (int k = 0; k < HDR_SIZE - 16; k = k + 1) begin
           if (ptr_reg == (16 + k) / BYTE_LANES) begin
@@ -277,7 +279,6 @@ data traffic.
           mcf_ready_next = (ptr_next == CYCLE_COUNT - 1) && m_axis_tready_int_early;
         end
 
-        `undef _HEADER_FIELD_
       end
     end
   end
