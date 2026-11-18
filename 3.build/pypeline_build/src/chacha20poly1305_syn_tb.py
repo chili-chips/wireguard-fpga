@@ -27,20 +27,25 @@ DECRYPT = wireguard_env.DECRYPT
 if ENCRYPT:
     import encrypt_dataflow  # noqa: F401
     import encrypt_syn_tb
+    from chacha20poly1305_encrypt_ports import encrypt_port_waves
 if DECRYPT:
     import decrypt_dataflow  # noqa: F401
     import decrypt_syn_tb
+    from chacha20poly1305_decrypt_ports import decrypt_port_waves
 
 
 # Wait for every enabled direction's completion Wire so neither run is cut short.
 # @wires keeps this simulation-only control out of timing characterization.
+# A waveform (--wave) gets the flat ports first, so the finishing cycle has them too.
 @MAIN(wireguard_env.TARGET_MHZ)
 @wires
 def syn_tb_finish_checker():
     done: uint1_t = 1
     if ENCRYPT:
+        encrypt_port_waves()
         done = done & encrypt_syn_tb.encrypt_all_done
     if DECRYPT:
+        decrypt_port_waves()
         done = done & decrypt_syn_tb.decrypt_all_done
     if done:
         sim_finish()

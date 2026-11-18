@@ -256,6 +256,8 @@ clock, and both latency caps. The default hardware directory ends in
 | `--comb` | Simulate without automatic pipeline delays; also available in `measure.py` for a rig check without timing/area. |
 | `--syn_tb` | Select fixed vectors; default correctness simulation uses random vectors and requires `--native`. |
 | `-D NAME=VALUE` | Pass non-profile testbench parameters, such as `TB_STRESS=1`; profile parameters use the named flags above. |
+| `--wave FILE` | With `--sim`, write the simulation's [waveform](#waveforms): `.vcd` or `.fst` natively (FST needs GTKWave's `vcd2fst`), or `.vcd`, `.fst` or `.ghw` from GHDL. |
+| `--wave-signals PATTERN` | With `--wave` and `--native`, also record the global Wires whose waveform path matches the glob (`pypelinec --wave_signals`), e.g. `'chacha20poly1305_encrypt_ports/*'`; repeatable. |
 | `--perf` | Set `PERF=1` on the native testbench; implies `--sim --native` and requires the combined design. Prefer `measure.py` for reports. |
 | `--verilog` | Export the hardware top to Verilog; cannot combine with simulation. |
 | `-j N`, `--jobs N` | Limit concurrent synthesis jobs; positive integer, available in both scripts. |
@@ -344,6 +346,27 @@ coordination and recording.
 Fixed-vector testbenches support both simulators; adding `--comb` to their
 generated-VHDL command skips automatic
 pipelining. Native checks are the ordinary development workflow.
+
+### Waveforms
+
+`--wave FILE` records any simulation's waveform, for GTKWave or Surfer:
+
+```bash
+./build.py --sim --comb --native --wave enc.vcd --enc
+./build.py --sim --syn_tb --comb --native --wave shared.fst --wave-signals '*ports/*'
+```
+
+A native waveform shows the hardware top's flat ports, `encrypt_s_axis_tdata`,
+`encrypt_s_axis_tkeep`, `_tlast`, `_tvalid`, `_tready`, the `encrypt_m_axis_*` side,
+`encrypt_key`, `_nonce`, `_aad` and `_aad_len`, and their `decrypt_*` counterparts with
+`decrypt_m_verified`, packed as `*_hw_io.py` packs them (lane 0 in the low byte). The
+[encrypt ports](src/chacha20poly1305/chacha20poly1305_encrypt_ports.py) and
+[decrypt ports](src/chacha20poly1305/chacha20poly1305_decrypt_ports.py) define these
+waveform names alongside the structured wires that the testbenches drive. Every
+stream probe appears too, as `<direction>/<block>/.../valid` and `ready`, and each state
+probe as its state's name. `--wave-signals` adds the structured port Wires themselves. A
+generated-VHDL run (no `--native`) has GHDL write the file instead, with the design's VHDL
+signals; use `.ghw` there, since GHDL's VCD and FST skip records and arrays.
 
 ### Functional coverage
 

@@ -36,8 +36,10 @@ if wireguard_env.DECRYPT:
 # Both performance runners register even when PERF_DIRS leaves one idle.
 if wireguard_env.ENCRYPT:
     import encrypt_tb
+    from chacha20poly1305_encrypt_ports import encrypt_port_waves
 if wireguard_env.DECRYPT:
     import decrypt_tb
+    from chacha20poly1305_decrypt_ports import decrypt_port_waves
 
 if common.PERF:
     import perf_tb_common as perf
@@ -115,7 +117,12 @@ def check_done():
 
 
 # @wires lets native simulation run this control MAIN without saved hardware latency.
+# A waveform (--wave) gets the flat ports first, so a finishing cycle has them too.
 @MAIN(wireguard_env.TARGET_MHZ)
 @wires
 def tb_finish_checker():
+    if wireguard_env.ENCRYPT:
+        encrypt_port_waves()
+    if wireguard_env.DECRYPT:
+        decrypt_port_waves()
     check_done()

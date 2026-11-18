@@ -104,6 +104,14 @@ def main():
     parser.add_argument("--perf", action="store_true",
                         help="Native performance mode for the combined design; "
                              "implies --sim --native (used by measure.py)")
+    parser.add_argument("--wave", metavar="FILE",
+                        help="With --sim, write the simulation's waveform: .vcd or .fst (native; "
+                             "FST needs GTKWave's vcd2fst), or .vcd/.fst/.ghw from GHDL. The "
+                             "testbenches show the hardware top's flat ports, encrypt_s_axis_tdata, ...")
+    parser.add_argument("--wave-signals", action="append", default=[], metavar="PATTERN",
+                        help="With --wave and --native, also record the global Wires whose waveform "
+                             "path matches the glob, e.g. 'chacha20poly1305_encrypt_ports/*' or '*' "
+                             "(pypelinec --wave_signals; repeatable)")
     parser.add_argument("-D", "--define", action="append", default=[], metavar="NAME=VALUE",
                         help="Pass a design parameter on to pypelinec, e.g. -D TB_STRESS=1 or "
                              "-D PERF_SIZES=64,1420 (the profile itself comes from the flags above)")
@@ -135,6 +143,10 @@ def main():
         parser.error("--verilog converts the built hardware; it does not apply to --sim")
     if args.rebuild and (args.sim or args.perf):
         parser.error("--rebuild builds the hardware; it does not apply to --sim")
+    if args.wave and not (args.sim or args.perf):
+        parser.error("--wave records a simulation; add --sim")
+    if args.wave_signals and not (args.wave and (args.native or args.perf)):
+        parser.error("--wave-signals chooses what a native simulation's --wave records")
     if args.perf:
         if args.enc or args.dec:
             parser.error("--perf supports only the shared top; measure.py --dirs selects measured directions")
@@ -202,6 +214,10 @@ def main():
         if not args.native:
             options.extend(["--cocotb", "--ghdl"])
         options.extend(["--run", "all"])  # Testbenches finish themselves.
+        if args.wave:
+            options.extend(["--wave", os.path.abspath(args.wave)])
+        for pattern in args.wave_signals:
+            options.extend(["--wave_signals", pattern])
     else:
         src_file = "./src/chacha20poly1305.py"
         options = ["--top", f"chacha20poly1305_{design_name}"]

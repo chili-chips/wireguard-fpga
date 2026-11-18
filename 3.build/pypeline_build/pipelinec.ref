@@ -4,5 +4,5 @@
 # build.py warns when the local pypelinec checkout predates it.
 # Move it forward in the same commit as any design change that needs a newer
 # PipelineC. The first line that is not a comment is the hash.
-# Requires both the PipelineC#394 and #395 fixes.
-0b710cca1036f88eb1e115519680a69c929e002c
+# Requires native waveform support (sim_wave and axi.axis.axis_wave).
+84685d2558a089ef5f705460304e0736c432e906

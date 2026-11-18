@@ -13,7 +13,8 @@ Pypeline port of the wire declarations in
 """
 import wireguard_env  # noqa: F401
 
-from pypeline import Wire, uint1_t, uint8_t
+from pypeline import Wire, array_to_uint_le, sim_output, sim_wave, sim_wave_enabled, uint1_t, uint8_t
+from axi.axis import axis_wave
 
 from aead_types import (
     CHACHA20_KEY_SIZE,
@@ -31,3 +32,17 @@ axis_out_if: Wire[aead_axis_if_t]  # .stream is output, .ready is input
 
 # Authentication verdict for each valid plaintext output beat
 is_verified_out: Wire[uint1_t]  # output
+
+
+@sim_output
+def decrypt_port_waves():
+    """Record the converged wires under their flat hardware port names."""
+    if sim_wave_enabled():
+        axis_wave("/decrypt_s_axis", axis_in_if)
+        axis_wave("/decrypt_m_axis", axis_out_if)
+        # Testbenches can write plain ints. Pack each lane at its hardware width.
+        sim_wave("/decrypt_key", array_to_uint_le([uint8_t(b) for b in key]))
+        sim_wave("/decrypt_nonce", array_to_uint_le([uint8_t(b) for b in nonce]))
+        sim_wave("/decrypt_aad", array_to_uint_le([uint8_t(b) for b in aad]))
+        sim_wave("/decrypt_aad_len", uint8_t(aad_len))
+        sim_wave("/decrypt_m_verified", uint1_t(is_verified_out))
