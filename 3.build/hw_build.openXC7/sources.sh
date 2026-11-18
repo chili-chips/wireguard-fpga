@@ -21,8 +21,8 @@
 #   block_rtl <top> <1.hw>        what a block top adds to the design's files
 #
 # BLOCK_TOPS: the DPE blocks top does not instantiate yet, each a top of its
-# own through a wrapper in leq_tops.sv (LEQ_TOP_<top> defined), so that
-# run-leq.sh proves them and run-lint.sh lints them
+# own, interface ports and all (read_slang --allow-toplevel-iface-ports), so
+# that run-leq.sh proves them and run-lint.sh lints them
 
 design_rtl() {
   local hw=$1 bld=$2
@@ -41,7 +41,7 @@ own_rtl() {
   } | awk '!seen[$0]++'
 }
 
-BLOCK_TOPS="leq_dpe_wg_encryptor leq_dpe_wg_decryptor leq_egress_ip_lookup leq_dpe_wg_disassembler"
+BLOCK_TOPS="dpe_wg_encryptor dpe_wg_decryptor egress_ip_lookup dpe_wg_disassembler"
 
 # where a file is in a 1.hw tree: its path now, or where an older tree has it
 # (a LEQ gold from before a move or a rename); $1 = 1.hw, then the candidates
@@ -57,10 +57,10 @@ block_rtl() {
   dpe() { in_tree "$d" "ip.dpe/$1" "ip.infra/$1"; }
   lkup() { in_tree "$d" "ip.lkup/$1" "ip.lkup/dpe_$1" "ip.dpe/dpe_$1" "ip.infra/dpe_$1"; }
   case $1 in
-    leq_dpe_wg_encryptor) echo "$pkg $(dpe dpe_wg_encryptor.sv) $(dpe dpe_if_pipeline.sv)" ;;
-    leq_dpe_wg_decryptor) echo "$pkg $(dpe dpe_wg_decryptor.sv) $(dpe dpe_if_pipeline.sv)" ;;
-    leq_egress_ip_lookup) echo "$pkg $(lkup lkup_pkg.sv) $(lkup egress_ip_lookup.sv) $(lkup route_mem.sv)" ;;
-    leq_dpe_wg_disassembler) echo "$pkg $(dpe dpe_wg_disassembler.sv)" ;;
+    dpe_wg_encryptor) echo "$pkg $(dpe dpe_wg_encryptor.sv) $(dpe dpe_if_pipeline.sv)" ;;
+    dpe_wg_decryptor) echo "$pkg $(dpe dpe_wg_decryptor.sv) $(dpe dpe_if_pipeline.sv)" ;;
+    egress_ip_lookup) echo "$pkg $(lkup lkup_pkg.sv) $(lkup egress_ip_lookup.sv) $(lkup route_mem.sv)" ;;
+    dpe_wg_disassembler) echo "$pkg $(dpe dpe_wg_disassembler.sv)" ;;
     *) echo "block_rtl: no files for top $1" >&2; return 1 ;;
   esac
 }

@@ -5,7 +5,7 @@
 #
 # Lint of the RTL of top (1.hw/top.filelist, via sources.sh) and of the DPE
 # blocks top does not instantiate yet (BLOCK_TOPS in sources.sh, each a top of
-# its own through its wrapper in leq_tops.sv): syntax and limited semantic
+# its own, interface ports and all): syntax and limited semantic
 # checks with a set of opensource tools, run in this order:
 #
 #   tags       every /*LINT:OK*/ sits on an output port (no tool needed)
@@ -108,13 +108,12 @@ W=$(cd "$W" && pwd)
 mkdir -p "$W/bld/csr_build/generated-files" "$W/bld/sw_build"
 cp "$REPO"/3.build/csr_build/generated-files/{csr_pkg,csr}.sv "$W/bld/csr_build/generated-files/"
 cp "$REPO/3.build/sw_build/imem.INIT.vh" "$W/bld/sw_build/"
-cp "$HERE/leq_tops.sv" "$W/"
 [ -n "${CPU:-}" ] && { cpu_select "$W/1.hw/top.filelist" "$CPU" || exit 1; }
 cd "$W"
 SV=$(design_rtl 1.hw bld | tr '\n' ' ')
-# the files of one top: the design, and for a block top its files and wrapper
+# the files of one top: the design, and for a block top its own files
 top_sv() {
-  if [ "$1" = top ]; then echo "$SV"; else echo "$SV $(block_rtl "$1" 1.hw) leq_tops.sv"; fi
+  if [ "$1" = top ]; then echo "$SV"; else echo "$SV $(block_rtl "$1" 1.hw)"; fi
 }
 # every file one of the tops reads, once
 ALL=$(for t in $TOPS; do top_sv $t; done | tr ' ' '\n' | awk 'NF && !seen[$0]++' | tr '\n' ' ')
@@ -229,14 +228,12 @@ run_verilator() {
 lint_off -file "*bb.sv"
 lint_off -file "*/external_lib/*"
 lint_off -file "*/cpu.PICORV32/*"
-// one file of wrappers, a module per block top
-lint_off -rule DECLFILENAME -file "*leq_tops.sv"
 VLT
   # --timescale: none of the RTL sets one (no delays)
   local t rc=0
   for t in $TOPS; do
     "$VERILATOR" --lint-only -Wall -Wno-fatal --timing --timescale 1ns/1ns --top-module $t $VL_DEFS \
-      -DLEQ_TOP_$t -I$INC waive.vlt bb.sv $(top_sv $t) > verilator.$t.log 2>&1 || rc=$?
+      -I$INC waive.vlt bb.sv $(top_sv $t) > verilator.$t.log 2>&1 || rc=$?
   done
   for t in $TOPS; do echo "-- top $t"; cat verilator.$t.log; done > verilator.log
   # A package is compiled whole by every top that reads it, and each top
@@ -263,7 +260,7 @@ run_yosys() {
   local t rc
   : > yosys.log
   for t in $TOPS; do
-    "$YOSYS" $YOSYS_ARGS -q -l yosys.$t.log -p "read_slang $SL_DEFS -D LEQ_TOP_$t --top $t -I $INC \
+    "$YOSYS" $YOSYS_ARGS -q -l yosys.$t.log -p "read_slang --allow-toplevel-iface-ports $SL_DEFS --top $t -I $INC \
         bb.sv $(top_sv $t); hierarchy -check -top $t; proc; check -nolatches -initdrv" >/dev/null 2>&1
     rc=$?
     cat yosys.$t.log >> yosys.log
@@ -281,7 +278,7 @@ run_slang() {
   local t rc=0
   : > slang.log
   for t in $TOPS; do
-    "$YOSYS" $YOSYS_ARGS -q -l slang.$t.log -p "read_slang $SL_DEFS -D LEQ_TOP_$t --top $t -I $INC \
+    "$YOSYS" $YOSYS_ARGS -q -l slang.$t.log -p "read_slang --allow-toplevel-iface-ports $SL_DEFS --top $t -I $INC \
         -Wextra bb.sv $(top_sv $t)" >/dev/null 2>&1 || rc=$?
     cat slang.$t.log >> slang.log
   done

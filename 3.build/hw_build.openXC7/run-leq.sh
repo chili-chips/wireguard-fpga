@@ -7,10 +7,10 @@
 # interfaces, DPE, SOC, CPU, CSR) between two versions of the RTL, with Yosys
 # (read_slang), chip view (SYNTHESIS defined). Use it to prove that a cleanup
 # does not change behaviour. The DPE blocks top does not instantiate yet are
-# tops of their own (leq_tops.sv): dpe_wg_encryptor, dpe_wg_decryptor,
+# tops of their own, interface ports and all: dpe_wg_encryptor, dpe_wg_decryptor,
 # egress_ip_lookup, dpe_wg_disassembler; the encryptor's and the decryptor's
 # generated ChaCha20-Poly1305 cores are black boxes (gen_core_bb.py).
-# LEQ_TOPS="top leq_dpe_wg_encryptor ..." picks the tops (default: all).
+# LEQ_TOPS="top dpe_wg_encryptor ..." picks the tops (default: all).
 #
 # usage:  bash run-leq.sh <gold 1.hw> <gate 1.hw> [sed script]
 #         LEQ_EXTRA=<file> bash run-leq.sh ... Yosys commands run after equiv_make,
@@ -71,12 +71,8 @@ PRIMS="PLLE2_BASE BUFG IBUFGDS BUFGMUX BUFIO BUFIO2 BUFR ODDR ODDR2"
 # on both sides; their proof against the Python source is PipelineC#398)
 GEN=$BLD/pypeline_build/soc  # the cores the DPE uses, gzip'd
 CORES="chacha20poly1305_encrypt chacha20poly1305_decrypt"
-# The tops: the design, and the DPE blocks it does not instantiate yet
-# (leq_tops.sv wraps each, a top cannot have interface ports)
-# A change to a wrapped block's ports: LEQ_TOPS_GOLD names the gold side's
-# wrappers, with the same top ports as the gate's (adapting the old ports)
-WRAP_GOLD=$HERE/leq_tops.sv
-[ -n "${LEQ_TOPS_GOLD:-}" ] && WRAP_GOLD=$(cd "$(dirname "$LEQ_TOPS_GOLD")" && pwd)/$(basename "$LEQ_TOPS_GOLD")
+# The tops: the design, and the DPE blocks it does not instantiate yet, whose
+# dpe_if ports read_slang turns into top ports (--allow-toplevel-iface-ports)
 TOPS=${LEQ_TOPS:-top $BLOCK_TOPS}
 W=$(mktemp -d); cd "$W"
 
@@ -85,16 +81,15 @@ for c in $CORES; do "$PYTHON" "$HERE/gen_core_bb.py" "$GEN/$c.v.gz" $c >> bb.sv;
 PRIMS="$PRIMS $CORES"
 
 files() {  # $1 = 1.hw dir, $2 = gold|gate; the design, and what $TOP adds to it
-  local x="" wrap=$HERE/leq_tops.sv
-  [ "$2" = gold ] && wrap=$WRAP_GOLD
-  [ "$TOP" = top ] || x="$(block_rtl "$TOP" "$1") $wrap"
+  local x=""
+  [ "$TOP" = top ] || x="$(block_rtl "$TOP" "$1")"
   echo bb.sv $(design_rtl "$1" "$BLD" | tr '\n' ' ') $x
 }
 BB=$(for p in $PRIMS; do printf 't:%s ' $p; done)
 
 prove() {  # the LEQ of one top ($TOP), in its own directory
 mkdir -p "$W/$TOP"; cd "$W/$TOP"; cp "$W/bb.sv" .
-READ="read_slang -D SYNTHESIS -D SYN_YOSYS_BUG -D LEQ_TOP_$TOP --top $TOP -I $BLD/sw_build"
+READ="read_slang --allow-toplevel-iface-ports -D SYNTHESIS -D SYN_YOSYS_BUG --top $TOP -I $BLD/sw_build"
 PREP="hierarchy -top $TOP; proc; flatten; memory -nomap; memory_map t:\$mem_v2 r:SIZE<=64 %i; async2sync"
 
 REN=""
