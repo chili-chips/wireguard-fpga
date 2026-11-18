@@ -426,8 +426,17 @@ package csr_pkg;
     } csr__dpe__wg_port__out_t;
 
     typedef struct {
+        logic [31:0] value;
+    } csr__dpe__wg_ip__ip__out_t;
+
+    typedef struct {
+        csr__dpe__wg_ip__ip__out_t ip;
+    } csr__dpe__wg_ip__out_t;
+
+    typedef struct {
         csr__dpe__fcr__out_t fcr;
         csr__dpe__wg_port__out_t wg_port;
+        csr__dpe__wg_ip__out_t wg_ip;
     } csr__dpe__out_t;
 
     typedef struct {

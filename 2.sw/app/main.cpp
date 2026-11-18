@@ -228,6 +228,13 @@ eth_raw_packet_t  eth_packet_tx;
 net_config_t      net_config;
 net_arp_cache_t   net_arp_cache = {0};
 
+// The data plane takes IPv4 UDP to wg_ip:wg_port as WireGuard for this device:
+// wg_ip is the device's own address
+void set_wg_ip(const net_config_t* config) {
+   CSR_REG32(dpe.wg_ip) = ((uint32_t)config->ip[0] << 24) | ((uint32_t)config->ip[1] << 16) |
+                          ((uint32_t)config->ip[2] << 8) | (uint32_t)config->ip[3];
+}
+
 void init_network(net_config_t* config) {
    if (config->ip[0] == 0 && config->ip[1] == 0 && config->ip[2] == 0 && config->ip[3] == 0) {
       config->ip[0] = 192;
@@ -254,6 +261,7 @@ void init_network(net_config_t* config) {
 
       config->def_if = 1;
    }
+   set_wg_ip(config);
 }
 
 void show_network(net_config_t* config) {
@@ -334,6 +342,7 @@ void config_network(net_config_t* config) {
    uart_send("]: ");
    while (!uart_recv(uart_rx_data));
    str_parse_uint8(uart_rx_data, &config->def_if, 0, 7);
+   set_wg_ip(config);
    uart_send("Network configuration updated.\r\n");
 
    show_network(config);

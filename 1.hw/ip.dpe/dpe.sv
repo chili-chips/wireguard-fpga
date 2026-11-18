@@ -91,6 +91,7 @@ module dpe
       .inp     (muxed_1),
       .outp    (muxed_2),
       .idle    (switch_idle),
+      .wg_ip   (from_csr.dpe.wg_ip.ip.value),
       .wg_port (from_csr.dpe.wg_port.port.value),
       .rt_cfg  (from_csr.routing_table),
       .rt_sta  (to_csr_routing_table),

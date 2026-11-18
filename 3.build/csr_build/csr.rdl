@@ -534,6 +534,18 @@ addrmap csr {
             hw = r;
          } port[15:0] = 51820;
       } wg_port;
+
+      reg {
+         name = "csr.dpe.wg_ip";
+         desc = "This device's WireGuard address: the disassembler takes IPv4 UDP packets to wg_ip:wg_port as WireGuard for this device; WireGuard to other addresses passes through. 0 (the reset value) until the firmware sets it";
+
+         field {
+            name = "csr.dpe.wg_ip.ip";
+            desc = "IPv4 address";
+            sw = rw;
+            hw = r;
+         } ip[31:0] = 0;
+      } wg_ip;
    } dpe;
 
    reg {

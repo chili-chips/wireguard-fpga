@@ -24,7 +24,7 @@ module tb;
   import lkup_pkg::*;
 
   localparam int ENTRIES = 64;
-  localparam int MAX_FRAMES = 20;
+  localparam int MAX_FRAMES = 22;
   localparam int TIMEOUT_CLKS = 20000;
 
   logic clk, rst;
@@ -359,6 +359,13 @@ module tb;
                    bypass_stage: 0, tid: 8'd9};
     frames[18] = '{len: 64,  ip_dst: ip4(10, 1, 9, 9),     bypass_all: 0, dst: DPE_ADDR_CPU,
                    bypass_stage: 1, tid: 0};
+    // 19: decrypted, 40 bytes (all in the buffer), a source of peer 3's: dropped
+    frames[19] = '{len: 40,  ip_dst: ip4(192, 168, 1, 5),  bypass_all: 0, dst: DPE_ADDR_CPU,
+                   bypass_stage: 0, tid: 8'd9};
+    ip_src[19] = ip4(10, 200, 0, 9);
+    // 20: a plain frame right after it
+    frames[20] = '{len: 60,  ip_dst: ip4(10, 1, 2, 3),     bypass_all: 0, dst: DPE_ADDR_CPU,
+                   bypass_stage: 1, tid: 0};
 
     csr_cfg = '{req: 1'b0, addr: '0, req_is_wr: 1'b0, wr_data: '0, wr_biten: '0};
     n_frames = 0;
@@ -390,7 +397,7 @@ module tb;
     csr_read(61, 2, peer_word(table_m[61]));
 
     // 2. the frames
-    n_frames = 19;
+    n_frames = 21;
     for (int t = 0; t < TIMEOUT_CLKS && rx_frame < n_frames; t++) begin
       @(negedge clk);
       while (rx_frame < n_frames && dropped(rx_frame) && !to_snk.tvalid) rx_frame++;

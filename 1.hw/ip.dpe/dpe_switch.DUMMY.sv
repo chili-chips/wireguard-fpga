@@ -80,7 +80,8 @@ module dpe_switch
     dpe_if.m_axis          outp,
     output logic           idle,     // nothing to wait for: the crossbar decides at once
     // verilator lint_off UNUSEDSIGNAL
-    input  logic    [15:0] wg_port,  // not used: the crossbar knows no WireGuard
+    input  logic    [31:0] wg_ip,    // not used: the crossbar knows no WireGuard
+    input  logic    [15:0] wg_port,  // not used either
     // verilator lint_on UNUSEDSIGNAL
 
     // the CSR routing_table and cryptokey_table regfiles (csr.rdl)

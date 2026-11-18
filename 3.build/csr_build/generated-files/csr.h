@@ -491,10 +491,23 @@ typedef union {
     uint32_t w;
 } csr__dpe__wg_port_t;
 
+// reg - csr::dpe::wg_ip
+#define CSR__DPE__WG_IP__IP_bm 0xffffffff
+#define CSR__DPE__WG_IP__IP_bp 0
+#define CSR__DPE__WG_IP__IP_bw 32
+#define CSR__DPE__WG_IP__IP_reset 0x0
+typedef union {
+    struct __attribute__ ((__packed__)) {
+        uint32_t ip :32;
+    } f;
+    uint32_t w;
+} csr__dpe__wg_ip_t;
+
 // regfile - csr::dpe
 typedef struct __attribute__ ((__packed__)) {
     csr__dpe__fcr_t fcr;
     csr__dpe__wg_port_t wg_port;
+    csr__dpe__wg_ip_t wg_ip;
 } csr__dpe_t;
 
 // reg - csr::cycle
@@ -962,7 +975,7 @@ typedef struct __attribute__ ((__packed__)) {
     csr__hw_version_t hw_version;
     csr__dpe_t dpe;
     csr__cycle_t cycle;
-    uint8_t RESERVED_90_3ff[0x370];
+    uint8_t RESERVED_94_3ff[0x36c];
     csr__routing_table_t routing_table;
     uint8_t RESERVED_800_1fff[0x1800];
     csr__cryptokey_table_t cryptokey_table;

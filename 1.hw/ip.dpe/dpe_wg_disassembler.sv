@@ -41,7 +41,8 @@
 //   peer, for the decryptor.
 //
 //   It parses each packet's headers (net_pkg) as it comes in: Ethernet II
-//   with IPv4, protocol UDP to wg_port (the listen port, CSR), the
+//   with IPv4 (no options), protocol UDP to wg_ip:wg_port (this device's
+//   address and listen port, CSR; anything else passes through), the
 //   WireGuard message type, and the receiver index. The receiver index
 //   goes out on wg_rcv; the peer table answers combinationally from it
 //   with rcv_rsp (match, idx), sampled one clock later. The packet waits
@@ -69,6 +70,7 @@ module dpe_wg_disassembler
     output logic         idle,     // no packet in the disassembler
     output wg_receiver_t wg_rcv,   // receiver index of the packet just parsed
     input  rcv_rsp_t     rcv_rsp,  // its peer (lookup, combinational on wg_rcv)
+    input  ipv4_addr_t   wg_ip,    // this device's WireGuard address (CSR)
     input  udp_port_t    wg_port,  // the WireGuard UDP listen port (CSR)
     dpe_if.s_axis        inp,
     dpe_if.m_axis        outp
@@ -97,13 +99,20 @@ module dpe_wg_disassembler
       2'(beat_of(
           ETH_TYPE_OFFSET
       )):
-      beat_ok = be16(inp.tdata, ETH_TYPE_OFFSET) == ETHERTYPE_IPV4 &&
-          byte_at(inp.tdata, IPV4_VER_IHL_OFFSET) >> 4 == 8'(IPV4_VERSION);
+      // IPv4 without options: the UDP and WireGuard offsets hold
+          beat_ok = be16(inp.tdata, ETH_TYPE_OFFSET) == ETHERTYPE_IPV4 &&
+          byte_at(inp.tdata, IPV4_VER_IHL_OFFSET) == {IPV4_VERSION, 4'd5};
       2'(beat_of(
           IPV4_PROTO_OFFSET
       )):
-      beat_ok = byte_at(inp.tdata, IPV4_PROTO_OFFSET) == IP_PROTO_UDP;
-      2'(beat_of(UDP_DST_PORT_OFFSET)): beat_ok = be16(inp.tdata, UDP_DST_PORT_OFFSET) == wg_port;
+      // UDP, to wg_ip (its upper half here, the lower half in the next beat)
+          beat_ok = byte_at(inp.tdata, IPV4_PROTO_OFFSET) == IP_PROTO_UDP &&
+          be16(inp.tdata, IPV4_DST_OFFSET) == wg_ip[31:16];
+      2'(beat_of(
+          UDP_DST_PORT_OFFSET
+      )):
+      beat_ok = be16(inp.tdata, IPV4_DST_OFFSET + 2) == wg_ip[15:0] &&
+          be16(inp.tdata, UDP_DST_PORT_OFFSET) == wg_port;
       default: beat_ok = 1'b1;
     endcase
   end
@@ -268,8 +277,9 @@ module dpe_wg_disassembler
     outp.tuser = buffered.tuser;
     outp.tid   = buffered.tid;
     if (dcsn.to_cpu) begin
-      outp.tuser.bypass_all = 1'b1;
-      outp.tuser.dst        = DPE_ADDR_CPU;
+      outp.tuser.bypass_all   = 1'b1;
+      outp.tuser.bypass_stage = 1'b1;
+      outp.tuser.dst          = DPE_ADDR_CPU;
     end
     else if (!dcsn.keep_tuser) begin
       outp.tuser.bypass_stage = !dcsn.decrypt;

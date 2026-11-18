@@ -6017,7 +6017,7 @@
             <mxPoint x="1480" y="240" as="targetPoint" />
           </mxGeometry>
         </mxCell>
-      </root>
+      <mxCell id="wgnote-23" value="12-13: a handshake to &lt;b&gt;wg_ip:wg_port&lt;/b&gt; (CSR) goes straight to the CPU: disassembler, decryptor, IP lookup and encryptor bypassed" style="rounded=1;whiteSpace=wrap;html=1;shadow=1;fontSize=14;align=left;spacingLeft=6;spacingRight=4;fillColor=#FFF2CC;strokeColor=#D6B656;" vertex="1" parent="1"><mxGeometry x="700" y="700" width="380" height="60" as="geometry" /></mxCell></root>
     </mxGraphModel>
   </diagram>
   <diagram name="Example-4-A-Handshake-Response" id="R6SBVuon05oqjMNTqDcU">
@@ -6901,7 +6901,7 @@
         <mxCell id="zRbaRjaF9o1AV1moVkXh-0" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.973;entryY=0.992;entryDx=0;entryDy=0;entryPerimeter=0;startArrow=classic;startFill=1;dashed=1;" edge="1" parent="XdfQm1QPnO72a1MQbfR6-1" source="XdfQm1QPnO72a1MQbfR6-92" target="XdfQm1QPnO72a1MQbfR6-85">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-      </root>
+      <mxCell id="wgnote-4" value="29-30: a handshake to &lt;b&gt;wg_ip:wg_port&lt;/b&gt; (CSR) goes straight to the CPU: disassembler, decryptor, IP lookup and encryptor bypassed" style="rounded=1;whiteSpace=wrap;html=1;shadow=1;fontSize=14;align=left;spacingLeft=6;spacingRight=4;fillColor=#FFF2CC;strokeColor=#D6B656;" vertex="1" parent="1"><mxGeometry x="700" y="700" width="380" height="60" as="geometry" /></mxCell></root>
     </mxGraphModel>
   </diagram>
   <diagram name="Example-5-A-Transfer-Data" id="9IEjKZhwjjLcWVuP7YYU">
@@ -8659,7 +8659,7 @@
             <mxPoint x="1480" y="240" as="targetPoint" />
           </mxGeometry>
         </mxCell>
-      </root>
+      <mxCell id="wgnote-6" value="50: WireGuard data to &lt;b&gt;wg_ip:wg_port&lt;/b&gt; with a known receiver index goes to the decryptor; an unknown or stale index is dropped.&lt;br&gt;52: the inner source must route (encrypted) to that same peer, else dropped.&lt;br&gt;WireGuard to another address is routed like any packet." style="rounded=1;whiteSpace=wrap;html=1;shadow=1;fontSize=14;align=left;spacingLeft=6;spacingRight=4;fillColor=#FFF2CC;strokeColor=#D6B656;" vertex="1" parent="1"><mxGeometry x="700" y="700" width="380" height="100" as="geometry" /></mxCell></root>
     </mxGraphModel>
   </diagram>
   <diagram name="Interfaces" id="_YyqWgfmg2b34AftHf90">

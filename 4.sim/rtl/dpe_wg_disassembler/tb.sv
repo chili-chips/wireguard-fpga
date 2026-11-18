@@ -50,7 +50,7 @@ module tb;
    import dpe_pkg::*;
    import net_pkg::*;
 
-   localparam int NPKT    = 11;
+   localparam int NPKT    = 14;
    localparam int MAXLEN  = 96;
    localparam int MAXBEAT = (MAXLEN + BEAT_BYTES - 1) / BEAT_BYTES;
 
@@ -60,6 +60,7 @@ module tb;
    localparam wg_receiver_t RCV_B  = 32'h0000_0002;
    localparam dpe_peer_idx_t PEER_B = 9;
    localparam udp_port_t     WG_PORT = 16'd51820;  // the listen port (CSR)
+   localparam ipv4_addr_t    WG_IP   = 32'hC0A8_0162;  // 192.168.1.98 (CSR)
 
    logic clk;
    logic rst;
@@ -84,6 +85,7 @@ module tb;
       .idle     (idle),
       .wg_rcv       (wg_rcv),
       .rcv_rsp      (rcv_rsp),
+      .wg_ip        (WG_IP),
       .wg_port      (WG_PORT),
       .inp          (inp),
       .outp         (outp)
@@ -125,15 +127,19 @@ module tb;
    // verilator lint_on UNUSEDSIGNAL
 
    // A WireGuard data frame to receiver `rcv`; kind changes one field
-   typedef enum {WG, HS_1, HS_3, BAD_TYPE, OTHER_PORT, TCP, ARP} kind_e;
+   typedef enum {WG, HS_1, HS_2, HS_3, BAD_TYPE, OTHER_PORT, TRANSIT, IP_OPTS, TCP, ARP} kind_e;
    function automatic void make(int p, int n, kind_e kind, logic [31:0] rcv);
       len[p] = n;
       for (int i = 0; i < MAXLEN; i++) frame[p][i] = 8'((p << 4) + i);
       put_be16(p, ETH_TYPE_OFFSET, kind == ARP ? 16'h0806 : ETHERTYPE_IPV4);
-      frame[p][IPV4_VER_IHL_OFFSET] = {IPV4_VERSION, 4'd5};
+      frame[p][IPV4_VER_IHL_OFFSET] = {IPV4_VERSION, kind == IP_OPTS ? 4'd6 : 4'd5};
+      // to this device, or (TRANSIT) to another host behind the router
+      put_be16(p, IPV4_DST_OFFSET, kind == TRANSIT ? 16'h0A0A : WG_IP[31:16]);
+      put_be16(p, IPV4_DST_OFFSET + 2, kind == TRANSIT ? 16'h0001 : WG_IP[15:0]);
       frame[p][IPV4_PROTO_OFFSET]   = kind == TCP ? 8'd6 : IP_PROTO_UDP;
       put_be16(p, UDP_DST_PORT_OFFSET, kind == OTHER_PORT ? 16'd53 : WG_PORT);
-      put_le32(p, WG_TYPE_OFFSET, kind == HS_1 ? 32'd1 : kind == HS_3 ? 32'd3 :
+      put_le32(p, WG_TYPE_OFFSET, kind == HS_1 ? 32'd1 : kind == HS_2 ? 32'd2 :
+               kind == HS_3 ? 32'd3 :
                kind == BAD_TYPE ? 32'd7 : WG_TYPE_DATA);
       put_le32(p, WG_RECEIVER_OFFSET, rcv);
       user_in[p] = '{bypass_all: 1'b0, bypass_stage: 1'b0, src: DPE_ADDR_ETH_1, dst: DPE_ADDR_CPU};
@@ -141,7 +147,7 @@ module tb;
       exp_peer[p] = 1'b0;
       peer[p]     = '0;
       exp_same[p] = 1'b0;
-      exp_cpu[p]  = kind == HS_1 || kind == HS_3;
+      exp_cpu[p]  = kind == HS_1 || kind == HS_2 || kind == HS_3;
       exp_drop[p] = 1'b0;
    endfunction
 
@@ -159,6 +165,9 @@ module tb;
       make(8, 80, OTHER_PORT, RCV_A);   // UDP to another port: not WireGuard
       make(9, 80, BAD_TYPE, RCV_A);     exp_drop[9] = 1'b1;  // no such type
       make(10, 64, HS_3, RCV_B);        // a cookie reply: to the CPU
+      make(11, 64, HS_2, RCV_B);        // a handshake response: to the CPU
+      make(12, 80, TRANSIT, RCV_A);     // WireGuard to another host: passes
+      make(13, 80, IP_OPTS, RCV_A);     // IPv4 with options: not ours, passes
    end
 
    //------------------------------------------------------------------
@@ -228,8 +237,9 @@ module tb;
          u = user_in[p];
          t = tid_in[p];
          if (exp_cpu[p]) begin
-            u.bypass_all = 1'b1;
-            u.dst        = DPE_ADDR_CPU;
+            u.bypass_all   = 1'b1;
+            u.bypass_stage = 1'b1;
+            u.dst          = DPE_ADDR_CPU;
          end else if (!exp_same[p]) begin
             u.bypass_stage = !exp_peer[p];
             if (exp_peer[p]) t = peer[p];

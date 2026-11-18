@@ -59,7 +59,7 @@ No supported members.
 |0x007C|     hw_id     |     csr.hw_id     |
 |0x0080|   hw_version  |   csr.hw_version  |
 |0x0084|      dpe      |      csr.dpe      |
-|0x008C|     cycle     |     csr.cycle     |
+|0x0090|     cycle     |     csr.cycle     |
 |0x0400| routing_table | csr.routing_table |
 |0x2000|cryptokey_table|csr.cryptokey_table|
 
@@ -822,7 +822,7 @@ No supported members.
 
 - Absolute Address: 0x20000084
 - Base Offset: 0x84
-- Size: 0x8
+- Size: 0xC
 
 <p>Data Plane Engine CSR</p>
 
@@ -830,6 +830,7 @@ No supported members.
 |------|----------|---------------|
 |  0x0 |    fcr   |  csr.dpe.fcr  |
 |  0x4 |  wg_port |csr.dpe.wg_port|
+|  0x8 |   wg_ip  | csr.dpe.wg_ip |
 
 ### fcr register
 
@@ -868,10 +869,26 @@ No supported members.
 
 <p>UDP port number (default 51820)</p>
 
-### cycle register
+### wg_ip register
 
 - Absolute Address: 0x2000008C
-- Base Offset: 0x8C
+- Base Offset: 0x8
+- Size: 0x4
+
+<p>This device's WireGuard address: the disassembler takes IPv4 UDP packets to wg_ip:wg_port as WireGuard for this device; WireGuard to other addresses passes through. 0 (the reset value) until the firmware sets it</p>
+
+|Bits|Identifier|Access|Reset|      Name      |
+|----|----------|------|-----|----------------|
+|31:0|    ip    |  rw  | 0x0 |csr.dpe.wg_ip.ip|
+
+#### ip field
+
+<p>IPv4 address</p>
+
+### cycle register
+
+- Absolute Address: 0x20000090
+- Base Offset: 0x90
 - Size: 0x4
 
 <p>Free-running clock cycle counter: counts system clock cycles since reset and wraps at 2^32. The firmware reads it instead of rdcycle, which eduBOS5 does not have</p>
