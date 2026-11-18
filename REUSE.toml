@@ -49,7 +49,14 @@ SPDX-License-Identifier = "GPL-3.0-or-later"
 
 # VProc coroutine patch, vendored from openPCIE_BFM (1.upstream/patches)
 [[annotations]]
-path = ["4.sim/models/cosim/vproc-coroutine.patch"]
+path = ["4.sim/models/cosim/vproc-coroutine.patch", "4.sim/models/cosim/f_VProc-vinit.patch"]
 precedence = "override"
 SPDX-FileCopyrightText = ["2004-2025 Simon Southwell", "2026 Chili.CHIPS"]
+SPDX-License-Identifier = "GPL-3.0-or-later"
+
+# udpIpPg patches (4.sim/tools/vip-upgrade.sh applies them to wyvernSemi/udpIpPg)
+[[annotations]]
+path = ["4.sim/models/udpIpPg/udp_ip_pg-wireguard.patch", "4.sim/models/udpIpPg/udpIpPg-preamble.patch"]
+precedence = "override"
+SPDX-FileCopyrightText = ["2024-2025 Simon Southwell", "2026 Chili.CHIPS"]
 SPDX-License-Identifier = "GPL-3.0-or-later"

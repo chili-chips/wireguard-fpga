@@ -95,6 +95,7 @@ reg                   WRAckSamp;
 
 // Internal initialised flag (set after VInit called)
 reg                   Initialised;
+reg                   InitReq;        // its rising edge calls VInit
 
 // Internal state
 integer               TickCount;
@@ -145,9 +146,14 @@ begin
     BlkCount                            = 0;
     IntSampLast                         = 0;
 
-    // Don't remove delay! Needed to allow Node to be assigned
-    // before the call to VInit
-    `MINDELAY
+    // Node must be assigned before the call to VInit (upstream: a #0 here,
+    // `MINDELAY): a non-blocking assignment, whose update comes after every
+    // time-0 assignment, starts it
+    InitReq                            <= 1'b1;
+end
+
+always @(posedge InitReq)
+begin
     `VInit(Node);
     Initialised                         = 1;
 end

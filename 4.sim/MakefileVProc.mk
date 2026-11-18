@@ -64,7 +64,7 @@ UDPCODEDIR     = $(CURDIR)/usercode
 # version and patch (tools/vip-upgrade.sh).
 VPROC_REPO     = https://github.com/wyvernSemi/vproc.git
 VLIB           = $(CURDIR)/libvproc.a
-VPROCVERSION   = VERSION_1_13_4
+VPROCVERSION   = ae80e5b5
 VPROC_PATCH    = $(COSIMDIR)/vproc-coroutine.patch
 VPROC_PATCHID := $(shell sha256sum $(VPROC_PATCH) | cut -c1-8)
 VPROCDIR       = $(CURDIR)/../../vproc-$(VPROCVERSION)-$(VPROC_PATCHID)
@@ -396,10 +396,12 @@ $(TOPFILELIST): $(HW_SRC)/$(TOPFILELIST) $(BUILD_STAMP)
 .PHONY: vip
 vip: $(VPROCDIR) $(MEMMODELDIR)
 
-# Check out VProc repo if not at expected location, and apply our patch
+# Check out VProc repo if not at expected location, and apply our patch.
+# VPROCVERSION may be a commit, which --branch cannot take: clone, check out.
 $(VPROCDIR):
 	@rm -rf $(VPROCDIR).tmp
-	@git -c advice.detachedHead=false clone -q --depth 1 --branch $(VPROCVERSION) $(VPROC_REPO) $(VPROCDIR).tmp --recursive
+	@git clone -q --recursive $(VPROC_REPO) $(VPROCDIR).tmp
+	@git -C $(VPROCDIR).tmp -c advice.detachedHead=false checkout -q $(VPROCVERSION)
 	@sed -i 's/\r$$//' $(VPROCDIR).tmp/code/*.c $(VPROCDIR).tmp/code/*.h
 	@patch -s -p1 -d $(VPROCDIR).tmp < $(VPROC_PATCH)
 	@mv $(VPROCDIR).tmp $(VPROCDIR)

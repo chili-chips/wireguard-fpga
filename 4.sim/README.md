@@ -620,24 +620,25 @@ The speed comes from VProc's [coroutine patch](#local-changes): before it, every
 |---|---|---|
 | Verilator | 5.055 (devel, `v5.054-260-gb9f22851`) | [verilator.org](https://verilator.org) |
 | JanusHDL | 0.17.0 (preview), optional (`SIM=janushdl`): stops at elaboration, see [JanusHDL](#janushdl) | [que.no/janushdl](https://que.no/janushdl/) |
-| VProc **(modified, see below)** | 1.13.4 | [wyvernSemi/vproc](https://github.com/wyvernSemi/vproc) |
+| VProc **(modified, see below)** | 1.13.4 + 2 (`ae80e5b5`) | [wyvernSemi/vproc](https://github.com/wyvernSemi/vproc) |
 | mem_model | `main` c7b9c62 (1.0.1 + one fix) | [wyvernSemi/mem_model](https://github.com/wyvernSemi/mem_model) |
 | rv32 ISS **(modified, see below)** | 1.3.3 (`774d84fa`) | [wyvernSemi/rv32](https://github.com/wyvernSemi/rv32) |
-| udpIpPg **(modified, see below)** | 1.0.3 | [wyvernSemi/udpIpPg](https://github.com/wyvernSemi/udpIpPg) |
+| udpIpPg **(modified, see below)** | 1.0.5 | [wyvernSemi/udpIpPg](https://github.com/wyvernSemi/udpIpPg) |
 
-Linux/WSL only. [`tools/vip-upgrade.sh`](tools/vip-upgrade.sh) refreshes VProc, mem_model and rv32 from upstream: the HDL, headers and `libcosimlnx.a` in `models/cosim`, the rv32 sources, and the versions `MakefileVProc.mk` clones. It re-applies the local changes below and stops if the rv32 patch no longer applies.
+Linux/WSL only. [`tools/vip-upgrade.sh`](tools/vip-upgrade.sh) refreshes VProc, mem_model, rv32 and udpIpPg from upstream: the HDL, headers and `libcosimlnx.a` in `models/cosim`, the rv32 sources, the udpIpPg headers, HDL and `libudplnx.a` (built from its source), and the versions `MakefileVProc.mk` clones. It re-applies the local changes below (the `*.patch` files) and stops if a patch no longer applies.
 
 ### Local changes
 
 | File | Change | Why |
 |---|---|---|
 | VProc `code/` (`models/cosim/vproc-coroutine.patch`, from [openPCIE_BFM](https://github.com/chili-chips/openPCIE_BFM) `01664f0`) | the user code runs as a coroutine on the simulator's thread, not a thread of its own | the default test simulates in 11 s, from 291 s, and the ISS and RTL ones in 12 s, from over 15 minutes ([Simulation speed](#simulation-speed)). `MakefileVProc.mk` applies it to its clone, `vip-upgrade.sh` to `libcosimlnx.a` and the headers |
-| `models/cosim/extradefs.v`, `f_VProc.v`, `f_mem_model.v`, `mem_model.sv` | no `` `timescale``; `Update` a plain non-blocking assignment (no `` `MINDELAY``) | as openPCIE_BFM: the simulator command line gives the timescale |
+| `models/cosim/extradefs.v`, `f_VProc.v`, `f_mem_model.v`, `mem_model.sv` | no `` `timescale``; `Update` a plain non-blocking assignment (no `` `MINDELAY``); before `VInit` a non-blocking assignment, whose edge calls `VInit`, instead of `` `MINDELAY`` (`#0`; `models/cosim/f_VProc-vinit.patch`) | as openPCIE_BFM: the simulator command line gives the timescale |
 | `models/rv32/src/rv32csr_cpu.cpp` (in `models/rv32/rv32-openpcie.patch`) | the timer-compare check in `process_interrupts()` no longer charges cycles | it added 2 cycles to every instruction |
 | `models/rv32/src/rv32i_cpu.cpp` (same patch) | `sw`, `sh` add the store extra cycles | upstream adds the load ones |
 | `models/rv32/usercode/VUserMain0.cpp` | waits for reset release, restarts at the reset vector on a new reset | as the RTL cores do |
 | `models/rv32/usercode/VUserMain0.cpp` | `ISS_BUS_CREDIT=1` (default): bus credit, no fetch/load wait states | an access then costs only its timing-table cycles |
-| `models/udpIpPg/udp_ip_pg.v` | reads `rxd`, `rxer`, `rxdv` directly: no `#1ps` copy, no falling-edge copy for Verilator | no delays in the simulation; VProc reads before the DUT's non-blocking updates of the same edge |
+| `models/udpIpPg/udp_ip_pg.v` (`models/udpIpPg/udp_ip_pg-wireguard.patch`) | no `` `timescale``; reads `rxd`, `rxer`, `rxdv` directly: no `#1ps` copy, no falling-edge copy for Verilator | no delays in the simulation; VProc reads before the DUT's non-blocking updates of the same edge. `vip-upgrade.sh` applies it |
+| `models/udpIpPg/lib/libudplnx.a`, from `src/udpIpPg.cpp` (`models/udpIpPg/udpIpPg-preamble.patch`) | 7 preamble bytes (`ETH_PREAMBLE-1`), not 6 | 802.3 has 7; WaveCrux flags the 6-byte frames ([#50](https://github.com/chili-chips/wireguard-fpga/issues/50)). `vip-upgrade.sh` builds the library from the patched source; `libudpwin.a` is still the old build (no MinGW C++ in WSL) |
 | `models/udpIpPg/gmii_rgmii_conv.v` | removed, with the RGMII option of `bfm_ethernet.sv` | the design uses GMII |
 | `models/soc_cpu.VPROC.sv` | CPU reset (`bus.arst_n & imem_cpu_rstn`, as the RTL cores) on VProc interrupt bit 3 | for the ISS reset handling |
 | `models/rv32/usercode/rv32_timing_config.h` | eduBOS5 2-stage measured in this SOC ([`2.sw/tests/iss_timing`](../2.sw/tests/iss_timing)): linear 2, jump and taken branch 2, load 5, store 2 | the ISS ends the default test 0.02% after the RTL core (3.7796 vs 3.7789 ms); the old table was 1.5% slow. The other cores keep the original tables |

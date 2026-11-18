@@ -1,0 +1,14 @@
+--- a/src/udpIpPg.cpp
++++ b/src/udpIpPg.cpp
+@@ -269,8 +269,9 @@
+     frame[fidx++]                      = SOF;
+ #endif
+ 
+-    // Add 7 bytes of preamble
+-    for (int idx = 0; idx < ETH_PREAMBLE-2; idx++)
++    // Add 7 bytes of preamble (Chili.CHIPS: ETH_PREAMBLE-2 gave 6 since SOF
++    // is no longer sent; ETH_PREAMBLE counts the 7 and the SFD)
++    for (int idx = 0; idx < ETH_PREAMBLE-1; idx++)
+     {
+         frame[fidx++]                  = PREAMBLE;
+     }

@@ -4,16 +4,17 @@
 # SPDX-License-Identifier: BSD-3-Clause
 #
 # Upgrade the co-simulation models in 4.sim/models from their upstream sources
-# (github.com/wyvernSemi): VProc, mem_model, rv32. Rebuilds libcosimlnx.a,
-# copies headers and HDL, refreshes the rv32 sources and re-applies our local
-# changes (see 4.sim/README.md, "Local changes"), and sets VPROCVERSION and
-# MEMVERSION in MakefileVProc.mk, which clones the same versions for its build.
+# (github.com/wyvernSemi): VProc, mem_model, rv32, udpIpPg. Rebuilds
+# libcosimlnx.a and the udpIpPg libraries, copies headers and HDL, refreshes
+# the rv32 sources and re-applies our local changes (the *.patch files; see
+# 4.sim/README.md, "Local changes"), and sets VPROCVERSION and MEMVERSION in
+# MakefileVProc.mk, which clones the same versions for its build. VProc,
 # mem_model and rv32 are used at commits past their last tags, so pass their
 # refs to keep them.
 #
 # usage:  bash 4.sim/tools/vip-upgrade.sh          latest tag of each model
-#         VPROC_REF=VERSION_1_13_4 MEM_MODEL_REF=c7b9c62 RV32_REF=774d84fa \
-#         bash 4.sim/tools/vip-upgrade.sh
+#         VPROC_REF=ae80e5b5 MEM_MODEL_REF=c7b9c62 RV32_REF=774d84fa \
+#         UDPIPPG_REF=VERSION_1_0_5 bash 4.sim/tools/vip-upgrade.sh
 #
 # Upstream clones go to VIP_WORK (default ~/.cache/wireguard-vip). Linux/WSL
 # only. Needs git, gcc, make, sed, patch. Afterwards: make -f MakefileVProc.mk
@@ -48,7 +49,8 @@ put() {
 VPROC_REF=$(fetch vproc "${VPROC_REF:-}")
 MEM_MODEL_REF=$(fetch mem_model "${MEM_MODEL_REF:-}")
 RV32_REF=$(fetch rv32 "${RV32_REF:-}")
-echo "VProc $VPROC_REF, mem_model $MEM_MODEL_REF, rv32 $RV32_REF"
+UDPIPPG_REF=$(fetch udpIpPg "${UDPIPPG_REF:-}")
+echo "VProc $VPROC_REF, mem_model $MEM_MODEL_REF, rv32 $RV32_REF, udpIpPg $UDPIPPG_REF"
 
 O=$(mktemp -d)
 trap 'rm -rf "$O"' EXIT
@@ -84,6 +86,16 @@ for f in f_VProc.v f_VProc.sv extradefs.v vprocdefs.vh vprocdpi.vh; do put "$V/$
 # assignment (upstream: <= `MINDELAY, #0 on all simulators but Verilator)
 sed -i -E 's/^( *`define VProcTimeScale +)`timescale.*/\1/' "$M/cosim/extradefs.v"
 sed -i -E 's/<= *`MINDELAY +/<= /' "$M/cosim/f_VProc.v"
+# and its #0 before VInit (so that Node holds its value): a non-blocking
+# assignment whose edge calls VInit (models/cosim/f_VProc-vinit.patch)
+if ! patch -s --no-backup-if-mismatch -p1 -d "$M/cosim" < "$M/cosim/f_VProc-vinit.patch"; then
+    echo "ERROR: f_VProc-vinit.patch no longer applies to VProc $VPROC_REF."
+    exit 1
+fi
+if grep -q '^ *`MINDELAY' "$M/cosim/f_VProc.v"; then
+    echo 'ERROR: f_VProc.v still has a `MINDELAY statement'
+    exit 1
+fi
 
 # ---- mem_model headers and HDL; mem_model.sv is ours ------------------------
 for f in mem.h mem_model.h mem_model_pli.h; do put "$MM/src/$f" "$M/cosim/include/$f"; done
@@ -107,6 +119,41 @@ if ! patch -s --no-backup-if-mismatch -p0 -d "$M/rv32/src" < "$M/rv32/rv32-openp
     echo "ERROR: rv32-openpcie.patch no longer applies to rv32 $RV32_REF."
     echo "       Port the fixes by hand into models/rv32/src, then regenerate the patch."
     exit 1
+fi
+
+# ---- udpIpPg: headers, HDL, and its library, built from patched source ------
+# models/udpIpPg/udp_ip_pg-wireguard.patch: no `timescale, the GMII inputs
+# read directly (no #1 or negedge copies; VProc reads before the DUT's
+# non-blocking updates of the same edge). udpIpPg-preamble.patch: 7 preamble
+# bytes (#50; upstream sends 6). Upstream has no lib/: libudplnx.a (and
+# libudpwin.a, with the MinGW cross compiler if installed) is udpIpPg.o alone.
+U=$W/udpIpPg
+UO=$O/udpIpPg
+mkdir -p "$UO/src" "$UO/verilog"
+for f in src/udpIpPg.cpp src/udpIpPg.h src/udpVProc.h verilog/udp_ip_pg.v; do
+    tr -d '\r' < "$U/$f" | sed 's/[ \t]*$//' > "$UO/$f"
+done
+for p in udp_ip_pg-wireguard udpIpPg-preamble; do
+    if ! patch -s --no-backup-if-mismatch -p1 -d "$UO" < "$M/udpIpPg/$p.patch"; then
+        echo "ERROR: $p.patch no longer applies to udpIpPg $UDPIPPG_REF."
+        exit 1
+    fi
+done
+put "$UO/src/udpIpPg.h" "$M/udpIpPg/include/udpIpPg.h"
+put "$UO/src/udpVProc.h" "$M/udpIpPg/include/udpVProc.h"
+put "$U/test/src/udpPrintPkt.h" "$M/udpIpPg/include/udpPrintPkt.h"
+put "$U/test/src/udpTestBase.h" "$M/udpIpPg/include/udpTestBase.h"
+put "$UO/verilog/udp_ip_pg.v" "$M/udpIpPg/udp_ip_pg.v"
+UF="-c -fPIC -m64 -g -DVPROC_SV -DVERILATOR -I$UO/src -I$VC"
+g++ $UF "$UO/src/udpIpPg.cpp" -o "$UO/udpIpPg.o"
+rm -f "$M/udpIpPg/lib/libudplnx.a"
+ar cr "$M/udpIpPg/lib/libudplnx.a" "$UO/udpIpPg.o"
+if command -v x86_64-w64-mingw32-g++ >/dev/null; then
+    x86_64-w64-mingw32-g++ ${UF/-fPIC /} "$UO/src/udpIpPg.cpp" -o "$UO/udpIpPg_win.o"
+    rm -f "$M/udpIpPg/lib/libudpwin.a"
+    x86_64-w64-mingw32-ar cr "$M/udpIpPg/lib/libudpwin.a" "$UO/udpIpPg_win.o"
+else
+    echo "note: no x86_64-w64-mingw32-g++: libudpwin.a kept as it was"
 fi
 
 echo "Done. Next: make -f MakefileVProc.mk run (BUILD=DEFAULT and BUILD=ISS),"
