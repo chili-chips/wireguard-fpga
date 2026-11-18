@@ -218,13 +218,6 @@ is done.
 - **Duplicated code:** `perf_tb_common.packet_mismatch_message` repeats
   `tb_common_sim.check_packet_result`. The `init` kernel is the same in
   `make_pipelined_compute` and `make_shared_compute`. Share one copy of each.
-- **`--enc --soc --sim --syn_tb` fails** ([#49](https://github.com/chili-chips/wireguard-fpga/issues/49), yours; 2026-11-17, on `97097a87` and
-  `99e5e018`): GHDL stops at the first clock on "Poly1305 body ownership
-  delay mismatch" (`poly1305_mac_pipelined.py:285`), after metavalue
-  warnings: likely a valid bit that starts as X. `--dec` passes. The
-  exported encrypt core passes our SoC benches byte for byte, RFC 8439 tag
-  included, so the check fails, not the hardware. Reset that bit or let the
-  check skip metavalues before the first valid beat.
 - **`tag_words = 2`** in `aead_types.py` holds only for 128- and 256-bit
   beats. Add an assert against `DATA_BITWIDTHS` so a new width fails loudly.
 
