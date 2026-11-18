@@ -4,4 +4,5 @@
 # build.py warns when the local pypelinec checkout predates it.
 # Move it forward in the same commit as any design change that needs a newer
 # PipelineC. The first line that is not a comment is the hash.
-99e5e01832c3b9a46c7e527b845af8b24f9d02c9
+# Requires both the PipelineC#394 and #395 fixes.
+4038e33db0e60641722fc191efd0628bdf8580a9

@@ -85,7 +85,7 @@ Use the README's [simulation workflow](README.md#simulation) and
   reason for each corner. Never waive a bin only to make a run pass.
 - Lint the generated HDL before pushing. From the repo root, run
   `PYPELINEC=<PipelineC>/src/pypelinec bash 3.build/hw_build.openXC7/run-lint.sh ghdl ghdl-verilator`.
-  It generates the VHDL with `pypelinec --no_synth`, without Vivado. GHDL
+  It generates the VHDL with `pypelinec --comb --no_synth`, without Vivado. GHDL
   then analyzes it, and Verilator lints its GHDL-Yosys Verilog. CI job
   `pypeline-lint` in `.github/workflows/lint.yml` runs the same check with
   the oldest supported PipelineC (`pipelinec.ref`). Fix findings in the design
@@ -210,10 +210,6 @@ Full documents:
 Notes from the PR #34 review, merged 2026-11-16. Delete each item once it
 is done.
 
-- **PipelineC#395:** a package-declaration constant in `c_structs_pkg.pkg.vhd`
-  calls `bank_state_t_..._to_slv` before its body is elaborated (GHDL
-  `-Welaboration`). The lint waives it; drop the waiver and move
-  `pipelinec.ref` to the fixing commit once it is fixed.
 - **Vivado 2026.1:** builds work with 2019.2 or 2026.1, and the published
   results used 2019.2. Re-measure timing and area on 2026.1.
 - **Perf sim speed:** removing the native arithmetic models made the native
@@ -259,7 +255,7 @@ too: pull before you edit `1.hw/` or `4.sim/`.
   needs one instance for both wrappers: our call at integration
   ([#27](https://github.com/chili-chips/wireguard-fpga/issues/27)). If
   PipelineC can prefix or uniquify module names per top, say so.
-- **`pipelinec.ref`** is `99e5e018` (your #394 fix; `4ee9093`). The SoC
+- **`pipelinec.ref`** is `4038e33d` (includes the #394 and #395 fixes). The SoC
   builds above started on `97097a87` with the old workaround; the lint and
   the native random sim pass on `99e5e018`.
 - **Size the core to the board** ([#40](https://github.com/chili-chips/wireguard-fpga/issues/40)):
