@@ -37,33 +37,67 @@
 //              https://opensource.org/license/bsd-3-clause
 //--------------------------------------------------------------------------
 // Description:
-//   Ethernet PHY Controller (placeholder)
+//   Triple-Speed Ethernet Wrapper
 //==========================================================================
 
-module ethernet_phy (
-    output logic e1_reset,
-    output logic e1_mdc,
-    inout  logic e1_mdio,
-    output logic e2_reset,
-    output logic e2_mdc,
-    inout  logic e2_mdio,
-    output logic e3_reset,
-    output logic e3_mdc,
-    inout  logic e3_mdio,
-    output logic e4_reset,
-    output logic e4_mdc,
-    inout  logic e4_mdio
+module eth_mac (
+    input  logic       gtx_clk,
+    input  logic       gtx_rst,
+    input  logic       gmii_rx_clk,
+    input  logic [7:0] gmii_rxd,
+    input  logic       gmii_rx_dv,
+    input  logic       gmii_rx_er,
+    input  logic       mii_tx_clk,
+    output logic       gmii_tx_clk,
+    output logic [7:0] gmii_txd,
+    output logic       gmii_tx_en,
+    output logic       gmii_tx_er,
+    output logic [1:0] speed,
+    dpe_if.s_axis      tx_fifo,
+    dpe_if.m_axis      rx_fifo
 );
-  assign e1_reset = 1'b1;
-  assign e2_reset = 1'b1;
-  assign e3_reset = 1'b1;
-  assign e4_reset = 1'b1;
+  eth_mac_1g_gmii_fifo #(
+      .TARGET            ("XILINX"),
+      .IODDR_STYLE       ("IODDR"),
+      .CLOCK_INPUT_STYLE ("BUFG"),
+      .ENABLE_PADDING    (1),
+      .MIN_FRAME_LENGTH  (64),
+      .TX_FIFO_DEPTH     (4096),
+      .TX_FRAME_FIFO     (1),
+      .RX_FIFO_DEPTH     (4096),
+      .RX_FRAME_FIFO     (1)
+  ) eth (
+      .gtx_clk (gtx_clk),
+      .gtx_rst (gtx_rst),
 
-  // No MDIO management yet: MDC held low (idle), MDIO released
-  assign e1_mdc   = 1'b0;
-  assign e2_mdc   = 1'b0;
-  assign e3_mdc   = 1'b0;
-  assign e4_mdc   = 1'b0;
+      .tx_axis (tx_fifo),
+      .rx_axis (rx_fifo),
+
+      .gmii_rx_clk (gmii_rx_clk),
+      .gmii_rxd    (gmii_rxd),
+      .gmii_rx_dv  (gmii_rx_dv),
+      .gmii_rx_er  (gmii_rx_er),
+      .mii_tx_clk  (mii_tx_clk),
+      .gmii_tx_clk (gmii_tx_clk),
+      .gmii_txd    (gmii_txd),
+      .gmii_tx_en  (gmii_tx_en),
+      .gmii_tx_er  (gmii_tx_er),
+
+      .tx_fifo_overflow   (  /*LINT:OK*/),  // MAC/FIFO status not monitored
+      .tx_fifo_bad_frame  (  /*LINT:OK*/),  // MAC/FIFO status not monitored
+      .tx_fifo_good_frame (  /*LINT:OK*/),  // MAC/FIFO status not monitored
+      .rx_error_bad_frame (  /*LINT:OK*/),  // MAC/FIFO status not monitored
+      .rx_error_bad_fcs   (  /*LINT:OK*/),  // MAC/FIFO status not monitored
+      .rx_fifo_overflow   (  /*LINT:OK*/),  // MAC/FIFO status not monitored
+      .rx_fifo_bad_frame  (  /*LINT:OK*/),  // MAC/FIFO status not monitored
+      .rx_fifo_good_frame (  /*LINT:OK*/),  // MAC/FIFO status not monitored
+      .tx_error_underflow (  /*LINT:OK*/),  // MAC/FIFO status not monitored
+      .speed              (speed),
+
+      .cfg_ifg       (8'd12),
+      .cfg_tx_enable (1'b1),
+      .cfg_rx_enable (1'b1)
+  );
 endmodule
 
 // -----------------------------------------------------------------------------

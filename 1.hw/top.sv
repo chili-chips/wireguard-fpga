@@ -306,7 +306,7 @@ module top
   //==========================================================================
   // Ethernet subsystems
   //==========================================================================
-  ethernet_mac u_eth_1 (
+  eth_mac u_eth_1 (
       .gtx_clk     (eth_gtx_clk),
       .gtx_rst     (eth_gtx_rst),
       .gmii_rx_clk (e1_rxc),
@@ -324,7 +324,7 @@ module top
   );
 
   //--------------------------------------------------------------------------
-  ethernet_mac u_eth_2 (
+  eth_mac u_eth_2 (
       .gtx_clk     (eth_gtx_clk),
       .gtx_rst     (eth_gtx_rst),
       .gmii_rx_clk (e2_rxc),
@@ -342,7 +342,7 @@ module top
   );
 
   //--------------------------------------------------------------------------
-  ethernet_mac u_eth_3 (
+  eth_mac u_eth_3 (
       .gtx_clk     (eth_gtx_clk),
       .gtx_rst     (eth_gtx_rst),
       .gmii_rx_clk (e3_rxc),
@@ -360,7 +360,7 @@ module top
   );
 
   //--------------------------------------------------------------------------
-  ethernet_mac u_eth_4 (
+  eth_mac u_eth_4 (
       .gtx_clk     (eth_gtx_clk),
       .gtx_rst     (eth_gtx_rst),
       .gmii_rx_clk (e4_rxc),
@@ -378,20 +378,16 @@ module top
   );
 
   //--------------------------------------------------------------------------
-  ethernet_phy u_phy (
-      .e1_reset (e1_reset),
-      .e1_mdc   (e1_mdc),
-      .e1_mdio  (e1_mdio),
-      .e2_reset (e2_reset),
-      .e2_mdc   (e2_mdc),
-      .e2_mdio  (e2_mdio),
-      .e3_reset (e3_reset),
-      .e3_mdc   (e3_mdc),
-      .e3_mdio  (e3_mdio),
-      .e4_reset (e4_reset),
-      .e4_mdc   (e4_mdc),
-      .e4_mdio  (e4_mdio)
-  );
+  // PHY management: none yet. Each PHY out of reset, MDC idle low, MDIO not
+  // driven: the PHYs run on their power-up strapping
+  assign e1_reset = 1'b1;
+  assign e1_mdc   = 1'b0;
+  assign e2_reset = 1'b1;
+  assign e2_mdc   = 1'b0;
+  assign e3_reset = 1'b1;
+  assign e3_mdc   = 1'b0;
+  assign e4_reset = 1'b1;
+  assign e4_mdc   = 1'b0;
 endmodule
 
 // -----------------------------------------------------------------------------

@@ -46,8 +46,7 @@ ${BLD_DIR}/csr_build/generated-files/csr.sv
 ${HW_SRC}/ip.infra/soc_csr.sv
 
 #---Common infrastructure components
-${HW_SRC}/ip.eth/ethernet_mac.sv
-${HW_SRC}/ip.eth/ethernet_phy.sv
+${HW_SRC}/ip.eth/eth_mac.sv
 ${HW_SRC}/ip.infra/soc_ram.sv
 ${HW_SRC}/ip.infra/soc_fabric.sv
 ${HW_SRC}/ip.infra/clk_rst_gen.sv

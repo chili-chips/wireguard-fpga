@@ -62,8 +62,7 @@ EXPECTED_MODULES = {
     'gmii_if': 'interface',
     
     # Infrastructure modules
-    'ethernet_mac': 'module',
-    'ethernet_phy': 'module',
+    'eth_mac': 'module',
     'cpu_fifo': 'module',
     'soc_fabric': 'module',
     'soc_ram': 'module',
