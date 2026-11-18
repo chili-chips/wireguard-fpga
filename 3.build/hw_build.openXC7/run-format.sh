@@ -27,7 +27,8 @@
 #      list; only wildcard imports (import p::*;), no selective ones
 #      (import p::name;); no p:: prefix on a name outside an import line;
 #      no import outside a module or interface (at file level);
-#   5. no logical operator (&&, ||, !) in an assign (reported, not fixed): the
+#   5. no logical operator (&&, ||, !) in an assign or a net declared with an
+#      expression (wire x = ...;) (reported, not fixed): the
 #      bitwise ones (&, |, ~) on 1-bit operands; an integer parameter as a
 #      flag is (P != 0), a vector under ! is ~|v.
 #
@@ -239,10 +240,13 @@ imp_out=$(python3 - "${FILES[@]}" <<'PY'
 import re, sys
 files = sys.argv[1:]
 
-def code(f):  # the file without comments, line numbers kept
+TOK = re.compile(r'"(?:\\.|[^"\\\n])*"|/\*.*?\*/|//[^\n]*', re.S)
+
+def code(f):  # the file without comments and strings, line numbers kept
     s = open(f, encoding='utf-8', errors='replace').read()
-    s = re.sub(r'/\*.*?\*/', lambda m: re.sub(r'[^\n]', ' ', m.group(0)), s, flags=re.S)
-    return re.sub(r'//[^\n]*', '', s).split('\n')
+    # a DPI import names a C function, not a package: not an import here
+    s = re.sub(r'\bimport\s+"DPI(?:-C)?"[^;]*;', lambda m: re.sub(r'[^\n]', ' ', m.group(0)), s)
+    return TOK.sub(lambda m: re.sub(r'[^\n]', ' ', m.group(0)), s).split('\n')
 
 pkgs = {m for f in files for l in code(f) for m in re.findall(r'^\s*package\s+(\w+)\s*;', l)}
 for f in files:
@@ -280,12 +284,14 @@ echo "-- package imports: $ni finding(s)"
 # modes: the bitwise rewrite needs the operand widths, so it is a manual edit.
 log_out=$(python3 - "${FILES[@]}" <<'PY'
 import re, sys
+# strings and comments blanked in one pass (a /* inside a string is text), lines kept
+TOK = re.compile(r'"(?:\\.|[^"\\\n])*"|/\*.*?\*/|//[^\n]*', re.S)
+# an assign, or a net declared with an expression (wire x = ...;), which is one too
+STMT = re.compile(r'\bassign\b[^;]*;|\b(?:wire|tri|wand|wor)\b[^;=]*=[^;]*;')
 for f in sys.argv[1:]:
     s = open(f, encoding='utf-8', errors='replace').read()
-    s = re.sub(r'/\*.*?\*/', lambda m: re.sub(r'[^\n]', ' ', m.group(0)), s, flags=re.S)
-    s = re.sub(r'"(?:\\.|[^"\\\n])*"', lambda m: ' ' * len(m.group(0)), s)
-    s = re.sub(r'//[^\n]*', '', s)
-    for m in re.finditer(r'\bassign\b[^;]*;', s):
+    s = TOK.sub(lambda m: re.sub(r'[^\n]', ' ', m.group(0)), s)
+    for m in STMT.finditer(s):
         ops = sorted(set(re.findall(r'&&|\|\||!(?!=)', m.group(0))))
         if ops:
             line = s.count('\n', 0, m.start()) + 1

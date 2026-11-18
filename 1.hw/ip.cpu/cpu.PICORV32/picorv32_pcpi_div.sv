@@ -26,10 +26,11 @@ module picorv32_pcpi_div (
     output reg        pcpi_ready
 );
   reg instr_div, instr_divu, instr_rem, instr_remu;
-  wire instr_any_div_rem = |{instr_div, instr_divu, instr_rem, instr_remu};
+  wire  instr_any_div_rem = |{instr_div, instr_divu, instr_rem, instr_remu};
 
-  reg  pcpi_wait_q;
-  wire start = pcpi_wait && !pcpi_wait_q;
+  reg   pcpi_wait_q;
+  logic  start;
+  assign start = pcpi_wait & ~pcpi_wait_q;
 
   // an RV32M instruction (MUL, MULH*, DIV*, REM*): OP opcode, funct7 0000001
   wire   insn_is_rv32m;

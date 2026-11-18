@@ -29,13 +29,14 @@ module picorv32_pcpi_mul #(
     output reg        pcpi_ready
 );
   reg instr_mul, instr_mulh, instr_mulhsu, instr_mulhu;
-  wire instr_any_mul = |{instr_mul, instr_mulh, instr_mulhsu, instr_mulhu};
-  wire instr_any_mulh = |{instr_mulh, instr_mulhsu, instr_mulhu};
-  wire instr_rs1_signed = |{instr_mulh, instr_mulhsu};
-  wire instr_rs2_signed = |{instr_mulh};
+  wire  instr_any_mul = |{instr_mul, instr_mulh, instr_mulhsu, instr_mulhu};
+  wire  instr_any_mulh = |{instr_mulh, instr_mulhsu, instr_mulhu};
+  wire  instr_rs1_signed = |{instr_mulh, instr_mulhsu};
+  wire  instr_rs2_signed = |{instr_mulh};
 
-  reg  pcpi_wait_q;
-  wire mul_start = pcpi_wait && !pcpi_wait_q;
+  reg   pcpi_wait_q;
+  logic  mul_start;
+  assign mul_start = pcpi_wait & ~pcpi_wait_q;
 
   // an RV32M instruction (MUL, MULH*, DIV*, REM*): OP opcode, funct7 0000001
   wire   insn_is_rv32m;
