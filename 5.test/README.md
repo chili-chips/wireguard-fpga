@@ -37,6 +37,7 @@ Enter new network configuration:
   Generate new MAC address? (y/n) [n]: y
   Default gateway [192.168.1.254]: 
   Default interface (0-7) [1]: 
+  WireGuard port (1-65535) [51820]: 
 Network configuration updated.
 Network configuration:
   IP address:        192.168.1.98
@@ -44,6 +45,7 @@ Network configuration:
   MAC address:       CC:BA:CA:CA:BD:AF
   Default gateway:   192.168.1.254
   Default interface: 1 [.1...]
+  WireGuard port:    51820
 (wireguard-fpga)# 
 ```
 
@@ -57,6 +59,7 @@ Enter new network configuration:
   Generate new MAC address? (y/n) [n]: y
   Default gateway [192.168.1.254]: 
   Default interface (0-7) [1]: 
+  WireGuard port (1-65535) [51820]: 
 Network configuration updated.
 Network configuration:
   IP address:        192.168.1.99
@@ -64,6 +67,7 @@ Network configuration:
   MAC address:       CC:BA:CA:CA:FA:89
   Default gateway:   192.168.1.254
   Default interface: 1 [.1...]
+  WireGuard port:    51820
 (wireguard-fpga)#
 ```
 

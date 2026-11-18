@@ -121,7 +121,7 @@ To illustrate the operation of the system as a whole, we will follow the step-by
 - Encryption and tunneling of the ICMP Echo Request packet (from host A to host B via peer A)
 - Detunneling and decryption of the ICMP Echo Request packet (from host A to host B via peer B)
 
-A packet is WireGuard for this peer only if it is IPv4 UDP to the device's own address and listen port, `wg_ip:wg_port` (CSR `csr.dpe.wg_ip` and `csr.dpe.wg_port`; the firmware sets `wg_ip` to the device IP at boot and after `config network`). WireGuard traffic to any other address passes through the router like any other packet.
+A packet is WireGuard for this peer only if it is IPv4 UDP to the device's own address and listen port, `wg_ip:wg_port` (CSR `csr.dpe.wg_ip` and `csr.dpe.wg_port`; the firmware sets them to the device IP and its WireGuard port, default 51820, at boot and after `config network`). WireGuard traffic to any other address passes through the router like any other packet.
 
 ![Example1](../0.doc/Wireguard/wireguard-fpga-muxed-Example-1-A-Handshake-Initiation.webp)
 

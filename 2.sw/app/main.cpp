@@ -229,13 +229,14 @@ net_config_t      net_config;
 net_arp_cache_t   net_arp_cache = {0};
 
 // The data plane takes IPv4 UDP to wg_ip:wg_port as WireGuard for this device:
-// wg_ip is the device's own address
-// The DPE pauses while it changes (pause/drain): no packet sees half of each
-void set_wg_ip(const net_config_t* config) {
+// the device's own address and its WireGuard listen port
+// The DPE pauses while they change (pause/drain): no packet sees half of them
+void set_wg_addr(const net_config_t* config) {
    CSR_RMW(dpe.fcr, CSR__DPE__FCR__PAUSE, 1);
    while (!CSR_GET(dpe.fcr, CSR__DPE__FCR__IDLE));
    CSR_REG32(dpe.wg_ip) = ((uint32_t)config->ip[0] << 24) | ((uint32_t)config->ip[1] << 16) |
                           ((uint32_t)config->ip[2] << 8) | (uint32_t)config->ip[3];
+   CSR_SET(dpe.wg_port, CSR__DPE__WG_PORT__PORT, config->wg_port);
    CSR_RMW(dpe.fcr, CSR__DPE__FCR__PAUSE, 0);
 }
 
@@ -265,7 +266,10 @@ void init_network(net_config_t* config) {
 
       config->def_if = 1;
    }
-   set_wg_ip(config);
+   if (config->wg_port == 0) {
+      config->wg_port = 51820;
+   }
+   set_wg_addr(config);
 }
 
 void show_network(net_config_t* config) {
@@ -306,6 +310,8 @@ void show_network(net_config_t* config) {
          uart_send(" [.1234]");
          break;
    }
+   uart_send("\r\n  WireGuard port:    ");
+   uart_send_dec(config->wg_port);
    uart_send("\r\n");
 }
 
@@ -346,7 +352,15 @@ void config_network(net_config_t* config) {
    uart_send("]: ");
    while (!uart_recv(uart_rx_data));
    str_parse_uint8(uart_rx_data, &config->def_if, 0, 7);
-   set_wg_ip(config);
+
+   uart_send("  WireGuard port (1-65535) [");
+   uart_send_dec(config->wg_port);
+   uart_send("]: ");
+   while (!uart_recv(uart_rx_data));
+   uint32_t wg_port = config->wg_port;
+   str_parse_uint32(uart_rx_data, &wg_port, 1, 65535);
+   config->wg_port = (uint16_t)wg_port;
+   set_wg_addr(config);
    uart_send("Network configuration updated.\r\n");
 
    show_network(config);

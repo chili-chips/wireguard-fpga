@@ -30,6 +30,7 @@ typedef struct {
    mac_t    mac;
    ip_t     def_gw;
    uint8_t  def_if;
+   uint16_t wg_port;  // WireGuard listen port
 } net_config_t;
 
 typedef struct {
