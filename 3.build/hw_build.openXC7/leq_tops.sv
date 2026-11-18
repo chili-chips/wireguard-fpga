@@ -5,70 +5,88 @@
 //==========================================================================
 // run-leq.sh: the DPE blocks that 1.hw/top.filelist does not instantiate
 // yet, each a top of its own, so the LEQ covers the whole design. A top
-// cannot have an interface port: each wrapper takes the dpe_if signals as
-// plain ports and builds the interfaces inside.
+// cannot have an interface port: each wrapper takes a dpe_if as its
+// handshake ports plus one struct (leq_beat_t, every forward signal) and
+// builds the interface inside (leq_dpe_src, leq_dpe_snk).
 // run-leq.sh defines LEQ_TOP_<top> for the one it proves: a wrapper whose
 // block does not compile yet stops only its own run.
 //==========================================================================
 
-// the ports of a dpe_if sink (s_axis) or source (m_axis) named n
-`define LEQ_DPE_S(n) \
-    input  logic          n``_tvalid, \
-    output logic          n``_tready, \
-    input  dpe_data_t     n``_tdata, \
-    input  logic          n``_tlast, \
-    input  dpe_keep_t     n``_tkeep, \
-    input  dpe_tuser_t    n``_tuser, \
-    input  dpe_peer_idx_t n``_tid
-`define LEQ_DPE_M(n) \
-    output logic          n``_tvalid, \
-    input  logic          n``_tready, \
-    output dpe_data_t     n``_tdata, \
-    output logic          n``_tlast, \
-    output dpe_keep_t     n``_tkeep, \
-    output dpe_tuser_t    n``_tuser, \
-    output dpe_peer_idx_t n``_tid
-// the dpe_if named n, driven from those ports
-`define LEQ_DPE_S_IF(n) \
-  dpe_if n (.clk(clk), .rst(rst)); \
-  assign n.tvalid   = n``_tvalid; \
-  assign n``_tready = n.tready; \
-  assign n.tdata    = n``_tdata; \
-  assign n.tlast    = n``_tlast; \
-  assign n.tkeep    = n``_tkeep; \
-  assign n.tuser    = n``_tuser; \
-  assign n.tid      = n``_tid;
-`define LEQ_DPE_M_IF(n) \
-  dpe_if n (.clk(clk), .rst(rst)); \
-  assign n``_tvalid = n.tvalid; \
-  assign n.tready   = n``_tready; \
-  assign n``_tdata  = n.tdata; \
-  assign n``_tlast  = n.tlast; \
-  assign n``_tkeep  = n.tkeep; \
-  assign n``_tuser  = n.tuser; \
-  assign n``_tid    = n.tid;
+package leq_pkg;
+  import dpe_pkg::*;
 
-// the peer table ports of the encryptor and the decryptor
-`define LEQ_PEER_PORTS \
-    output logic          fcr_idle, \
-    output dpe_peer_idx_t ram_peer_idx, \
-    input  wg_peer_cfg_t  ram_peer, \
-    output wg_counter_t   ram_new_send_cnt, \
-    output logic          ram_update_send_cnt
+  // a dpe_if beat: the signals that go with tvalid
+  typedef struct packed {
+    dpe_data_t     tdata;
+    logic          tlast;
+    dpe_keep_t     tkeep;
+    dpe_tuser_t    tuser;
+    dpe_peer_idx_t tid;
+  } leq_beat_t;
+endpackage
+
+// a dpe_if driven from top ports: the block's sink (s_axis) side
+module leq_dpe_src
+  import leq_pkg::*;
+(
+    input  logic      tvalid,
+    output logic      tready,
+    input  leq_beat_t beat,
+    dpe_if.m_axis     axis
+);
+  assign axis.tvalid = tvalid;
+  assign tready      = axis.tready;
+  assign axis.tdata  = beat.tdata;
+  assign axis.tlast  = beat.tlast;
+  assign axis.tkeep  = beat.tkeep;
+  assign axis.tuser  = beat.tuser;
+  assign axis.tid    = beat.tid;
+endmodule
+
+// a dpe_if read out to top ports: the block's source (m_axis) side
+module leq_dpe_snk
+  import leq_pkg::*;
+(
+    dpe_if.s_axis     axis,
+    output logic      tvalid,
+    input  logic      tready,
+    output leq_beat_t beat
+);
+  assign tvalid      = axis.tvalid;
+  assign axis.tready = tready;
+  assign beat        = '{
+          tdata: axis.tdata,
+          tlast: axis.tlast,
+          tkeep: axis.tkeep,
+          tuser: axis.tuser,
+          tid: axis.tid
+      };
+endmodule
 
 `ifdef LEQ_TOP_leq_dpe_wg_encryptor
 module leq_dpe_wg_encryptor
   import dpe_pkg::*;
   import net_pkg::*;
+  import leq_pkg::*;
 (
-    input logic clk,
-    input logic rst,
-    `LEQ_DPE_S(inp),
-    `LEQ_DPE_M(outp),
-    `LEQ_PEER_PORTS
+    input  logic          clk,
+    input  logic          rst,
+    input  logic          inp_tvalid,
+    output logic          inp_tready,
+    input  leq_beat_t     inp_beat,
+    output logic          outp_tvalid,
+    input  logic          outp_tready,
+    output leq_beat_t     outp_beat,
+    output logic          fcr_idle,
+    output dpe_peer_idx_t ram_peer_idx,
+    input  wg_peer_cfg_t  ram_peer,
+    output wg_counter_t   ram_new_send_cnt,
+    output logic          ram_update_send_cnt
 );
-  `LEQ_DPE_S_IF(inp)
-  `LEQ_DPE_M_IF(outp)
+  dpe_if inp (.clk(clk), .rst(rst));
+  dpe_if outp (.clk(clk), .rst(rst));
+  leq_dpe_src u_inp (.tvalid(inp_tvalid), .tready(inp_tready), .beat(inp_beat), .axis(inp));
+  leq_dpe_snk u_outp (.axis(outp), .tvalid(outp_tvalid), .tready(outp_tready), .beat(outp_beat));
   dpe_wg_encryptor u_dut (.*);
 endmodule
 `endif
@@ -77,15 +95,26 @@ endmodule
 module leq_dpe_wg_decryptor
   import dpe_pkg::*;
   import net_pkg::*;
+  import leq_pkg::*;
 (
-    input logic clk,
-    input logic rst,
-    `LEQ_DPE_S(inp),
-    `LEQ_DPE_M(outp),
-    `LEQ_PEER_PORTS
+    input  logic          clk,
+    input  logic          rst,
+    input  logic          inp_tvalid,
+    output logic          inp_tready,
+    input  leq_beat_t     inp_beat,
+    output logic          outp_tvalid,
+    input  logic          outp_tready,
+    output leq_beat_t     outp_beat,
+    output logic          fcr_idle,
+    output dpe_peer_idx_t ram_peer_idx,
+    input  wg_peer_cfg_t  ram_peer,
+    output wg_counter_t   ram_new_send_cnt,
+    output logic          ram_update_send_cnt
 );
-  `LEQ_DPE_S_IF(inp)
-  `LEQ_DPE_M_IF(outp)
+  dpe_if inp (.clk(clk), .rst(rst));
+  dpe_if outp (.clk(clk), .rst(rst));
+  leq_dpe_src u_inp (.tvalid(inp_tvalid), .tready(inp_tready), .beat(inp_beat), .axis(inp));
+  leq_dpe_snk u_outp (.axis(outp), .tvalid(outp_tvalid), .tready(outp_tready), .beat(outp_beat));
   dpe_wg_decryptor u_dut (.*);
 endmodule
 `endif
@@ -94,16 +123,33 @@ endmodule
 module leq_egress_ip_lookup
   import dpe_pkg::*;
   import lkup_pkg::*;
+  import leq_pkg::*;
 (
-    input logic clk,
-    input logic rst,
-    `LEQ_DPE_S(s_axis),
-    `LEQ_DPE_M(m_axis),
-    input  csr_cfg_t csr_cfg,
-    output csr_sta_t csr_sta
+    input  logic      clk,
+    input  logic      rst,
+    input  logic      s_axis_tvalid,
+    output logic      s_axis_tready,
+    input  leq_beat_t s_axis_beat,
+    output logic      m_axis_tvalid,
+    input  logic      m_axis_tready,
+    output leq_beat_t m_axis_beat,
+    input  csr_cfg_t  csr_cfg,
+    output csr_sta_t  csr_sta
 );
-  `LEQ_DPE_S_IF(s_axis)
-  `LEQ_DPE_M_IF(m_axis)
+  dpe_if s_axis (.clk(clk), .rst(rst));
+  dpe_if m_axis (.clk(clk), .rst(rst));
+  leq_dpe_src u_s (
+      .tvalid (s_axis_tvalid),
+      .tready (s_axis_tready),
+      .beat   (s_axis_beat),
+      .axis   (s_axis)
+  );
+  leq_dpe_snk u_m (
+      .axis   (m_axis),
+      .tvalid (m_axis_tvalid),
+      .tready (m_axis_tready),
+      .beat   (m_axis_beat)
+  );
   egress_ip_lookup #(.ENTRY_COUNT(64)) u_dut (.*);
 endmodule
 `endif
@@ -112,18 +158,25 @@ endmodule
 module leq_dpe_wg_disassembler
   import dpe_pkg::*;
   import net_pkg::*;
+  import leq_pkg::*;
 (
-    input logic clk,
-    input logic rst,
-    `LEQ_DPE_S(inp),
-    `LEQ_DPE_M(outp),
+    input  logic          clk,
+    input  logic          rst,
+    input  logic          inp_tvalid,
+    output logic          inp_tready,
+    input  leq_beat_t     inp_beat,
+    output logic          outp_tvalid,
+    input  logic          outp_tready,
+    output leq_beat_t     outp_beat,
     output logic          fcr_idle,
     output wg_receiver_t  wg_rcv,
     input  dpe_peer_idx_t wg_idx,
     input  logic          wg_idx_match
 );
-  `LEQ_DPE_S_IF(inp)
-  `LEQ_DPE_M_IF(outp)
+  dpe_if inp (.clk(clk), .rst(rst));
+  dpe_if outp (.clk(clk), .rst(rst));
+  leq_dpe_src u_inp (.tvalid(inp_tvalid), .tready(inp_tready), .beat(inp_beat), .axis(inp));
+  leq_dpe_snk u_outp (.axis(outp), .tvalid(outp_tvalid), .tready(outp_tready), .beat(outp_beat));
   dpe_wg_disassembler u_dut (.*);
 endmodule
 `endif
