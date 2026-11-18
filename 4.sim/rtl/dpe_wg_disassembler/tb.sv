@@ -50,7 +50,7 @@ module tb;
    import dpe_pkg::*;
    import net_pkg::*;
 
-   localparam int NPKT    = 14;
+   localparam int NPKT    = 16;
    localparam int MAXLEN  = 96;
    localparam int MAXBEAT = (MAXLEN + BEAT_BYTES - 1) / BEAT_BYTES;
 
@@ -127,7 +127,8 @@ module tb;
    // verilator lint_on UNUSEDSIGNAL
 
    // A WireGuard data frame to receiver `rcv`; kind changes one field
-   typedef enum {WG, HS_1, HS_2, HS_3, BAD_TYPE, OTHER_PORT, TRANSIT, IP_OPTS, TCP, ARP} kind_e;
+   typedef enum {WG, HS_1, HS_2, HS_3, BAD_TYPE, OTHER_PORT, TRANSIT, NEIGHBOUR, IP_OPTS, TCP, ARP,
+                 NEIGHBOUR_HS} kind_e;
    function automatic void make(int p, int n, kind_e kind, logic [31:0] rcv);
       len[p] = n;
       for (int i = 0; i < MAXLEN; i++) frame[p][i] = 8'((p << 4) + i);
@@ -135,10 +136,13 @@ module tb;
       frame[p][IPV4_VER_IHL_OFFSET] = {IPV4_VERSION, kind == IP_OPTS ? 4'd6 : 4'd5};
       // to this device, or (TRANSIT) to another host behind the router
       put_be16(p, IPV4_DST_OFFSET, kind == TRANSIT ? 16'h0A0A : WG_IP[31:16]);
-      put_be16(p, IPV4_DST_OFFSET + 2, kind == TRANSIT ? 16'h0001 : WG_IP[15:0]);
+      // NEIGHBOUR: the host next to this one (192.168.1.99): only the low half differs
+      put_be16(p, IPV4_DST_OFFSET + 2, kind == TRANSIT ? 16'h0001 :
+               (kind == NEIGHBOUR || kind == NEIGHBOUR_HS) ? WG_IP[15:0] + 16'd1 : WG_IP[15:0]);
       frame[p][IPV4_PROTO_OFFSET]   = kind == TCP ? 8'd6 : IP_PROTO_UDP;
       put_be16(p, UDP_DST_PORT_OFFSET, kind == OTHER_PORT ? 16'd53 : WG_PORT);
-      put_le32(p, WG_TYPE_OFFSET, kind == HS_1 ? 32'd1 : kind == HS_2 ? 32'd2 :
+      put_le32(p, WG_TYPE_OFFSET, (kind == HS_1 || kind == NEIGHBOUR_HS) ? 32'd1 :
+               kind == HS_2 ? 32'd2 :
                kind == HS_3 ? 32'd3 :
                kind == BAD_TYPE ? 32'd7 : WG_TYPE_DATA);
       put_le32(p, WG_RECEIVER_OFFSET, rcv);
@@ -168,6 +172,8 @@ module tb;
       make(11, 64, HS_2, RCV_B);        // a handshake response: to the CPU
       make(12, 80, TRANSIT, RCV_A);     // WireGuard to another host: passes
       make(13, 80, IP_OPTS, RCV_A);     // IPv4 with options: not ours, passes
+      make(14, 80, NEIGHBOUR, RCV_A);   // WireGuard data to the neighbour: passes
+      make(15, 80, NEIGHBOUR_HS, RCV_A);  // a handshake to the neighbour: passes
    end
 
    //------------------------------------------------------------------

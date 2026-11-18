@@ -230,9 +230,13 @@ net_arp_cache_t   net_arp_cache = {0};
 
 // The data plane takes IPv4 UDP to wg_ip:wg_port as WireGuard for this device:
 // wg_ip is the device's own address
+// The DPE pauses while it changes (pause/drain): no packet sees half of each
 void set_wg_ip(const net_config_t* config) {
+   CSR_RMW(dpe.fcr, CSR__DPE__FCR__PAUSE, 1);
+   while (!CSR_GET(dpe.fcr, CSR__DPE__FCR__IDLE));
    CSR_REG32(dpe.wg_ip) = ((uint32_t)config->ip[0] << 24) | ((uint32_t)config->ip[1] << 16) |
                           ((uint32_t)config->ip[2] << 8) | (uint32_t)config->ip[3];
+   CSR_RMW(dpe.fcr, CSR__DPE__FCR__PAUSE, 0);
 }
 
 void init_network(net_config_t* config) {

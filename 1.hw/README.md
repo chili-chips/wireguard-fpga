@@ -121,7 +121,7 @@ To illustrate the operation of the system as a whole, we will follow the step-by
 - Encryption and tunneling of the ICMP Echo Request packet (from host A to host B via peer A)
 - Detunneling and decryption of the ICMP Echo Request packet (from host A to host B via peer B)
 
-A packet is WireGuard for this peer only if it is IPv4 UDP to the device's own address and listen port, `wg_ip:wg_port` (CSR `csr.dpe.wg_ip` and `csr.dpe.wg_port`; the firmware sets `wg_ip` from `config network`). WireGuard traffic to any other address passes through the router like any other packet.
+A packet is WireGuard for this peer only if it is IPv4 UDP to the device's own address and listen port, `wg_ip:wg_port` (CSR `csr.dpe.wg_ip` and `csr.dpe.wg_port`; the firmware sets `wg_ip` to the device IP at boot and after `config network`). WireGuard traffic to any other address passes through the router like any other packet.
 
 ![Example1](../0.doc/Wireguard/wireguard-fpga-muxed-Example-1-A-Handshake-Initiation.webp)
 
@@ -139,7 +139,7 @@ A packet is WireGuard for this peer only if it is IPv4 UDP to the device's own a
 9. On peer B, the 1G MAC receives the incoming Ethernet frame and calculates the FCS on the fly. If the frame is valid, it is forwarded to the Rx FIFO (from _if1_).
 10. Once the entire packet is stored, the Rx FIFO signals the Round-Robin Multiplexer.
 11. The Round-Robin Multiplexer services the packet from the FIFO and injects it into the data plane pipeline.
-12. The Header Parser extracts important information from the packet header (including the destination IP address, UDP port and type of WireGuard message). The packet is UDP to `wg_ip:wg_port` and of type _Handshake Initiation_, so the WireGuard/UDP Packet Disassembler marks it for the control plane (`bypass_all`, destination CPU). The ChaCha20-Poly1305 Decryptor forwards it without any further processing.
+12. The Header Parser extracts important information from the packet header (including the destination IP address, UDP port and type of WireGuard message). The packet is UDP to `wg_ip:wg_port` and of type _Handshake Initiation_, so the WireGuard/UDP Packet Disassembler marks it for the control plane (`bypass_all`, `bypass_stage`, destination CPU). The ChaCha20-Poly1305 Decryptor forwards it without any further processing.
 13. The IP Lookup Engine keeps that destination: a handshake to this peer needs no table search. Similar to the previous step, the ChaCha20-Poly1305 Encryptor and the WireGuard/UDP Packet Assembler forward the packet without any additional processing.
 14. Based on the accompanying metadata, the Demultiplexer directs the packet to the corresponding Tx FIFO (toward the CPU).
 15. Once the entire packet is stored in the Tx FIFO, the CPU transfers the packet from the FIFO to RAM via the CSR-based interface and hands it over to the WireGuard Agent for further processing.
@@ -159,7 +159,7 @@ A packet is WireGuard for this peer only if it is IPv4 UDP to the device's own a
 26. On peer A, the 1G MAC receives the incoming Ethernet frame and calculates the FCS on the fly. If the frame is valid, it is forwarded to the Rx FIFO (from _if1_).
 27. Once the entire packet is stored, the Rx FIFO signals the Roung-Robin Multiplexer.
 28. The Round-Robin Multiplexer services the packet from the FIFO and injects it into the data plane pipeline.
-29. The Header Parser extracts important information from the packet header (including the destination IP address, UDP port and type of WireGuard message). The packet is UDP to `wg_ip:wg_port` and of type _Handshake Response_, so the WireGuard/UDP Packet Disassembler marks it for the control plane (`bypass_all`, destination CPU). The ChaCha20-Poly1305 Decryptor forwards it without any further processing.
+29. The Header Parser extracts important information from the packet header (including the destination IP address, UDP port and type of WireGuard message). The packet is UDP to `wg_ip:wg_port` and of type _Handshake Response_, so the WireGuard/UDP Packet Disassembler marks it for the control plane (`bypass_all`, `bypass_stage`, destination CPU). The ChaCha20-Poly1305 Decryptor forwards it without any further processing.
 30. The IP Lookup Engine keeps that destination: a handshake to this peer needs no table search. Similar to the previous step, the ChaCha20-Poly1305 Encryptor and the WireGuard/UDP Packet Assembler forward the packet without any additional processing.
 31. Based on the accompanying metadata, the Demultiplexer directs the packet to the corresponding Tx FIFO (toward the CPU).
 32. Once the entire packet is stored in the Tx FIFO, the CPU transfers the packet from the FIFO to RAM via the CSR-based interface and hands it over to the WireGuard Agent for further processing.
