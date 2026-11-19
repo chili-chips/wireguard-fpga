@@ -87,7 +87,7 @@ Routing table entry updated.
 (wireguard-fpga)# 
 ```
 
-Next, we still need to configure the WireGuard peer:
+Next, we still need to configure the WireGuard peer. The keys go in as 64 hex digits, 8 per prompt, starting from key byte 31: the key is one little-endian 256-bit number (`csr.rdl`). A key that a WireGuard tool prints byte 0 first is entered byte-reversed.
 
 ```
 (wireguard-fpga)# config cryptokeys

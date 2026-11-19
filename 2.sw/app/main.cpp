@@ -228,15 +228,23 @@ eth_raw_packet_t  eth_packet_tx;
 net_config_t      net_config;
 net_arp_cache_t   net_arp_cache = {0};
 
+#define DPE_PAUSE_TIMEOUT_MS 100
+
 // Pause the DPE and wait until it holds no packet (pause/drain), before a
-// table or wg_ip/wg_port write. Frames for the CPU are read and dropped
-// meanwhile: one waiting for room in a full CPU queue would hold the drain
-// forever (ARP, ICMP and handshakes are sent again)
-void dpe_pause(void) {
+// table or wg_ip/wg_port write. An Ethernet port that does not send (no
+// link) back-pressures the DPE, so it may never drain: after
+// DPE_PAUSE_TIMEOUT_MS the pause ends and the caller writes nothing (false)
+bool dpe_pause(void) {
    CSR_RMW(dpe.fcr, CSR__DPE__FCR__PAUSE, 1);
+   uint32_t start = cycles();
    while (!CSR_GET(dpe.fcr, CSR__DPE__FCR__IDLE)) {
-      eth_receive_packet(&eth_packet_rx);
+      if (cycles() - start > DPE_PAUSE_TIMEOUT_MS * CYCLES_PER_MS) {
+         CSR_RMW(dpe.fcr, CSR__DPE__FCR__PAUSE, 0);
+         uart_send("Error: the data plane did not drain; nothing written.\r\n");
+         return false;
+      }
    }
+   return true;
 }
 
 void dpe_resume(void) {
@@ -245,13 +253,15 @@ void dpe_resume(void) {
 
 // The data plane takes IPv4 UDP to wg_ip:wg_port as WireGuard for this device:
 // the device's own address and its WireGuard listen port
-// The DPE pauses while they change: no packet sees half of them
-void set_wg_addr(const net_config_t* config) {
-   dpe_pause();
+// The DPE pauses while they change: no packet sees half of them. False: the
+// DPE did not drain, nothing written
+bool set_wg_addr(const net_config_t* config) {
+   if (!dpe_pause()) return false;
    CSR_REG32(dpe.wg_ip) = ((uint32_t)config->ip[0] << 24) | ((uint32_t)config->ip[1] << 16) |
                           ((uint32_t)config->ip[2] << 8) | (uint32_t)config->ip[3];
    CSR_SET(dpe.wg_port, CSR__DPE__WG_PORT__PORT, config->wg_port);
    dpe_resume();
+   return true;
 }
 
 void init_network(net_config_t* config) {
@@ -331,6 +341,7 @@ void show_network(net_config_t* config) {
 
 void config_network(net_config_t* config) {
    char uart_rx_data[UART_RXBUF_SIZE];
+   const net_config_t old = *config;  // the IP and port the DPE has
 
    uart_send("Enter new network configuration:\r\n");
 
@@ -374,8 +385,14 @@ void config_network(net_config_t* config) {
    uint32_t wg_port = config->wg_port;
    str_parse_uint32(uart_rx_data, &wg_port, 1, 65535);
    config->wg_port = (uint16_t)wg_port;
-   set_wg_addr(config);
-   uart_send("Network configuration updated.\r\n");
+   if (set_wg_addr(config)) {
+      uart_send("Network configuration updated.\r\n");
+   } else {
+      // the firmware keeps what the data plane uses
+      for (int i = 0; i < 4; i++) config->ip[i] = old.ip[i];
+      config->wg_port = old.wg_port;
+      uart_send("Network configuration updated, but not the IP address and WireGuard port.\r\n");
+   }
 
    show_network(config);
 }
@@ -435,19 +452,15 @@ void show_routes_entry(int i) {
    uart_send("\r\n");
 }
 
+// The CPU reads the tables on a port of their own: no pause for reading
 void show_routes(void) {
-   dpe_pause();
-
    uart_send("Routing table:\r\n");
    for (int i = 0; i < 64; i++) {
       show_routes_entry(i);
    }
-
-   dpe_resume();
 }
 
-// The prompts run with the DPE running (the CPU reads the table on a port
-// of its own); it pauses only for the writes
+// The prompts run with the DPE running; it pauses only for the writes
 void config_routes(void) {
    char uart_rx_data[UART_RXBUF_SIZE];
 
@@ -497,7 +510,7 @@ void config_routes(void) {
    // Update routing table entry
    uip = ((uint32_t)ip[0] << 24) | ((uint32_t)ip[1] << 16) | ((uint32_t)ip[2] << 8) | (uint32_t)ip[3];
    umask = ((uint32_t)mask[0] << 24) | ((uint32_t)mask[1] << 16) | ((uint32_t)mask[2] << 8) | (uint32_t)mask[3];
-   dpe_pause();
+   if (!dpe_pause()) return;
    CSR_REG32(routing_table.entry[entry_idx].ip) = uip;
    CSR_REG32(routing_table.entry[entry_idx].mask) = umask;
    // peer_idx and encrypt in one word write: a byte store reaches every lane on
@@ -579,14 +592,10 @@ void show_cryptokeys_entry(int i) {
 }
 
 void show_cryptokeys(void) {
-   dpe_pause();
-
    uart_send("Cryptokey table:\r\n");
    for (int i = 1; i < 64; i++) {
       show_cryptokeys_entry(i);
    }
-
-   dpe_resume();
 }
 
 // As config_routes: the DPE pauses only for the writes
@@ -788,7 +797,7 @@ void config_cryptokeys(void) {
    bool reset_cnt = uart_rx_data[0] == 'y' || uart_rx_data[0] == 'Y';
 
    // Update cryptokeys table entry
-   dpe_pause();
+   if (!dpe_pause()) return;
    CSR_SET(cryptokey_table.entry[entry_idx].local_mac_47_32, CSR__CRYPTOKEY_TABLE__ENTRY__LOCAL_MAC_47_32__MAC, local_mac_47_32);
    CSR_REG32(cryptokey_table.entry[entry_idx].local_mac_31_0) = local_mac_31_0;
    CSR_REG32(cryptokey_table.entry[entry_idx].local_ip) = ulocal_ip;
