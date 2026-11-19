@@ -71,7 +71,9 @@ package lkup_pkg;
     CK_REMOTE_IP     = 5'd7,
     CK_REMOTE_PORT   = 5'd8,
     CK_REMOTE_ID     = 5'd9,
-    CK_ENC_KEY_0     = 5'd10,  // key bits 255:224, ... CK_ENC_KEY_0 + 7: bits 31:0
+    // key bits 255:224, ... CK_ENC_KEY_0 + 7: bits 31:0; key byte i is bits
+    // 8i+7:8i (the core's order), so this word holds bytes 31 to 28
+    CK_ENC_KEY_0     = 5'd10,
     CK_DEC_KEY_0     = 5'd18,
     CK_SEND_CNT_HI   = 5'd26,
     CK_SEND_CNT_LO   = 5'd27,

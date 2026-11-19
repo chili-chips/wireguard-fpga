@@ -228,16 +228,30 @@ eth_raw_packet_t  eth_packet_tx;
 net_config_t      net_config;
 net_arp_cache_t   net_arp_cache = {0};
 
+// Pause the DPE and wait until it holds no packet (pause/drain), before a
+// table or wg_ip/wg_port write. Frames for the CPU are read and dropped
+// meanwhile: one waiting for room in a full CPU queue would hold the drain
+// forever (ARP, ICMP and handshakes are sent again)
+void dpe_pause(void) {
+   CSR_RMW(dpe.fcr, CSR__DPE__FCR__PAUSE, 1);
+   while (!CSR_GET(dpe.fcr, CSR__DPE__FCR__IDLE)) {
+      eth_receive_packet(&eth_packet_rx);
+   }
+}
+
+void dpe_resume(void) {
+   CSR_RMW(dpe.fcr, CSR__DPE__FCR__PAUSE, 0);
+}
+
 // The data plane takes IPv4 UDP to wg_ip:wg_port as WireGuard for this device:
 // the device's own address and its WireGuard listen port
-// The DPE pauses while they change (pause/drain): no packet sees half of them
+// The DPE pauses while they change: no packet sees half of them
 void set_wg_addr(const net_config_t* config) {
-   CSR_RMW(dpe.fcr, CSR__DPE__FCR__PAUSE, 1);
-   while (!CSR_GET(dpe.fcr, CSR__DPE__FCR__IDLE));
+   dpe_pause();
    CSR_REG32(dpe.wg_ip) = ((uint32_t)config->ip[0] << 24) | ((uint32_t)config->ip[1] << 16) |
                           ((uint32_t)config->ip[2] << 8) | (uint32_t)config->ip[3];
    CSR_SET(dpe.wg_port, CSR__DPE__WG_PORT__PORT, config->wg_port);
-   CSR_RMW(dpe.fcr, CSR__DPE__FCR__PAUSE, 0);
+   dpe_resume();
 }
 
 void init_network(net_config_t* config) {
@@ -422,22 +436,20 @@ void show_routes_entry(int i) {
 }
 
 void show_routes(void) {
-   CSR_RMW(dpe.fcr, CSR__DPE__FCR__PAUSE, 1);
-   while (!CSR_GET(dpe.fcr, CSR__DPE__FCR__IDLE));
+   dpe_pause();
 
    uart_send("Routing table:\r\n");
    for (int i = 0; i < 64; i++) {
       show_routes_entry(i);
    }
 
-   CSR_RMW(dpe.fcr, CSR__DPE__FCR__PAUSE, 0);
+   dpe_resume();
 }
 
+// The prompts run with the DPE running (the CPU reads the table on a port
+// of its own); it pauses only for the writes
 void config_routes(void) {
    char uart_rx_data[UART_RXBUF_SIZE];
-
-   CSR_RMW(dpe.fcr, CSR__DPE__FCR__PAUSE, 1);
-   while (!CSR_GET(dpe.fcr, CSR__DPE__FCR__IDLE));
 
    uart_send("Enter new routing table entry:\r\n");
    uart_send("  Entry index (0-63) [0]: ");
@@ -485,6 +497,7 @@ void config_routes(void) {
    // Update routing table entry
    uip = ((uint32_t)ip[0] << 24) | ((uint32_t)ip[1] << 16) | ((uint32_t)ip[2] << 8) | (uint32_t)ip[3];
    umask = ((uint32_t)mask[0] << 24) | ((uint32_t)mask[1] << 16) | ((uint32_t)mask[2] << 8) | (uint32_t)mask[3];
+   dpe_pause();
    CSR_REG32(routing_table.entry[entry_idx].ip) = uip;
    CSR_REG32(routing_table.entry[entry_idx].mask) = umask;
    // peer_idx and encrypt in one word write: a byte store reaches every lane on
@@ -493,12 +506,11 @@ void config_routes(void) {
       ((peer_idx << CSR__ROUTING_TABLE__ENTRY__PEER_IDX__PEER_IDX_bp) & CSR__ROUTING_TABLE__ENTRY__PEER_IDX__PEER_IDX_bm) |
       ((encrypt << CSR__ROUTING_TABLE__ENTRY__PEER_IDX__ENCRYPT_bp) & CSR__ROUTING_TABLE__ENTRY__PEER_IDX__ENCRYPT_bm);
    CSR_SET(routing_table.entry[entry_idx].dst, CSR__ROUTING_TABLE__ENTRY__DST__DST, dst);
+   dpe_resume();
 
    uart_send("Routing table entry updated.\r\n");
 
    show_routes_entry(entry_idx);
-
-   CSR_RMW(dpe.fcr, CSR__DPE__FCR__PAUSE, 0);
 }
 
 void show_cryptokeys_entry(int i) {
@@ -567,22 +579,19 @@ void show_cryptokeys_entry(int i) {
 }
 
 void show_cryptokeys(void) {
-   CSR_RMW(dpe.fcr, CSR__DPE__FCR__PAUSE, 1);
-   while (!CSR_GET(dpe.fcr, CSR__DPE__FCR__IDLE));
+   dpe_pause();
 
    uart_send("Cryptokey table:\r\n");
    for (int i = 1; i < 64; i++) {
       show_cryptokeys_entry(i);
    }
 
-   CSR_RMW(dpe.fcr, CSR__DPE__FCR__PAUSE, 0);
+   dpe_resume();
 }
 
+// As config_routes: the DPE pauses only for the writes
 void config_cryptokeys(void) {
    char uart_rx_data[UART_RXBUF_SIZE];
-
-   CSR_RMW(dpe.fcr, CSR__DPE__FCR__PAUSE, 1);
-   while (!CSR_GET(dpe.fcr, CSR__DPE__FCR__IDLE));
 
    uart_send("Enter new cryptokey table entry:\r\n");
    uart_send("  Entry index (1-63) [1]: ");
@@ -774,7 +783,12 @@ void config_cryptokeys(void) {
    while (!uart_recv(uart_rx_data));
    str_parse_hex(uart_rx_data, &decrypt_key_31_0, 0, 0xFFFFFFFF);
 
+   uart_send("  Reset send/recv counters? (y/n) [n]: ");
+   while (!uart_recv(uart_rx_data));
+   bool reset_cnt = uart_rx_data[0] == 'y' || uart_rx_data[0] == 'Y';
+
    // Update cryptokeys table entry
+   dpe_pause();
    CSR_SET(cryptokey_table.entry[entry_idx].local_mac_47_32, CSR__CRYPTOKEY_TABLE__ENTRY__LOCAL_MAC_47_32__MAC, local_mac_47_32);
    CSR_REG32(cryptokey_table.entry[entry_idx].local_mac_31_0) = local_mac_31_0;
    CSR_REG32(cryptokey_table.entry[entry_idx].local_ip) = ulocal_ip;
@@ -801,21 +815,17 @@ void config_cryptokeys(void) {
    CSR_REG32(cryptokey_table.entry[entry_idx].decrypt_key_95_64) = decrypt_key_95_64;
    CSR_REG32(cryptokey_table.entry[entry_idx].decrypt_key_63_32) = decrypt_key_63_32;
    CSR_REG32(cryptokey_table.entry[entry_idx].decrypt_key_31_0) = decrypt_key_31_0;
-
-   uart_send("  Reset send/recv counters? (y/n) [n]: ");
-   while (!uart_recv(uart_rx_data));
-   if (uart_rx_data[0] == 'y' || uart_rx_data[0] == 'Y') {
+   if (reset_cnt) {
       CSR_REG32(cryptokey_table.entry[entry_idx].send_cnt_63_32) = 0;
       CSR_REG32(cryptokey_table.entry[entry_idx].send_cnt_31_0) = 0;
       CSR_REG32(cryptokey_table.entry[entry_idx].recv_cnt_63_32) = 0;
       CSR_REG32(cryptokey_table.entry[entry_idx].recv_cnt_31_0) = 0;
    }
+   dpe_resume();
 
    uart_send("Cryptokey table entry updated.\r\n");
 
    show_cryptokeys_entry(entry_idx);
-
-   CSR_RMW(dpe.fcr, CSR__DPE__FCR__PAUSE, 0);
 }
 
 void reboot() {

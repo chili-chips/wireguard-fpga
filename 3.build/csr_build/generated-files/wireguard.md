@@ -5781,7 +5781,7 @@ No supported members.
 - Base Offset: 0x28
 - Size: 0x4
 
-<p>Encryption Key</p>
+<p>Encryption Key, bits 255:224. The 8 key words hold the 32-byte key as one little-endian 256-bit number: key byte i is bits 8i+7:8i, so this word holds bytes 31 (in [31:24]) to 28, and encrypt_key_31_0 holds bytes 3 to 0 (byte 0 in [7:0]). The same for decrypt_key</p>
 
 |Bits|Identifier|Access|Reset|                             Name                             |
 |----|----------|------|-----|--------------------------------------------------------------|
@@ -5877,7 +5877,7 @@ No supported members.
 - Base Offset: 0x48
 - Size: 0x4
 
-<p>Decryption Key</p>
+<p>Decryption Key, bits 255:224: key bytes 31 (in [31:24]) to 28, as encrypt_key_255_224</p>
 
 |Bits|Identifier|Access|Reset|                             Name                             |
 |----|----------|------|-----|--------------------------------------------------------------|
@@ -6201,7 +6201,7 @@ No supported members.
 - Base Offset: 0x28
 - Size: 0x4
 
-<p>Encryption Key</p>
+<p>Encryption Key, bits 255:224. The 8 key words hold the 32-byte key as one little-endian 256-bit number: key byte i is bits 8i+7:8i, so this word holds bytes 31 (in [31:24]) to 28, and encrypt_key_31_0 holds bytes 3 to 0 (byte 0 in [7:0]). The same for decrypt_key</p>
 
 |Bits|Identifier|Access|Reset|                             Name                             |
 |----|----------|------|-----|--------------------------------------------------------------|
@@ -6297,7 +6297,7 @@ No supported members.
 - Base Offset: 0x48
 - Size: 0x4
 
-<p>Decryption Key</p>
+<p>Decryption Key, bits 255:224: key bytes 31 (in [31:24]) to 28, as encrypt_key_255_224</p>
 
 |Bits|Identifier|Access|Reset|                             Name                             |
 |----|----------|------|-----|--------------------------------------------------------------|
@@ -6621,7 +6621,7 @@ No supported members.
 - Base Offset: 0x28
 - Size: 0x4
 
-<p>Encryption Key</p>
+<p>Encryption Key, bits 255:224. The 8 key words hold the 32-byte key as one little-endian 256-bit number: key byte i is bits 8i+7:8i, so this word holds bytes 31 (in [31:24]) to 28, and encrypt_key_31_0 holds bytes 3 to 0 (byte 0 in [7:0]). The same for decrypt_key</p>
 
 |Bits|Identifier|Access|Reset|                             Name                             |
 |----|----------|------|-----|--------------------------------------------------------------|
@@ -6717,7 +6717,7 @@ No supported members.
 - Base Offset: 0x48
 - Size: 0x4
 
-<p>Decryption Key</p>
+<p>Decryption Key, bits 255:224: key bytes 31 (in [31:24]) to 28, as encrypt_key_255_224</p>
 
 |Bits|Identifier|Access|Reset|                             Name                             |
 |----|----------|------|-----|--------------------------------------------------------------|
@@ -7041,7 +7041,7 @@ No supported members.
 - Base Offset: 0x28
 - Size: 0x4
 
-<p>Encryption Key</p>
+<p>Encryption Key, bits 255:224. The 8 key words hold the 32-byte key as one little-endian 256-bit number: key byte i is bits 8i+7:8i, so this word holds bytes 31 (in [31:24]) to 28, and encrypt_key_31_0 holds bytes 3 to 0 (byte 0 in [7:0]). The same for decrypt_key</p>
 
 |Bits|Identifier|Access|Reset|                             Name                             |
 |----|----------|------|-----|--------------------------------------------------------------|
@@ -7137,7 +7137,7 @@ No supported members.
 - Base Offset: 0x48
 - Size: 0x4
 
-<p>Decryption Key</p>
+<p>Decryption Key, bits 255:224: key bytes 31 (in [31:24]) to 28, as encrypt_key_255_224</p>
 
 |Bits|Identifier|Access|Reset|                             Name                             |
 |----|----------|------|-----|--------------------------------------------------------------|
@@ -7461,7 +7461,7 @@ No supported members.
 - Base Offset: 0x28
 - Size: 0x4
 
-<p>Encryption Key</p>
+<p>Encryption Key, bits 255:224. The 8 key words hold the 32-byte key as one little-endian 256-bit number: key byte i is bits 8i+7:8i, so this word holds bytes 31 (in [31:24]) to 28, and encrypt_key_31_0 holds bytes 3 to 0 (byte 0 in [7:0]). The same for decrypt_key</p>
 
 |Bits|Identifier|Access|Reset|                             Name                             |
 |----|----------|------|-----|--------------------------------------------------------------|
@@ -7557,7 +7557,7 @@ No supported members.
 - Base Offset: 0x48
 - Size: 0x4
 
-<p>Decryption Key</p>
+<p>Decryption Key, bits 255:224: key bytes 31 (in [31:24]) to 28, as encrypt_key_255_224</p>
 
 |Bits|Identifier|Access|Reset|                             Name                             |
 |----|----------|------|-----|--------------------------------------------------------------|
@@ -7881,7 +7881,7 @@ No supported members.
 - Base Offset: 0x28
 - Size: 0x4
 
-<p>Encryption Key</p>
+<p>Encryption Key, bits 255:224. The 8 key words hold the 32-byte key as one little-endian 256-bit number: key byte i is bits 8i+7:8i, so this word holds bytes 31 (in [31:24]) to 28, and encrypt_key_31_0 holds bytes 3 to 0 (byte 0 in [7:0]). The same for decrypt_key</p>
 
 |Bits|Identifier|Access|Reset|                             Name                             |
 |----|----------|------|-----|--------------------------------------------------------------|
@@ -7977,7 +7977,7 @@ No supported members.
 - Base Offset: 0x48
 - Size: 0x4
 
-<p>Decryption Key</p>
+<p>Decryption Key, bits 255:224: key bytes 31 (in [31:24]) to 28, as encrypt_key_255_224</p>
 
 |Bits|Identifier|Access|Reset|                             Name                             |
 |----|----------|------|-----|--------------------------------------------------------------|
@@ -8301,7 +8301,7 @@ No supported members.
 - Base Offset: 0x28
 - Size: 0x4
 
-<p>Encryption Key</p>
+<p>Encryption Key, bits 255:224. The 8 key words hold the 32-byte key as one little-endian 256-bit number: key byte i is bits 8i+7:8i, so this word holds bytes 31 (in [31:24]) to 28, and encrypt_key_31_0 holds bytes 3 to 0 (byte 0 in [7:0]). The same for decrypt_key</p>
 
 |Bits|Identifier|Access|Reset|                             Name                             |
 |----|----------|------|-----|--------------------------------------------------------------|
@@ -8397,7 +8397,7 @@ No supported members.
 - Base Offset: 0x48
 - Size: 0x4
 
-<p>Decryption Key</p>
+<p>Decryption Key, bits 255:224: key bytes 31 (in [31:24]) to 28, as encrypt_key_255_224</p>
 
 |Bits|Identifier|Access|Reset|                             Name                             |
 |----|----------|------|-----|--------------------------------------------------------------|
@@ -8721,7 +8721,7 @@ No supported members.
 - Base Offset: 0x28
 - Size: 0x4
 
-<p>Encryption Key</p>
+<p>Encryption Key, bits 255:224. The 8 key words hold the 32-byte key as one little-endian 256-bit number: key byte i is bits 8i+7:8i, so this word holds bytes 31 (in [31:24]) to 28, and encrypt_key_31_0 holds bytes 3 to 0 (byte 0 in [7:0]). The same for decrypt_key</p>
 
 |Bits|Identifier|Access|Reset|                             Name                             |
 |----|----------|------|-----|--------------------------------------------------------------|
@@ -8817,7 +8817,7 @@ No supported members.
 - Base Offset: 0x48
 - Size: 0x4
 
-<p>Decryption Key</p>
+<p>Decryption Key, bits 255:224: key bytes 31 (in [31:24]) to 28, as encrypt_key_255_224</p>
 
 |Bits|Identifier|Access|Reset|                             Name                             |
 |----|----------|------|-----|--------------------------------------------------------------|
@@ -9141,7 +9141,7 @@ No supported members.
 - Base Offset: 0x28
 - Size: 0x4
 
-<p>Encryption Key</p>
+<p>Encryption Key, bits 255:224. The 8 key words hold the 32-byte key as one little-endian 256-bit number: key byte i is bits 8i+7:8i, so this word holds bytes 31 (in [31:24]) to 28, and encrypt_key_31_0 holds bytes 3 to 0 (byte 0 in [7:0]). The same for decrypt_key</p>
 
 |Bits|Identifier|Access|Reset|                             Name                             |
 |----|----------|------|-----|--------------------------------------------------------------|
@@ -9237,7 +9237,7 @@ No supported members.
 - Base Offset: 0x48
 - Size: 0x4
 
-<p>Decryption Key</p>
+<p>Decryption Key, bits 255:224: key bytes 31 (in [31:24]) to 28, as encrypt_key_255_224</p>
 
 |Bits|Identifier|Access|Reset|                             Name                             |
 |----|----------|------|-----|--------------------------------------------------------------|
@@ -9561,7 +9561,7 @@ No supported members.
 - Base Offset: 0x28
 - Size: 0x4
 
-<p>Encryption Key</p>
+<p>Encryption Key, bits 255:224. The 8 key words hold the 32-byte key as one little-endian 256-bit number: key byte i is bits 8i+7:8i, so this word holds bytes 31 (in [31:24]) to 28, and encrypt_key_31_0 holds bytes 3 to 0 (byte 0 in [7:0]). The same for decrypt_key</p>
 
 |Bits|Identifier|Access|Reset|                             Name                             |
 |----|----------|------|-----|--------------------------------------------------------------|
@@ -9657,7 +9657,7 @@ No supported members.
 - Base Offset: 0x48
 - Size: 0x4
 
-<p>Decryption Key</p>
+<p>Decryption Key, bits 255:224: key bytes 31 (in [31:24]) to 28, as encrypt_key_255_224</p>
 
 |Bits|Identifier|Access|Reset|                             Name                             |
 |----|----------|------|-----|--------------------------------------------------------------|
@@ -9981,7 +9981,7 @@ No supported members.
 - Base Offset: 0x28
 - Size: 0x4
 
-<p>Encryption Key</p>
+<p>Encryption Key, bits 255:224. The 8 key words hold the 32-byte key as one little-endian 256-bit number: key byte i is bits 8i+7:8i, so this word holds bytes 31 (in [31:24]) to 28, and encrypt_key_31_0 holds bytes 3 to 0 (byte 0 in [7:0]). The same for decrypt_key</p>
 
 |Bits|Identifier|Access|Reset|                             Name                             |
 |----|----------|------|-----|--------------------------------------------------------------|
@@ -10077,7 +10077,7 @@ No supported members.
 - Base Offset: 0x48
 - Size: 0x4
 
-<p>Decryption Key</p>
+<p>Decryption Key, bits 255:224: key bytes 31 (in [31:24]) to 28, as encrypt_key_255_224</p>
 
 |Bits|Identifier|Access|Reset|                             Name                             |
 |----|----------|------|-----|--------------------------------------------------------------|
@@ -10401,7 +10401,7 @@ No supported members.
 - Base Offset: 0x28
 - Size: 0x4
 
-<p>Encryption Key</p>
+<p>Encryption Key, bits 255:224. The 8 key words hold the 32-byte key as one little-endian 256-bit number: key byte i is bits 8i+7:8i, so this word holds bytes 31 (in [31:24]) to 28, and encrypt_key_31_0 holds bytes 3 to 0 (byte 0 in [7:0]). The same for decrypt_key</p>
 
 |Bits|Identifier|Access|Reset|                             Name                             |
 |----|----------|------|-----|--------------------------------------------------------------|
@@ -10497,7 +10497,7 @@ No supported members.
 - Base Offset: 0x48
 - Size: 0x4
 
-<p>Decryption Key</p>
+<p>Decryption Key, bits 255:224: key bytes 31 (in [31:24]) to 28, as encrypt_key_255_224</p>
 
 |Bits|Identifier|Access|Reset|                             Name                             |
 |----|----------|------|-----|--------------------------------------------------------------|
@@ -10821,7 +10821,7 @@ No supported members.
 - Base Offset: 0x28
 - Size: 0x4
 
-<p>Encryption Key</p>
+<p>Encryption Key, bits 255:224. The 8 key words hold the 32-byte key as one little-endian 256-bit number: key byte i is bits 8i+7:8i, so this word holds bytes 31 (in [31:24]) to 28, and encrypt_key_31_0 holds bytes 3 to 0 (byte 0 in [7:0]). The same for decrypt_key</p>
 
 |Bits|Identifier|Access|Reset|                             Name                             |
 |----|----------|------|-----|--------------------------------------------------------------|
@@ -10917,7 +10917,7 @@ No supported members.
 - Base Offset: 0x48
 - Size: 0x4
 
-<p>Decryption Key</p>
+<p>Decryption Key, bits 255:224: key bytes 31 (in [31:24]) to 28, as encrypt_key_255_224</p>
 
 |Bits|Identifier|Access|Reset|                             Name                             |
 |----|----------|------|-----|--------------------------------------------------------------|
@@ -11241,7 +11241,7 @@ No supported members.
 - Base Offset: 0x28
 - Size: 0x4
 
-<p>Encryption Key</p>
+<p>Encryption Key, bits 255:224. The 8 key words hold the 32-byte key as one little-endian 256-bit number: key byte i is bits 8i+7:8i, so this word holds bytes 31 (in [31:24]) to 28, and encrypt_key_31_0 holds bytes 3 to 0 (byte 0 in [7:0]). The same for decrypt_key</p>
 
 |Bits|Identifier|Access|Reset|                             Name                             |
 |----|----------|------|-----|--------------------------------------------------------------|
@@ -11337,7 +11337,7 @@ No supported members.
 - Base Offset: 0x48
 - Size: 0x4
 
-<p>Decryption Key</p>
+<p>Decryption Key, bits 255:224: key bytes 31 (in [31:24]) to 28, as encrypt_key_255_224</p>
 
 |Bits|Identifier|Access|Reset|                             Name                             |
 |----|----------|------|-----|--------------------------------------------------------------|
@@ -11661,7 +11661,7 @@ No supported members.
 - Base Offset: 0x28
 - Size: 0x4
 
-<p>Encryption Key</p>
+<p>Encryption Key, bits 255:224. The 8 key words hold the 32-byte key as one little-endian 256-bit number: key byte i is bits 8i+7:8i, so this word holds bytes 31 (in [31:24]) to 28, and encrypt_key_31_0 holds bytes 3 to 0 (byte 0 in [7:0]). The same for decrypt_key</p>
 
 |Bits|Identifier|Access|Reset|                             Name                             |
 |----|----------|------|-----|--------------------------------------------------------------|
@@ -11757,7 +11757,7 @@ No supported members.
 - Base Offset: 0x48
 - Size: 0x4
 
-<p>Decryption Key</p>
+<p>Decryption Key, bits 255:224: key bytes 31 (in [31:24]) to 28, as encrypt_key_255_224</p>
 
 |Bits|Identifier|Access|Reset|                             Name                             |
 |----|----------|------|-----|--------------------------------------------------------------|
@@ -12081,7 +12081,7 @@ No supported members.
 - Base Offset: 0x28
 - Size: 0x4
 
-<p>Encryption Key</p>
+<p>Encryption Key, bits 255:224. The 8 key words hold the 32-byte key as one little-endian 256-bit number: key byte i is bits 8i+7:8i, so this word holds bytes 31 (in [31:24]) to 28, and encrypt_key_31_0 holds bytes 3 to 0 (byte 0 in [7:0]). The same for decrypt_key</p>
 
 |Bits|Identifier|Access|Reset|                             Name                             |
 |----|----------|------|-----|--------------------------------------------------------------|
@@ -12177,7 +12177,7 @@ No supported members.
 - Base Offset: 0x48
 - Size: 0x4
 
-<p>Decryption Key</p>
+<p>Decryption Key, bits 255:224: key bytes 31 (in [31:24]) to 28, as encrypt_key_255_224</p>
 
 |Bits|Identifier|Access|Reset|                             Name                             |
 |----|----------|------|-----|--------------------------------------------------------------|
@@ -12501,7 +12501,7 @@ No supported members.
 - Base Offset: 0x28
 - Size: 0x4
 
-<p>Encryption Key</p>
+<p>Encryption Key, bits 255:224. The 8 key words hold the 32-byte key as one little-endian 256-bit number: key byte i is bits 8i+7:8i, so this word holds bytes 31 (in [31:24]) to 28, and encrypt_key_31_0 holds bytes 3 to 0 (byte 0 in [7:0]). The same for decrypt_key</p>
 
 |Bits|Identifier|Access|Reset|                             Name                             |
 |----|----------|------|-----|--------------------------------------------------------------|
@@ -12597,7 +12597,7 @@ No supported members.
 - Base Offset: 0x48
 - Size: 0x4
 
-<p>Decryption Key</p>
+<p>Decryption Key, bits 255:224: key bytes 31 (in [31:24]) to 28, as encrypt_key_255_224</p>
 
 |Bits|Identifier|Access|Reset|                             Name                             |
 |----|----------|------|-----|--------------------------------------------------------------|
@@ -12921,7 +12921,7 @@ No supported members.
 - Base Offset: 0x28
 - Size: 0x4
 
-<p>Encryption Key</p>
+<p>Encryption Key, bits 255:224. The 8 key words hold the 32-byte key as one little-endian 256-bit number: key byte i is bits 8i+7:8i, so this word holds bytes 31 (in [31:24]) to 28, and encrypt_key_31_0 holds bytes 3 to 0 (byte 0 in [7:0]). The same for decrypt_key</p>
 
 |Bits|Identifier|Access|Reset|                             Name                             |
 |----|----------|------|-----|--------------------------------------------------------------|
@@ -13017,7 +13017,7 @@ No supported members.
 - Base Offset: 0x48
 - Size: 0x4
 
-<p>Decryption Key</p>
+<p>Decryption Key, bits 255:224: key bytes 31 (in [31:24]) to 28, as encrypt_key_255_224</p>
 
 |Bits|Identifier|Access|Reset|                             Name                             |
 |----|----------|------|-----|--------------------------------------------------------------|
@@ -13341,7 +13341,7 @@ No supported members.
 - Base Offset: 0x28
 - Size: 0x4
 
-<p>Encryption Key</p>
+<p>Encryption Key, bits 255:224. The 8 key words hold the 32-byte key as one little-endian 256-bit number: key byte i is bits 8i+7:8i, so this word holds bytes 31 (in [31:24]) to 28, and encrypt_key_31_0 holds bytes 3 to 0 (byte 0 in [7:0]). The same for decrypt_key</p>
 
 |Bits|Identifier|Access|Reset|                             Name                             |
 |----|----------|------|-----|--------------------------------------------------------------|
@@ -13437,7 +13437,7 @@ No supported members.
 - Base Offset: 0x48
 - Size: 0x4
 
-<p>Decryption Key</p>
+<p>Decryption Key, bits 255:224: key bytes 31 (in [31:24]) to 28, as encrypt_key_255_224</p>
 
 |Bits|Identifier|Access|Reset|                             Name                             |
 |----|----------|------|-----|--------------------------------------------------------------|
@@ -13761,7 +13761,7 @@ No supported members.
 - Base Offset: 0x28
 - Size: 0x4
 
-<p>Encryption Key</p>
+<p>Encryption Key, bits 255:224. The 8 key words hold the 32-byte key as one little-endian 256-bit number: key byte i is bits 8i+7:8i, so this word holds bytes 31 (in [31:24]) to 28, and encrypt_key_31_0 holds bytes 3 to 0 (byte 0 in [7:0]). The same for decrypt_key</p>
 
 |Bits|Identifier|Access|Reset|                             Name                             |
 |----|----------|------|-----|--------------------------------------------------------------|
@@ -13857,7 +13857,7 @@ No supported members.
 - Base Offset: 0x48
 - Size: 0x4
 
-<p>Decryption Key</p>
+<p>Decryption Key, bits 255:224: key bytes 31 (in [31:24]) to 28, as encrypt_key_255_224</p>
 
 |Bits|Identifier|Access|Reset|                             Name                             |
 |----|----------|------|-----|--------------------------------------------------------------|
@@ -14181,7 +14181,7 @@ No supported members.
 - Base Offset: 0x28
 - Size: 0x4
 
-<p>Encryption Key</p>
+<p>Encryption Key, bits 255:224. The 8 key words hold the 32-byte key as one little-endian 256-bit number: key byte i is bits 8i+7:8i, so this word holds bytes 31 (in [31:24]) to 28, and encrypt_key_31_0 holds bytes 3 to 0 (byte 0 in [7:0]). The same for decrypt_key</p>
 
 |Bits|Identifier|Access|Reset|                             Name                             |
 |----|----------|------|-----|--------------------------------------------------------------|
@@ -14277,7 +14277,7 @@ No supported members.
 - Base Offset: 0x48
 - Size: 0x4
 
-<p>Decryption Key</p>
+<p>Decryption Key, bits 255:224: key bytes 31 (in [31:24]) to 28, as encrypt_key_255_224</p>
 
 |Bits|Identifier|Access|Reset|                             Name                             |
 |----|----------|------|-----|--------------------------------------------------------------|
@@ -14601,7 +14601,7 @@ No supported members.
 - Base Offset: 0x28
 - Size: 0x4
 
-<p>Encryption Key</p>
+<p>Encryption Key, bits 255:224. The 8 key words hold the 32-byte key as one little-endian 256-bit number: key byte i is bits 8i+7:8i, so this word holds bytes 31 (in [31:24]) to 28, and encrypt_key_31_0 holds bytes 3 to 0 (byte 0 in [7:0]). The same for decrypt_key</p>
 
 |Bits|Identifier|Access|Reset|                             Name                             |
 |----|----------|------|-----|--------------------------------------------------------------|
@@ -14697,7 +14697,7 @@ No supported members.
 - Base Offset: 0x48
 - Size: 0x4
 
-<p>Decryption Key</p>
+<p>Decryption Key, bits 255:224: key bytes 31 (in [31:24]) to 28, as encrypt_key_255_224</p>
 
 |Bits|Identifier|Access|Reset|                             Name                             |
 |----|----------|------|-----|--------------------------------------------------------------|
@@ -15021,7 +15021,7 @@ No supported members.
 - Base Offset: 0x28
 - Size: 0x4
 
-<p>Encryption Key</p>
+<p>Encryption Key, bits 255:224. The 8 key words hold the 32-byte key as one little-endian 256-bit number: key byte i is bits 8i+7:8i, so this word holds bytes 31 (in [31:24]) to 28, and encrypt_key_31_0 holds bytes 3 to 0 (byte 0 in [7:0]). The same for decrypt_key</p>
 
 |Bits|Identifier|Access|Reset|                             Name                             |
 |----|----------|------|-----|--------------------------------------------------------------|
@@ -15117,7 +15117,7 @@ No supported members.
 - Base Offset: 0x48
 - Size: 0x4
 
-<p>Decryption Key</p>
+<p>Decryption Key, bits 255:224: key bytes 31 (in [31:24]) to 28, as encrypt_key_255_224</p>
 
 |Bits|Identifier|Access|Reset|                             Name                             |
 |----|----------|------|-----|--------------------------------------------------------------|
@@ -15441,7 +15441,7 @@ No supported members.
 - Base Offset: 0x28
 - Size: 0x4
 
-<p>Encryption Key</p>
+<p>Encryption Key, bits 255:224. The 8 key words hold the 32-byte key as one little-endian 256-bit number: key byte i is bits 8i+7:8i, so this word holds bytes 31 (in [31:24]) to 28, and encrypt_key_31_0 holds bytes 3 to 0 (byte 0 in [7:0]). The same for decrypt_key</p>
 
 |Bits|Identifier|Access|Reset|                             Name                             |
 |----|----------|------|-----|--------------------------------------------------------------|
@@ -15537,7 +15537,7 @@ No supported members.
 - Base Offset: 0x48
 - Size: 0x4
 
-<p>Decryption Key</p>
+<p>Decryption Key, bits 255:224: key bytes 31 (in [31:24]) to 28, as encrypt_key_255_224</p>
 
 |Bits|Identifier|Access|Reset|                             Name                             |
 |----|----------|------|-----|--------------------------------------------------------------|
@@ -15861,7 +15861,7 @@ No supported members.
 - Base Offset: 0x28
 - Size: 0x4
 
-<p>Encryption Key</p>
+<p>Encryption Key, bits 255:224. The 8 key words hold the 32-byte key as one little-endian 256-bit number: key byte i is bits 8i+7:8i, so this word holds bytes 31 (in [31:24]) to 28, and encrypt_key_31_0 holds bytes 3 to 0 (byte 0 in [7:0]). The same for decrypt_key</p>
 
 |Bits|Identifier|Access|Reset|                             Name                             |
 |----|----------|------|-----|--------------------------------------------------------------|
@@ -15957,7 +15957,7 @@ No supported members.
 - Base Offset: 0x48
 - Size: 0x4
 
-<p>Decryption Key</p>
+<p>Decryption Key, bits 255:224: key bytes 31 (in [31:24]) to 28, as encrypt_key_255_224</p>
 
 |Bits|Identifier|Access|Reset|                             Name                             |
 |----|----------|------|-----|--------------------------------------------------------------|
@@ -16281,7 +16281,7 @@ No supported members.
 - Base Offset: 0x28
 - Size: 0x4
 
-<p>Encryption Key</p>
+<p>Encryption Key, bits 255:224. The 8 key words hold the 32-byte key as one little-endian 256-bit number: key byte i is bits 8i+7:8i, so this word holds bytes 31 (in [31:24]) to 28, and encrypt_key_31_0 holds bytes 3 to 0 (byte 0 in [7:0]). The same for decrypt_key</p>
 
 |Bits|Identifier|Access|Reset|                             Name                             |
 |----|----------|------|-----|--------------------------------------------------------------|
@@ -16377,7 +16377,7 @@ No supported members.
 - Base Offset: 0x48
 - Size: 0x4
 
-<p>Decryption Key</p>
+<p>Decryption Key, bits 255:224: key bytes 31 (in [31:24]) to 28, as encrypt_key_255_224</p>
 
 |Bits|Identifier|Access|Reset|                             Name                             |
 |----|----------|------|-----|--------------------------------------------------------------|
@@ -16701,7 +16701,7 @@ No supported members.
 - Base Offset: 0x28
 - Size: 0x4
 
-<p>Encryption Key</p>
+<p>Encryption Key, bits 255:224. The 8 key words hold the 32-byte key as one little-endian 256-bit number: key byte i is bits 8i+7:8i, so this word holds bytes 31 (in [31:24]) to 28, and encrypt_key_31_0 holds bytes 3 to 0 (byte 0 in [7:0]). The same for decrypt_key</p>
 
 |Bits|Identifier|Access|Reset|                             Name                             |
 |----|----------|------|-----|--------------------------------------------------------------|
@@ -16797,7 +16797,7 @@ No supported members.
 - Base Offset: 0x48
 - Size: 0x4
 
-<p>Decryption Key</p>
+<p>Decryption Key, bits 255:224: key bytes 31 (in [31:24]) to 28, as encrypt_key_255_224</p>
 
 |Bits|Identifier|Access|Reset|                             Name                             |
 |----|----------|------|-----|--------------------------------------------------------------|
@@ -17121,7 +17121,7 @@ No supported members.
 - Base Offset: 0x28
 - Size: 0x4
 
-<p>Encryption Key</p>
+<p>Encryption Key, bits 255:224. The 8 key words hold the 32-byte key as one little-endian 256-bit number: key byte i is bits 8i+7:8i, so this word holds bytes 31 (in [31:24]) to 28, and encrypt_key_31_0 holds bytes 3 to 0 (byte 0 in [7:0]). The same for decrypt_key</p>
 
 |Bits|Identifier|Access|Reset|                             Name                             |
 |----|----------|------|-----|--------------------------------------------------------------|
@@ -17217,7 +17217,7 @@ No supported members.
 - Base Offset: 0x48
 - Size: 0x4
 
-<p>Decryption Key</p>
+<p>Decryption Key, bits 255:224: key bytes 31 (in [31:24]) to 28, as encrypt_key_255_224</p>
 
 |Bits|Identifier|Access|Reset|                             Name                             |
 |----|----------|------|-----|--------------------------------------------------------------|
@@ -17541,7 +17541,7 @@ No supported members.
 - Base Offset: 0x28
 - Size: 0x4
 
-<p>Encryption Key</p>
+<p>Encryption Key, bits 255:224. The 8 key words hold the 32-byte key as one little-endian 256-bit number: key byte i is bits 8i+7:8i, so this word holds bytes 31 (in [31:24]) to 28, and encrypt_key_31_0 holds bytes 3 to 0 (byte 0 in [7:0]). The same for decrypt_key</p>
 
 |Bits|Identifier|Access|Reset|                             Name                             |
 |----|----------|------|-----|--------------------------------------------------------------|
@@ -17637,7 +17637,7 @@ No supported members.
 - Base Offset: 0x48
 - Size: 0x4
 
-<p>Decryption Key</p>
+<p>Decryption Key, bits 255:224: key bytes 31 (in [31:24]) to 28, as encrypt_key_255_224</p>
 
 |Bits|Identifier|Access|Reset|                             Name                             |
 |----|----------|------|-----|--------------------------------------------------------------|
@@ -17961,7 +17961,7 @@ No supported members.
 - Base Offset: 0x28
 - Size: 0x4
 
-<p>Encryption Key</p>
+<p>Encryption Key, bits 255:224. The 8 key words hold the 32-byte key as one little-endian 256-bit number: key byte i is bits 8i+7:8i, so this word holds bytes 31 (in [31:24]) to 28, and encrypt_key_31_0 holds bytes 3 to 0 (byte 0 in [7:0]). The same for decrypt_key</p>
 
 |Bits|Identifier|Access|Reset|                             Name                             |
 |----|----------|------|-----|--------------------------------------------------------------|
@@ -18057,7 +18057,7 @@ No supported members.
 - Base Offset: 0x48
 - Size: 0x4
 
-<p>Decryption Key</p>
+<p>Decryption Key, bits 255:224: key bytes 31 (in [31:24]) to 28, as encrypt_key_255_224</p>
 
 |Bits|Identifier|Access|Reset|                             Name                             |
 |----|----------|------|-----|--------------------------------------------------------------|
@@ -18381,7 +18381,7 @@ No supported members.
 - Base Offset: 0x28
 - Size: 0x4
 
-<p>Encryption Key</p>
+<p>Encryption Key, bits 255:224. The 8 key words hold the 32-byte key as one little-endian 256-bit number: key byte i is bits 8i+7:8i, so this word holds bytes 31 (in [31:24]) to 28, and encrypt_key_31_0 holds bytes 3 to 0 (byte 0 in [7:0]). The same for decrypt_key</p>
 
 |Bits|Identifier|Access|Reset|                             Name                             |
 |----|----------|------|-----|--------------------------------------------------------------|
@@ -18477,7 +18477,7 @@ No supported members.
 - Base Offset: 0x48
 - Size: 0x4
 
-<p>Decryption Key</p>
+<p>Decryption Key, bits 255:224: key bytes 31 (in [31:24]) to 28, as encrypt_key_255_224</p>
 
 |Bits|Identifier|Access|Reset|                             Name                             |
 |----|----------|------|-----|--------------------------------------------------------------|
@@ -18801,7 +18801,7 @@ No supported members.
 - Base Offset: 0x28
 - Size: 0x4
 
-<p>Encryption Key</p>
+<p>Encryption Key, bits 255:224. The 8 key words hold the 32-byte key as one little-endian 256-bit number: key byte i is bits 8i+7:8i, so this word holds bytes 31 (in [31:24]) to 28, and encrypt_key_31_0 holds bytes 3 to 0 (byte 0 in [7:0]). The same for decrypt_key</p>
 
 |Bits|Identifier|Access|Reset|                             Name                             |
 |----|----------|------|-----|--------------------------------------------------------------|
@@ -18897,7 +18897,7 @@ No supported members.
 - Base Offset: 0x48
 - Size: 0x4
 
-<p>Decryption Key</p>
+<p>Decryption Key, bits 255:224: key bytes 31 (in [31:24]) to 28, as encrypt_key_255_224</p>
 
 |Bits|Identifier|Access|Reset|                             Name                             |
 |----|----------|------|-----|--------------------------------------------------------------|
@@ -19221,7 +19221,7 @@ No supported members.
 - Base Offset: 0x28
 - Size: 0x4
 
-<p>Encryption Key</p>
+<p>Encryption Key, bits 255:224. The 8 key words hold the 32-byte key as one little-endian 256-bit number: key byte i is bits 8i+7:8i, so this word holds bytes 31 (in [31:24]) to 28, and encrypt_key_31_0 holds bytes 3 to 0 (byte 0 in [7:0]). The same for decrypt_key</p>
 
 |Bits|Identifier|Access|Reset|                             Name                             |
 |----|----------|------|-----|--------------------------------------------------------------|
@@ -19317,7 +19317,7 @@ No supported members.
 - Base Offset: 0x48
 - Size: 0x4
 
-<p>Decryption Key</p>
+<p>Decryption Key, bits 255:224: key bytes 31 (in [31:24]) to 28, as encrypt_key_255_224</p>
 
 |Bits|Identifier|Access|Reset|                             Name                             |
 |----|----------|------|-----|--------------------------------------------------------------|
@@ -19641,7 +19641,7 @@ No supported members.
 - Base Offset: 0x28
 - Size: 0x4
 
-<p>Encryption Key</p>
+<p>Encryption Key, bits 255:224. The 8 key words hold the 32-byte key as one little-endian 256-bit number: key byte i is bits 8i+7:8i, so this word holds bytes 31 (in [31:24]) to 28, and encrypt_key_31_0 holds bytes 3 to 0 (byte 0 in [7:0]). The same for decrypt_key</p>
 
 |Bits|Identifier|Access|Reset|                             Name                             |
 |----|----------|------|-----|--------------------------------------------------------------|
@@ -19737,7 +19737,7 @@ No supported members.
 - Base Offset: 0x48
 - Size: 0x4
 
-<p>Decryption Key</p>
+<p>Decryption Key, bits 255:224: key bytes 31 (in [31:24]) to 28, as encrypt_key_255_224</p>
 
 |Bits|Identifier|Access|Reset|                             Name                             |
 |----|----------|------|-----|--------------------------------------------------------------|
@@ -20061,7 +20061,7 @@ No supported members.
 - Base Offset: 0x28
 - Size: 0x4
 
-<p>Encryption Key</p>
+<p>Encryption Key, bits 255:224. The 8 key words hold the 32-byte key as one little-endian 256-bit number: key byte i is bits 8i+7:8i, so this word holds bytes 31 (in [31:24]) to 28, and encrypt_key_31_0 holds bytes 3 to 0 (byte 0 in [7:0]). The same for decrypt_key</p>
 
 |Bits|Identifier|Access|Reset|                             Name                             |
 |----|----------|------|-----|--------------------------------------------------------------|
@@ -20157,7 +20157,7 @@ No supported members.
 - Base Offset: 0x48
 - Size: 0x4
 
-<p>Decryption Key</p>
+<p>Decryption Key, bits 255:224: key bytes 31 (in [31:24]) to 28, as encrypt_key_255_224</p>
 
 |Bits|Identifier|Access|Reset|                             Name                             |
 |----|----------|------|-----|--------------------------------------------------------------|
@@ -20481,7 +20481,7 @@ No supported members.
 - Base Offset: 0x28
 - Size: 0x4
 
-<p>Encryption Key</p>
+<p>Encryption Key, bits 255:224. The 8 key words hold the 32-byte key as one little-endian 256-bit number: key byte i is bits 8i+7:8i, so this word holds bytes 31 (in [31:24]) to 28, and encrypt_key_31_0 holds bytes 3 to 0 (byte 0 in [7:0]). The same for decrypt_key</p>
 
 |Bits|Identifier|Access|Reset|                             Name                             |
 |----|----------|------|-----|--------------------------------------------------------------|
@@ -20577,7 +20577,7 @@ No supported members.
 - Base Offset: 0x48
 - Size: 0x4
 
-<p>Decryption Key</p>
+<p>Decryption Key, bits 255:224: key bytes 31 (in [31:24]) to 28, as encrypt_key_255_224</p>
 
 |Bits|Identifier|Access|Reset|                             Name                             |
 |----|----------|------|-----|--------------------------------------------------------------|
@@ -20901,7 +20901,7 @@ No supported members.
 - Base Offset: 0x28
 - Size: 0x4
 
-<p>Encryption Key</p>
+<p>Encryption Key, bits 255:224. The 8 key words hold the 32-byte key as one little-endian 256-bit number: key byte i is bits 8i+7:8i, so this word holds bytes 31 (in [31:24]) to 28, and encrypt_key_31_0 holds bytes 3 to 0 (byte 0 in [7:0]). The same for decrypt_key</p>
 
 |Bits|Identifier|Access|Reset|                             Name                             |
 |----|----------|------|-----|--------------------------------------------------------------|
@@ -20997,7 +20997,7 @@ No supported members.
 - Base Offset: 0x48
 - Size: 0x4
 
-<p>Decryption Key</p>
+<p>Decryption Key, bits 255:224: key bytes 31 (in [31:24]) to 28, as encrypt_key_255_224</p>
 
 |Bits|Identifier|Access|Reset|                             Name                             |
 |----|----------|------|-----|--------------------------------------------------------------|
@@ -21321,7 +21321,7 @@ No supported members.
 - Base Offset: 0x28
 - Size: 0x4
 
-<p>Encryption Key</p>
+<p>Encryption Key, bits 255:224. The 8 key words hold the 32-byte key as one little-endian 256-bit number: key byte i is bits 8i+7:8i, so this word holds bytes 31 (in [31:24]) to 28, and encrypt_key_31_0 holds bytes 3 to 0 (byte 0 in [7:0]). The same for decrypt_key</p>
 
 |Bits|Identifier|Access|Reset|                             Name                             |
 |----|----------|------|-----|--------------------------------------------------------------|
@@ -21417,7 +21417,7 @@ No supported members.
 - Base Offset: 0x48
 - Size: 0x4
 
-<p>Decryption Key</p>
+<p>Decryption Key, bits 255:224: key bytes 31 (in [31:24]) to 28, as encrypt_key_255_224</p>
 
 |Bits|Identifier|Access|Reset|                             Name                             |
 |----|----------|------|-----|--------------------------------------------------------------|
@@ -21741,7 +21741,7 @@ No supported members.
 - Base Offset: 0x28
 - Size: 0x4
 
-<p>Encryption Key</p>
+<p>Encryption Key, bits 255:224. The 8 key words hold the 32-byte key as one little-endian 256-bit number: key byte i is bits 8i+7:8i, so this word holds bytes 31 (in [31:24]) to 28, and encrypt_key_31_0 holds bytes 3 to 0 (byte 0 in [7:0]). The same for decrypt_key</p>
 
 |Bits|Identifier|Access|Reset|                             Name                             |
 |----|----------|------|-----|--------------------------------------------------------------|
@@ -21837,7 +21837,7 @@ No supported members.
 - Base Offset: 0x48
 - Size: 0x4
 
-<p>Decryption Key</p>
+<p>Decryption Key, bits 255:224: key bytes 31 (in [31:24]) to 28, as encrypt_key_255_224</p>
 
 |Bits|Identifier|Access|Reset|                             Name                             |
 |----|----------|------|-----|--------------------------------------------------------------|
@@ -22161,7 +22161,7 @@ No supported members.
 - Base Offset: 0x28
 - Size: 0x4
 
-<p>Encryption Key</p>
+<p>Encryption Key, bits 255:224. The 8 key words hold the 32-byte key as one little-endian 256-bit number: key byte i is bits 8i+7:8i, so this word holds bytes 31 (in [31:24]) to 28, and encrypt_key_31_0 holds bytes 3 to 0 (byte 0 in [7:0]). The same for decrypt_key</p>
 
 |Bits|Identifier|Access|Reset|                             Name                             |
 |----|----------|------|-----|--------------------------------------------------------------|
@@ -22257,7 +22257,7 @@ No supported members.
 - Base Offset: 0x48
 - Size: 0x4
 
-<p>Decryption Key</p>
+<p>Decryption Key, bits 255:224: key bytes 31 (in [31:24]) to 28, as encrypt_key_255_224</p>
 
 |Bits|Identifier|Access|Reset|                             Name                             |
 |----|----------|------|-----|--------------------------------------------------------------|
@@ -22581,7 +22581,7 @@ No supported members.
 - Base Offset: 0x28
 - Size: 0x4
 
-<p>Encryption Key</p>
+<p>Encryption Key, bits 255:224. The 8 key words hold the 32-byte key as one little-endian 256-bit number: key byte i is bits 8i+7:8i, so this word holds bytes 31 (in [31:24]) to 28, and encrypt_key_31_0 holds bytes 3 to 0 (byte 0 in [7:0]). The same for decrypt_key</p>
 
 |Bits|Identifier|Access|Reset|                             Name                             |
 |----|----------|------|-----|--------------------------------------------------------------|
@@ -22677,7 +22677,7 @@ No supported members.
 - Base Offset: 0x48
 - Size: 0x4
 
-<p>Decryption Key</p>
+<p>Decryption Key, bits 255:224: key bytes 31 (in [31:24]) to 28, as encrypt_key_255_224</p>
 
 |Bits|Identifier|Access|Reset|                             Name                             |
 |----|----------|------|-----|--------------------------------------------------------------|
@@ -23001,7 +23001,7 @@ No supported members.
 - Base Offset: 0x28
 - Size: 0x4
 
-<p>Encryption Key</p>
+<p>Encryption Key, bits 255:224. The 8 key words hold the 32-byte key as one little-endian 256-bit number: key byte i is bits 8i+7:8i, so this word holds bytes 31 (in [31:24]) to 28, and encrypt_key_31_0 holds bytes 3 to 0 (byte 0 in [7:0]). The same for decrypt_key</p>
 
 |Bits|Identifier|Access|Reset|                             Name                             |
 |----|----------|------|-----|--------------------------------------------------------------|
@@ -23097,7 +23097,7 @@ No supported members.
 - Base Offset: 0x48
 - Size: 0x4
 
-<p>Decryption Key</p>
+<p>Decryption Key, bits 255:224: key bytes 31 (in [31:24]) to 28, as encrypt_key_255_224</p>
 
 |Bits|Identifier|Access|Reset|                             Name                             |
 |----|----------|------|-----|--------------------------------------------------------------|
@@ -23421,7 +23421,7 @@ No supported members.
 - Base Offset: 0x28
 - Size: 0x4
 
-<p>Encryption Key</p>
+<p>Encryption Key, bits 255:224. The 8 key words hold the 32-byte key as one little-endian 256-bit number: key byte i is bits 8i+7:8i, so this word holds bytes 31 (in [31:24]) to 28, and encrypt_key_31_0 holds bytes 3 to 0 (byte 0 in [7:0]). The same for decrypt_key</p>
 
 |Bits|Identifier|Access|Reset|                             Name                             |
 |----|----------|------|-----|--------------------------------------------------------------|
@@ -23517,7 +23517,7 @@ No supported members.
 - Base Offset: 0x48
 - Size: 0x4
 
-<p>Decryption Key</p>
+<p>Decryption Key, bits 255:224: key bytes 31 (in [31:24]) to 28, as encrypt_key_255_224</p>
 
 |Bits|Identifier|Access|Reset|                             Name                             |
 |----|----------|------|-----|--------------------------------------------------------------|
@@ -23841,7 +23841,7 @@ No supported members.
 - Base Offset: 0x28
 - Size: 0x4
 
-<p>Encryption Key</p>
+<p>Encryption Key, bits 255:224. The 8 key words hold the 32-byte key as one little-endian 256-bit number: key byte i is bits 8i+7:8i, so this word holds bytes 31 (in [31:24]) to 28, and encrypt_key_31_0 holds bytes 3 to 0 (byte 0 in [7:0]). The same for decrypt_key</p>
 
 |Bits|Identifier|Access|Reset|                             Name                             |
 |----|----------|------|-----|--------------------------------------------------------------|
@@ -23937,7 +23937,7 @@ No supported members.
 - Base Offset: 0x48
 - Size: 0x4
 
-<p>Decryption Key</p>
+<p>Decryption Key, bits 255:224: key bytes 31 (in [31:24]) to 28, as encrypt_key_255_224</p>
 
 |Bits|Identifier|Access|Reset|                             Name                             |
 |----|----------|------|-----|--------------------------------------------------------------|
@@ -24261,7 +24261,7 @@ No supported members.
 - Base Offset: 0x28
 - Size: 0x4
 
-<p>Encryption Key</p>
+<p>Encryption Key, bits 255:224. The 8 key words hold the 32-byte key as one little-endian 256-bit number: key byte i is bits 8i+7:8i, so this word holds bytes 31 (in [31:24]) to 28, and encrypt_key_31_0 holds bytes 3 to 0 (byte 0 in [7:0]). The same for decrypt_key</p>
 
 |Bits|Identifier|Access|Reset|                             Name                             |
 |----|----------|------|-----|--------------------------------------------------------------|
@@ -24357,7 +24357,7 @@ No supported members.
 - Base Offset: 0x48
 - Size: 0x4
 
-<p>Decryption Key</p>
+<p>Decryption Key, bits 255:224: key bytes 31 (in [31:24]) to 28, as encrypt_key_255_224</p>
 
 |Bits|Identifier|Access|Reset|                             Name                             |
 |----|----------|------|-----|--------------------------------------------------------------|
@@ -24681,7 +24681,7 @@ No supported members.
 - Base Offset: 0x28
 - Size: 0x4
 
-<p>Encryption Key</p>
+<p>Encryption Key, bits 255:224. The 8 key words hold the 32-byte key as one little-endian 256-bit number: key byte i is bits 8i+7:8i, so this word holds bytes 31 (in [31:24]) to 28, and encrypt_key_31_0 holds bytes 3 to 0 (byte 0 in [7:0]). The same for decrypt_key</p>
 
 |Bits|Identifier|Access|Reset|                             Name                             |
 |----|----------|------|-----|--------------------------------------------------------------|
@@ -24777,7 +24777,7 @@ No supported members.
 - Base Offset: 0x48
 - Size: 0x4
 
-<p>Decryption Key</p>
+<p>Decryption Key, bits 255:224: key bytes 31 (in [31:24]) to 28, as encrypt_key_255_224</p>
 
 |Bits|Identifier|Access|Reset|                             Name                             |
 |----|----------|------|-----|--------------------------------------------------------------|
@@ -25101,7 +25101,7 @@ No supported members.
 - Base Offset: 0x28
 - Size: 0x4
 
-<p>Encryption Key</p>
+<p>Encryption Key, bits 255:224. The 8 key words hold the 32-byte key as one little-endian 256-bit number: key byte i is bits 8i+7:8i, so this word holds bytes 31 (in [31:24]) to 28, and encrypt_key_31_0 holds bytes 3 to 0 (byte 0 in [7:0]). The same for decrypt_key</p>
 
 |Bits|Identifier|Access|Reset|                             Name                             |
 |----|----------|------|-----|--------------------------------------------------------------|
@@ -25197,7 +25197,7 @@ No supported members.
 - Base Offset: 0x48
 - Size: 0x4
 
-<p>Decryption Key</p>
+<p>Decryption Key, bits 255:224: key bytes 31 (in [31:24]) to 28, as encrypt_key_255_224</p>
 
 |Bits|Identifier|Access|Reset|                             Name                             |
 |----|----------|------|-----|--------------------------------------------------------------|
@@ -25521,7 +25521,7 @@ No supported members.
 - Base Offset: 0x28
 - Size: 0x4
 
-<p>Encryption Key</p>
+<p>Encryption Key, bits 255:224. The 8 key words hold the 32-byte key as one little-endian 256-bit number: key byte i is bits 8i+7:8i, so this word holds bytes 31 (in [31:24]) to 28, and encrypt_key_31_0 holds bytes 3 to 0 (byte 0 in [7:0]). The same for decrypt_key</p>
 
 |Bits|Identifier|Access|Reset|                             Name                             |
 |----|----------|------|-----|--------------------------------------------------------------|
@@ -25617,7 +25617,7 @@ No supported members.
 - Base Offset: 0x48
 - Size: 0x4
 
-<p>Decryption Key</p>
+<p>Decryption Key, bits 255:224: key bytes 31 (in [31:24]) to 28, as encrypt_key_255_224</p>
 
 |Bits|Identifier|Access|Reset|                             Name                             |
 |----|----------|------|-----|--------------------------------------------------------------|
@@ -25941,7 +25941,7 @@ No supported members.
 - Base Offset: 0x28
 - Size: 0x4
 
-<p>Encryption Key</p>
+<p>Encryption Key, bits 255:224. The 8 key words hold the 32-byte key as one little-endian 256-bit number: key byte i is bits 8i+7:8i, so this word holds bytes 31 (in [31:24]) to 28, and encrypt_key_31_0 holds bytes 3 to 0 (byte 0 in [7:0]). The same for decrypt_key</p>
 
 |Bits|Identifier|Access|Reset|                             Name                             |
 |----|----------|------|-----|--------------------------------------------------------------|
@@ -26037,7 +26037,7 @@ No supported members.
 - Base Offset: 0x48
 - Size: 0x4
 
-<p>Decryption Key</p>
+<p>Decryption Key, bits 255:224: key bytes 31 (in [31:24]) to 28, as encrypt_key_255_224</p>
 
 |Bits|Identifier|Access|Reset|                             Name                             |
 |----|----------|------|-----|--------------------------------------------------------------|
@@ -26361,7 +26361,7 @@ No supported members.
 - Base Offset: 0x28
 - Size: 0x4
 
-<p>Encryption Key</p>
+<p>Encryption Key, bits 255:224. The 8 key words hold the 32-byte key as one little-endian 256-bit number: key byte i is bits 8i+7:8i, so this word holds bytes 31 (in [31:24]) to 28, and encrypt_key_31_0 holds bytes 3 to 0 (byte 0 in [7:0]). The same for decrypt_key</p>
 
 |Bits|Identifier|Access|Reset|                             Name                             |
 |----|----------|------|-----|--------------------------------------------------------------|
@@ -26457,7 +26457,7 @@ No supported members.
 - Base Offset: 0x48
 - Size: 0x4
 
-<p>Decryption Key</p>
+<p>Decryption Key, bits 255:224: key bytes 31 (in [31:24]) to 28, as encrypt_key_255_224</p>
 
 |Bits|Identifier|Access|Reset|                             Name                             |
 |----|----------|------|-----|--------------------------------------------------------------|
@@ -26781,7 +26781,7 @@ No supported members.
 - Base Offset: 0x28
 - Size: 0x4
 
-<p>Encryption Key</p>
+<p>Encryption Key, bits 255:224. The 8 key words hold the 32-byte key as one little-endian 256-bit number: key byte i is bits 8i+7:8i, so this word holds bytes 31 (in [31:24]) to 28, and encrypt_key_31_0 holds bytes 3 to 0 (byte 0 in [7:0]). The same for decrypt_key</p>
 
 |Bits|Identifier|Access|Reset|                             Name                             |
 |----|----------|------|-----|--------------------------------------------------------------|
@@ -26877,7 +26877,7 @@ No supported members.
 - Base Offset: 0x48
 - Size: 0x4
 
-<p>Decryption Key</p>
+<p>Decryption Key, bits 255:224: key bytes 31 (in [31:24]) to 28, as encrypt_key_255_224</p>
 
 |Bits|Identifier|Access|Reset|                             Name                             |
 |----|----------|------|-----|--------------------------------------------------------------|
@@ -27201,7 +27201,7 @@ No supported members.
 - Base Offset: 0x28
 - Size: 0x4
 
-<p>Encryption Key</p>
+<p>Encryption Key, bits 255:224. The 8 key words hold the 32-byte key as one little-endian 256-bit number: key byte i is bits 8i+7:8i, so this word holds bytes 31 (in [31:24]) to 28, and encrypt_key_31_0 holds bytes 3 to 0 (byte 0 in [7:0]). The same for decrypt_key</p>
 
 |Bits|Identifier|Access|Reset|                             Name                             |
 |----|----------|------|-----|--------------------------------------------------------------|
@@ -27297,7 +27297,7 @@ No supported members.
 - Base Offset: 0x48
 - Size: 0x4
 
-<p>Decryption Key</p>
+<p>Decryption Key, bits 255:224: key bytes 31 (in [31:24]) to 28, as encrypt_key_255_224</p>
 
 |Bits|Identifier|Access|Reset|                             Name                             |
 |----|----------|------|-----|--------------------------------------------------------------|
@@ -27621,7 +27621,7 @@ No supported members.
 - Base Offset: 0x28
 - Size: 0x4
 
-<p>Encryption Key</p>
+<p>Encryption Key, bits 255:224. The 8 key words hold the 32-byte key as one little-endian 256-bit number: key byte i is bits 8i+7:8i, so this word holds bytes 31 (in [31:24]) to 28, and encrypt_key_31_0 holds bytes 3 to 0 (byte 0 in [7:0]). The same for decrypt_key</p>
 
 |Bits|Identifier|Access|Reset|                             Name                             |
 |----|----------|------|-----|--------------------------------------------------------------|
@@ -27717,7 +27717,7 @@ No supported members.
 - Base Offset: 0x48
 - Size: 0x4
 
-<p>Decryption Key</p>
+<p>Decryption Key, bits 255:224: key bytes 31 (in [31:24]) to 28, as encrypt_key_255_224</p>
 
 |Bits|Identifier|Access|Reset|                             Name                             |
 |----|----------|------|-----|--------------------------------------------------------------|
@@ -28041,7 +28041,7 @@ No supported members.
 - Base Offset: 0x28
 - Size: 0x4
 
-<p>Encryption Key</p>
+<p>Encryption Key, bits 255:224. The 8 key words hold the 32-byte key as one little-endian 256-bit number: key byte i is bits 8i+7:8i, so this word holds bytes 31 (in [31:24]) to 28, and encrypt_key_31_0 holds bytes 3 to 0 (byte 0 in [7:0]). The same for decrypt_key</p>
 
 |Bits|Identifier|Access|Reset|                             Name                             |
 |----|----------|------|-----|--------------------------------------------------------------|
@@ -28137,7 +28137,7 @@ No supported members.
 - Base Offset: 0x48
 - Size: 0x4
 
-<p>Decryption Key</p>
+<p>Decryption Key, bits 255:224: key bytes 31 (in [31:24]) to 28, as encrypt_key_255_224</p>
 
 |Bits|Identifier|Access|Reset|                             Name                             |
 |----|----------|------|-----|--------------------------------------------------------------|
@@ -28461,7 +28461,7 @@ No supported members.
 - Base Offset: 0x28
 - Size: 0x4
 
-<p>Encryption Key</p>
+<p>Encryption Key, bits 255:224. The 8 key words hold the 32-byte key as one little-endian 256-bit number: key byte i is bits 8i+7:8i, so this word holds bytes 31 (in [31:24]) to 28, and encrypt_key_31_0 holds bytes 3 to 0 (byte 0 in [7:0]). The same for decrypt_key</p>
 
 |Bits|Identifier|Access|Reset|                             Name                             |
 |----|----------|------|-----|--------------------------------------------------------------|
@@ -28557,7 +28557,7 @@ No supported members.
 - Base Offset: 0x48
 - Size: 0x4
 
-<p>Decryption Key</p>
+<p>Decryption Key, bits 255:224: key bytes 31 (in [31:24]) to 28, as encrypt_key_255_224</p>
 
 |Bits|Identifier|Access|Reset|                             Name                             |
 |----|----------|------|-----|--------------------------------------------------------------|
@@ -28881,7 +28881,7 @@ No supported members.
 - Base Offset: 0x28
 - Size: 0x4
 
-<p>Encryption Key</p>
+<p>Encryption Key, bits 255:224. The 8 key words hold the 32-byte key as one little-endian 256-bit number: key byte i is bits 8i+7:8i, so this word holds bytes 31 (in [31:24]) to 28, and encrypt_key_31_0 holds bytes 3 to 0 (byte 0 in [7:0]). The same for decrypt_key</p>
 
 |Bits|Identifier|Access|Reset|                             Name                             |
 |----|----------|------|-----|--------------------------------------------------------------|
@@ -28977,7 +28977,7 @@ No supported members.
 - Base Offset: 0x48
 - Size: 0x4
 
-<p>Decryption Key</p>
+<p>Decryption Key, bits 255:224: key bytes 31 (in [31:24]) to 28, as encrypt_key_255_224</p>
 
 |Bits|Identifier|Access|Reset|                             Name                             |
 |----|----------|------|-----|--------------------------------------------------------------|
@@ -29301,7 +29301,7 @@ No supported members.
 - Base Offset: 0x28
 - Size: 0x4
 
-<p>Encryption Key</p>
+<p>Encryption Key, bits 255:224. The 8 key words hold the 32-byte key as one little-endian 256-bit number: key byte i is bits 8i+7:8i, so this word holds bytes 31 (in [31:24]) to 28, and encrypt_key_31_0 holds bytes 3 to 0 (byte 0 in [7:0]). The same for decrypt_key</p>
 
 |Bits|Identifier|Access|Reset|                             Name                             |
 |----|----------|------|-----|--------------------------------------------------------------|
@@ -29397,7 +29397,7 @@ No supported members.
 - Base Offset: 0x48
 - Size: 0x4
 
-<p>Decryption Key</p>
+<p>Decryption Key, bits 255:224: key bytes 31 (in [31:24]) to 28, as encrypt_key_255_224</p>
 
 |Bits|Identifier|Access|Reset|                             Name                             |
 |----|----------|------|-----|--------------------------------------------------------------|
@@ -29721,7 +29721,7 @@ No supported members.
 - Base Offset: 0x28
 - Size: 0x4
 
-<p>Encryption Key</p>
+<p>Encryption Key, bits 255:224. The 8 key words hold the 32-byte key as one little-endian 256-bit number: key byte i is bits 8i+7:8i, so this word holds bytes 31 (in [31:24]) to 28, and encrypt_key_31_0 holds bytes 3 to 0 (byte 0 in [7:0]). The same for decrypt_key</p>
 
 |Bits|Identifier|Access|Reset|                             Name                             |
 |----|----------|------|-----|--------------------------------------------------------------|
@@ -29817,7 +29817,7 @@ No supported members.
 - Base Offset: 0x48
 - Size: 0x4
 
-<p>Decryption Key</p>
+<p>Decryption Key, bits 255:224: key bytes 31 (in [31:24]) to 28, as encrypt_key_255_224</p>
 
 |Bits|Identifier|Access|Reset|                             Name                             |
 |----|----------|------|-----|--------------------------------------------------------------|
@@ -30141,7 +30141,7 @@ No supported members.
 - Base Offset: 0x28
 - Size: 0x4
 
-<p>Encryption Key</p>
+<p>Encryption Key, bits 255:224. The 8 key words hold the 32-byte key as one little-endian 256-bit number: key byte i is bits 8i+7:8i, so this word holds bytes 31 (in [31:24]) to 28, and encrypt_key_31_0 holds bytes 3 to 0 (byte 0 in [7:0]). The same for decrypt_key</p>
 
 |Bits|Identifier|Access|Reset|                             Name                             |
 |----|----------|------|-----|--------------------------------------------------------------|
@@ -30237,7 +30237,7 @@ No supported members.
 - Base Offset: 0x48
 - Size: 0x4
 
-<p>Decryption Key</p>
+<p>Decryption Key, bits 255:224: key bytes 31 (in [31:24]) to 28, as encrypt_key_255_224</p>
 
 |Bits|Identifier|Access|Reset|                             Name                             |
 |----|----------|------|-----|--------------------------------------------------------------|
@@ -30561,7 +30561,7 @@ No supported members.
 - Base Offset: 0x28
 - Size: 0x4
 
-<p>Encryption Key</p>
+<p>Encryption Key, bits 255:224. The 8 key words hold the 32-byte key as one little-endian 256-bit number: key byte i is bits 8i+7:8i, so this word holds bytes 31 (in [31:24]) to 28, and encrypt_key_31_0 holds bytes 3 to 0 (byte 0 in [7:0]). The same for decrypt_key</p>
 
 |Bits|Identifier|Access|Reset|                             Name                             |
 |----|----------|------|-----|--------------------------------------------------------------|
@@ -30657,7 +30657,7 @@ No supported members.
 - Base Offset: 0x48
 - Size: 0x4
 
-<p>Decryption Key</p>
+<p>Decryption Key, bits 255:224: key bytes 31 (in [31:24]) to 28, as encrypt_key_255_224</p>
 
 |Bits|Identifier|Access|Reset|                             Name                             |
 |----|----------|------|-----|--------------------------------------------------------------|
@@ -30981,7 +30981,7 @@ No supported members.
 - Base Offset: 0x28
 - Size: 0x4
 
-<p>Encryption Key</p>
+<p>Encryption Key, bits 255:224. The 8 key words hold the 32-byte key as one little-endian 256-bit number: key byte i is bits 8i+7:8i, so this word holds bytes 31 (in [31:24]) to 28, and encrypt_key_31_0 holds bytes 3 to 0 (byte 0 in [7:0]). The same for decrypt_key</p>
 
 |Bits|Identifier|Access|Reset|                             Name                             |
 |----|----------|------|-----|--------------------------------------------------------------|
@@ -31077,7 +31077,7 @@ No supported members.
 - Base Offset: 0x48
 - Size: 0x4
 
-<p>Decryption Key</p>
+<p>Decryption Key, bits 255:224: key bytes 31 (in [31:24]) to 28, as encrypt_key_255_224</p>
 
 |Bits|Identifier|Access|Reset|                             Name                             |
 |----|----------|------|-----|--------------------------------------------------------------|
@@ -31401,7 +31401,7 @@ No supported members.
 - Base Offset: 0x28
 - Size: 0x4
 
-<p>Encryption Key</p>
+<p>Encryption Key, bits 255:224. The 8 key words hold the 32-byte key as one little-endian 256-bit number: key byte i is bits 8i+7:8i, so this word holds bytes 31 (in [31:24]) to 28, and encrypt_key_31_0 holds bytes 3 to 0 (byte 0 in [7:0]). The same for decrypt_key</p>
 
 |Bits|Identifier|Access|Reset|                             Name                             |
 |----|----------|------|-----|--------------------------------------------------------------|
@@ -31497,7 +31497,7 @@ No supported members.
 - Base Offset: 0x48
 - Size: 0x4
 
-<p>Decryption Key</p>
+<p>Decryption Key, bits 255:224: key bytes 31 (in [31:24]) to 28, as encrypt_key_255_224</p>
 
 |Bits|Identifier|Access|Reset|                             Name                             |
 |----|----------|------|-----|--------------------------------------------------------------|
@@ -31821,7 +31821,7 @@ No supported members.
 - Base Offset: 0x28
 - Size: 0x4
 
-<p>Encryption Key</p>
+<p>Encryption Key, bits 255:224. The 8 key words hold the 32-byte key as one little-endian 256-bit number: key byte i is bits 8i+7:8i, so this word holds bytes 31 (in [31:24]) to 28, and encrypt_key_31_0 holds bytes 3 to 0 (byte 0 in [7:0]). The same for decrypt_key</p>
 
 |Bits|Identifier|Access|Reset|                             Name                             |
 |----|----------|------|-----|--------------------------------------------------------------|
@@ -31917,7 +31917,7 @@ No supported members.
 - Base Offset: 0x48
 - Size: 0x4
 
-<p>Decryption Key</p>
+<p>Decryption Key, bits 255:224: key bytes 31 (in [31:24]) to 28, as encrypt_key_255_224</p>
 
 |Bits|Identifier|Access|Reset|                             Name                             |
 |----|----------|------|-----|--------------------------------------------------------------|
@@ -32241,7 +32241,7 @@ No supported members.
 - Base Offset: 0x28
 - Size: 0x4
 
-<p>Encryption Key</p>
+<p>Encryption Key, bits 255:224. The 8 key words hold the 32-byte key as one little-endian 256-bit number: key byte i is bits 8i+7:8i, so this word holds bytes 31 (in [31:24]) to 28, and encrypt_key_31_0 holds bytes 3 to 0 (byte 0 in [7:0]). The same for decrypt_key</p>
 
 |Bits|Identifier|Access|Reset|                             Name                             |
 |----|----------|------|-----|--------------------------------------------------------------|
@@ -32337,7 +32337,7 @@ No supported members.
 - Base Offset: 0x48
 - Size: 0x4
 
-<p>Decryption Key</p>
+<p>Decryption Key, bits 255:224: key bytes 31 (in [31:24]) to 28, as encrypt_key_255_224</p>
 
 |Bits|Identifier|Access|Reset|                             Name                             |
 |----|----------|------|-----|--------------------------------------------------------------|
