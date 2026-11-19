@@ -43,15 +43,7 @@
 module eth_mac (
     input  logic       gtx_clk,
     input  logic       gtx_rst,
-    input  logic       gmii_rx_clk,
-    input  logic [7:0] gmii_rxd,
-    input  logic       gmii_rx_dv,
-    input  logic       gmii_rx_er,
-    input  logic       mii_tx_clk,
-    output logic       gmii_tx_clk,
-    output logic [7:0] gmii_txd,
-    output logic       gmii_tx_en,
-    output logic       gmii_tx_er,
+    gmii_if.MST        gmii,
     output logic [1:0] speed,
     dpe_if.s_axis      tx_fifo,
     dpe_if.m_axis      rx_fifo
@@ -73,15 +65,15 @@ module eth_mac (
       .tx_axis (tx_fifo),
       .rx_axis (rx_fifo),
 
-      .gmii_rx_clk (gmii_rx_clk),
-      .gmii_rxd    (gmii_rxd),
-      .gmii_rx_dv  (gmii_rx_dv),
-      .gmii_rx_er  (gmii_rx_er),
-      .mii_tx_clk  (mii_tx_clk),
-      .gmii_tx_clk (gmii_tx_clk),
-      .gmii_txd    (gmii_txd),
-      .gmii_tx_en  (gmii_tx_en),
-      .gmii_tx_er  (gmii_tx_er),
+      .gmii_rx_clk (gmii.rx_clk),
+      .gmii_rxd    (gmii.rxd),
+      .gmii_rx_dv  (gmii.rxdv),
+      .gmii_rx_er  (gmii.rxer),
+      .mii_tx_clk  (gmii.mii_tx_clk),
+      .gmii_tx_clk (gmii.gtx_clk),
+      .gmii_txd    (gmii.txd),
+      .gmii_tx_en  (gmii.txen),
+      .gmii_tx_er  (gmii.txer),
 
       .tx_fifo_overflow   (  /*LINT:OK*/),  // MAC/FIFO status not monitored
       .tx_fifo_bad_frame  (  /*LINT:OK*/),  // MAC/FIFO status not monitored

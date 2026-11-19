@@ -37,31 +37,33 @@
 //              https://opensource.org/license/bsd-3-clause
 //--------------------------------------------------------------------------
 // Description:
-//  GMII interface
+//  GMII: the signals between the MAC (FPGA) and one PHY, its clocks
+//  included. RX runs on the PHY's rx_clk; TX on gtx_clk from the MAC at
+//  1000 Mb/s, on the PHY's mii_tx_clk at 10/100 Mb/s (MII)
 //==========================================================================
 
-interface gmii_if (
-    input logic arst_n,  // asynchronous, active-low reset
-    input logic clk      // bus clock
-);
+interface gmii_if;
 
-  logic [7:0] txd;
-  logic       txen;
-  logic       txer;
-
+  logic       rx_clk;  // from the PHY: 125 MHz, or 2.5/25 MHz (MII)
   logic [7:0] rxd;
   logic       rxdv;
   logic       rxer;
 
-  //----------------------------------------
-  // master side
-  //----------------------------------------
-  modport MST(output txd, txen, txer, input arst_n, clk, rxd, rxdv, rxer);
+  logic       mii_tx_clk;  // from the PHY: the MII TX clock, 2.5/25 MHz
+  logic       gtx_clk;  // to the PHY: the GMII TX clock, 125 MHz
+  logic [7:0] txd;
+  logic       txen;
+  logic       txer;
 
   //----------------------------------------
-  // Slave side
+  // the MAC
   //----------------------------------------
-  modport SLV(input arst_n, clk, txd, txen, txer, output rxd, rxdv, rxer);
+  modport MST(input rx_clk, rxd, rxdv, rxer, mii_tx_clk, output gtx_clk, txd, txen, txer);
+
+  //----------------------------------------
+  // the PHY
+  //----------------------------------------
+  modport SLV(output rx_clk, rxd, rxdv, rxer, mii_tx_clk, input gtx_clk, txd, txen, txer);
 
 endinterface : gmii_if
 

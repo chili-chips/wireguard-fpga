@@ -282,7 +282,7 @@ module tb #(
 // Ethernet UDP/IPv4 BFM
 //--------------------------------------------------------------
 
-gmii_if                                   gmii [NUM_ETH_PORTS] (gmiiarst_n, gmiiclk) ;
+gmii_if                                   gmii [NUM_ETH_PORTS] () ;
 wire    [NUM_ETH_PORTS-1:0]               mdio;
 wire    [NUM_ETH_PORTS-1:0]               mdio_en;
 wire    [NUM_ETH_PORTS-1:0]               mdio_out;
@@ -298,21 +298,27 @@ generate
 `ifdef VERILATOR
     assign mdio[PORT]      =  mdio_en[PORT] ? mdio_out[PORT] : 1'bz;
 `endif
+    assign gmii[PORT].rx_clk     = gmiiclk;
+    assign gmii[PORT].mii_tx_clk = eth_txc;
   end
 endgenerate
 
+assign gmii[0].gtx_clk = e1_gtxc;
 assign gmii[0].txen = e1_txen;
 assign gmii[0].txer = e1_txer;
 assign gmii[0].txd  = e1_txd;
 
+assign gmii[1].gtx_clk = e2_gtxc;
 assign gmii[1].txen = e2_txen;
 assign gmii[1].txer = e2_txer;
 assign gmii[1].txd  = e2_txd;
 
+assign gmii[2].gtx_clk = e3_gtxc;
 assign gmii[2].txen = e3_txen;
 assign gmii[2].txer = e3_txer;
 assign gmii[2].txd  = e3_txd;
 
+assign gmii[3].gtx_clk = e4_gtxc;
 assign gmii[3].txen = e4_txen;
 assign gmii[3].txer = e4_txer;
 assign gmii[3].txd  = e4_txd;

@@ -306,75 +306,89 @@ module top
   //==========================================================================
   // Ethernet subsystems
   //==========================================================================
+  // the PHYs' GMII pins, one gmii_if each
+  gmii_if gmii_1 ();
+  gmii_if gmii_2 ();
+  gmii_if gmii_3 ();
+  gmii_if gmii_4 ();
+
+  assign gmii_1.rx_clk     = e1_rxc;
+  assign gmii_1.rxd        = e1_rxd;
+  assign gmii_1.rxdv       = e1_rxdv;
+  assign gmii_1.rxer       = e1_rxer;
+  assign gmii_1.mii_tx_clk = e1_txc;
+  assign e1_gtxc           = gmii_1.gtx_clk;
+  assign e1_txd            = gmii_1.txd;
+  assign e1_txen           = gmii_1.txen;
+  assign e1_txer           = gmii_1.txer;
+
+  assign gmii_2.rx_clk     = e2_rxc;
+  assign gmii_2.rxd        = e2_rxd;
+  assign gmii_2.rxdv       = e2_rxdv;
+  assign gmii_2.rxer       = e2_rxer;
+  assign gmii_2.mii_tx_clk = e2_txc;
+  assign e2_gtxc           = gmii_2.gtx_clk;
+  assign e2_txd            = gmii_2.txd;
+  assign e2_txen           = gmii_2.txen;
+  assign e2_txer           = gmii_2.txer;
+
+  assign gmii_3.rx_clk     = e3_rxc;
+  assign gmii_3.rxd        = e3_rxd;
+  assign gmii_3.rxdv       = e3_rxdv;
+  assign gmii_3.rxer       = e3_rxer;
+  assign gmii_3.mii_tx_clk = e3_txc;
+  assign e3_gtxc           = gmii_3.gtx_clk;
+  assign e3_txd            = gmii_3.txd;
+  assign e3_txen           = gmii_3.txen;
+  assign e3_txer           = gmii_3.txer;
+
+  assign gmii_4.rx_clk     = e4_rxc;
+  assign gmii_4.rxd        = e4_rxd;
+  assign gmii_4.rxdv       = e4_rxdv;
+  assign gmii_4.rxer       = e4_rxer;
+  assign gmii_4.mii_tx_clk = e4_txc;
+  assign e4_gtxc           = gmii_4.gtx_clk;
+  assign e4_txd            = gmii_4.txd;
+  assign e4_txen           = gmii_4.txen;
+  assign e4_txer           = gmii_4.txer;
+
   eth_mac u_eth_1 (
-      .gtx_clk     (eth_gtx_clk),
-      .gtx_rst     (eth_gtx_rst),
-      .gmii_rx_clk (e1_rxc),
-      .gmii_rxd    (e1_rxd),
-      .gmii_rx_dv  (e1_rxdv),
-      .gmii_rx_er  (e1_rxer),
-      .mii_tx_clk  (e1_txc),
-      .gmii_tx_clk (e1_gtxc),
-      .gmii_txd    (e1_txd),
-      .gmii_tx_en  (e1_txen),
-      .gmii_tx_er  (e1_txer),
-      .speed       (to_csr.ethernet[0].status.speed.next),
-      .rx_fifo     (from_eth_1),
-      .tx_fifo     (to_eth_1)
+      .gtx_clk (eth_gtx_clk),
+      .gtx_rst (eth_gtx_rst),
+      .gmii    (gmii_1),
+      .speed   (to_csr.ethernet[0].status.speed.next),
+      .rx_fifo (from_eth_1),
+      .tx_fifo (to_eth_1)
   );
 
   //--------------------------------------------------------------------------
   eth_mac u_eth_2 (
-      .gtx_clk     (eth_gtx_clk),
-      .gtx_rst     (eth_gtx_rst),
-      .gmii_rx_clk (e2_rxc),
-      .gmii_rxd    (e2_rxd),
-      .gmii_rx_dv  (e2_rxdv),
-      .gmii_rx_er  (e2_rxer),
-      .mii_tx_clk  (e2_txc),
-      .gmii_tx_clk (e2_gtxc),
-      .gmii_txd    (e2_txd),
-      .gmii_tx_en  (e2_txen),
-      .gmii_tx_er  (e2_txer),
-      .speed       (to_csr.ethernet[1].status.speed.next),
-      .rx_fifo     (from_eth_2),
-      .tx_fifo     (to_eth_2)
+      .gtx_clk (eth_gtx_clk),
+      .gtx_rst (eth_gtx_rst),
+      .gmii    (gmii_2),
+      .speed   (to_csr.ethernet[1].status.speed.next),
+      .rx_fifo (from_eth_2),
+      .tx_fifo (to_eth_2)
   );
 
   //--------------------------------------------------------------------------
   eth_mac u_eth_3 (
-      .gtx_clk     (eth_gtx_clk),
-      .gtx_rst     (eth_gtx_rst),
-      .gmii_rx_clk (e3_rxc),
-      .gmii_rxd    (e3_rxd),
-      .gmii_rx_dv  (e3_rxdv),
-      .gmii_rx_er  (e3_rxer),
-      .mii_tx_clk  (e3_txc),
-      .gmii_tx_clk (e3_gtxc),
-      .gmii_txd    (e3_txd),
-      .gmii_tx_en  (e3_txen),
-      .gmii_tx_er  (e3_txer),
-      .speed       (to_csr.ethernet[2].status.speed.next),
-      .rx_fifo     (from_eth_3),
-      .tx_fifo     (to_eth_3)
+      .gtx_clk (eth_gtx_clk),
+      .gtx_rst (eth_gtx_rst),
+      .gmii    (gmii_3),
+      .speed   (to_csr.ethernet[2].status.speed.next),
+      .rx_fifo (from_eth_3),
+      .tx_fifo (to_eth_3)
   );
 
   //--------------------------------------------------------------------------
   eth_mac u_eth_4 (
-      .gtx_clk     (eth_gtx_clk),
-      .gtx_rst     (eth_gtx_rst),
-      .gmii_rx_clk (e4_rxc),
-      .gmii_rxd    (e4_rxd),
-      .gmii_rx_dv  (e4_rxdv),
-      .gmii_rx_er  (e4_rxer),
-      .mii_tx_clk  (e4_txc),
-      .gmii_tx_clk (e4_gtxc),
-      .gmii_txd    (e4_txd),
-      .gmii_tx_en  (e4_txen),
-      .gmii_tx_er  (e4_txer),
-      .speed       (to_csr.ethernet[3].status.speed.next),
-      .rx_fifo     (from_eth_4),
-      .tx_fifo     (to_eth_4)
+      .gtx_clk (eth_gtx_clk),
+      .gtx_rst (eth_gtx_rst),
+      .gmii    (gmii_4),
+      .speed   (to_csr.ethernet[3].status.speed.next),
+      .rx_fifo (from_eth_4),
+      .tx_fifo (to_eth_4)
   );
 
   //--------------------------------------------------------------------------

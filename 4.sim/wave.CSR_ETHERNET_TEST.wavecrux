@@ -5,7 +5,7 @@
     {
       "kind": "signal",
       "id": "gtkw-0",
-      "ref": "434",
+      "ref": "467",
       "path": "TOP.tb.dut.u_cpu.bus.vld",
       "name": "vld",
       "color": 4283215696,
@@ -15,7 +15,7 @@
     {
       "kind": "signal",
       "id": "gtkw-1",
-      "ref": "435",
+      "ref": "468",
       "path": "TOP.tb.dut.u_cpu.bus.rdy",
       "name": "rdy",
       "color": 4280731354,
@@ -25,7 +25,7 @@
     {
       "kind": "signal",
       "id": "gtkw-2",
-      "ref": "437",
+      "ref": "470",
       "path": "TOP.tb.dut.u_cpu.bus.we",
       "name": "we",
       "color": 4294962776,
@@ -35,7 +35,7 @@
     {
       "kind": "signal",
       "id": "gtkw-3",
-      "ref": "436",
+      "ref": "469",
       "path": "TOP.tb.dut.u_cpu.bus.addr",
       "name": "addr",
       "color": 4293673082,
@@ -45,7 +45,7 @@
     {
       "kind": "signal",
       "id": "gtkw-4",
-      "ref": "439",
+      "ref": "472",
       "path": "TOP.tb.dut.u_cpu.bus.rdat",
       "name": "rdat",
       "color": 4294944550,
@@ -55,7 +55,7 @@
     {
       "kind": "signal",
       "id": "gtkw-5",
-      "ref": "438",
+      "ref": "471",
       "path": "TOP.tb.dut.u_cpu.bus.wdat",
       "name": "wdat",
       "color": 4293848814,
@@ -65,7 +65,7 @@
     {
       "kind": "signal",
       "id": "gtkw-6",
-      "ref": "71",
+      "ref": "98",
       "path": "TOP.tb.bfm_udp.MDIO_BUFF_ADDR",
       "name": "MDIO_BUFF_ADDR",
       "color": 4283215696,
@@ -75,7 +75,7 @@
     {
       "kind": "signal",
       "id": "gtkw-7",
-      "ref": "17",
+      "ref": "45",
       "path": "TOP.tb.bfm_udp.NUM_PORTS",
       "name": "NUM_PORTS",
       "color": 4280731354,
@@ -85,7 +85,7 @@
     {
       "kind": "signal",
       "id": "gtkw-8",
-      "ref": "70",
+      "ref": "97",
       "path": "TOP.tb.bfm_udp.START_NODE",
       "name": "START_NODE",
       "color": 4294962776,
@@ -95,7 +95,7 @@
     {
       "kind": "signal",
       "id": "gtkw-9",
-      "ref": "25",
+      "ref": "53",
       "path": "TOP.tb.bfm_udp.arst_n",
       "name": "bfm_udp.arst_n",
       "color": 4293673082,
@@ -105,7 +105,7 @@
     {
       "kind": "signal",
       "id": "gtkw-10",
-      "ref": "24",
+      "ref": "52",
       "path": "TOP.tb.bfm_udp.clk",
       "name": "bfm_udp.clk",
       "color": 4294944550,
@@ -115,7 +115,7 @@
     {
       "kind": "signal",
       "id": "gtkw-11",
-      "ref": "96",
+      "ref": "123",
       "path": "TOP.tb.bfm_udp.halt",
       "name": "halt",
       "color": 4293848814,
@@ -125,7 +125,7 @@
     {
       "kind": "signal",
       "id": "gtkw-12",
-      "ref": "28",
+      "ref": "56",
       "path": "TOP.tb.bfm_udp.halt_req",
       "name": "halt_req",
       "color": 4283215696,
@@ -135,7 +135,7 @@
     {
       "kind": "signal",
       "id": "gtkw-13",
-      "ref": "62",
+      "ref": "89",
       "path": "TOP.tb.bfm_udp.mdio",
       "name": "mdio",
       "color": 4280731354,
@@ -145,7 +145,7 @@
     {
       "kind": "signal",
       "id": "gtkw-14",
-      "ref": "63",
+      "ref": "90",
       "path": "TOP.tb.bfm_udp.mdio_en",
       "name": "mdio_en",
       "color": 4294962776,
@@ -155,7 +155,7 @@
     {
       "kind": "signal",
       "id": "gtkw-15",
-      "ref": "64",
+      "ref": "91",
       "path": "TOP.tb.bfm_udp.mdio_out",
       "name": "mdio_out",
       "color": 4293673082,
@@ -165,7 +165,7 @@
     {
       "kind": "signal",
       "id": "gtkw-16",
-      "ref": "65",
+      "ref": "92",
       "path": "TOP.tb.bfm_udp.mdioclk",
       "name": "mdioclk",
       "color": 4294944550,
@@ -175,7 +175,7 @@
     {
       "kind": "signal",
       "id": "gtkw-17",
-      "ref": "75",
+      "ref": "102",
       "path": "TOP.tb.bfm_udp.udp_gmii_rxd.udp_gmii_rxd[0]",
       "name": "udp_gmii_rxd[0]",
       "color": 4282434815,
@@ -185,7 +185,7 @@
     {
       "kind": "signal",
       "id": "gtkw-18",
-      "ref": "74",
+      "ref": "101",
       "path": "TOP.tb.bfm_udp.udp_gmii_rxd.udp_gmii_rxd[1]",
       "name": "udp_gmii_rxd[1]",
       "color": 4282434815,
@@ -195,7 +195,7 @@
     {
       "kind": "signal",
       "id": "gtkw-19",
-      "ref": "73",
+      "ref": "100",
       "path": "TOP.tb.bfm_udp.udp_gmii_rxd.udp_gmii_rxd[2]",
       "name": "udp_gmii_rxd[2]",
       "color": 4282434815,
@@ -205,7 +205,7 @@
     {
       "kind": "signal",
       "id": "gtkw-20",
-      "ref": "72",
+      "ref": "99",
       "path": "TOP.tb.bfm_udp.udp_gmii_rxd.udp_gmii_rxd[3]",
       "name": "udp_gmii_rxd[3]",
       "color": 4282434815,
@@ -215,7 +215,7 @@
     {
       "kind": "signal",
       "id": "gtkw-21",
-      "ref": "87",
+      "ref": "114",
       "path": "TOP.tb.bfm_udp.udp_gmii_txd.udp_gmii_txd[0]",
       "name": "udp_gmii_txd[0]",
       "color": 4294938880,
@@ -225,7 +225,7 @@
     {
       "kind": "signal",
       "id": "gtkw-22",
-      "ref": "86",
+      "ref": "113",
       "path": "TOP.tb.bfm_udp.udp_gmii_txd.udp_gmii_txd[1]",
       "name": "udp_gmii_txd[1]",
       "color": 4294938880,
@@ -235,7 +235,7 @@
     {
       "kind": "signal",
       "id": "gtkw-23",
-      "ref": "85",
+      "ref": "112",
       "path": "TOP.tb.bfm_udp.udp_gmii_txd.udp_gmii_txd[2]",
       "name": "udp_gmii_txd[2]",
       "color": 4294938880,
@@ -245,7 +245,7 @@
     {
       "kind": "signal",
       "id": "gtkw-24",
-      "ref": "84",
+      "ref": "111",
       "path": "TOP.tb.bfm_udp.udp_gmii_txd.udp_gmii_txd[3]",
       "name": "udp_gmii_txd[3]",
       "color": 4294938880,
@@ -255,8 +255,8 @@
     {
       "kind": "signal",
       "id": "gtkw-25",
-      "ref": "25",
-      "path": "TOP.tb.gmii[0].arst_n",
+      "ref": "53",
+      "path": "TOP.tb.gmiiarst_n",
       "name": "gmii[0].arst_n",
       "color": 4280731354,
       "format": "hexadecimal",
@@ -265,8 +265,8 @@
     {
       "kind": "signal",
       "id": "gtkw-26",
-      "ref": "24",
-      "path": "TOP.tb.gmii[0].clk",
+      "ref": "52",
+      "path": "TOP.tb.gmii[0].rx_clk",
       "name": "gmii[0].clk",
       "color": 4294962776,
       "format": "hexadecimal",
@@ -275,7 +275,7 @@
     {
       "kind": "signal",
       "id": "gtkw-27",
-      "ref": "31",
+      "ref": "59",
       "path": "TOP.tb.gmii[0].rxd",
       "name": "gmii[0].rxd",
       "color": 4282434815,
@@ -285,7 +285,7 @@
     {
       "kind": "signal",
       "id": "gtkw-28",
-      "ref": "29",
+      "ref": "57",
       "path": "TOP.tb.gmii[0].rxdv",
       "name": "gmii[0].rxdv",
       "color": 4282434815,
@@ -295,7 +295,7 @@
     {
       "kind": "signal",
       "id": "gtkw-29",
-      "ref": "30",
+      "ref": "58",
       "path": "TOP.tb.gmii[0].rxer",
       "name": "gmii[0].rxer",
       "color": 4282434815,
@@ -305,7 +305,7 @@
     {
       "kind": "signal",
       "id": "gtkw-30",
-      "ref": "37",
+      "ref": "64",
       "path": "TOP.tb.gmii[0].txd",
       "name": "gmii[0].txd",
       "color": 4294938880,
@@ -315,7 +315,7 @@
     {
       "kind": "signal",
       "id": "gtkw-31",
-      "ref": "35",
+      "ref": "62",
       "path": "TOP.tb.gmii[0].txen",
       "name": "gmii[0].txen",
       "color": 4294938880,
@@ -325,7 +325,7 @@
     {
       "kind": "signal",
       "id": "gtkw-32",
-      "ref": "36",
+      "ref": "63",
       "path": "TOP.tb.gmii[0].txer",
       "name": "gmii[0].txer",
       "color": 4294938880,
@@ -335,9 +335,9 @@
     {
       "kind": "signal",
       "id": "gtkw-33",
-      "ref": "24",
-      "path": "TOP.tb.dut.u_eth_1.gmii_rx_clk",
-      "name": "gmii_rx_clk",
+      "ref": "52",
+      "path": "TOP.tb.dut.gmii_1.rx_clk",
+      "name": "rx_clk",
       "color": 4282434815,
       "format": "hexadecimal",
       "height": 30.0
@@ -345,9 +345,9 @@
     {
       "kind": "signal",
       "id": "gtkw-34",
-      "ref": "29",
-      "path": "TOP.tb.dut.u_eth_1.gmii_rx_dv",
-      "name": "gmii_rx_dv",
+      "ref": "57",
+      "path": "TOP.tb.dut.gmii_1.rxdv",
+      "name": "rxdv",
       "color": 4282434815,
       "format": "hexadecimal",
       "height": 30.0
@@ -355,9 +355,9 @@
     {
       "kind": "signal",
       "id": "gtkw-35",
-      "ref": "30",
-      "path": "TOP.tb.dut.u_eth_1.gmii_rx_er",
-      "name": "gmii_rx_er",
+      "ref": "58",
+      "path": "TOP.tb.dut.gmii_1.rxer",
+      "name": "rxer",
       "color": 4282434815,
       "format": "hexadecimal",
       "height": 30.0
@@ -365,9 +365,9 @@
     {
       "kind": "signal",
       "id": "gtkw-36",
-      "ref": "31",
-      "path": "TOP.tb.dut.u_eth_1.gmii_rxd",
-      "name": "gmii_rxd",
+      "ref": "59",
+      "path": "TOP.tb.dut.gmii_1.rxd",
+      "name": "rxd",
       "color": 4282434815,
       "format": "hexadecimal",
       "height": 30.0
@@ -375,9 +375,9 @@
     {
       "kind": "signal",
       "id": "gtkw-37",
-      "ref": "34",
-      "path": "TOP.tb.dut.u_eth_1.gmii_tx_clk",
-      "name": "gmii_tx_clk",
+      "ref": "61",
+      "path": "TOP.tb.dut.gmii_1.gtx_clk",
+      "name": "gtx_clk",
       "color": 4294938880,
       "format": "hexadecimal",
       "height": 30.0
@@ -385,9 +385,9 @@
     {
       "kind": "signal",
       "id": "gtkw-38",
-      "ref": "35",
-      "path": "TOP.tb.dut.u_eth_1.gmii_tx_en",
-      "name": "gmii_tx_en",
+      "ref": "62",
+      "path": "TOP.tb.dut.gmii_1.txen",
+      "name": "txen",
       "color": 4294938880,
       "format": "hexadecimal",
       "height": 30.0
@@ -395,9 +395,9 @@
     {
       "kind": "signal",
       "id": "gtkw-39",
-      "ref": "36",
-      "path": "TOP.tb.dut.u_eth_1.gmii_tx_er",
-      "name": "gmii_tx_er",
+      "ref": "63",
+      "path": "TOP.tb.dut.gmii_1.txer",
+      "name": "txer",
       "color": 4294938880,
       "format": "hexadecimal",
       "height": 30.0
@@ -405,9 +405,9 @@
     {
       "kind": "signal",
       "id": "gtkw-40",
-      "ref": "37",
-      "path": "TOP.tb.dut.u_eth_1.gmii_txd",
-      "name": "gmii_txd",
+      "ref": "64",
+      "path": "TOP.tb.dut.gmii_1.txd",
+      "name": "txd",
       "color": 4294938880,
       "format": "hexadecimal",
       "height": 30.0
@@ -415,7 +415,7 @@
     {
       "kind": "signal",
       "id": "gtkw-41",
-      "ref": "354",
+      "ref": "385",
       "path": "TOP.tb.dut.u_eth_1.gtx_clk",
       "name": "gtx_clk",
       "color": 4293848814,
@@ -425,7 +425,7 @@
     {
       "kind": "signal",
       "id": "gtkw-42",
-      "ref": "355",
+      "ref": "386",
       "path": "TOP.tb.dut.u_eth_1.gtx_rst",
       "name": "gtx_rst",
       "color": 4283215696,
@@ -435,8 +435,8 @@
     {
       "kind": "signal",
       "id": "gtkw-43",
-      "ref": "26",
-      "path": "TOP.tb.dut.u_eth_1.mii_tx_clk",
+      "ref": "54",
+      "path": "TOP.tb.dut.gmii_1.mii_tx_clk",
       "name": "mii_tx_clk",
       "color": 4294938880,
       "format": "hexadecimal",
@@ -445,7 +445,7 @@
     {
       "kind": "signal",
       "id": "gtkw-44",
-      "ref": "1070",
+      "ref": "1123",
       "path": "TOP.tb.dut.u_eth_1.speed",
       "name": "speed",
       "color": 4294962776,
@@ -455,7 +455,7 @@
     {
       "kind": "signal",
       "id": "gtkw-45",
-      "ref": "351",
+      "ref": "382",
       "path": "TOP.tb.dut.from_eth_1.clk",
       "name": "from_eth_1.clk",
       "color": 4293673082,
@@ -465,7 +465,7 @@
     {
       "kind": "signal",
       "id": "gtkw-46",
-      "ref": "352",
+      "ref": "383",
       "path": "TOP.tb.dut.from_eth_1.rst",
       "name": "from_eth_1.rst",
       "color": 4294944550,
@@ -475,7 +475,7 @@
     {
       "kind": "signal",
       "id": "gtkw-47",
-      "ref": "466",
+      "ref": "499",
       "path": "TOP.tb.dut.from_eth_1.tdata",
       "name": "from_eth_1.tdata",
       "color": 4293848814,
@@ -485,7 +485,7 @@
     {
       "kind": "signal",
       "id": "gtkw-48",
-      "ref": "463",
+      "ref": "496",
       "path": "TOP.tb.dut.from_eth_1.tid",
       "name": "from_eth_1.tid",
       "color": 4283215696,
@@ -495,7 +495,7 @@
     {
       "kind": "signal",
       "id": "gtkw-49",
-      "ref": "468",
+      "ref": "501",
       "path": "TOP.tb.dut.from_eth_1.tkeep",
       "name": "from_eth_1.tkeep",
       "color": 4280731354,
@@ -505,7 +505,7 @@
     {
       "kind": "signal",
       "id": "gtkw-50",
-      "ref": "467",
+      "ref": "500",
       "path": "TOP.tb.dut.from_eth_1.tlast",
       "name": "from_eth_1.tlast",
       "color": 4294962776,
@@ -515,7 +515,7 @@
     {
       "kind": "signal",
       "id": "gtkw-51",
-      "ref": "464",
+      "ref": "497",
       "path": "TOP.tb.dut.from_eth_1.tready",
       "name": "from_eth_1.tready",
       "color": 4293673082,
@@ -525,7 +525,7 @@
     {
       "kind": "signal",
       "id": "gtkw-52",
-      "ref": "33",
+      "ref": "7",
       "path": "TOP.tb.dut.from_eth_1.tuser.bypass_all",
       "name": "from_eth_1.tuser.bypass_all",
       "color": 4294944550,
@@ -535,7 +535,7 @@
     {
       "kind": "signal",
       "id": "gtkw-53",
-      "ref": "33",
+      "ref": "7",
       "path": "TOP.tb.dut.from_eth_1.tuser.bypass_stage",
       "name": "from_eth_1.tuser.bypass_stage",
       "color": 4293848814,
@@ -545,7 +545,7 @@
     {
       "kind": "signal",
       "id": "gtkw-54",
-      "ref": "469",
+      "ref": "8",
       "path": "TOP.tb.dut.from_eth_1.tuser.dst",
       "name": "from_eth_1.tuser.dst",
       "color": 4283215696,
@@ -555,7 +555,7 @@
     {
       "kind": "signal",
       "id": "gtkw-55",
-      "ref": "469",
+      "ref": "8",
       "path": "TOP.tb.dut.from_eth_1.tuser.src",
       "name": "from_eth_1.tuser.src",
       "color": 4280731354,
@@ -565,7 +565,7 @@
     {
       "kind": "signal",
       "id": "gtkw-56",
-      "ref": "465",
+      "ref": "498",
       "path": "TOP.tb.dut.from_eth_1.tvalid",
       "name": "from_eth_1.tvalid",
       "color": 4294962776,
@@ -575,7 +575,7 @@
     {
       "kind": "signal",
       "id": "gtkw-57",
-      "ref": "351",
+      "ref": "382",
       "path": "TOP.tb.dut.to_eth_2.clk",
       "name": "to_eth_2.clk",
       "color": 4293673082,
@@ -585,7 +585,7 @@
     {
       "kind": "signal",
       "id": "gtkw-58",
-      "ref": "352",
+      "ref": "383",
       "path": "TOP.tb.dut.to_eth_2.rst",
       "name": "to_eth_2.rst",
       "color": 4294944550,
@@ -595,7 +595,7 @@
     {
       "kind": "signal",
       "id": "gtkw-59",
-      "ref": "506",
+      "ref": "538",
       "path": "TOP.tb.dut.to_eth_2.tdata",
       "name": "to_eth_2.tdata",
       "color": 4293848814,
@@ -605,7 +605,7 @@
     {
       "kind": "signal",
       "id": "gtkw-60",
-      "ref": "513",
+      "ref": "545",
       "path": "TOP.tb.dut.to_eth_2.tid",
       "name": "to_eth_2.tid",
       "color": 4283215696,
@@ -615,7 +615,7 @@
     {
       "kind": "signal",
       "id": "gtkw-61",
-      "ref": "508",
+      "ref": "540",
       "path": "TOP.tb.dut.to_eth_2.tkeep",
       "name": "to_eth_2.tkeep",
       "color": 4280731354,
@@ -625,7 +625,7 @@
     {
       "kind": "signal",
       "id": "gtkw-62",
-      "ref": "507",
+      "ref": "539",
       "path": "TOP.tb.dut.to_eth_2.tlast",
       "name": "to_eth_2.tlast",
       "color": 4294962776,
@@ -635,7 +635,7 @@
     {
       "kind": "signal",
       "id": "gtkw-63",
-      "ref": "504",
+      "ref": "536",
       "path": "TOP.tb.dut.to_eth_2.tready",
       "name": "to_eth_2.tready",
       "color": 4293673082,
@@ -645,7 +645,7 @@
     {
       "kind": "signal",
       "id": "gtkw-64",
-      "ref": "509",
+      "ref": "541",
       "path": "TOP.tb.dut.to_eth_2.tuser.bypass_all",
       "name": "to_eth_2.tuser.bypass_all",
       "color": 4294944550,
@@ -655,7 +655,7 @@
     {
       "kind": "signal",
       "id": "gtkw-65",
-      "ref": "510",
+      "ref": "542",
       "path": "TOP.tb.dut.to_eth_2.tuser.bypass_stage",
       "name": "to_eth_2.tuser.bypass_stage",
       "color": 4293848814,
@@ -665,7 +665,7 @@
     {
       "kind": "signal",
       "id": "gtkw-66",
-      "ref": "512",
+      "ref": "544",
       "path": "TOP.tb.dut.to_eth_2.tuser.dst",
       "name": "to_eth_2.tuser.dst",
       "color": 4283215696,
@@ -675,7 +675,7 @@
     {
       "kind": "signal",
       "id": "gtkw-67",
-      "ref": "511",
+      "ref": "543",
       "path": "TOP.tb.dut.to_eth_2.tuser.src",
       "name": "to_eth_2.tuser.src",
       "color": 4280731354,
@@ -685,7 +685,7 @@
     {
       "kind": "signal",
       "id": "gtkw-68",
-      "ref": "505",
+      "ref": "537",
       "path": "TOP.tb.dut.to_eth_2.tvalid",
       "name": "to_eth_2.tvalid",
       "color": 4294962776,
@@ -695,8 +695,8 @@
     {
       "kind": "signal",
       "id": "gtkw-69",
-      "ref": "25",
-      "path": "TOP.tb.gmii[1].arst_n",
+      "ref": "53",
+      "path": "TOP.tb.gmiiarst_n",
       "name": "gmii[1].arst_n",
       "color": 4293673082,
       "format": "hexadecimal",
@@ -705,8 +705,8 @@
     {
       "kind": "signal",
       "id": "gtkw-70",
-      "ref": "24",
-      "path": "TOP.tb.gmii[1].clk",
+      "ref": "52",
+      "path": "TOP.tb.gmii[1].rx_clk",
       "name": "gmii[1].clk",
       "color": 4294944550,
       "format": "hexadecimal",
@@ -715,7 +715,7 @@
     {
       "kind": "signal",
       "id": "gtkw-71",
-      "ref": "40",
+      "ref": "67",
       "path": "TOP.tb.gmii[1].rxd",
       "name": "gmii[1].rxd",
       "color": 4282434815,
@@ -725,7 +725,7 @@
     {
       "kind": "signal",
       "id": "gtkw-72",
-      "ref": "38",
+      "ref": "65",
       "path": "TOP.tb.gmii[1].rxdv",
       "name": "gmii[1].rxdv",
       "color": 4282434815,
@@ -735,7 +735,7 @@
     {
       "kind": "signal",
       "id": "gtkw-73",
-      "ref": "39",
+      "ref": "66",
       "path": "TOP.tb.gmii[1].rxer",
       "name": "gmii[1].rxer",
       "color": 4282434815,
@@ -745,7 +745,7 @@
     {
       "kind": "signal",
       "id": "gtkw-74",
-      "ref": "44",
+      "ref": "71",
       "path": "TOP.tb.gmii[1].txd",
       "name": "gmii[1].txd",
       "color": 4294938880,
@@ -755,7 +755,7 @@
     {
       "kind": "signal",
       "id": "gtkw-75",
-      "ref": "42",
+      "ref": "69",
       "path": "TOP.tb.gmii[1].txen",
       "name": "gmii[1].txen",
       "color": 4294938880,
@@ -765,7 +765,7 @@
     {
       "kind": "signal",
       "id": "gtkw-76",
-      "ref": "43",
+      "ref": "70",
       "path": "TOP.tb.gmii[1].txer",
       "name": "gmii[1].txer",
       "color": 4294938880,
@@ -775,7 +775,7 @@
     {
       "kind": "signal",
       "id": "gtkw-77",
-      "ref": "403",
+      "ref": "434",
       "path": "TOP.tb.dut.from_csr.gpio.led1.value",
       "name": "led1.value",
       "color": 4293848814,
@@ -785,7 +785,7 @@
     {
       "kind": "signal",
       "id": "gtkw-78",
-      "ref": "404",
+      "ref": "435",
       "path": "TOP.tb.dut.from_csr.gpio.led2.value",
       "name": "led2.value",
       "color": 4283215696,
@@ -795,7 +795,7 @@
     {
       "kind": "signal",
       "id": "gtkw-79",
-      "ref": "351",
+      "ref": "382",
       "path": "TOP.tb.dut.from_eth_3.clk",
       "name": "from_eth_3.clk",
       "color": 4280731354,
@@ -805,7 +805,7 @@
     {
       "kind": "signal",
       "id": "gtkw-80",
-      "ref": "352",
+      "ref": "383",
       "path": "TOP.tb.dut.from_eth_3.rst",
       "name": "from_eth_3.rst",
       "color": 4294962776,
@@ -815,7 +815,7 @@
     {
       "kind": "signal",
       "id": "gtkw-81",
-      "ref": "477",
+      "ref": "509",
       "path": "TOP.tb.dut.from_eth_3.tdata",
       "name": "from_eth_3.tdata",
       "color": 4293673082,
@@ -825,7 +825,7 @@
     {
       "kind": "signal",
       "id": "gtkw-82",
-      "ref": "463",
+      "ref": "496",
       "path": "TOP.tb.dut.from_eth_3.tid",
       "name": "from_eth_3.tid",
       "color": 4294944550,
@@ -835,7 +835,7 @@
     {
       "kind": "signal",
       "id": "gtkw-83",
-      "ref": "479",
+      "ref": "511",
       "path": "TOP.tb.dut.from_eth_3.tkeep",
       "name": "from_eth_3.tkeep",
       "color": 4293848814,
@@ -845,7 +845,7 @@
     {
       "kind": "signal",
       "id": "gtkw-84",
-      "ref": "478",
+      "ref": "510",
       "path": "TOP.tb.dut.from_eth_3.tlast",
       "name": "from_eth_3.tlast",
       "color": 4283215696,
@@ -855,7 +855,7 @@
     {
       "kind": "signal",
       "id": "gtkw-85",
-      "ref": "475",
+      "ref": "507",
       "path": "TOP.tb.dut.from_eth_3.tready",
       "name": "from_eth_3.tready",
       "color": 4280731354,
@@ -865,7 +865,7 @@
     {
       "kind": "signal",
       "id": "gtkw-86",
-      "ref": "33",
+      "ref": "7",
       "path": "TOP.tb.dut.from_eth_3.tuser.bypass_all",
       "name": "from_eth_3.tuser.bypass_all",
       "color": 4294962776,
@@ -875,7 +875,7 @@
     {
       "kind": "signal",
       "id": "gtkw-87",
-      "ref": "33",
+      "ref": "7",
       "path": "TOP.tb.dut.from_eth_3.tuser.bypass_stage",
       "name": "from_eth_3.tuser.bypass_stage",
       "color": 4293673082,
@@ -885,7 +885,7 @@
     {
       "kind": "signal",
       "id": "gtkw-88",
-      "ref": "469",
+      "ref": "8",
       "path": "TOP.tb.dut.from_eth_3.tuser.dst",
       "name": "from_eth_3.tuser.dst",
       "color": 4294944550,
@@ -895,7 +895,7 @@
     {
       "kind": "signal",
       "id": "gtkw-89",
-      "ref": "469",
+      "ref": "8",
       "path": "TOP.tb.dut.from_eth_3.tuser.src",
       "name": "from_eth_3.tuser.src",
       "color": 4293848814,
@@ -905,7 +905,7 @@
     {
       "kind": "signal",
       "id": "gtkw-90",
-      "ref": "476",
+      "ref": "508",
       "path": "TOP.tb.dut.from_eth_3.tvalid",
       "name": "from_eth_3.tvalid",
       "color": 4283215696,
@@ -915,7 +915,7 @@
     {
       "kind": "signal",
       "id": "gtkw-91",
-      "ref": "351",
+      "ref": "382",
       "path": "TOP.tb.dut.to_eth_4.clk",
       "name": "to_eth_4.clk",
       "color": 4280731354,
@@ -925,7 +925,7 @@
     {
       "kind": "signal",
       "id": "gtkw-92",
-      "ref": "352",
+      "ref": "383",
       "path": "TOP.tb.dut.to_eth_4.rst",
       "name": "to_eth_4.rst",
       "color": 4294962776,
@@ -935,7 +935,7 @@
     {
       "kind": "signal",
       "id": "gtkw-93",
-      "ref": "526",
+      "ref": "558",
       "path": "TOP.tb.dut.to_eth_4.tdata",
       "name": "to_eth_4.tdata",
       "color": 4293673082,
@@ -945,7 +945,7 @@
     {
       "kind": "signal",
       "id": "gtkw-94",
-      "ref": "533",
+      "ref": "565",
       "path": "TOP.tb.dut.to_eth_4.tid",
       "name": "to_eth_4.tid",
       "color": 4294944550,
@@ -955,7 +955,7 @@
     {
       "kind": "signal",
       "id": "gtkw-95",
-      "ref": "528",
+      "ref": "560",
       "path": "TOP.tb.dut.to_eth_4.tkeep",
       "name": "to_eth_4.tkeep",
       "color": 4293848814,
@@ -965,7 +965,7 @@
     {
       "kind": "signal",
       "id": "gtkw-96",
-      "ref": "527",
+      "ref": "559",
       "path": "TOP.tb.dut.to_eth_4.tlast",
       "name": "to_eth_4.tlast",
       "color": 4283215696,
@@ -975,7 +975,7 @@
     {
       "kind": "signal",
       "id": "gtkw-97",
-      "ref": "524",
+      "ref": "556",
       "path": "TOP.tb.dut.to_eth_4.tready",
       "name": "to_eth_4.tready",
       "color": 4280731354,
@@ -985,7 +985,7 @@
     {
       "kind": "signal",
       "id": "gtkw-98",
-      "ref": "529",
+      "ref": "561",
       "path": "TOP.tb.dut.to_eth_4.tuser.bypass_all",
       "name": "to_eth_4.tuser.bypass_all",
       "color": 4294962776,
@@ -995,7 +995,7 @@
     {
       "kind": "signal",
       "id": "gtkw-99",
-      "ref": "530",
+      "ref": "562",
       "path": "TOP.tb.dut.to_eth_4.tuser.bypass_stage",
       "name": "to_eth_4.tuser.bypass_stage",
       "color": 4293673082,
@@ -1005,7 +1005,7 @@
     {
       "kind": "signal",
       "id": "gtkw-100",
-      "ref": "532",
+      "ref": "564",
       "path": "TOP.tb.dut.to_eth_4.tuser.dst",
       "name": "to_eth_4.tuser.dst",
       "color": 4294944550,
@@ -1015,7 +1015,7 @@
     {
       "kind": "signal",
       "id": "gtkw-101",
-      "ref": "531",
+      "ref": "563",
       "path": "TOP.tb.dut.to_eth_4.tuser.src",
       "name": "to_eth_4.tuser.src",
       "color": 4293848814,
@@ -1025,7 +1025,7 @@
     {
       "kind": "signal",
       "id": "gtkw-102",
-      "ref": "525",
+      "ref": "557",
       "path": "TOP.tb.dut.to_eth_4.tvalid",
       "name": "to_eth_4.tvalid",
       "color": 4283215696,
@@ -1035,8 +1035,8 @@
     {
       "kind": "signal",
       "id": "gtkw-103",
-      "ref": "25",
-      "path": "TOP.tb.gmii[2].arst_n",
+      "ref": "53",
+      "path": "TOP.tb.gmiiarst_n",
       "name": "gmii[2].arst_n",
       "color": 4280731354,
       "format": "hexadecimal",
@@ -1045,8 +1045,8 @@
     {
       "kind": "signal",
       "id": "gtkw-104",
-      "ref": "24",
-      "path": "TOP.tb.gmii[2].clk",
+      "ref": "52",
+      "path": "TOP.tb.gmii[2].rx_clk",
       "name": "gmii[2].clk",
       "color": 4294962776,
       "format": "hexadecimal",
@@ -1055,7 +1055,7 @@
     {
       "kind": "signal",
       "id": "gtkw-105",
-      "ref": "47",
+      "ref": "74",
       "path": "TOP.tb.gmii[2].rxd",
       "name": "gmii[2].rxd",
       "color": 4282434815,
@@ -1065,7 +1065,7 @@
     {
       "kind": "signal",
       "id": "gtkw-106",
-      "ref": "45",
+      "ref": "72",
       "path": "TOP.tb.gmii[2].rxdv",
       "name": "gmii[2].rxdv",
       "color": 4282434815,
@@ -1075,7 +1075,7 @@
     {
       "kind": "signal",
       "id": "gtkw-107",
-      "ref": "46",
+      "ref": "73",
       "path": "TOP.tb.gmii[2].rxer",
       "name": "gmii[2].rxer",
       "color": 4282434815,
@@ -1085,7 +1085,7 @@
     {
       "kind": "signal",
       "id": "gtkw-108",
-      "ref": "51",
+      "ref": "78",
       "path": "TOP.tb.gmii[2].txd",
       "name": "gmii[2].txd",
       "color": 4294938880,
@@ -1095,7 +1095,7 @@
     {
       "kind": "signal",
       "id": "gtkw-109",
-      "ref": "49",
+      "ref": "76",
       "path": "TOP.tb.gmii[2].txen",
       "name": "gmii[2].txen",
       "color": 4294938880,
@@ -1105,7 +1105,7 @@
     {
       "kind": "signal",
       "id": "gtkw-110",
-      "ref": "50",
+      "ref": "77",
       "path": "TOP.tb.gmii[2].txer",
       "name": "gmii[2].txer",
       "color": 4294938880,
@@ -1115,8 +1115,8 @@
     {
       "kind": "signal",
       "id": "gtkw-111",
-      "ref": "25",
-      "path": "TOP.tb.gmii[3].arst_n",
+      "ref": "53",
+      "path": "TOP.tb.gmiiarst_n",
       "name": "gmii[3].arst_n",
       "color": 4293673082,
       "format": "hexadecimal",
@@ -1125,8 +1125,8 @@
     {
       "kind": "signal",
       "id": "gtkw-112",
-      "ref": "24",
-      "path": "TOP.tb.gmii[3].clk",
+      "ref": "52",
+      "path": "TOP.tb.gmii[3].rx_clk",
       "name": "gmii[3].clk",
       "color": 4294944550,
       "format": "hexadecimal",
@@ -1135,7 +1135,7 @@
     {
       "kind": "signal",
       "id": "gtkw-113",
-      "ref": "54",
+      "ref": "81",
       "path": "TOP.tb.gmii[3].rxd",
       "name": "gmii[3].rxd",
       "color": 4282434815,
@@ -1145,7 +1145,7 @@
     {
       "kind": "signal",
       "id": "gtkw-114",
-      "ref": "52",
+      "ref": "79",
       "path": "TOP.tb.gmii[3].rxdv",
       "name": "gmii[3].rxdv",
       "color": 4282434815,
@@ -1155,7 +1155,7 @@
     {
       "kind": "signal",
       "id": "gtkw-115",
-      "ref": "53",
+      "ref": "80",
       "path": "TOP.tb.gmii[3].rxer",
       "name": "gmii[3].rxer",
       "color": 4282434815,
@@ -1165,7 +1165,7 @@
     {
       "kind": "signal",
       "id": "gtkw-116",
-      "ref": "58",
+      "ref": "85",
       "path": "TOP.tb.gmii[3].txd",
       "name": "gmii[3].txd",
       "color": 4294938880,
@@ -1175,7 +1175,7 @@
     {
       "kind": "signal",
       "id": "gtkw-117",
-      "ref": "56",
+      "ref": "83",
       "path": "TOP.tb.gmii[3].txen",
       "name": "gmii[3].txen",
       "color": 4294938880,
@@ -1185,7 +1185,7 @@
     {
       "kind": "signal",
       "id": "gtkw-118",
-      "ref": "57",
+      "ref": "84",
       "path": "TOP.tb.gmii[3].txer",
       "name": "gmii[3].txer",
       "color": 4294938880,

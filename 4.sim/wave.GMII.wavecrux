@@ -5,9 +5,9 @@
     {
       "kind": "signal",
       "id": "a36cc035-26",
-      "ref": "24",
-      "path": "TOP.tb.dut.u_eth_3.gmii_rx_clk",
-      "name": "gmii_rx_clk",
+      "ref": "52",
+      "path": "TOP.tb.dut.gmii_3.rx_clk",
+      "name": "rx_clk",
       "color": 4282434815,
       "format": "hexadecimal",
       "height": 30.0
@@ -15,9 +15,9 @@
     {
       "kind": "signal",
       "id": "a36cc035-27",
-      "ref": "45",
-      "path": "TOP.tb.dut.u_eth_3.gmii_rx_dv",
-      "name": "gmii_rx_dv",
+      "ref": "72",
+      "path": "TOP.tb.dut.gmii_3.rxdv",
+      "name": "rxdv",
       "color": 4282434815,
       "format": "hexadecimal",
       "height": 30.0
@@ -25,9 +25,9 @@
     {
       "kind": "signal",
       "id": "a36cc035-28",
-      "ref": "46",
-      "path": "TOP.tb.dut.u_eth_3.gmii_rx_er",
-      "name": "gmii_rx_er",
+      "ref": "73",
+      "path": "TOP.tb.dut.gmii_3.rxer",
+      "name": "rxer",
       "color": 4282434815,
       "format": "hexadecimal",
       "height": 30.0
@@ -35,9 +35,9 @@
     {
       "kind": "signal",
       "id": "a36cc035-29",
-      "ref": "47",
-      "path": "TOP.tb.dut.u_eth_3.gmii_rxd",
-      "name": "gmii_rxd",
+      "ref": "74",
+      "path": "TOP.tb.dut.gmii_3.rxd",
+      "name": "rxd",
       "color": 4282434815,
       "format": "hexadecimal",
       "height": 30.0
@@ -45,9 +45,9 @@
     {
       "kind": "signal",
       "id": "a36cc035-30",
-      "ref": "55",
-      "path": "TOP.tb.dut.u_eth_4.gmii_tx_clk",
-      "name": "gmii_tx_clk",
+      "ref": "82",
+      "path": "TOP.tb.dut.gmii_4.gtx_clk",
+      "name": "gtx_clk",
       "color": 4294938880,
       "format": "hexadecimal",
       "height": 30.0
@@ -55,9 +55,9 @@
     {
       "kind": "signal",
       "id": "a36cc035-31",
-      "ref": "56",
-      "path": "TOP.tb.dut.u_eth_4.gmii_tx_en",
-      "name": "gmii_tx_en",
+      "ref": "83",
+      "path": "TOP.tb.dut.gmii_4.txen",
+      "name": "txen",
       "color": 4294938880,
       "format": "hexadecimal",
       "height": 30.0
@@ -65,9 +65,9 @@
     {
       "kind": "signal",
       "id": "a36cc035-32",
-      "ref": "57",
-      "path": "TOP.tb.dut.u_eth_4.gmii_tx_er",
-      "name": "gmii_tx_er",
+      "ref": "84",
+      "path": "TOP.tb.dut.gmii_4.txer",
+      "name": "txer",
       "color": 4294938880,
       "format": "hexadecimal",
       "height": 30.0
@@ -75,9 +75,9 @@
     {
       "kind": "signal",
       "id": "a36cc035-33",
-      "ref": "58",
-      "path": "TOP.tb.dut.u_eth_4.gmii_txd",
-      "name": "gmii_txd",
+      "ref": "85",
+      "path": "TOP.tb.dut.gmii_4.txd",
+      "name": "txd",
       "color": 4294938880,
       "format": "hexadecimal",
       "height": 30.0
@@ -119,24 +119,24 @@
       "instanceNumber": 1,
       "config": {
         "bindings": {
-          "rx_clk": "24",
-          "rx_dv": "45",
-          "rx_er": "46",
-          "rxd": "47",
-          "gtx_clk": "55",
-          "tx_en": "56",
-          "tx_er": "57",
-          "txd": "58"
+          "rx_clk": "52",
+          "rx_dv": "72",
+          "rx_er": "73",
+          "rxd": "74",
+          "gtx_clk": "82",
+          "tx_en": "83",
+          "tx_er": "84",
+          "txd": "85"
         },
         "bindingPaths": {
-          "rx_clk": "TOP.tb.dut.u_eth_3.gmii_rx_clk",
-          "rx_dv": "TOP.tb.dut.u_eth_3.gmii_rx_dv",
-          "rx_er": "TOP.tb.dut.u_eth_3.gmii_rx_er",
-          "rxd": "TOP.tb.dut.u_eth_3.gmii_rxd",
-          "gtx_clk": "TOP.tb.dut.u_eth_4.gmii_tx_clk",
-          "tx_en": "TOP.tb.dut.u_eth_4.gmii_tx_en",
-          "tx_er": "TOP.tb.dut.u_eth_4.gmii_tx_er",
-          "txd": "TOP.tb.dut.u_eth_4.gmii_txd"
+          "rx_clk": "TOP.tb.dut.gmii_3.rx_clk",
+          "rx_dv": "TOP.tb.dut.gmii_3.rxdv",
+          "rx_er": "TOP.tb.dut.gmii_3.rxer",
+          "rxd": "TOP.tb.dut.gmii_3.rxd",
+          "gtx_clk": "TOP.tb.dut.gmii_4.gtx_clk",
+          "tx_en": "TOP.tb.dut.gmii_4.txen",
+          "tx_er": "TOP.tb.dut.gmii_4.txer",
+          "txd": "TOP.tb.dut.gmii_4.txd"
         },
         "parameters": {
           "jumbo_enabled": false,
