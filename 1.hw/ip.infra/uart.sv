@@ -123,7 +123,26 @@ module uart
     T_STATES_TIMEOUT
   } spec_state_t;
 
-  spec_state_t state, state_next;
+  // the registers: r, and r_next, what they hold in the next clock
+  typedef struct packed {
+    spec_state_t state;
+    logic        bus_vld;
+    logic        uart_tx_valid;  // transmit uart_tx_data (the IMEM FSM)
+    logic [7:0]  uart_tx_data;   // the byte to transmit (the IMEM FSM)
+    logic        cpu_rst_n;
+    logic [15:0] data_length;
+    logic [15:0] data_cnt;
+    logic        ram_wen;
+    logic [31:0] ram_data;
+    logic [31:0] ram_addr;
+    logic [3:0]  bus_we;
+    soc_addr_t   bus_addr;       // a word address: the host's bits [1:0] are not kept
+    logic [31:0] bus_rdat;
+    logic [31:0] bus_wdat;
+    logic [7:0]  checksum;
+    logic [21:0] timeout;
+  } regs_t;
+  regs_t r, r_next;
 
   //--------------------------------------
   // IMEM/BUS commands/responses
@@ -376,7 +395,6 @@ module uart
   end
 
 
-  logic bus_vld, bus_vld_next;
 
   // synchronous RxFIFO absorbs the variability of CPU reads
   sync_fifo_ram #(
@@ -389,7 +407,7 @@ module uart
       .clk    (clk),
 
       .din (rx_shift),
-      .we  (~bus_vld & rx_fifo_we),
+      .we  (~r.bus_vld & rx_fifo_we),
       //.re        (from_csr.uart.rx_trigger.read.value), // FIFO internal logic prevents underflow
       .re  (from_csr.uart.rx.data.swacc), // FIFO internal logic prevents underflow
 
@@ -563,18 +581,13 @@ module uart
 
 
   // synchronous TxFIFO offloads CPU write operations
-  logic uart_tx_busy;
-  logic
-      uart_tx_valid,
-      uart_tx_valid_next;  // Allow tranmission of output, after data is settled (from IMEM FSM)
-  logic [7:0]
-      uart_tx_data, uart_tx_data_next;  // The data that will be sent over TX (from IMEM FSM)
+  logic       uart_tx_busy;
 
   // TX FIFO input: the IMEM loader's bytes on the bus, else the CSR's
   logic [7:0] tx_fifo_din;
   logic       tx_fifo_we;
-  assign      tx_fifo_din = bus_vld ? uart_tx_data  : from_csr.uart.tx.data.value;
-  assign      tx_fifo_we  = bus_vld ? uart_tx_valid : from_csr.uart.tx_trigger.write.value;
+  assign      tx_fifo_din = r.bus_vld ? r.uart_tx_data  : from_csr.uart.tx.data.value;
+  assign      tx_fifo_we  = r.bus_vld ? r.uart_tx_valid : from_csr.uart.tx_trigger.write.value;
 
   sync_fifo_ram #(
       .DWIDTH (8),
@@ -612,81 +625,39 @@ module uart
   assign uart_rx_data  = rx_shift;
   assign uart_rx_valid = rx_fifo_we;
 
-  logic cpu_rst_n, cpu_rst_n_next;
-  logic [15:0] data_length, data_length_next;
-  logic [15:0] data_cnt, data_cnt_next;
-  logic ram_wen, ram_wen_next;
-  logic [31:0] ram_data, ram_data_next;
-  logic [31:0] ram_addr, ram_addr_next;
-  logic [3:0] bus_we, bus_we_next;
-  soc_addr_t bus_addr, bus_addr_next;  // a word address: the host's bits [1:0] are not kept
-  logic [31:0] bus_rdat, bus_rdat_next;
-  logic [31:0] bus_wdat, bus_wdat_next;
-  logic [7:0] checksum, checksum_next;
-  logic [21:0] timeout, timeout_next;
 
   always_ff @(negedge arst_n or posedge clk) begin
     if (arst_n == 1'b0) begin
-      state         <= T_STATES_WAIT_SOP;
-      cpu_rst_n     <= 1'b1;
-      data_length   <= '0;
-      data_cnt      <= '0;
-      ram_wen       <= 1'b0;
-      ram_addr      <= '0;
-      ram_data      <= '0;
-      bus_vld       <= 1'b0;
-      bus_we        <= '0;
-      bus_addr      <= DMEM_BASE[31:2];
-      bus_rdat      <= '0;
-      bus_wdat      <= '0;
-      checksum      <= '0;
-      timeout       <= '0;
-      uart_tx_valid <= 1'b0;
-      uart_tx_data  <= '0;
+      r.state         <= T_STATES_WAIT_SOP;
+      r.cpu_rst_n     <= 1'b1;
+      r.data_length   <= '0;
+      r.data_cnt      <= '0;
+      r.ram_wen       <= 1'b0;
+      r.ram_addr      <= '0;
+      r.ram_data      <= '0;
+      r.bus_vld       <= 1'b0;
+      r.bus_we        <= '0;
+      r.bus_addr      <= DMEM_BASE[31:2];
+      r.bus_rdat      <= '0;
+      r.bus_wdat      <= '0;
+      r.checksum      <= '0;
+      r.timeout       <= '0;
+      r.uart_tx_valid <= 1'b0;
+      r.uart_tx_data  <= '0;
     end
     else begin
-      state         <= state_next;
-      cpu_rst_n     <= cpu_rst_n_next;
-      data_length   <= data_length_next;
-      data_cnt      <= data_cnt_next;
-      ram_wen       <= ram_wen_next;
-      ram_addr      <= ram_addr_next;
-      ram_data      <= ram_data_next;
-      bus_vld       <= bus_vld_next;
-      bus_we        <= bus_we_next;
-      bus_addr      <= bus_addr_next;
-      bus_rdat      <= bus_rdat_next;
-      bus_wdat      <= bus_wdat_next;
-      checksum      <= checksum_next;
-      timeout       <= timeout_next;
-      uart_tx_valid <= uart_tx_valid_next;
-      uart_tx_data  <= uart_tx_data_next;
+      r <= r_next;
     end
   end
 
   always_comb begin
-    state_next         = state;
-    cpu_rst_n_next     = cpu_rst_n;
-    data_length_next   = data_length;
-    data_cnt_next      = data_cnt;
-    ram_wen_next       = ram_wen;
-    ram_addr_next      = ram_addr;
-    ram_data_next      = ram_data;
-    bus_vld_next       = bus_vld;
-    bus_we_next        = bus_we;
-    bus_addr_next      = bus_addr;
-    bus_rdat_next      = bus_rdat;
-    bus_wdat_next      = bus_wdat;
-    checksum_next      = checksum;
-    timeout_next       = timeout;
-    uart_tx_valid_next = uart_tx_valid;
-    uart_tx_data_next  = uart_tx_data;
+    r_next = r;
 
-    unique case (state)
+    unique case (r.state)
       T_STATES_WAIT_SOP: begin
         if ((uart_rx_valid == 1'b1) && (uart_rx_data == C_SOP)) begin
-          bus_vld_next = 1'b1;
-          state_next   = T_STATES_WAIT_CMD;
+          r_next.bus_vld = 1'b1;
+          r_next.state   = T_STATES_WAIT_CMD;
         end
       end
 
@@ -694,30 +665,30 @@ module uart
         if (uart_rx_valid == 1'b1) begin
           unique case (uart_rx_data)
             C_IMPR: begin
-              cpu_rst_n_next = 1'b0;
-              data_cnt_next  = '0;
-              checksum_next  = '0;
-              timeout_next   = '0;
-              state_next     = T_STATES_IMPR_WAIT_LEN_LB;
+              r_next.cpu_rst_n = 1'b0;
+              r_next.data_cnt  = '0;
+              r_next.checksum  = '0;
+              r_next.timeout   = '0;
+              r_next.state     = T_STATES_IMPR_WAIT_LEN_LB;
             end
             C_BUSW: begin
-              checksum_next = '0;
-              timeout_next  = '0;
-              state_next    = T_STATES_BUSW_WAIT_ADDR0;
+              r_next.checksum = '0;
+              r_next.timeout  = '0;
+              r_next.state    = T_STATES_BUSW_WAIT_ADDR0;
             end
             C_BUSR: begin
-              checksum_next = '0;
-              timeout_next  = '0;
-              state_next    = T_STATES_BUSR_WAIT_ADDR0;
+              r_next.checksum = '0;
+              r_next.timeout  = '0;
+              r_next.state    = T_STATES_BUSR_WAIT_ADDR0;
             end
             C_IMWR: begin
-              checksum_next = '0;
-              timeout_next  = '0;
-              state_next    = T_STATES_IMWR_WAIT_ADDR0;
+              r_next.checksum = '0;
+              r_next.timeout  = '0;
+              r_next.state    = T_STATES_IMWR_WAIT_ADDR0;
             end
             C_EOP: begin
-              bus_vld_next = 1'b0;
-              state_next   = T_STATES_WAIT_SOP;
+              r_next.bus_vld = 1'b0;
+              r_next.state   = T_STATES_WAIT_SOP;
             end
             default: begin  // not a command: ignored
             end
@@ -727,570 +698,554 @@ module uart
 
       T_STATES_IMPR_WAIT_LEN_LB: begin
         if (uart_rx_valid == 1'b1) begin
-          data_length_next[7:0] = uart_rx_data;
-          checksum_next         = checksum + uart_rx_data;
-          timeout_next          = '0;
-          state_next            = T_STATES_IMPR_WAIT_LEN_HB;
+          r_next.data_length[7:0] = uart_rx_data;
+          r_next.checksum         = r.checksum + uart_rx_data;
+          r_next.timeout          = '0;
+          r_next.state            = T_STATES_IMPR_WAIT_LEN_HB;
         end
-        else if (timeout[21:21] == 1'b1) begin
-          uart_tx_data_next  = C_TOUT;
-          uart_tx_valid_next = 1'b1;
-          state_next         = T_STATES_TIMEOUT;
+        else if (r.timeout[21:21] == 1'b1) begin
+          r_next.uart_tx_data  = C_TOUT;
+          r_next.uart_tx_valid = 1'b1;
+          r_next.state         = T_STATES_TIMEOUT;
         end
         else if (tick_1us == 1'b1) begin
-          timeout_next = timeout + 22'd1;
+          r_next.timeout = r.timeout + 22'd1;
         end
       end
 
       T_STATES_IMPR_WAIT_LEN_HB: begin
         if (uart_rx_valid == 1'b1) begin
-          data_length_next[15:8] = uart_rx_data;
-          checksum_next          = checksum + uart_rx_data;
-          timeout_next           = '0;
-          state_next             = T_STATES_IMPR_WAIT_DATA0;
+          r_next.data_length[15:8] = uart_rx_data;
+          r_next.checksum          = r.checksum + uart_rx_data;
+          r_next.timeout           = '0;
+          r_next.state             = T_STATES_IMPR_WAIT_DATA0;
         end
-        else if (timeout[21:21] == 1'b1) begin
-          uart_tx_data_next  = C_TOUT;
-          uart_tx_valid_next = 1'b1;
-          state_next         = T_STATES_TIMEOUT;
+        else if (r.timeout[21:21] == 1'b1) begin
+          r_next.uart_tx_data  = C_TOUT;
+          r_next.uart_tx_valid = 1'b1;
+          r_next.state         = T_STATES_TIMEOUT;
         end
         else if (tick_1us == 1'b1) begin
-          timeout_next = timeout + 22'd1;
+          r_next.timeout = r.timeout + 22'd1;
         end
       end
 
       T_STATES_IMPR_WAIT_DATA0: begin
         if (uart_rx_valid == 1'b1) begin
-          ram_data_next[7:0] = uart_rx_data;
-          checksum_next      = checksum + uart_rx_data;
-          timeout_next       = '0;
-          state_next         = T_STATES_IMPR_WAIT_DATA1;
+          r_next.ram_data[7:0] = uart_rx_data;
+          r_next.checksum      = r.checksum + uart_rx_data;
+          r_next.timeout       = '0;
+          r_next.state         = T_STATES_IMPR_WAIT_DATA1;
         end
-        else if (timeout[21:21] == 1'b1) begin
-          uart_tx_data_next  = C_TOUT;
-          uart_tx_valid_next = 1'b1;
-          state_next         = T_STATES_TIMEOUT;
+        else if (r.timeout[21:21] == 1'b1) begin
+          r_next.uart_tx_data  = C_TOUT;
+          r_next.uart_tx_valid = 1'b1;
+          r_next.state         = T_STATES_TIMEOUT;
         end
         else if (tick_1us == 1'b1) begin
-          timeout_next = timeout + 22'd1;
+          r_next.timeout = r.timeout + 22'd1;
         end
       end
 
       T_STATES_IMPR_WAIT_DATA1: begin
         if (uart_rx_valid == 1'b1) begin
-          ram_data_next[15:8] = uart_rx_data;
-          checksum_next       = checksum + uart_rx_data;
-          timeout_next        = '0;
-          state_next          = T_STATES_IMPR_WAIT_DATA2;
+          r_next.ram_data[15:8] = uart_rx_data;
+          r_next.checksum       = r.checksum + uart_rx_data;
+          r_next.timeout        = '0;
+          r_next.state          = T_STATES_IMPR_WAIT_DATA2;
         end
-        else if (timeout[21:21] == 1'b1) begin
-          uart_tx_data_next  = C_TOUT;
-          uart_tx_valid_next = 1'b1;
-          state_next         = T_STATES_TIMEOUT;
+        else if (r.timeout[21:21] == 1'b1) begin
+          r_next.uart_tx_data  = C_TOUT;
+          r_next.uart_tx_valid = 1'b1;
+          r_next.state         = T_STATES_TIMEOUT;
         end
         else if (tick_1us == 1'b1) begin
-          timeout_next = timeout + 22'd1;
+          r_next.timeout = r.timeout + 22'd1;
         end
       end
 
       T_STATES_IMPR_WAIT_DATA2: begin
         if (uart_rx_valid == 1'b1) begin
-          ram_data_next[23:16] = uart_rx_data;
-          checksum_next        = checksum + uart_rx_data;
-          timeout_next         = '0;
-          state_next           = T_STATES_IMPR_WAIT_DATA3;
+          r_next.ram_data[23:16] = uart_rx_data;
+          r_next.checksum        = r.checksum + uart_rx_data;
+          r_next.timeout         = '0;
+          r_next.state           = T_STATES_IMPR_WAIT_DATA3;
         end
-        else if (timeout[21:21] == 1'b1) begin
-          uart_tx_data_next  = C_TOUT;
-          uart_tx_valid_next = 1'b1;
-          state_next         = T_STATES_TIMEOUT;
+        else if (r.timeout[21:21] == 1'b1) begin
+          r_next.uart_tx_data  = C_TOUT;
+          r_next.uart_tx_valid = 1'b1;
+          r_next.state         = T_STATES_TIMEOUT;
         end
         else if (tick_1us == 1'b1) begin
-          timeout_next = timeout + 22'd1;
+          r_next.timeout = r.timeout + 22'd1;
         end
       end
 
       T_STATES_IMPR_WAIT_DATA3: begin
         if (uart_rx_valid == 1'b1) begin
-          data_cnt_next        = data_cnt + 1;
-          ram_data_next[31:24] = uart_rx_data;
-          checksum_next        = checksum + uart_rx_data;
-          ram_addr_next        = {14'd0, data_cnt, 2'd0};
-          ram_wen_next         = 1'b1;
-          uart_tx_data_next    = C_ACK;
-          uart_tx_valid_next   = 1'b1;
-          state_next           = T_STATES_IMPR_CHECKSUM;
+          r_next.data_cnt        = r.data_cnt + 1;
+          r_next.ram_data[31:24] = uart_rx_data;
+          r_next.checksum        = r.checksum + uart_rx_data;
+          r_next.ram_addr        = {14'd0, r.data_cnt, 2'd0};
+          r_next.ram_wen         = 1'b1;
+          r_next.uart_tx_data    = C_ACK;
+          r_next.uart_tx_valid   = 1'b1;
+          r_next.state           = T_STATES_IMPR_CHECKSUM;
         end
-        else if (timeout[21:21] == 1'b1) begin
-          uart_tx_data_next  = C_TOUT;
-          uart_tx_valid_next = 1'b1;
-          state_next         = T_STATES_TIMEOUT;
+        else if (r.timeout[21:21] == 1'b1) begin
+          r_next.uart_tx_data  = C_TOUT;
+          r_next.uart_tx_valid = 1'b1;
+          r_next.state         = T_STATES_TIMEOUT;
         end
         else if (tick_1us == 1'b1) begin
-          timeout_next = timeout + 22'd1;
+          r_next.timeout = r.timeout + 22'd1;
         end
       end
 
       T_STATES_IMPR_CHECKSUM: begin
-        if (data_cnt == data_length) begin
-          ram_wen_next       = 1'b0;
-          uart_tx_data_next  = checksum;
-          uart_tx_valid_next = 1'b1;
-          state_next         = T_STATES_IMPR_DONE;
+        if (r.data_cnt == r.data_length) begin
+          r_next.ram_wen       = 1'b0;
+          r_next.uart_tx_data  = r.checksum;
+          r_next.uart_tx_valid = 1'b1;
+          r_next.state         = T_STATES_IMPR_DONE;
         end
         else begin
-          ram_wen_next       = 1'b0;
-          uart_tx_valid_next = 1'b0;
-          timeout_next       = '0;
-          state_next         = T_STATES_IMPR_WAIT_DATA0;
+          r_next.ram_wen       = 1'b0;
+          r_next.uart_tx_valid = 1'b0;
+          r_next.timeout       = '0;
+          r_next.state         = T_STATES_IMPR_WAIT_DATA0;
         end
       end
 
       T_STATES_IMPR_DONE: begin
-        cpu_rst_n_next     = 1'b1;
-        uart_tx_valid_next = 1'b0;
-        state_next         = T_STATES_WAIT_CMD;
+        r_next.cpu_rst_n     = 1'b1;
+        r_next.uart_tx_valid = 1'b0;
+        r_next.state         = T_STATES_WAIT_CMD;
       end
 
       T_STATES_BUSW_WAIT_ADDR0: begin
         if (uart_rx_valid == 1'b1) begin
-          bus_addr_next[7:2] = uart_rx_data[7:2];
-          checksum_next      = checksum + uart_rx_data;
-          timeout_next       = '0;
-          state_next         = T_STATES_BUSW_WAIT_ADDR1;
+          r_next.bus_addr[7:2] = uart_rx_data[7:2];
+          r_next.checksum      = r.checksum + uart_rx_data;
+          r_next.timeout       = '0;
+          r_next.state         = T_STATES_BUSW_WAIT_ADDR1;
         end
-        else if (timeout[21:21] == 1'b1) begin
-          uart_tx_data_next  = C_TOUT;
-          uart_tx_valid_next = 1'b1;
-          state_next         = T_STATES_TIMEOUT;
+        else if (r.timeout[21:21] == 1'b1) begin
+          r_next.uart_tx_data  = C_TOUT;
+          r_next.uart_tx_valid = 1'b1;
+          r_next.state         = T_STATES_TIMEOUT;
         end
         else if (tick_1us == 1'b1) begin
-          timeout_next = timeout + 22'd1;
+          r_next.timeout = r.timeout + 22'd1;
         end
       end
 
       T_STATES_BUSW_WAIT_ADDR1: begin
         if (uart_rx_valid == 1'b1) begin
-          bus_addr_next[15:8] = uart_rx_data;
-          checksum_next       = checksum + uart_rx_data;
-          timeout_next        = '0;
-          state_next          = T_STATES_BUSW_WAIT_ADDR2;
+          r_next.bus_addr[15:8] = uart_rx_data;
+          r_next.checksum       = r.checksum + uart_rx_data;
+          r_next.timeout        = '0;
+          r_next.state          = T_STATES_BUSW_WAIT_ADDR2;
         end
-        else if (timeout[21:21] == 1'b1) begin
-          uart_tx_data_next  = C_TOUT;
-          uart_tx_valid_next = 1'b1;
-          state_next         = T_STATES_TIMEOUT;
+        else if (r.timeout[21:21] == 1'b1) begin
+          r_next.uart_tx_data  = C_TOUT;
+          r_next.uart_tx_valid = 1'b1;
+          r_next.state         = T_STATES_TIMEOUT;
         end
         else if (tick_1us == 1'b1) begin
-          timeout_next = timeout + 22'd1;
+          r_next.timeout = r.timeout + 22'd1;
         end
       end
 
       T_STATES_BUSW_WAIT_ADDR2: begin
         if (uart_rx_valid == 1'b1) begin
-          bus_addr_next[23:16] = uart_rx_data;
-          checksum_next        = checksum + uart_rx_data;
-          timeout_next         = '0;
-          state_next           = T_STATES_BUSW_WAIT_ADDR3;
+          r_next.bus_addr[23:16] = uart_rx_data;
+          r_next.checksum        = r.checksum + uart_rx_data;
+          r_next.timeout         = '0;
+          r_next.state           = T_STATES_BUSW_WAIT_ADDR3;
         end
-        else if (timeout[21:21] == 1'b1) begin
-          uart_tx_data_next  = C_TOUT;
-          uart_tx_valid_next = 1'b1;
-          state_next         = T_STATES_TIMEOUT;
+        else if (r.timeout[21:21] == 1'b1) begin
+          r_next.uart_tx_data  = C_TOUT;
+          r_next.uart_tx_valid = 1'b1;
+          r_next.state         = T_STATES_TIMEOUT;
         end
         else if (tick_1us == 1'b1) begin
-          timeout_next = timeout + 22'd1;
+          r_next.timeout = r.timeout + 22'd1;
         end
       end
 
       T_STATES_BUSW_WAIT_ADDR3: begin
         if (uart_rx_valid == 1'b1) begin
-          bus_addr_next[31:24] = uart_rx_data;
-          checksum_next        = checksum + uart_rx_data;
-          timeout_next         = '0;
-          state_next           = T_STATES_BUSW_WAIT_DATA0;
+          r_next.bus_addr[31:24] = uart_rx_data;
+          r_next.checksum        = r.checksum + uart_rx_data;
+          r_next.timeout         = '0;
+          r_next.state           = T_STATES_BUSW_WAIT_DATA0;
         end
-        else if (timeout[21:21] == 1'b1) begin
-          uart_tx_data_next  = C_TOUT;
-          uart_tx_valid_next = 1'b1;
-          state_next         = T_STATES_TIMEOUT;
+        else if (r.timeout[21:21] == 1'b1) begin
+          r_next.uart_tx_data  = C_TOUT;
+          r_next.uart_tx_valid = 1'b1;
+          r_next.state         = T_STATES_TIMEOUT;
         end
         else if (tick_1us == 1'b1) begin
-          timeout_next = timeout + 22'd1;
+          r_next.timeout = r.timeout + 22'd1;
         end
       end
 
       T_STATES_BUSW_WAIT_DATA0: begin
         if (uart_rx_valid == 1'b1) begin
-          bus_wdat_next[7:0] = uart_rx_data;
-          checksum_next      = checksum + uart_rx_data;
-          timeout_next       = '0;
-          state_next         = T_STATES_BUSW_WAIT_DATA1;
+          r_next.bus_wdat[7:0] = uart_rx_data;
+          r_next.checksum      = r.checksum + uart_rx_data;
+          r_next.timeout       = '0;
+          r_next.state         = T_STATES_BUSW_WAIT_DATA1;
         end
-        else if (timeout[21:21] == 1'b1) begin
-          uart_tx_data_next  = C_TOUT;
-          uart_tx_valid_next = 1'b1;
-          state_next         = T_STATES_TIMEOUT;
+        else if (r.timeout[21:21] == 1'b1) begin
+          r_next.uart_tx_data  = C_TOUT;
+          r_next.uart_tx_valid = 1'b1;
+          r_next.state         = T_STATES_TIMEOUT;
         end
         else if (tick_1us == 1'b1) begin
-          timeout_next = timeout + 22'd1;
+          r_next.timeout = r.timeout + 22'd1;
         end
       end
 
       T_STATES_BUSW_WAIT_DATA1: begin
         if (uart_rx_valid == 1'b1) begin
-          bus_wdat_next[15:8] = uart_rx_data;
-          checksum_next       = checksum + uart_rx_data;
-          timeout_next        = '0;
-          state_next          = T_STATES_BUSW_WAIT_DATA2;
+          r_next.bus_wdat[15:8] = uart_rx_data;
+          r_next.checksum       = r.checksum + uart_rx_data;
+          r_next.timeout        = '0;
+          r_next.state          = T_STATES_BUSW_WAIT_DATA2;
         end
-        else if (timeout[21:21] == 1'b1) begin
-          uart_tx_data_next  = C_TOUT;
-          uart_tx_valid_next = 1'b1;
-          state_next         = T_STATES_TIMEOUT;
+        else if (r.timeout[21:21] == 1'b1) begin
+          r_next.uart_tx_data  = C_TOUT;
+          r_next.uart_tx_valid = 1'b1;
+          r_next.state         = T_STATES_TIMEOUT;
         end
         else if (tick_1us == 1'b1) begin
-          timeout_next = timeout + 22'd1;
+          r_next.timeout = r.timeout + 22'd1;
         end
       end
 
       T_STATES_BUSW_WAIT_DATA2: begin
         if (uart_rx_valid == 1'b1) begin
-          bus_wdat_next[23:16] = uart_rx_data;
-          checksum_next        = checksum + uart_rx_data;
-          timeout_next         = '0;
-          state_next           = T_STATES_BUSW_WAIT_DATA3;
+          r_next.bus_wdat[23:16] = uart_rx_data;
+          r_next.checksum        = r.checksum + uart_rx_data;
+          r_next.timeout         = '0;
+          r_next.state           = T_STATES_BUSW_WAIT_DATA3;
         end
-        else if (timeout[21:21] == 1'b1) begin
-          uart_tx_data_next  = C_TOUT;
-          uart_tx_valid_next = 1'b1;
-          state_next         = T_STATES_TIMEOUT;
+        else if (r.timeout[21:21] == 1'b1) begin
+          r_next.uart_tx_data  = C_TOUT;
+          r_next.uart_tx_valid = 1'b1;
+          r_next.state         = T_STATES_TIMEOUT;
         end
         else if (tick_1us == 1'b1) begin
-          timeout_next = timeout + 22'd1;
+          r_next.timeout = r.timeout + 22'd1;
         end
       end
 
       T_STATES_BUSW_WAIT_DATA3: begin
         if (uart_rx_valid == 1'b1) begin
-          bus_wdat_next[31:24] = uart_rx_data;
-          checksum_next        = checksum + uart_rx_data;
-          timeout_next         = '0;
-          state_next           = T_STATES_BUSW_WAIT_WE;
+          r_next.bus_wdat[31:24] = uart_rx_data;
+          r_next.checksum        = r.checksum + uart_rx_data;
+          r_next.timeout         = '0;
+          r_next.state           = T_STATES_BUSW_WAIT_WE;
         end
-        else if (timeout[21:21] == 1'b1) begin
-          uart_tx_data_next  = C_TOUT;
-          uart_tx_valid_next = 1'b1;
-          state_next         = T_STATES_TIMEOUT;
+        else if (r.timeout[21:21] == 1'b1) begin
+          r_next.uart_tx_data  = C_TOUT;
+          r_next.uart_tx_valid = 1'b1;
+          r_next.state         = T_STATES_TIMEOUT;
         end
         else if (tick_1us == 1'b1) begin
-          timeout_next = timeout + 22'd1;
+          r_next.timeout = r.timeout + 22'd1;
         end
       end
 
       T_STATES_BUSW_WAIT_WE: begin
         if (uart_rx_valid == 1'b1) begin
-          bus_we_next   = uart_rx_data[3:0];
-          checksum_next = checksum + uart_rx_data;
-          timeout_next  = '0;
-          state_next    = T_STATES_BUSW_CHECKSUM;
+          r_next.bus_we   = uart_rx_data[3:0];
+          r_next.checksum = r.checksum + uart_rx_data;
+          r_next.timeout  = '0;
+          r_next.state    = T_STATES_BUSW_CHECKSUM;
         end
-        else if (timeout[21:21] == 1'b1) begin
-          uart_tx_data_next  = C_TOUT;
-          uart_tx_valid_next = 1'b1;
-          state_next         = T_STATES_TIMEOUT;
+        else if (r.timeout[21:21] == 1'b1) begin
+          r_next.uart_tx_data  = C_TOUT;
+          r_next.uart_tx_valid = 1'b1;
+          r_next.state         = T_STATES_TIMEOUT;
         end
         else if (tick_1us == 1'b1) begin
-          timeout_next = timeout + 22'd1;
+          r_next.timeout = r.timeout + 22'd1;
         end
       end
 
       T_STATES_BUSW_CHECKSUM: begin
-        bus_we_next        = '0;
-        uart_tx_data_next  = checksum;
-        uart_tx_valid_next = 1'b1;
-        state_next         = T_STATES_BUSW_DONE;
+        r_next.bus_we        = '0;
+        r_next.uart_tx_data  = r.checksum;
+        r_next.uart_tx_valid = 1'b1;
+        r_next.state         = T_STATES_BUSW_DONE;
       end
 
       T_STATES_BUSW_DONE: begin
-        uart_tx_valid_next = 1'b0;
-        state_next         = T_STATES_WAIT_CMD;
+        r_next.uart_tx_valid = 1'b0;
+        r_next.state         = T_STATES_WAIT_CMD;
       end
 
       T_STATES_BUSR_WAIT_ADDR0: begin
         if (uart_rx_valid == 1'b1) begin
-          bus_addr_next[7:2] = uart_rx_data[7:2];
-          checksum_next      = checksum + uart_rx_data;
-          timeout_next       = '0;
-          state_next         = T_STATES_BUSR_WAIT_ADDR1;
+          r_next.bus_addr[7:2] = uart_rx_data[7:2];
+          r_next.checksum      = r.checksum + uart_rx_data;
+          r_next.timeout       = '0;
+          r_next.state         = T_STATES_BUSR_WAIT_ADDR1;
         end
-        else if (timeout[21:21] == 1'b1) begin
-          uart_tx_data_next  = C_TOUT;
-          uart_tx_valid_next = 1'b1;
-          state_next         = T_STATES_TIMEOUT;
+        else if (r.timeout[21:21] == 1'b1) begin
+          r_next.uart_tx_data  = C_TOUT;
+          r_next.uart_tx_valid = 1'b1;
+          r_next.state         = T_STATES_TIMEOUT;
         end
         else if (tick_1us == 1'b1) begin
-          timeout_next = timeout + 22'd1;
+          r_next.timeout = r.timeout + 22'd1;
         end
       end
 
       T_STATES_BUSR_WAIT_ADDR1: begin
         if (uart_rx_valid == 1'b1) begin
-          bus_addr_next[15:8] = uart_rx_data;
-          checksum_next       = checksum + uart_rx_data;
-          timeout_next        = '0;
-          state_next          = T_STATES_BUSR_WAIT_ADDR2;
+          r_next.bus_addr[15:8] = uart_rx_data;
+          r_next.checksum       = r.checksum + uart_rx_data;
+          r_next.timeout        = '0;
+          r_next.state          = T_STATES_BUSR_WAIT_ADDR2;
         end
-        else if (timeout[21:21] == 1'b1) begin
-          uart_tx_data_next  = C_TOUT;
-          uart_tx_valid_next = 1'b1;
-          state_next         = T_STATES_TIMEOUT;
+        else if (r.timeout[21:21] == 1'b1) begin
+          r_next.uart_tx_data  = C_TOUT;
+          r_next.uart_tx_valid = 1'b1;
+          r_next.state         = T_STATES_TIMEOUT;
         end
         else if (tick_1us == 1'b1) begin
-          timeout_next = timeout + 22'd1;
+          r_next.timeout = r.timeout + 22'd1;
         end
       end
 
       T_STATES_BUSR_WAIT_ADDR2: begin
         if (uart_rx_valid == 1'b1) begin
-          bus_addr_next[23:16] = uart_rx_data;
-          checksum_next        = checksum + uart_rx_data;
-          timeout_next         = '0;
-          state_next           = T_STATES_BUSR_WAIT_ADDR3;
+          r_next.bus_addr[23:16] = uart_rx_data;
+          r_next.checksum        = r.checksum + uart_rx_data;
+          r_next.timeout         = '0;
+          r_next.state           = T_STATES_BUSR_WAIT_ADDR3;
         end
-        else if (timeout[21:21] == 1'b1) begin
-          uart_tx_data_next  = C_TOUT;
-          uart_tx_valid_next = 1'b1;
-          state_next         = T_STATES_TIMEOUT;
+        else if (r.timeout[21:21] == 1'b1) begin
+          r_next.uart_tx_data  = C_TOUT;
+          r_next.uart_tx_valid = 1'b1;
+          r_next.state         = T_STATES_TIMEOUT;
         end
         else if (tick_1us == 1'b1) begin
-          timeout_next = timeout + 22'd1;
+          r_next.timeout = r.timeout + 22'd1;
         end
       end
 
       T_STATES_BUSR_WAIT_ADDR3: begin
         if (uart_rx_valid == 1'b1) begin
-          bus_addr_next[31:24] = uart_rx_data;
-          checksum_next        = checksum + uart_rx_data;
-          timeout_next         = '0;
-          state_next           = T_STATES_BUSR_WAIT_DATA;
+          r_next.bus_addr[31:24] = uart_rx_data;
+          r_next.checksum        = r.checksum + uart_rx_data;
+          r_next.timeout         = '0;
+          r_next.state           = T_STATES_BUSR_WAIT_DATA;
         end
-        else if (timeout[21:21] == 1'b1) begin
-          uart_tx_data_next  = C_TOUT;
-          uart_tx_valid_next = 1'b1;
-          state_next         = T_STATES_TIMEOUT;
+        else if (r.timeout[21:21] == 1'b1) begin
+          r_next.uart_tx_data  = C_TOUT;
+          r_next.uart_tx_valid = 1'b1;
+          r_next.state         = T_STATES_TIMEOUT;
         end
         else if (tick_1us == 1'b1) begin
-          timeout_next = timeout + 22'd1;
+          r_next.timeout = r.timeout + 22'd1;
         end
       end
 
       T_STATES_BUSR_WAIT_DATA: begin
         if (bus.rdy == 1'b1) begin
-          bus_rdat_next = bus.rdat;
-          timeout_next  = '0;
-          state_next    = T_STATES_BUSR_DATA0;
+          r_next.bus_rdat = bus.rdat;
+          r_next.timeout  = '0;
+          r_next.state    = T_STATES_BUSR_DATA0;
         end
-        else if (timeout[21:21] == 1'b1) begin
-          uart_tx_data_next  = C_TOUT;
-          uart_tx_valid_next = 1'b1;
-          state_next         = T_STATES_TIMEOUT;
+        else if (r.timeout[21:21] == 1'b1) begin
+          r_next.uart_tx_data  = C_TOUT;
+          r_next.uart_tx_valid = 1'b1;
+          r_next.state         = T_STATES_TIMEOUT;
         end
         else if (tick_1us == 1'b1) begin
-          timeout_next = timeout + 22'd1;
+          r_next.timeout = r.timeout + 22'd1;
         end
       end
 
       T_STATES_BUSR_DATA0: begin
-        uart_tx_data_next  = bus_rdat[7:0];
-        checksum_next      = checksum + bus_rdat[7:0];
-        uart_tx_valid_next = 1'b1;
-        state_next         = T_STATES_BUSR_DATA1;
+        r_next.uart_tx_data  = r.bus_rdat[7:0];
+        r_next.checksum      = r.checksum + r.bus_rdat[7:0];
+        r_next.uart_tx_valid = 1'b1;
+        r_next.state         = T_STATES_BUSR_DATA1;
       end
 
       T_STATES_BUSR_DATA1: begin
-        uart_tx_data_next  = bus_rdat[15:8];
-        checksum_next      = checksum + bus_rdat[15:8];
-        uart_tx_valid_next = 1'b1;
-        state_next         = T_STATES_BUSR_DATA2;
+        r_next.uart_tx_data  = r.bus_rdat[15:8];
+        r_next.checksum      = r.checksum + r.bus_rdat[15:8];
+        r_next.uart_tx_valid = 1'b1;
+        r_next.state         = T_STATES_BUSR_DATA2;
       end
 
       T_STATES_BUSR_DATA2: begin
-        uart_tx_data_next  = bus_rdat[23:16];
-        checksum_next      = checksum + bus_rdat[23:16];
-        uart_tx_valid_next = 1'b1;
-        state_next         = T_STATES_BUSR_DATA3;
+        r_next.uart_tx_data  = r.bus_rdat[23:16];
+        r_next.checksum      = r.checksum + r.bus_rdat[23:16];
+        r_next.uart_tx_valid = 1'b1;
+        r_next.state         = T_STATES_BUSR_DATA3;
       end
 
       T_STATES_BUSR_DATA3: begin
-        uart_tx_data_next  = bus_rdat[31:24];
-        checksum_next      = checksum + bus_rdat[31:24];
-        uart_tx_valid_next = 1'b1;
-        state_next         = T_STATES_BUSR_CHECKSUM;
+        r_next.uart_tx_data  = r.bus_rdat[31:24];
+        r_next.checksum      = r.checksum + r.bus_rdat[31:24];
+        r_next.uart_tx_valid = 1'b1;
+        r_next.state         = T_STATES_BUSR_CHECKSUM;
       end
 
       T_STATES_BUSR_CHECKSUM: begin
-        uart_tx_data_next  = checksum;
-        uart_tx_valid_next = 1'b1;
-        state_next         = T_STATES_BUSR_DONE;
+        r_next.uart_tx_data  = r.checksum;
+        r_next.uart_tx_valid = 1'b1;
+        r_next.state         = T_STATES_BUSR_DONE;
       end
 
       T_STATES_BUSR_DONE: begin
-        uart_tx_valid_next = 1'b0;
-        state_next         = T_STATES_WAIT_CMD;
+        r_next.uart_tx_valid = 1'b0;
+        r_next.state         = T_STATES_WAIT_CMD;
       end
 
       T_STATES_IMWR_WAIT_ADDR0: begin
         if (uart_rx_valid == 1'b1) begin
-          ram_addr_next[7:0] = uart_rx_data;
-          checksum_next      = checksum + uart_rx_data;
-          timeout_next       = '0;
-          state_next         = T_STATES_IMWR_WAIT_ADDR1;
+          r_next.ram_addr[7:0] = uart_rx_data;
+          r_next.checksum      = r.checksum + uart_rx_data;
+          r_next.timeout       = '0;
+          r_next.state         = T_STATES_IMWR_WAIT_ADDR1;
         end
-        else if (timeout[21:21] == 1'b1) begin
-          uart_tx_data_next  = C_TOUT;
-          uart_tx_valid_next = 1'b1;
-          state_next         = T_STATES_TIMEOUT;
+        else if (r.timeout[21:21] == 1'b1) begin
+          r_next.uart_tx_data  = C_TOUT;
+          r_next.uart_tx_valid = 1'b1;
+          r_next.state         = T_STATES_TIMEOUT;
         end
         else if (tick_1us == 1'b1) begin
-          timeout_next = timeout + 22'd1;
+          r_next.timeout = r.timeout + 22'd1;
         end
       end
 
       T_STATES_IMWR_WAIT_ADDR1: begin
         if (uart_rx_valid == 1'b1) begin
-          ram_addr_next[15:8] = uart_rx_data;
-          checksum_next       = checksum + uart_rx_data;
-          timeout_next        = '0;
-          state_next          = T_STATES_IMWR_WAIT_DATA0;
+          r_next.ram_addr[15:8] = uart_rx_data;
+          r_next.checksum       = r.checksum + uart_rx_data;
+          r_next.timeout        = '0;
+          r_next.state          = T_STATES_IMWR_WAIT_DATA0;
         end
-        else if (timeout[21:21] == 1'b1) begin
-          uart_tx_data_next  = C_TOUT;
-          uart_tx_valid_next = 1'b1;
-          state_next         = T_STATES_TIMEOUT;
+        else if (r.timeout[21:21] == 1'b1) begin
+          r_next.uart_tx_data  = C_TOUT;
+          r_next.uart_tx_valid = 1'b1;
+          r_next.state         = T_STATES_TIMEOUT;
         end
         else if (tick_1us == 1'b1) begin
-          timeout_next = timeout + 22'd1;
+          r_next.timeout = r.timeout + 22'd1;
         end
       end
 
       T_STATES_IMWR_WAIT_DATA0: begin
         if (uart_rx_valid == 1'b1) begin
-          ram_data_next[7:0] = uart_rx_data;
-          checksum_next      = checksum + uart_rx_data;
-          timeout_next       = '0;
-          state_next         = T_STATES_IMWR_WAIT_DATA1;
+          r_next.ram_data[7:0] = uart_rx_data;
+          r_next.checksum      = r.checksum + uart_rx_data;
+          r_next.timeout       = '0;
+          r_next.state         = T_STATES_IMWR_WAIT_DATA1;
         end
-        else if (timeout[21:21] == 1'b1) begin
-          uart_tx_data_next  = C_TOUT;
-          uart_tx_valid_next = 1'b1;
-          state_next         = T_STATES_TIMEOUT;
+        else if (r.timeout[21:21] == 1'b1) begin
+          r_next.uart_tx_data  = C_TOUT;
+          r_next.uart_tx_valid = 1'b1;
+          r_next.state         = T_STATES_TIMEOUT;
         end
         else if (tick_1us == 1'b1) begin
-          timeout_next = timeout + 22'd1;
+          r_next.timeout = r.timeout + 22'd1;
         end
       end
 
       T_STATES_IMWR_WAIT_DATA1: begin
         if (uart_rx_valid == 1'b1) begin
-          ram_data_next[15:8] = uart_rx_data;
-          checksum_next       = checksum + uart_rx_data;
-          timeout_next        = '0;
-          state_next          = T_STATES_IMWR_WAIT_DATA2;
+          r_next.ram_data[15:8] = uart_rx_data;
+          r_next.checksum       = r.checksum + uart_rx_data;
+          r_next.timeout        = '0;
+          r_next.state          = T_STATES_IMWR_WAIT_DATA2;
         end
-        else if (timeout[21:21] == 1'b1) begin
-          uart_tx_data_next  = C_TOUT;
-          uart_tx_valid_next = 1'b1;
-          state_next         = T_STATES_TIMEOUT;
+        else if (r.timeout[21:21] == 1'b1) begin
+          r_next.uart_tx_data  = C_TOUT;
+          r_next.uart_tx_valid = 1'b1;
+          r_next.state         = T_STATES_TIMEOUT;
         end
         else if (tick_1us == 1'b1) begin
-          timeout_next = timeout + 22'd1;
+          r_next.timeout = r.timeout + 22'd1;
         end
       end
 
       T_STATES_IMWR_WAIT_DATA2: begin
         if (uart_rx_valid == 1'b1) begin
-          ram_data_next[23:16] = uart_rx_data;
-          checksum_next        = checksum + uart_rx_data;
-          timeout_next         = '0;
-          state_next           = T_STATES_IMWR_WAIT_DATA3;
+          r_next.ram_data[23:16] = uart_rx_data;
+          r_next.checksum        = r.checksum + uart_rx_data;
+          r_next.timeout         = '0;
+          r_next.state           = T_STATES_IMWR_WAIT_DATA3;
         end
-        else if (timeout[21:21] == 1'b1) begin
-          uart_tx_data_next  = C_TOUT;
-          uart_tx_valid_next = 1'b1;
-          state_next         = T_STATES_TIMEOUT;
+        else if (r.timeout[21:21] == 1'b1) begin
+          r_next.uart_tx_data  = C_TOUT;
+          r_next.uart_tx_valid = 1'b1;
+          r_next.state         = T_STATES_TIMEOUT;
         end
         else if (tick_1us == 1'b1) begin
-          timeout_next = timeout + 22'd1;
+          r_next.timeout = r.timeout + 22'd1;
         end
       end
 
       T_STATES_IMWR_WAIT_DATA3: begin
         if (uart_rx_valid == 1'b1) begin
-          ram_data_next[31:24] = uart_rx_data;
-          ram_wen_next         = 1'b1;
-          checksum_next        = checksum + uart_rx_data;
-          timeout_next         = '0;
-          state_next           = T_STATES_IMWR_CHECKSUM;
+          r_next.ram_data[31:24] = uart_rx_data;
+          r_next.ram_wen         = 1'b1;
+          r_next.checksum        = r.checksum + uart_rx_data;
+          r_next.timeout         = '0;
+          r_next.state           = T_STATES_IMWR_CHECKSUM;
         end
-        else if (timeout[21:21] == 1'b1) begin
-          uart_tx_data_next  = C_TOUT;
-          uart_tx_valid_next = 1'b1;
-          state_next         = T_STATES_TIMEOUT;
+        else if (r.timeout[21:21] == 1'b1) begin
+          r_next.uart_tx_data  = C_TOUT;
+          r_next.uart_tx_valid = 1'b1;
+          r_next.state         = T_STATES_TIMEOUT;
         end
         else if (tick_1us == 1'b1) begin
-          timeout_next = timeout + 22'd1;
+          r_next.timeout = r.timeout + 22'd1;
         end
       end
 
       T_STATES_IMWR_CHECKSUM: begin
-        ram_wen_next       = 1'b0;
-        uart_tx_data_next  = checksum;
-        uart_tx_valid_next = 1'b1;
-        state_next         = T_STATES_IMWR_DONE;
+        r_next.ram_wen       = 1'b0;
+        r_next.uart_tx_data  = r.checksum;
+        r_next.uart_tx_valid = 1'b1;
+        r_next.state         = T_STATES_IMWR_DONE;
       end
 
       T_STATES_IMWR_DONE: begin
-        uart_tx_valid_next = 1'b0;
-        state_next         = T_STATES_WAIT_CMD;
+        r_next.uart_tx_valid = 1'b0;
+        r_next.state         = T_STATES_WAIT_CMD;
       end
 
       T_STATES_TIMEOUT: begin
-        uart_tx_valid_next = 1'b0;
-        ram_wen_next       = 1'b0;
-        cpu_rst_n_next     = 1'b1;
-        bus_vld_next       = 1'b0;
-        state_next         = T_STATES_WAIT_SOP;
+        r_next.uart_tx_valid = 1'b0;
+        r_next.ram_wen       = 1'b0;
+        r_next.cpu_rst_n     = 1'b1;
+        r_next.bus_vld       = 1'b0;
+        r_next.state         = T_STATES_WAIT_SOP;
       end
 
       default: begin
-        state_next         = state;
-        cpu_rst_n_next     = cpu_rst_n;
-        data_length_next   = data_length;
-        data_cnt_next      = data_cnt;
-        ram_wen_next       = ram_wen;
-        ram_addr_next      = ram_addr;
-        ram_data_next      = ram_data;
-        bus_vld_next       = bus_vld;
-        bus_we_next        = bus_we;
-        bus_addr_next      = bus_addr;
-        bus_rdat_next      = bus_rdat;
-        bus_wdat_next      = bus_wdat;
-        checksum_next      = checksum;
-        timeout_next       = timeout;
-        uart_tx_valid_next = uart_tx_valid;
-        uart_tx_data_next  = uart_tx_data;
       end
     endcase
   end
 
-  assign imem_cpu_rst_n = cpu_rst_n;
-  assign imem_wr        = '{we: ram_wen, addr: ram_addr[31:2], data: ram_data};
+  assign imem_cpu_rst_n = r.cpu_rst_n;
+  assign imem_wr        = '{we: r.ram_wen, addr: r.ram_addr[31:2], data: r.ram_data};
 
-  assign bus.vld        = bus_vld;
-  assign bus.we         = bus_we;
-  assign bus.addr       = bus_addr;
-  assign bus.wdat       = bus_wdat;
+  assign bus.vld        = r.bus_vld;
+  assign bus.we         = r.bus_we;
+  assign bus.addr       = r.bus_addr;
+  assign bus.wdat       = r.bus_wdat;
 
   // CSR status, in one process
   always_comb begin
