@@ -18,7 +18,6 @@ import random
 
 from pypeline import (
     MAIN,
-    Output,
     final,
     initial,
     sim_input,
@@ -26,7 +25,6 @@ from pypeline import (
     sim_print,
     uint1_t,
     uint8_t,
-    wires,
 )
 
 import chacha20poly1305_decrypt_ports
@@ -66,8 +64,6 @@ if common.PERF:
 
     _snk = AxisSimSink(aead_axis_if_t, AEAD_BEAT_BYTES, scoreboard=_scoreboard)
     _runner = perf.make_runner("decrypt", _src, _snk, _scoreboard, perf.decrypt_frame_builder)
-    # Preserve the performance mode's externally visible verification result.
-    decrypt_perf_verified: Output[uint1_t]
 else:
     _snk = common.ConvergedAxisSink(aead_axis_if_t, AEAD_BEAT_BYTES, scoreboard=_scoreboard)
 
@@ -235,9 +231,11 @@ def finish_checks():
         common.check_completion("Decrypt", dec_state, NUM_TOTAL_PACKETS, _scoreboard)
 
 
-@MAIN(wireguard_env.TARGET_MHZ)
-@wires
-def decrypt_tb():
+# Simulation-only MAINs: this testbench has no hardware. The driver runs once per cycle,
+# before the cycle converges; the checker after it, on the converged wires.
+@MAIN
+@sim_input
+def decrypt_tb_drive():
     key: uint8_t[CHACHA20_KEY_SIZE] = common.KEY
     nonce: uint8_t[CHACHA20_NONCE_SIZE] = common.NONCE
     aad: uint8_t[AAD_MAX_LEN] = common.AAD
@@ -252,8 +250,10 @@ def decrypt_tb():
     if not common.PERF and common.STRESS:
         chacha20poly1305_decrypt_ports.axis_out_if.ready = drive_out_ready()
 
-    if common.PERF:
-        decrypt_perf_verified = chacha20poly1305_decrypt_ports.is_verified_out
-    else:
+
+@MAIN
+@sim_output
+def decrypt_tb_check():
+    if not common.PERF:
         report_new_packets()
     check_out()

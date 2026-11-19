@@ -14,7 +14,7 @@ fixed-vector top.
 
 import wireguard_env
 
-from pypeline import MAIN, PART, DesignParamError, final, sim_finish, sim_output, sim_print, wires
+from pypeline import MAIN, PART, DesignParamError, final, sim_finish, sim_output, sim_print
 
 import tb_common_sim as common
 
@@ -116,10 +116,10 @@ def check_done():
     sim_finish()
 
 
-# @wires lets native simulation run this control MAIN without saved hardware latency.
+# A simulation-only MAIN, registered after both directions' so their last checks run first.
 # A waveform (--wave) gets the flat ports first, so a finishing cycle has them too.
-@MAIN(wireguard_env.TARGET_MHZ)
-@wires
+@MAIN
+@sim_output
 def tb_finish_checker():
     if wireguard_env.ENCRYPT:
         encrypt_port_waves()

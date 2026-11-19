@@ -4,5 +4,6 @@
 # build.py warns when the local pypelinec checkout predates it.
 # Move it forward in the same commit as any design change that needs a newer
 # PipelineC. The first line that is not a comment is the hash.
-# Requires native waveform support (sim_wave and axi.axis.axis_wave).
-84685d2558a089ef5f705460304e0736c432e906
+# Requires simulation-only @MAINs (@MAIN over @sim_input/@sim_output), used by
+# the native testbenches.
+14bf2420dc237f80dbe86efb24d0ee5581aa0808

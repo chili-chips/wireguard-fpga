@@ -91,7 +91,6 @@ CONFIG = {
     "source_handshake": "converged",
     "native_arithmetic": "hw-functions",
     "native_soft_ops": os.environ.get("PYPELINE_SIM_SOFT_OPS", "all"),
-    "decrypt_verification_retained": True,
     "bus_bytes": BUS_BYTES,
     "dirs": ENABLED_DIRS,
     "seed": SEED,

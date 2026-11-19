@@ -35,7 +35,8 @@ if DECRYPT:
 
 
 # Wait for every enabled direction's completion Wire so neither run is cut short.
-# @wires keeps this simulation-only control out of timing characterization.
+# This MAIN is built into the simulated HDL, where sim_finish() is a VHDL finish. It only
+# reads wires, so @wires keeps it out of timing characterization.
 # A waveform (--wave) gets the flat ports first, so the finishing cycle has them too.
 @MAIN(wireguard_env.TARGET_MHZ)
 @wires

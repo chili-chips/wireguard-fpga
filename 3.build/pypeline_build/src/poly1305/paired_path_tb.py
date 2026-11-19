@@ -24,7 +24,6 @@ from pypeline import (
     MAIN,
     PART,
     Wire,
-    wires,
     param,
     sim_input,
     sim_output,
@@ -316,7 +315,6 @@ def finish_checks():
 if MODE == "mac":
 
     @MAIN(wireguard_env.TARGET_MHZ)
-    @wires
     def paired_mac_tb():
         in_if.stream = drive_word()
         key_if.stream = drive_key()
@@ -346,7 +344,6 @@ elif MODE == "prep":
     from pypeline import uint_to_array_le
 
     @MAIN(wireguard_env.TARGET_MHZ)
-    @wires
     def paired_prep_tb():
         in_if.stream = drive_word()
         out_if.ready = drive_ready()
@@ -378,7 +375,6 @@ else:
         return int(state["cycle"] % 53 >= 41)
 
     @MAIN(wireguard_env.TARGET_MHZ)
-    @wires
     def paired_tags_tb():
         strip_ready: Feedback[aead_axis_if_t.fb_t]
         in_if.stream = drive_word()

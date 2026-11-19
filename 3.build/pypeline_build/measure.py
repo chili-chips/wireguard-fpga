@@ -2020,10 +2020,8 @@ def parse_fmax(out_dir, stdout_info):
     return result
 
 
-def parse_area(out_dir, per_module=True, scope="hardware_top"):
-    """Area from a build's top-level Vivado log. scope "hardware_top": the real top
-    (external ports); "perf_tb_top": a historical synthesized perf testbench, whose
-    constant key/nonce/aad let Vivado fold logic away."""
+def parse_area(out_dir, per_module=True):
+    """Area from a hardware top build's top-level Vivado log."""
     try:
         parsed = parse_out_dir(out_dir, per_module=per_module)
     except Exception as exc:  # a missing/incomplete build must not lose the sim data
@@ -2046,8 +2044,6 @@ def parse_area(out_dir, per_module=True, scope="hardware_top"):
         if percent is not None and percent > 100
     }
     area["fits_device"] = not area["over_capacity"] if area.get("util_pct") else None
-    area["scope"] = scope
-    area["constant_key_folding"] = scope == "perf_tb_top"
     area["per_module"] = parsed["per_module"]
     return area
 
@@ -2239,25 +2235,10 @@ def markdown_table(results, include_mac_details=True):
         )
     if area.get("available"):
         lines.append(
-            f"Area ({area['scope']}): **{area.get('lut_total')} LUT** "
+            f"Area (hardware top): **{area.get('lut_total')} LUT** "
             f"({area.get('lut_logic')} logic + {area.get('lut_memory')} mem), "
             f"**{area.get('ff_total')} FF**, **{area.get('dsp48')} DSP48**, "
             f"**{area.get('bram_tiles')} BRAM tiles**, {area.get('carry4')} CARRY4"
-        )
-    hardware_area = results.get("area_hw_build") or {}
-    if hardware_area.get("available"):
-        lines.append(
-            f"DUT-only area (external key/data ports): **{hardware_area.get('lut_total')} LUT**, "
-            f"**{hardware_area.get('ff_total')} FF**, **{hardware_area.get('dsp48')} DSP48**, "
-            f"**{hardware_area.get('bram_tiles')} BRAM tiles**."
-        )
-    hardware_fmax = results.get("fmax_hw_build") or {}
-    if hardware_fmax:
-        hardware_outcome = "PASS" if hardware_fmax.get("timing_met") is True else "not confirmed"
-        lines.append(
-            f"Hardware-top timing: {hardware_outcome}, "
-            f"{_fmt(hardware_fmax.get('design_mhz'), '.2f')} MHz "
-            f"against {_fmt(hardware_fmax.get('target_mhz'), '.1f')} MHz."
         )
     mac = results.get("config", {}).get("poly1305") or {}
     sharing = results.get("config", {}).get("sharing")
@@ -2964,21 +2945,8 @@ def _run_errors(results):
         requested = results.get("config", {}).get("requested_target_mhz")
         if requested is not None and results.get("fmax", {}).get("target_mhz") != requested:
             errors.append("Measurement timing clock differs from the requested clock")
-    hardware_area = results.get("area_hw_build")
-    if hardware_area is not None:
-        if hardware_area.get("available") is not True:
-            errors.append("Requested hardware-top area report is unavailable")
-        if results.get("fmax_hw_build", {}).get("timing_met") is not True:
-            errors.append("Hardware-top build lacks a confirmed timing pass")
-        requested = results.get("config", {}).get("requested_target_mhz")
-        if (
-            requested is not None
-            and results.get("fmax_hw_build", {}).get("target_mhz") != requested
-        ):
-            errors.append("Hardware-top timing clock differs from the requested clock")
-    for scope, report in (("Measurement", area), ("Hardware-top", hardware_area or {})):
-        if report.get("fits_device") is False:
-            errors.append(f"{scope} synthesis exceeds the selected device's resource capacity")
+    if area.get("fits_device") is False:
+        errors.append("Measurement synthesis exceeds the selected device's resource capacity")
     return errors
 
 
@@ -3129,8 +3097,6 @@ def _poly1305_errors(results):
         if sharing.get("poly1305"):
             if config.get("source_handshake") != "converged":
                 errors.append("Shared MCP measurement lacks converged source handshakes")
-            if config.get("decrypt_verification_retained") is not True:
-                errors.append("Shared MCP measurement does not retain decrypt verification in HDL")
             unit = mac.get("shared_mcps") or {}
             counts = [m.get("accumulator_count") for m in mac.get("directions", {}).values()]
             capacity = unit.get("capacity_lanes")
@@ -3258,16 +3224,9 @@ def compare_block_rates(before, after):
 
 
 def evidence_scopes(results):
-    """(archive prefix, area key, timing key) of each synthesized build a record
-    measured: its own build ("hardware" for a real top, "perf" for a historical
-    synthesized perf testbench) and a historical separate hardware-top build."""
-    scopes = []
-    if "area" in results:
-        own = "hardware" if results["area"].get("scope") == "hardware_top" else "perf"
-        scopes.append((own, "area", "fmax"))
-    if "area_hw_build" in results:
-        scopes.append(("hardware", "area_hw_build", "fmax_hw_build"))
-    return scopes
+    """(archive prefix, area key, timing key) of the synthesized build a record
+    measured: the hardware top its performance testbench simulated."""
+    return [("hardware", "area", "fmax")] if "area" in results else []
 
 
 def check_record(measurement_dir):
@@ -3498,7 +3457,6 @@ def _selftest_record():
     area = dict(
         available=True,
         fits_device=True,
-        scope="perf_tb_top",
         log="vivado_fixture.log",
         lut_total=100,
         ff_total=200,
@@ -3529,8 +3487,6 @@ def _selftest_record():
         phases=[phase],
         fmax=timing,
         area=area,
-        fmax_hw_build=copy.deepcopy(timing),
-        area_hw_build=dict(area, scope="hardware_top"),
     )
 
 
@@ -4711,8 +4667,6 @@ def _measurement_selftest(fixture_dir):
         ("timing", lambda r: r["fmax"].update(timing_met=False)),
         ("missing area", lambda r: r["area"].update(available=False)),
         ("capacity", lambda r: r["area"].update(fits_device=False)),
-        ("hardware timing", lambda r: r["fmax_hw_build"].update(timing_met=False)),
-        ("missing hardware area", lambda r: r["area_hw_build"].update(available=False)),
         ("clock mismatch", lambda r: r["fmax"].update(target_mhz=80)),
         ("tap mismatch", lambda r: r["phases"][0].update(taps_check={"consistent": False})),
         (
@@ -4741,7 +4695,7 @@ def _measurement_selftest(fixture_dir):
             "unfinished body",
             lambda r: r["phases"][0]["poly1305_lifecycle"]["encrypt"].update(body_retirements=0),
         ),
-        ("MCP audit", lambda r: r.update(mcp_hdl_audits={"perf": {"passed": False}})),
+        ("MCP audit", lambda r: r.update(mcp_hdl_audits={"hardware": {"passed": False}})),
     ]
     for label, mutate in mutations:
         changed = copy.deepcopy(original)
@@ -4751,7 +4705,7 @@ def _measurement_selftest(fixture_dir):
     # Exercise shared metadata/accounting as well as the private-service fixture.
     shared = copy.deepcopy(original)
     shared["config"]["sharing"] = {"chacha20": True, "poly1305": True}
-    shared["config"].update(source_handshake="converged", decrypt_verification_retained=True)
+    shared["config"].update(source_handshake="converged")
     directions = shared["config"]["poly1305"]["directions"]
     unit = {"capacity_lanes": max(m["accumulator_count"] for m in directions.values())}
     for name in ("prologue", "epilogue"):
@@ -4799,7 +4753,6 @@ def _measurement_selftest(fixture_dir):
             lambda r: r["phases"][0]["poly1305_shared_services"]["epilogue"].update(responses=0),
         ),
         ("source handshake", lambda r: r["config"].update(source_handshake="early")),
-        ("verification output", lambda r: r["config"].update(decrypt_verification_retained=False)),
         ("source bytes", lambda r: r["phases"][0]["encrypt"].update(in_payload_bytes=0)),
         ("output bytes", lambda r: r["phases"][0]["encrypt"].update(out_payload_bytes=0)),
     ):
@@ -4869,7 +4822,7 @@ def _measurement_selftest(fixture_dir):
         # a bad retained input signature or stale production constraints.
         archived = scratch / "archive"
         shutil.copytree(directory, archived)
-        for name in ("perf-clocks.xdc", "perf-inputs.json", "perf-sweep-history.json"):
+        for name in ("hardware-clocks.xdc", "hardware-inputs.json", "hardware-sweep-history.json"):
             path = archived / name
             if name.endswith(".xdc"):
                 path.write_bytes(path.read_bytes() + b"\n# stale constraint test\n")
@@ -4909,7 +4862,7 @@ def _measurement_selftest(fixture_dir):
         if proc.returncode:
             raise ValueError("Cache-free parse-only failed: " + proc.stdout[-2000:])
         parsed = json.loads((scratch / "results.json").read_text())
-        for key in ("provenance", "fmax", "area", "fmax_hw_build", "area_hw_build"):
+        for key in ("provenance", "fmax", "area"):
             if parsed.get(key) != saved.get(key):
                 raise ValueError("Cache-free parse-only replaced saved " + key)
     print("measurement selftest: PASS (guards, models, saved provenance, archive integrity)")
@@ -5365,22 +5318,17 @@ def main():
         previous, out_dir = _restore_run_config(args, perf_raw, mac_config, meas_dir)
 
     stdout_info = parse_stdout(log_path)
-    # Timing comes from the hardware build's log; a historical record's perf
-    # build synthesized the testbench itself, so its own log has it
+    # The stdout cross-check of timing comes from the hardware build's log,
+    # unless that build was up to date and printed none; then, or with no
+    # hardware log, this run's own log stands in. parse_fmax reads the timing
+    # itself from the out_dir's sweep history.
     timing_log = (
         hardware_log_path
         if os.path.exists(hardware_log_path) and not hardware_info.get("up_to_date")
         else log_path
     )
-    hardware_scope = os.path.exists(os.path.join(out_dir, BUILT_HARDWARE_FILE)) or (
-        previous.get("area", {}).get("scope") == "hardware_top"
-    )
     fmax = parse_fmax(out_dir, parse_stdout(timing_log))
-    area = parse_area(
-        out_dir,
-        per_module=not args.no_per_module_area,
-        scope="hardware_top" if hardware_scope else "perf_tb_top",
-    )
+    area = parse_area(out_dir, per_module=not args.no_per_module_area)
     # Saved records remain reformatable after local synthesis caches are
     # removed. Never replace their accepted evidence with "unavailable".
     if args.parse_only and previous:
@@ -5477,7 +5425,7 @@ def main():
         "sim": perf_raw.get("sim", {}),
     }
     # Reformatting a saved run must not replace its build provenance with the
-    # checkout doing the formatting, or silently drop its DUT-only area.
+    # checkout doing the formatting.
     if args.parse_only and previous:
         results["provenance"] = previous.get("provenance", results["provenance"])
         correct_frozen_compiler_revision(results["provenance"], log_path)
@@ -5485,8 +5433,6 @@ def main():
             if key in previous.get("config", {}):
                 results["config"][key] = previous["config"][key]
         for key in (
-            "area_hw_build",
-            "fmax_hw_build",
             "build_mult_impls",
             "build_compute_impls",
             "build_block_rates",

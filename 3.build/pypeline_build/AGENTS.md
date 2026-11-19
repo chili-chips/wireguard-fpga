@@ -57,8 +57,9 @@ the exceptions above, even though `REUSE.toml` also covers this directory.
   names across arguments and results; interface types use `_if_t`.
 - Size buffers from the selected instances' resolved pipeline metadata, ex. using
   [aead_types.py](src/aead_types.py).
-- Declare `wireguard_env.TARGET_MHZ` on every MAIN, including simulation
-  checkers.
+- Declare `wireguard_env.TARGET_MHZ` on every hardware MAIN. A testbench's
+  stimulus and checker are simulation-only MAINs (`@MAIN` over `@sim_input` or
+  `@sim_output`), a bare `@MAIN` with no clock; do not tag them `@wires`.
 - Report PypelineC compiler or shared performance-library bugs to the user.
 
 ## Validation
@@ -264,7 +265,7 @@ too: pull before you edit `1.hw/` or `4.sim/`.
   [PipelineC#400](https://github.com/JulianKemmerer/PipelineC/issues/400)
   ([#59](https://github.com/chili-chips/wireguard-fpga/issues/59)). 419
   names are in both netlists, 169 with different bodies; Verilator keeps one.
-- **`pipelinec.ref`** is `0b710cca` (includes the #394 and #395 fixes). The SoC
+- **`pipelinec.ref`** is `14bf2420` (includes the #394 and #395 fixes). The SoC
   builds above started on `97097a87` with the old workaround; the lint and
   the native random sim pass on `99e5e018`; on `0b710cca` the GHDL lints
   pass with no waiver (the #395 one is gone).

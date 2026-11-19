@@ -24,7 +24,6 @@ from pypeline import (
     sim_print,
     uint1_t,
     uint8_t,
-    wires,
 )
 
 import chacha20poly1305_encrypt_ports
@@ -175,9 +174,11 @@ def finish_checks():
         common.check_completion("Encrypt", enc_state, common.NUM_RANDOM_PACKETS, _scoreboard)
 
 
-@MAIN(wireguard_env.TARGET_MHZ)
-@wires
-def encrypt_tb():
+# Simulation-only MAINs: this testbench has no hardware. The driver runs once per cycle,
+# before the cycle converges; the checker after it, on the converged wires.
+@MAIN
+@sim_input
+def encrypt_tb_drive():
     key: uint8_t[CHACHA20_KEY_SIZE] = common.KEY
     nonce: uint8_t[CHACHA20_NONCE_SIZE] = common.NONCE
     aad: uint8_t[AAD_MAX_LEN] = common.AAD
@@ -192,6 +193,10 @@ def encrypt_tb():
     if not common.PERF and common.STRESS:
         chacha20poly1305_encrypt_ports.axis_out_if.ready = drive_out_ready()
 
+
+@MAIN
+@sim_output
+def encrypt_tb_check():
     if not common.PERF:
         report_new_packets()
     check_out()
