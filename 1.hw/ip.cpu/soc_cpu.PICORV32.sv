@@ -83,17 +83,17 @@
 //   VGA               : iomem_addr[31:24] == 8'h05
 //==========================================================================
 
-module soc_cpu #(
+module soc_cpu
+  import soc_pkg::imem_wr_t;
+#(
     parameter logic [31:0] ADDR_RESET     = 32'h0000_0000,
     parameter int          NUM_WORDS_IMEM = 8192
 ) (
-    soc_if.MST          bus,
+    soc_if.MST       bus,
 
     // access point for reloading CPU program memory
-    input  logic        imem_cpu_rst_n,
-    input  logic        imem_we,
-    input  logic [31:2] imem_waddr,
-    input  logic [31:0] imem_wdat
+    input  logic     imem_cpu_rst_n,
+    input  imem_wr_t imem_wr          // the UART loader, CPU in reset
 );
 
   logic        cpu_valid;  //-\ CPU
@@ -234,9 +234,9 @@ module soc_cpu #(
       .rdat  (imem_rdat),
 
       // Write port for reloading new CPU program
-      .we    (imem_we),
-      .waddr (imem_waddr),
-      .wdat  (imem_wdat),
+      .we    (imem_wr.we),
+      .waddr (imem_wr.addr),
+      .wdat  (imem_wr.data),
       .wrdat (  /*LINT:OK*/)  // port B reads: eduBOS5 data loads only
   );
 

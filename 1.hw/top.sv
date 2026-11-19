@@ -204,10 +204,8 @@ module top
       .clk    (sys_clk)
   );
 
-  logic        imem_cpu_rst_n;
-  logic        imem_we;
-  logic [31:2] imem_waddr;
-  logic [31:0] imem_wdat;
+  logic     imem_cpu_rst_n;
+  imem_wr_t imem_wr;  // the UART loader writes the CPU's program memory
 
   //---------------------------------
   soc_cpu #(
@@ -216,10 +214,8 @@ module top
   ) u_cpu (
       .bus (bus_cpu),  //MST
 
-      .imem_cpu_rst_n (imem_cpu_rst_n),  //-\ access point
-      .imem_we        (imem_we),         //-| for
-      .imem_waddr     (imem_waddr),      // | reloading CPU
-      .imem_wdat      (imem_wdat)        //-/ program memory
+      .imem_cpu_rst_n (imem_cpu_rst_n),  //-\ reloading CPU
+      .imem_wr        (imem_wr)          //-/ program memory
   );
 
   //---------------------------------
@@ -257,9 +253,7 @@ module top
       .to_csr   (to_csr.uart), //o
 
       .imem_cpu_rst_n (imem_cpu_rst_n),  //o
-      .imem_we        (imem_we),         //o
-      .imem_waddr     (imem_waddr),      //o[31:2]
-      .imem_wdat      (imem_wdat),       //o[31:0]
+      .imem_wr        (imem_wr),         //o
 
       .bus (bus_uart)  //MST
   );

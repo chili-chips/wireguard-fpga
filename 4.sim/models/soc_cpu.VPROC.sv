@@ -84,7 +84,9 @@
 //   VGA               : iomem_addr[31:24] == 8'h05
 //==========================================================================
 /* verilator lint_off UNOPTFLAT */
-module soc_cpu #(
+module soc_cpu
+   import soc_pkg::imem_wr_t;
+#(
    parameter [31:0]   ADDR_RESET     = 32'h 0000_0000,  // Unused
    parameter int      NUM_WORDS_IMEM = 8192,            // Unused
    parameter [3:0]    NODE           = 0                // CPU defaults to VProc node 0
@@ -93,9 +95,7 @@ module soc_cpu #(
 
 // access point for reloading CPU program memory
    input logic        imem_cpu_rst_n,
-   input logic        imem_we,
-   input logic [31:2] imem_waddr,
-   input logic [31:0] imem_wdat
+   input  imem_wr_t    imem_wr  // the UART loader, CPU in reset
 );
 
 //----------------------------------------------------
@@ -244,9 +244,9 @@ assign cpu_rst        = ~(bus.arst_n & imem_cpu_rst_n);
       .readdatavalid     (imem_readdatavalid),     // o
 
        // Port used when loading program via UART
-      .wr_port_valid     (imem_we),                // i
-      .wr_port_data      (imem_wdat),              // i
-      .wr_port_addr      ({imem_waddr, 2'b00}),    // i
+      .wr_port_valid     (imem_wr.we),                // i
+      .wr_port_data      (imem_wr.data),              // i
+      .wr_port_addr      ({imem_wr.addr, 2'b00}),    // i
 
        // Unused burst ports
       .rx_waitrequest    (),                       // o (unused)

@@ -59,23 +59,21 @@ module uart
   import csr_pkg::*;
   import soc_pkg::*;
 (
-    input  logic                  arst_n,
-    input  logic                  clk,
+    input  logic           arst_n,
+    input  logic           clk,
 
-    input  logic                  uart_rx,
-    output logic                  uart_tx,
+    input  logic           uart_rx,
+    output logic           uart_tx,
 
-    input  csr__out_t             from_csr,
-    output csr__uart__in_t        to_csr,
+    input  csr__out_t      from_csr,
+    output csr__uart__in_t to_csr,
 
     // IMEM Write port, for live updates of CPU program
-    output logic                  imem_cpu_rst_n,
-    output logic                  imem_we,
-    output logic           [31:2] imem_waddr,
-    output logic           [31:0] imem_wdat,
+    output logic           imem_cpu_rst_n,
+    output imem_wr_t       imem_wr,
 
     // DMEM/CSR bus mastering interface
-    soc_if.MST                    bus
+    soc_if.MST             bus
 );
 
   //--------------------------------------
@@ -1286,15 +1284,13 @@ module uart
     endcase
   end
 
-  assign imem_cpu_rst_n   = cpu_rst_n;
-  assign imem_we          = ram_wen;
-  assign imem_waddr[31:2] = ram_addr[31:2];
-  assign imem_wdat        = ram_data;
+  assign imem_cpu_rst_n = cpu_rst_n;
+  assign imem_wr        = '{we: ram_wen, addr: ram_addr[31:2], data: ram_data};
 
-  assign bus.vld          = bus_vld;
-  assign bus.we           = bus_we;
-  assign bus.addr         = bus_addr;
-  assign bus.wdat         = bus_wdat;
+  assign bus.vld        = bus_vld;
+  assign bus.we         = bus_we;
+  assign bus.addr       = bus_addr;
+  assign bus.wdat       = bus_wdat;
 
   // CSR status, in one process
   always_comb begin

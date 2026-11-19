@@ -35,17 +35,16 @@
 
 module soc_cpu
   import edubos5_pkg::*;
+  import soc_pkg::imem_wr_t;
 #(
     parameter logic [31:0] ADDR_RESET     = 32'h0000_0000,
     parameter int          NUM_WORDS_IMEM = 8192
 ) (
-    soc_if.MST          bus,
+    soc_if.MST       bus,
 
     // access point for reloading CPU program memory
-    input  logic        imem_cpu_rst_n,
-    input  logic        imem_we,
-    input  logic [31:2] imem_waddr,
-    input  logic [31:0] imem_wdat
+    input  logic     imem_cpu_rst_n,
+    input  imem_wr_t imem_wr          // the UART loader, CPU in reset
 );
 
   if (ADDR_RESET != 32'h0000_0000) begin : g_addr_reset_check
@@ -148,7 +147,7 @@ module soc_cpu
   //----------------------------------------------------
   // IMEM port B address: program reload (CPU in reset), else CPU data loads
   logic [31:2] imem_b_addr;
-  assign       imem_b_addr = imem_we ? imem_waddr : dmem_addr[31:2];
+  assign       imem_b_addr = imem_wr.we ? imem_wr.addr : dmem_addr[31:2];
 
   imem #(
       .NUM_WORDS (NUM_WORDS_IMEM)
@@ -163,9 +162,9 @@ module soc_cpu
       .rdat  (imem_rdat),
 
       // port B: program reload (CPU in reset), else CPU data loads
-      .we    (imem_we),
+      .we    (imem_wr.we),
       .waddr (imem_b_addr),
-      .wdat  (imem_wdat),
+      .wdat  (imem_wr.data),
       .wrdat (imem_load_rdat)
   );
 

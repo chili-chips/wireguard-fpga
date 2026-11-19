@@ -96,6 +96,14 @@ package soc_pkg;
   typedef logic [SOC_BYTES-1:0] soc_we_t;
   typedef logic [SOC_DATAW-1:0] soc_data_t;  // Write Data
 
+  // a write into the CPU's program memory (IMEM): the UART loader's, while
+  // the CPU is held in reset
+  typedef struct packed {
+    logic      we;
+    soc_addr_t addr;  // a word address, [31:2]
+    soc_data_t data;
+  } imem_wr_t;
+
   //- - - - - - - - - - - - - - - - - - - - -
   // Memory map of the data bus (soc_fabric): IMEM is on its own port from 0
   localparam logic [SOC_ADDRW-1:0] DMEM_BASE = 32'h1000_0000;  // to 0x1FFF_FFFF
