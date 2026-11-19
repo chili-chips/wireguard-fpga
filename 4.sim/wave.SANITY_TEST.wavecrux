@@ -1157,7 +1157,7 @@
       "id": "gtkw-115",
       "ref": "53",
       "path": "TOP.tb.gmiiarst_n",
-      "name": "gmii[0].arst_n",
+      "name": "gmiiarst_n",
       "color": 4280731354,
       "format": "hexadecimal",
       "height": 30.0
@@ -1167,7 +1167,7 @@
       "id": "gtkw-116",
       "ref": "52",
       "path": "TOP.tb.gmii[0].rx_clk",
-      "name": "gmii[0].clk",
+      "name": "gmii[0].rx_clk",
       "color": 4294962776,
       "format": "hexadecimal",
       "height": 30.0
