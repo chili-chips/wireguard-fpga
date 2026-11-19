@@ -298,8 +298,8 @@ Each open item has an issue here, labelled `openXC7`. Upstream numbers without a
 | Issue | Toolchain | Status | Ours | Upstream | Workaround |
 |---|---|---|---|---|---|
 | No mapping for `BUFGMUX` | v1.0.0 | fixed in `main` ([nextpnr#132](https://github.com/openXC7/nextpnr/pull/132)), not released | [#5](https://github.com/chili-chips/wireguard-fpga/issues/5) | nextpnr#125 | `hw_build.openXC7/bufgmux_map.v`: a `BUFGCTRL` after synthesis. On v1.0.0 its `IGNORE` bits come out inverted, so the mux switches asynchronously |
-| XDC targets other than `get_ports`/`get_cells` abort | v1.0.0 | open | [#6](https://github.com/chili-chips/wireguard-fpga/issues/6) | [nextpnr#185](https://github.com/openXC7/nextpnr/issues/185) | the Makefile passes nextpnr only the `get_ports` lines of `top.xdc` |
-| Differential input needs its N pin constrained | v1.0.0 | open | [#7](https://github.com/chili-chips/wireguard-fpga/issues/7) | [nextpnr#184](https://github.com/openXC7/nextpnr/issues/184) | `hw_build.openXC7/top.openxc7.xdc`: `clk_n` on T4 |
+| XDC targets other than `get_ports`/`get_cells` abort | v1.0.0 | fixed on main (nextpnr#193), not released | [#6](https://github.com/chili-chips/wireguard-fpga/issues/6) | [nextpnr#185](https://github.com/openXC7/nextpnr/issues/185) | the Makefile passes nextpnr only the `get_ports` lines of `top.xdc` |
+| Differential input needs its N pin constrained | v1.0.0 | fixed on main (nextpnr#194), not released | [#7](https://github.com/chili-chips/wireguard-fpga/issues/7) | [nextpnr#184](https://github.com/openXC7/nextpnr/issues/184) | `hw_build.openXC7/top.openxc7.xdc`: `clk_n` on T4 |
 | Timing at the default seed (the sv2v failure is gone: `read_slang`) | v1.0.0 | open | [#3](https://github.com/chili-chips/wireguard-fpga/issues/3) | - | a new seed sweep |
 | `BUFGMUX` not supported | legacy | closed | - | [nextpnr-xilinx#75](https://github.com/openXC7/nextpnr-xilinx/issues/75) | fixed upstream (nextpnr-xilinx#81) |
 | `IBUFGDS` not supported | legacy | closed | - | [nextpnr-xilinx#74](https://github.com/openXC7/nextpnr-xilinx/issues/74) | `IBUFDS` + `BUFG` |

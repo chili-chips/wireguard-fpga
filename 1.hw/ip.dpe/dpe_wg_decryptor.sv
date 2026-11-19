@@ -66,8 +66,7 @@
 //   The peer table answers a synchronous read: peer_rsp is valid from the
 //   2nd clock after peer_req.idx. The receiver does not advance the send
 //   counter; peer_req.new_send_cnt and update_send_cnt stay 0.
-//   TODO: the receive key (wg_peer_cfg_t has one key for both directions),
-//   the replay window on the counter.
+//   TODO: the replay window on the counter (#4).
 //==========================================================================
 
 module dpe_wg_decryptor

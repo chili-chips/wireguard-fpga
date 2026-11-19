@@ -260,7 +260,10 @@ too: pull before you edit `1.hw/` or `4.sim/`.
   of both will clash. The shared top (one ChaCha20 pipeline) avoids it but
   needs one instance for both wrappers: our call at integration
   ([#27](https://github.com/chili-chips/wireguard-fpga/issues/27)). If
-  PipelineC can prefix or uniquify module names per top, say so.
+  PipelineC can prefix or uniquify module names per top, say so: asked in
+  [PipelineC#400](https://github.com/JulianKemmerer/PipelineC/issues/400)
+  ([#59](https://github.com/chili-chips/wireguard-fpga/issues/59)). 419
+  names are in both netlists, 169 with different bodies; Verilator keeps one.
 - **`pipelinec.ref`** is `0b710cca` (includes the #394 and #395 fixes). The SoC
   builds above started on `97097a87` with the old workaround; the lint and
   the native random sim pass on `99e5e018`; on `0b710cca` the GHDL lints

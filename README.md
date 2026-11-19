@@ -139,7 +139,7 @@ The hardware architecture essentially follows the HW/SW partitioning and consist
 
 The soft CPU is [eduBOS5](1.hw/ip.cpu/cpu.EDUBOS5/README.md) (default; its store fix passes the [`UART_BUS_STRESS`](4.sim/README.md#uart-bus-master-test-uart_bus_stress) simulation, hardware check pending) or PicoRV32, picked in [`1.hw/top.filelist`](1.hw/top.filelist). It runs from on-chip memory: 64 kB IMEM and 64 kB DMEM ([`1.hw/top.sv`](1.hw/top.sv)). This memory serves only the control plane and does not store packets. The connection between the control and data planes is established through a CSR-based HAL.
 
-The data plane consists of several IP cores, including data plane engine (DPE) and supporting components, which are listed and explained in the direction of network traffic propagation. The default build's DPE is multiplexer -> dummy switch (a fixed crossbar) -> demultiplexer. Swapping in [`dpe_switch.sv`](1.hw/ip.dpe/dpe_switch.sv) puts the WireGuard data path between them: disassembler, decryptor, IP lookup and encryptor ([`1.hw/top.filelist`](1.hw/top.filelist)). It is linted, but not yet simulated or built as a whole.
+The data plane consists of several IP cores, including data plane engine (DPE) and supporting components, which are listed and explained in the direction of network traffic propagation. The default build's DPE is multiplexer -> dummy switch (a fixed crossbar) -> demultiplexer. Swapping in [`dpe_switch.sv`](1.hw/ip.dpe/dpe_switch.sv) puts the WireGuard data path between them: disassembler, decryptor, IP lookup and encryptor ([`1.hw/top.filelist`](1.hw/top.filelist)). It is linted and simulated as a whole ([`4.sim/rtl/dpe_switch`](4.sim/rtl/dpe_switch)), but not yet built.
 - _PHY Controller_ - initial configuration of Realtek PHYs and monitoring link activity (link up/down events)
 - _1G MAC_ - execution of the 1G Ethernet protocol (framing, flow control, FCS, etc.)
 - _Rx FIFOs_ - clock domain crossing, bus width conversion, and store & forward packet handling
@@ -433,20 +433,22 @@ If it was not for **Julian Kemmerer's** unreserved support helping us move our t
 | Tool / project | Issue | What | State |
 |---|---|---|---|
 | openXC7 nextpnr | nextpnr#125 | no mapping for `BUFGMUX` | fixed on main ([nextpnr#132](https://github.com/openXC7/nextpnr/pull/132)), not released |
-| openXC7 nextpnr | [nextpnr#185](https://github.com/openXC7/nextpnr/issues/185) | XDC targets other than `get_ports` / `get_cells` abort the run | open |
-| openXC7 nextpnr | [nextpnr#184](https://github.com/openXC7/nextpnr/issues/184) | a differential input needs its N pin constrained | open |
+| openXC7 nextpnr | [nextpnr#185](https://github.com/openXC7/nextpnr/issues/185) | XDC targets other than `get_ports` / `get_cells` abort the run | fixed on main ([nextpnr#193](https://github.com/openXC7/nextpnr/pull/193)), not released |
+| openXC7 nextpnr | [nextpnr#184](https://github.com/openXC7/nextpnr/issues/184) | a differential input needs its N pin constrained | fixed on main ([nextpnr#194](https://github.com/openXC7/nextpnr/pull/194)), not released |
+| openXC7 nextpnr | [nextpnr#181](https://github.com/openXC7/nextpnr/issues/181) | no legal placement for a CARRY4 at 48% CARRY4 use, XC7A200T ([#33](https://github.com/chili-chips/wireguard-fpga/issues/33)) | open |
 | PipelineC (Pypeline) | [PipelineC#394](https://github.com/JulianKemmerer/PipelineC/issues/394) | empty VHDL record from an untyped namedtuple; Vivado 2026.1 and GHDL reject it ([#35](https://github.com/chili-chips/wireguard-fpga/issues/35), [Pypeline issues](3.build/pypeline_build/README.md#issues-filed-upstream)) | fixed (`99e5e018`) |
 | PipelineC (Pypeline) | [PipelineC#395](https://github.com/JulianKemmerer/PipelineC/issues/395) | enum `_NULL` constant calls a function before its body is elaborated; GHDL `-Welaboration` ([#36](https://github.com/chili-chips/wireguard-fpga/issues/36)) | open |
 | PipelineC (Pypeline) | [PipelineC#396](https://github.com/JulianKemmerer/PipelineC/issues/396) | feature: auto-pipeliner aware of DSP48 boundaries, to absorb its registers into the DSP48 ([#37](https://github.com/chili-chips/wireguard-fpga/issues/37)) | open |
 | PipelineC (Pypeline) | [PipelineC#397](https://github.com/JulianKemmerer/PipelineC/issues/397) | feature: faster sweep, with less repeated whole-design synthesis ([#38](https://github.com/chili-chips/wireguard-fpga/issues/38)) | open |
 | PipelineC (Pypeline) | [PipelineC#398](https://github.com/JulianKemmerer/PipelineC/issues/398) | feature: formal equivalence (LEQ) between the Python source and the generated HDL ([#42](https://github.com/chili-chips/wireguard-fpga/issues/42)) | open |
+| PipelineC (Pypeline) | [PipelineC#400](https://github.com/JulianKemmerer/PipelineC/issues/400) | feature: unique module names per top; the encrypt and decrypt netlists share 419 names, 169 with different bodies ([#59](https://github.com/chili-chips/wireguard-fpga/issues/59)) | open |
 | JanusHDL | [#1](https://github.com/chili-chips/wireguard-fpga/issues/1) | 0.17.0: what simulates and what does not | open |
-| JanusHDL | [#41](https://github.com/chili-chips/wireguard-fpga/issues/41) | 0.17.0: a member of a struct-typed signal in an interface names nothing | open |
+| JanusHDL | [#41](https://github.com/chili-chips/wireguard-fpga/issues/41) | 0.17.0: a member of a struct-typed signal in an interface names nothing | fixed in 0.21.0, closed |
 | JanusHDL | [#47](https://github.com/chili-chips/wireguard-fpga/issues/47) | 0.17.0: a cast to a named type (`len16_t'(...)`) in a constant expression is not evaluated | fixed in 0.20.0, closed |
-| JanusHDL | [#53](https://github.com/chili-chips/wireguard-fpga/issues/53) | 0.20.0: a struct `localparam` set by a named-member assignment pattern is rejected | open |
-| JanusHDL | [#54](https://github.com/chili-chips/wireguard-fpga/issues/54) | 0.20.0: an element of an interface instance array (`link[k]`) is rejected on an interface port | open |
-| JanusHDL | [#55](https://github.com/chili-chips/wireguard-fpga/issues/55) | 0.20.0: `$bits` of a type is not a constant in a part-select bound | open |
-| JanusHDL | [#56](https://github.com/chili-chips/wireguard-fpga/issues/56) | 0.20.0: a task argument default of `'1` gives 1, not all ones | open |
+| JanusHDL | [#53](https://github.com/chili-chips/wireguard-fpga/issues/53) | 0.20.0: a struct `localparam` set by a named-member assignment pattern is rejected | fixed in 0.21.0, closed |
+| JanusHDL | [#54](https://github.com/chili-chips/wireguard-fpga/issues/54) | 0.20.0: an element of an interface instance array (`link[k]`) is rejected on an interface port | fixed in 0.21.0, closed |
+| JanusHDL | [#55](https://github.com/chili-chips/wireguard-fpga/issues/55) | 0.20.0: `$bits` of a type is not a constant in a part-select bound | fixed in 0.21.0, closed |
+| JanusHDL | [#56](https://github.com/chili-chips/wireguard-fpga/issues/56) | 0.20.0: a task argument default of `'1` gives 1, not all ones | default fixed in 0.21.0; an explicit `'1` argument still gives 1 |
 | Icarus Verilog | [iverilog#1820](https://github.com/steveicarus/iverilog/issues/1820) | `unique if` / `unique0 if` / `priority if`: syntax error ([#43](https://github.com/chili-chips/wireguard-fpga/issues/43)) | open |
 | Icarus Verilog | [iverilog#1821](https://github.com/steveicarus/iverilog/issues/1821) | an interface port's parameter rejected in a constant expression ([#44](https://github.com/chili-chips/wireguard-fpga/issues/44)) | open |
 | Icarus Verilog | [iverilog#266](https://github.com/steveicarus/iverilog/issues/266) | unpacked structs (our case added; [#45](https://github.com/chili-chips/wireguard-fpga/issues/45)) | open |
