@@ -49,12 +49,12 @@ JanusHDL: 0.20.0, 2026-11-18. "—": not tried.
 | `dpe_mux` | PASS | PASS | no: [#41](https://github.com/chili-chips/wireguard-fpga/issues/41) |
 | `dpe_demux` | PASS | PASS | no: [#41](https://github.com/chili-chips/wireguard-fpga/issues/41) |
 | `dpe_wg_disassembler` | PASS | — | no: [#41](https://github.com/chili-chips/wireguard-fpga/issues/41) |
-| `dpe_wg_encryptor` | PASS | — | no: [#41](https://github.com/chili-chips/wireguard-fpga/issues/41); an element of an interface array on an interface port (`axis_pipeline_register.sv:70`) |
+| `dpe_wg_encryptor` | PASS | — | no: [#41](https://github.com/chili-chips/wireguard-fpga/issues/41); the `PEER` struct `localparam` ([#53](https://github.com/chili-chips/wireguard-fpga/issues/53)); an element of an interface array on an interface port (`axis_pipeline_register.sv:70`, [#54](https://github.com/chili-chips/wireguard-fpga/issues/54)) |
 | `dpe_wg_decryptor` | PASS | — | no: the two PipelineC cores define the same helper modules (Verilator: `-Wno-MODDUP`); then as `dpe_wg_encryptor` |
-| `lkup_egress` | PASS | no: `csr_pkg.sv` | no: a named-member pattern for a struct `localparam` (`lkup_pkg.sv:47`); `$bits` of a type in a part-select bound (`lkup_egress.sv:116`); [#41](https://github.com/chili-chips/wireguard-fpga/issues/41) |
-| `lkup_peer_table` | PASS | no: `csr_pkg.sv` | no: the struct `localparam` pattern; past it, bytes 1 to 3 of each word read X (nested generate loops, `lkup_peer_table.sv:175`) |
+| `lkup_egress` | PASS | no: `csr_pkg.sv` ([#45](https://github.com/chili-chips/wireguard-fpga/issues/45)); then the `'1` default ([#57](https://github.com/chili-chips/wireguard-fpga/issues/57)) | no: a named-member pattern for a struct `localparam` (`lkup_pkg.sv:47`, [#53](https://github.com/chili-chips/wireguard-fpga/issues/53)); `$bits` of a type in a part-select bound (`lkup_egress.sv:116`, [#55](https://github.com/chili-chips/wireguard-fpga/issues/55)); [#41](https://github.com/chili-chips/wireguard-fpga/issues/41); then the `'1` default as `lkup_peer_table` ([#56](https://github.com/chili-chips/wireguard-fpga/issues/56)) |
+| `lkup_peer_table` | PASS | no: `csr_pkg.sv` ([#45](https://github.com/chili-chips/wireguard-fpga/issues/45)); then the `'1` default ([#57](https://github.com/chili-chips/wireguard-fpga/issues/57)) | no: the struct `localparam` pattern ([#53](https://github.com/chili-chips/wireguard-fpga/issues/53)); past it, the bench's `'1` default byte enables read as 1, so bytes 1 to 3 stay X ([#56](https://github.com/chili-chips/wireguard-fpga/issues/56)) |
 | `pcap_reader_writer` | PASS | runs | no: [#41](https://github.com/chili-chips/wireguard-fpga/issues/41) |
-| `gmii2gmii_test` | runs | no: compiles all of `top.filelist` (`csr_pkg.sv`) | no: the struct `localparam` pattern; runs past it |
+| `gmii2gmii_test` | runs | no: compiles all of `top.filelist` (`csr_pkg.sv`) | no: the struct `localparam` pattern ([#53](https://github.com/chili-chips/wireguard-fpga/issues/53)); runs past it |
 | `chacha20poly1305_encrypt` | runs | no: nested unpacked array pattern (`tb.sv:62`) | no: [#41](https://github.com/chili-chips/wireguard-fpga/issues/41) |
 
 "Runs" means the bench ends without error but has no self-check yet.

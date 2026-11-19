@@ -242,6 +242,11 @@ too: pull before you edit `1.hw/` or `4.sim/`.
   `{counter, 32'd0}` (4 zero bytes, then the little-endian counter); no AAD.
   Key and nonce stay put while a packet is in the core: one packet at a time
   for now, so the core's throughput is not yet the limit.
+- **Open for you ([#58](https://github.com/chili-chips/wireguard-fpga/issues/58),
+  2026-11-18):** `dpe_wg_encryptor` sends the outer IPv4 header checksum as
+  0 (a real peer drops it), and `wg_padded_len()` adds a 16-byte block when
+  the length already is a multiple of 16. `wg_check.py` mirrors both, so fix
+  the reference with the RTL.
 - **Failed authentication: handled.** The decryptor drops a packet whose
   plaintext comes with `is_verified_out` low; the loopback bench flips one
   ciphertext bit and checks the packet is dropped.
