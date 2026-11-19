@@ -122,25 +122,34 @@ module dpe_wg_decryptor
   localparam int     IP_LEN_BEAT   = beat_of(IPV4_TOTAL_LEN_OFFSET);        // 1
   localparam len16_t IP_LEN_MAX    = WG_IPV4_OVERHEAD + AEAD_MAX_PT_BYTES;
 
-  state_t state, state_next;
-  feed_t feed, feed_next;
-  emit_t emit, emit_next;
-  dpe_addr_t tuser_dst, tuser_dst_next;
-  dpe_addr_t tuser_src, tuser_src_next;
-  dpe_peer_idx_t peer_idx, peer_idx_next;
-  wg_peer_cfg_t peer_cfg, peer_cfg_next;  // the packet's peer, from the peer table
-  logic [1:0] hdr_k, hdr_k_next;  // header beats in so far
-  logic [ETH_W-1:0] eth_hdr, eth_hdr_next;  // the outer Ethernet header
-  wg_counter_t counter, wg_cnt_next;  // the packet's counter: the nonce
-  logic [CARRY_W-1:0] carry, carry_next;  // the frame beat before: its last bytes
-  len16_t ip_len, ip_len_next;  // the plaintext IPv4 total length
-  len16_t sent, sent_next;  // IPv4 bytes out so far
-  logic core_done, core_done_next;  // the core's last beat is in
-  beat_t held, held_next;  // the plaintext beat before
-  len16_t core_bytes, core_bytes_next;  // bytes fed to the core: ciphertext and tag
+  // the registers: r, and r_next, what they hold in the next clock
+  typedef struct packed {
+    state_t             state;
+    feed_t              feed;
+    emit_t              emit;
+    dpe_addr_t          tuser_dst;
+    dpe_addr_t          tuser_src;
+    dpe_peer_idx_t      peer_idx;
+    wg_peer_cfg_t       peer_cfg;    // the packet's peer, from the peer table
+    logic [1:0]         hdr_k;       // header beats in so far
+    logic [ETH_W-1:0]   eth_hdr;     // the outer Ethernet header
+    wg_counter_t        counter;     // the packet's counter: the nonce
+    logic [CARRY_W-1:0] carry;       // the frame beat before: its last bytes
+    len16_t             ip_len;      // the plaintext IPv4 total length
+    len16_t             sent;        // IPv4 bytes out so far
+    logic               core_done;   // the core's last beat is in
+    beat_t              held;        // the plaintext beat before
+    len16_t             core_bytes;  // bytes fed to the core: ciphertext and tag
+  } regs_t;
+  regs_t r, r_next;
 
   dpe_tuser_t tuser_out;
-  assign tuser_out = '{bypass_all: 1'b0, bypass_stage: 1'b0, src: tuser_src, dst: tuser_dst};
+  assign tuser_out = '{
+          bypass_all: 1'b0,
+          bypass_stage: 1'b0,
+          src: r.tuser_src,
+          dst: r.tuser_dst
+      };
 
   // Internal signals
   dpe_if to_decrypt (
@@ -172,66 +181,36 @@ module dpe_wg_decryptor
   assign ip_len_first = be16(from_decrypt.tdata, 2);
 
   len16_t rem;  // IPv4 bytes still to go out
-  assign rem = ip_len - sent;
+  assign rem = r.ip_len - r.sent;
 
   // FSM registers
   always_ff @(posedge inp.clk) begin
     if (inp.rst) begin
-      state      <= IDLE;
-      feed       <= FEED_HDR;
-      emit       <= EMIT_FIRST;
-      tuser_dst  <= DPE_ADDR_CPU;
-      tuser_src  <= DPE_ADDR_CPU;
-      peer_idx   <= '0;
-      peer_cfg   <= '0;
-      hdr_k      <= '0;
-      eth_hdr    <= '0;
-      counter    <= '0;
-      carry      <= '0;
-      ip_len     <= '0;
-      sent       <= '0;
-      core_done  <= 1'b0;
-      held       <= '0;
-      core_bytes <= '0;
+      r.state      <= IDLE;
+      r.feed       <= FEED_HDR;
+      r.emit       <= EMIT_FIRST;
+      r.tuser_dst  <= DPE_ADDR_CPU;
+      r.tuser_src  <= DPE_ADDR_CPU;
+      r.peer_idx   <= '0;
+      r.peer_cfg   <= '0;
+      r.hdr_k      <= '0;
+      r.eth_hdr    <= '0;
+      r.counter    <= '0;
+      r.carry      <= '0;
+      r.ip_len     <= '0;
+      r.sent       <= '0;
+      r.core_done  <= 1'b0;
+      r.held       <= '0;
+      r.core_bytes <= '0;
     end
     else begin
-      state      <= state_next;
-      feed       <= feed_next;
-      emit       <= emit_next;
-      tuser_dst  <= tuser_dst_next;
-      tuser_src  <= tuser_src_next;
-      peer_idx   <= peer_idx_next;
-      peer_cfg   <= peer_cfg_next;
-      hdr_k      <= hdr_k_next;
-      eth_hdr    <= eth_hdr_next;
-      counter    <= wg_cnt_next;
-      carry      <= carry_next;
-      ip_len     <= ip_len_next;
-      sent       <= sent_next;
-      core_done  <= core_done_next;
-      held       <= held_next;
-      core_bytes <= core_bytes_next;
+      r <= r_next;
     end
   end
 
   // The FSMs: next state and the handshake signals
   always_comb begin
-    state_next          = state;
-    feed_next           = feed;
-    emit_next           = emit;
-    tuser_dst_next      = tuser_dst;
-    tuser_src_next      = tuser_src;
-    peer_idx_next       = peer_idx;
-    peer_cfg_next       = peer_cfg;
-    hdr_k_next          = hdr_k;
-    eth_hdr_next        = eth_hdr;
-    wg_cnt_next         = counter;
-    carry_next          = carry;
-    ip_len_next         = ip_len;
-    sent_next           = sent;
-    core_done_next      = core_done;
-    held_next           = held;
-    core_bytes_next     = core_bytes;
+    r_next              = r;
 
     piped.tready        = 1'b0;
 
@@ -249,9 +228,9 @@ module dpe_wg_decryptor
     muxed.tkeep         = '1;
     muxed.tlast         = 1'b0;
     muxed.tuser         = tuser_out;
-    muxed.tid           = peer_idx;
+    muxed.tid           = r.peer_idx;
 
-    unique case (state)
+    unique case (r.state)
       IDLE: begin
         if (piped.tvalid) begin
           if (piped.tuser.bypass_stage || piped.tuser.bypass_all) begin
@@ -263,15 +242,15 @@ module dpe_wg_decryptor
             muxed.tid    = piped.tid;
             piped.tready = muxed.tready;
             if (piped_hs && !piped.tlast) begin
-              state_next = PASS;
+              r_next.state = PASS;
             end
           end
           else begin
             // the frame stays in piped until feed takes it
-            tuser_dst_next = piped.tuser.dst;
-            tuser_src_next = piped.tuser.src;
-            peer_idx_next  = piped.tid;
-            state_next     = PEER_REQ;
+            r_next.tuser_dst = piped.tuser.dst;
+            r_next.tuser_src = piped.tuser.src;
+            r_next.peer_idx  = piped.tid;
+            r_next.state     = PEER_REQ;
           end
         end
       end
@@ -285,44 +264,44 @@ module dpe_wg_decryptor
         muxed.tid    = piped.tid;
         piped.tready = muxed.tready;
         if (piped_hs && piped.tlast) begin
-          state_next = IDLE;
+          r_next.state = IDLE;
         end
       end
 
-      PEER_REQ: state_next = PEER_RSP;
+      PEER_REQ: r_next.state = PEER_RSP;
 
       PEER_RSP: begin
-        peer_cfg_next = peer_rsp;
-        feed_next     = FEED_HDR;
-        emit_next     = EMIT_FIRST;
-        hdr_k_next    = '0;
-        state_next    = PACKET;
+        r_next.peer_cfg = peer_rsp;
+        r_next.feed     = FEED_HDR;
+        r_next.emit     = EMIT_FIRST;
+        r_next.hdr_k    = '0;
+        r_next.state    = PACKET;
       end
 
       PACKET: begin
         // feed: frame beats into the core
-        unique case (feed)
+        unique case (r.feed)
           FEED_HDR: begin
             piped.tready = 1'b1;
             if (piped_hs) begin
-              if (hdr_k == 2'd0) begin
-                eth_hdr_next = piped.tdata[ETH_W-1:0];
+              if (r.hdr_k == 2'd0) begin
+                r_next.eth_hdr = piped.tdata[ETH_W-1:0];
               end
-              hdr_k_next = hdr_k + 2'd1;
+              r_next.hdr_k = r.hdr_k + 2'd1;
               if (piped.tlast) begin
                 // too short: nothing for the core, nothing out
-                feed_next = FEED_DONE;
-                emit_next = EMIT_DONE;
+                r_next.feed = FEED_DONE;
+                r_next.emit = EMIT_DONE;
               end
-              else if ((hdr_k == 2'(IP_LEN_BEAT)) & (be16(
+              else if ((r.hdr_k == 2'(IP_LEN_BEAT)) & (be16(
                       piped.tdata, IPV4_TOTAL_LEN_OFFSET % BEAT_BYTES
                   ) > IP_LEN_MAX)) begin
                 // more than the core takes: skip it, nothing out
-                feed_next = FEED_SKIP;
-                emit_next = EMIT_DONE;
+                r_next.feed = FEED_SKIP;
+                r_next.emit = EMIT_DONE;
               end
-              else if (hdr_k == 2'(WG_HDR_BEATS - 1)) begin
-                feed_next = FEED_WG;
+              else if (r.hdr_k == 2'(WG_HDR_BEATS - 1)) begin
+                r_next.feed = FEED_WG;
               end
             end
           end
@@ -330,40 +309,40 @@ module dpe_wg_decryptor
           FEED_WG: begin
             piped.tready = 1'b1;
             if (piped_hs) begin
-              wg_cnt_next     = le64(piped.tdata, WG_COUNTER_OFFSET);
-              carry_next      = piped.tdata[DPE_DATA_W-1-:CARRY_W];
-              core_bytes_next = '0;
+              r_next.counter    = le64(piped.tdata, WG_COUNTER_OFFSET);
+              r_next.carry      = piped.tdata[DPE_DATA_W-1-:CARRY_W];
+              r_next.core_bytes = '0;
               if (piped.tlast) begin
-                feed_next = FEED_DONE;
-                emit_next = EMIT_DONE;
+                r_next.feed = FEED_DONE;
+                r_next.emit = EMIT_DONE;
               end
               else begin
-                feed_next = FEED_DATA;
+                r_next.feed = FEED_DATA;
               end
             end
           end
 
           FEED_DATA: begin
-            if ((core_bytes == '0) & piped.tlast & ~piped.tkeep[WG_HDR_TAIL_BYTES]) begin
+            if ((r.core_bytes == '0) & piped.tlast & ~piped.tkeep[WG_HDR_TAIL_BYTES]) begin
               // one core beat in all, the tag alone (a keepalive): the core
               // would give no plaintext, so the frame never reaches it
               piped.tready = 1'b1;
               if (piped_hs) begin
-                feed_next = FEED_DONE;
-                emit_next = EMIT_DONE;
+                r_next.feed = FEED_DONE;
+                r_next.emit = EMIT_DONE;
               end
             end
             else begin
               // the frame's next 16 payload bytes
               to_decrypt.tvalid = piped.tvalid;
-              to_decrypt.tdata  = {piped.tdata[HEAD_W-1:0], carry};
+              to_decrypt.tdata  = {piped.tdata[HEAD_W-1:0], r.carry};
               to_decrypt.tlast  = piped.tlast & ~piped.tkeep[WG_HDR_TAIL_BYTES];
               piped.tready      = to_decrypt.tready;
               if (dec_in_hs) begin
-                carry_next      = piped.tdata[DPE_DATA_W-1-:CARRY_W];
-                core_bytes_next = core_bytes + len16_t'(BEAT_BYTES);
+                r_next.carry      = piped.tdata[DPE_DATA_W-1-:CARRY_W];
+                r_next.core_bytes = r.core_bytes + len16_t'(BEAT_BYTES);
                 if (piped.tlast) begin
-                  feed_next = piped.tkeep[WG_HDR_TAIL_BYTES] ? FEED_TAIL : FEED_DONE;
+                  r_next.feed = piped.tkeep[WG_HDR_TAIL_BYTES] ? FEED_TAIL : FEED_DONE;
                 end
               end
             end
@@ -371,18 +350,18 @@ module dpe_wg_decryptor
 
           FEED_TAIL: begin
             to_decrypt.tvalid = 1'b1;
-            to_decrypt.tdata  = beat_t'(carry);
+            to_decrypt.tdata  = beat_t'(r.carry);
             to_decrypt.tlast  = 1'b1;
             if (dec_in_hs) begin
-              core_bytes_next = core_bytes + len16_t'(BEAT_BYTES);
-              feed_next       = FEED_DONE;
+              r_next.core_bytes = r.core_bytes + len16_t'(BEAT_BYTES);
+              r_next.feed       = FEED_DONE;
             end
           end
 
           FEED_SKIP: begin
             piped.tready = 1'b1;
             if (piped_hs && piped.tlast) begin
-              feed_next = FEED_DONE;
+              r_next.feed = FEED_DONE;
             end
           end
 
@@ -390,53 +369,53 @@ module dpe_wg_decryptor
         endcase
 
         // emit: the plaintext, once the core has checked its tag
-        unique case (emit)
+        unique case (r.emit)
           EMIT_FIRST: begin
             // the feed is done by now: the core keeps the plaintext until the tag
             if (!verified || ip_len_first < len16_t'(IPV4_HDR_LEN) ||
-                ip_len_first > core_bytes - len16_t'(POLY1305_TAG_LEN)) begin
+                ip_len_first > r.core_bytes - len16_t'(POLY1305_TAG_LEN)) begin
               from_decrypt.tready = 1'b1;
               if (dec_out_hs) begin
-                emit_next = from_decrypt.tlast ? EMIT_DONE : EMIT_DROP;
+                r_next.emit = from_decrypt.tlast ? EMIT_DONE : EMIT_DROP;
               end
             end
             else begin
               muxed.tvalid        = from_decrypt.tvalid;
-              muxed.tdata         = {from_decrypt.tdata[PT_HEAD_W-1:0], eth_hdr};
+              muxed.tdata         = {from_decrypt.tdata[PT_HEAD_W-1:0], r.eth_hdr};
               from_decrypt.tready = muxed.tready;
               if (dec_out_hs) begin
-                held_next      = from_decrypt.tdata;
-                ip_len_next    = ip_len_first;
-                sent_next      = len16_t'(PT_HEAD_BYTES);
-                core_done_next = from_decrypt.tlast;
-                emit_next      = EMIT_BODY;
+                r_next.held      = from_decrypt.tdata;
+                r_next.ip_len    = ip_len_first;
+                r_next.sent      = len16_t'(PT_HEAD_BYTES);
+                r_next.core_done = from_decrypt.tlast;
+                r_next.emit      = EMIT_BODY;
               end
             end
           end
 
           EMIT_BODY: begin
-            if (rem <= len16_t'(BEAT_BYTES - PT_HEAD_BYTES) || core_done) begin
+            if (rem <= len16_t'(BEAT_BYTES - PT_HEAD_BYTES) || r.core_done) begin
               // the rest is in held (or the core has no more: cut there)
               muxed.tvalid = 1'b1;
-              muxed.tdata  = beat_t'(held[DPE_DATA_W-1:PT_HEAD_W]);
+              muxed.tdata  = beat_t'(r.held[DPE_DATA_W-1:PT_HEAD_W]);
               muxed.tkeep  = keep_first(rem) & keep_first(len16_t'(BEAT_BYTES - PT_HEAD_BYTES));
               muxed.tlast  = 1'b1;
               if (muxed_hs) begin
-                emit_next = core_done ? EMIT_DONE : EMIT_DROP;
+                r_next.emit = r.core_done ? EMIT_DONE : EMIT_DROP;
               end
             end
             else begin
               muxed.tvalid = from_decrypt.tvalid;
-              muxed.tdata = {from_decrypt.tdata[PT_HEAD_W-1:0], held[DPE_DATA_W-1:PT_HEAD_W]};
+              muxed.tdata = {from_decrypt.tdata[PT_HEAD_W-1:0], r.held[DPE_DATA_W-1:PT_HEAD_W]};
               muxed.tkeep = keep_first(rem);
               muxed.tlast = rem <= len16_t'(BEAT_BYTES);
               from_decrypt.tready = muxed.tready;
               if (dec_out_hs) begin
-                held_next      = from_decrypt.tdata;
-                sent_next      = sent + len16_t'(BEAT_BYTES);
-                core_done_next = from_decrypt.tlast;
+                r_next.held      = from_decrypt.tdata;
+                r_next.sent      = r.sent + len16_t'(BEAT_BYTES);
+                r_next.core_done = from_decrypt.tlast;
                 if (muxed.tlast) begin
-                  emit_next = from_decrypt.tlast ? EMIT_DONE : EMIT_DROP;
+                  r_next.emit = from_decrypt.tlast ? EMIT_DONE : EMIT_DROP;
                 end
               end
             end
@@ -445,32 +424,32 @@ module dpe_wg_decryptor
           EMIT_DROP: begin
             from_decrypt.tready = 1'b1;
             if (dec_out_hs && from_decrypt.tlast) begin
-              emit_next = EMIT_DONE;
+              r_next.emit = EMIT_DONE;
             end
           end
 
           default: ;  // EMIT_DONE
         endcase
 
-        if (feed == FEED_DONE && emit == EMIT_DONE) begin
-          state_next = IDLE;
+        if (r.feed == FEED_DONE && r.emit == EMIT_DONE) begin
+          r_next.state = IDLE;
         end
       end
 
-      default: state_next = IDLE;
+      default: r_next.state = IDLE;
     endcase
   end
 
-  assign idle     = (state == IDLE) & ~piped.tvalid & ~outp.tvalid;
+  assign idle     = (r.state == IDLE) & ~piped.tvalid & ~outp.tvalid;
   // the receiver does not advance the send counter
-  assign peer_req = '{idx: peer_idx, new_send_cnt: '0, update_send_cnt: 1'b0};
+  assign peer_req = '{idx: r.peer_idx, new_send_cnt: '0, update_send_cnt: 1'b0};
 
   // Decryptor core. The nonce: 4 zero bytes, then the counter
   // (little-endian; byte 0 in [7:0])
   chacha20poly1305_decrypt u_chacha20poly1305_decrypt (
       .clk_80p0              (inp.clk),
-      .decrypt_key           (peer_cfg.key),
-      .decrypt_nonce         ({counter, 32'd0}),
+      .decrypt_key           (r.peer_cfg.key),
+      .decrypt_nonce         ({r.counter, 32'd0}),
       .decrypt_aad           (256'd0),
       .decrypt_aad_len       (8'd0),
       .decrypt_s_axis_tdata  (to_decrypt.tdata),
