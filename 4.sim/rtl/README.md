@@ -40,7 +40,7 @@ The rules are in [`sim.mk`](sim.mk): timescale `1ns/1ns`, `output/sim.log` and `
 
 ## Status
 
-JanusHDL: 0.21.0, 2026-11-19. "—": not tried. JanusHDL elaborates every bench now; the three that run the ChaCha20-Poly1305 cores did not end within the 30 minutes we gave them (Verilator: seconds).
+JanusHDL: 0.21.0, 2026-11-19. "—": not tried. JanusHDL elaborates every bench now; `dpe_switch`, `dpe_wg_encryptor` and `dpe_wg_decryptor`, which run whole frames through the ChaCha20-Poly1305 cores, did not end within the 30 minutes we gave them (Verilator: seconds).
 
 | Bench | Verilator | Icarus | JanusHDL |
 |---|---|---|---|
