@@ -84,14 +84,16 @@ module lkup_egress
     FIELD_DST    = 2'd3   // entry.dst      (offset 0xC)
   } rt_field_t;
 
+  localparam int ENTRY_W = $clog2(ENTRY_COUNT);  // 6: addr[9:4]
+
   logic csr_wr, csr_rd;
-  logic      [ 5:0] mem_idx;
-  rt_field_t        field;
-  logic      [31:0] wr_data;
+  logic      [       ENTRY_W-1:0] mem_idx;
+  rt_field_t                      field;
+  logic      [CSR_DATA_WIDTH-1:0] wr_data;
 
   assign csr_wr  = csr_cfg.req & csr_cfg.req_is_wr;
   assign csr_rd  = csr_cfg.req & ~csr_cfg.req_is_wr;
-  assign mem_idx = csr_cfg.addr[9:4];
+  assign mem_idx = csr_cfg.addr[ENTRY_W+3:4];
   assign field   = rt_field_t'(csr_cfg.addr[3:2]);
   assign wr_data = csr_cfg.wr_data;
 
@@ -147,8 +149,8 @@ module lkup_egress
   assign csr_sta.rd_ack  = rd_ack;
   assign csr_sta.rd_data = rd_data;
 
-  route_act_t        route;  // what the entry the lookup picks for route_req_ip does
-  logic       [31:0] route_req_ip;
+  route_act_t route;  // what the entry the lookup picks for route_req_ip does
+  ipv4_addr_t route_req_ip;
 
   lkup_route_mem #(
       .ENTRY_COUNT (ENTRY_COUNT)
@@ -183,22 +185,26 @@ module lkup_egress
   } state_t;
   state_t state, state_next;
 
-  logic [1:0] in_beat;
+  // the beats buffered before the decision: up to the IPv4 destination's
+  localparam int BUF_BEATS = beat_of(IPV4_DST_OFFSET + 2) + 1;  // 3
+  typedef logic [$clog2(BUF_BEATS)-1:0] buf_idx_t;
+
+  buf_idx_t in_beat;
   // the beats that hold the IPv4 destination: its bytes 0, 1, then 2, 3
-  localparam logic [1:0] DA_HI_BEAT = 2'(beat_of(IPV4_DST_OFFSET));      // 1
-  localparam logic [1:0] DA_LO_BEAT = 2'(beat_of(IPV4_DST_OFFSET + 2));  // 2
+  localparam buf_idx_t DA_HI_BEAT = buf_idx_t'(beat_of(IPV4_DST_OFFSET));      // 1
+  localparam buf_idx_t DA_LO_BEAT = buf_idx_t'(beat_of(IPV4_DST_OFFSET + 2));  // 2
 
   // the frame's own tuser fields, from its first beat
-  dpe_addr_t            frame_src;
-  logic                 frame_bypass_all;
-  logic                 da_ok;  // the frame holds its whole IPv4 destination
-  logic                 ipv4;  // EtherType IPv4: anything else takes the default route
+  dpe_addr_t     frame_src;
+  logic          frame_bypass_all;
+  logic          da_ok;  // the frame holds its whole IPv4 destination
+  logic          ipv4;  // EtherType IPv4: anything else takes the default route
   // decrypted: it came out of the decryptor (bypass_stage clear), from peer
   // from_peer (tid); its inner source must be one that peer may use
-  logic                 decrypted;
-  dpe_peer_idx_t        from_peer;
-  logic          [31:0] src_ip;
-  logic                 last_in;  // the frame's last beat is in the buffer
+  logic          decrypted;
+  dpe_peer_idx_t from_peer;
+  ipv4_addr_t    src_ip;
+  logic          last_in;  // the frame's last beat is in the buffer
 
   typedef struct packed {
     dpe_data_t data;
@@ -206,13 +212,13 @@ module lkup_egress
     logic      last;
   } buf_beat_t;
 
-  buf_beat_t       beat_buf   [3];  // the buffered beats (no reset)
-  logic            beat_valid [3];  // which of them hold a beat
-  logic      [1:0] buf_rd_ptr;
+  buf_beat_t beat_buf   [BUF_BEATS];  // the buffered beats (no reset)
+  logic      beat_valid [BUF_BEATS];  // which of them hold a beat
+  buf_idx_t  buf_rd_ptr;
 
   route_act_t decided, decided_next;  // what happens to the frame
 
-  logic [1:0] flush_limit, flush_limit_next;
+  buf_idx_t flush_limit, flush_limit_next;
 
   logic  in_hs;
   assign in_hs = inp.tvalid & inp.tready;
@@ -241,12 +247,12 @@ module lkup_egress
                 encrypt: ~inp.tuser.bypass_stage,
                 dst: inp.tuser.dst
             };
-            flush_limit_next = 2'd0;
+            flush_limit_next = '0;
             state_next = FLUSH;
           end
           else if (inp.tlast) begin
             // no IPv4 destination in it: the lookup takes what there is
-            flush_limit_next = 2'd0;
+            flush_limit_next = '0;
             state_next       = DECIDE;
           end
           else begin
@@ -313,15 +319,15 @@ module lkup_egress
 
   always_ff @(posedge inp.clk) begin
     if (inp.rst) begin
-      state            <= IDLE;
-      in_beat          <= 2'd0;
-      buf_rd_ptr       <= 2'd0;
-      beat_valid[0]    <= 1'b0;
-      beat_valid[1]    <= 1'b0;
-      beat_valid[2]    <= 1'b0;
+      state      <= IDLE;
+      in_beat    <= '0;
+      buf_rd_ptr <= '0;
+      for (int i = 0; i < BUF_BEATS; i++) begin
+        beat_valid[i] <= 1'b0;
+      end
       decided          <= ROUTE_DEFAULT;
-      route_req_ip     <= 32'd0;
-      flush_limit      <= 2'd0;
+      route_req_ip     <= '0;
+      flush_limit      <= '0;
       frame_src        <= DPE_ADDR_CPU;
       frame_bypass_all <= 1'b0;
       da_ok            <= 1'b0;
@@ -353,17 +359,17 @@ module lkup_egress
 
       if (state == IDLE) begin
         if (in_hs && !inp.tuser.bypass_all) begin
-          in_beat <= 2'd1;
+          in_beat <= buf_idx_t'(1);
         end
         else begin
-          in_beat <= 2'd0;
+          in_beat <= '0;
         end
       end
       else if (state == COLLECT && in_hs) begin
-        in_beat <= in_beat + 2'd1;
+        in_beat <= in_beat + buf_idx_t'(1);
       end
       else if (state == FWD && in_hs && inp.tlast) begin
-        in_beat <= 2'd0;
+        in_beat <= '0;
       end
 
       if (state == IDLE && in_hs) begin
@@ -387,19 +393,19 @@ module lkup_egress
       if (state == FLUSH && outp.tready && beat_valid[buf_rd_ptr]) begin
         beat_valid[buf_rd_ptr] <= 1'b0;
         if (!beat_buf[buf_rd_ptr].last && (buf_rd_ptr < flush_limit)) begin
-          buf_rd_ptr <= buf_rd_ptr + 2'd1;
+          buf_rd_ptr <= buf_rd_ptr + buf_idx_t'(1);
         end
         else begin
-          buf_rd_ptr <= 2'd0;
+          buf_rd_ptr <= '0;
         end
       end
 
       // Buffer reset after IDLE
       if (state_next == IDLE) begin
-        beat_valid[0] <= 1'b0;
-        beat_valid[1] <= 1'b0;
-        beat_valid[2] <= 1'b0;
-        buf_rd_ptr    <= 2'd0;
+        for (int i = 0; i < BUF_BEATS; i++) begin
+          beat_valid[i] <= 1'b0;
+        end
+        buf_rd_ptr <= '0;
       end
 
       decided <= decided_next;
@@ -422,10 +428,10 @@ module lkup_egress
   end
 
 
-  dpe_data_t        flush_tdata;
-  logic      [15:0] flush_tkeep;
-  logic             flush_tlast;
-  logic             flush_tvalid;
+  dpe_data_t flush_tdata;
+  dpe_keep_t flush_tkeep;
+  logic      flush_tlast;
+  logic      flush_tvalid;
 
   assign flush_tdata = beat_buf[buf_rd_ptr].data;
   assign flush_tkeep = beat_buf[buf_rd_ptr].keep;
