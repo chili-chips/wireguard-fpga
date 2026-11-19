@@ -43,6 +43,7 @@
 module top
   import csr_pkg::*;
   import soc_pkg::*;
+  import dpe_pkg::*;
 (
     input        clk_p,     //board clock positive
     input        clk_n,     //board clock negative
@@ -138,43 +139,12 @@ module top
   //==========================================================================
   // CPU<->DPE<->Ethernet Interconnect
   //==========================================================================
-  dpe_if from_cpu (
+  // by port address: [0] the CPU (DPE_ADDR_CPU), [1] to [4] Ethernet 1 to 4
+  dpe_if from_port[DPE_PORTS] (
       .clk (sys_clk),
       .rst (sys_rst)
   );
-  dpe_if from_eth_1 (
-      .clk (sys_clk),
-      .rst (sys_rst)
-  );
-  dpe_if from_eth_2 (
-      .clk (sys_clk),
-      .rst (sys_rst)
-  );
-  dpe_if from_eth_3 (
-      .clk (sys_clk),
-      .rst (sys_rst)
-  );
-  dpe_if from_eth_4 (
-      .clk (sys_clk),
-      .rst (sys_rst)
-  );
-  dpe_if to_cpu (
-      .clk (sys_clk),
-      .rst (sys_rst)
-  );
-  dpe_if to_eth_1 (
-      .clk (sys_clk),
-      .rst (sys_rst)
-  );
-  dpe_if to_eth_2 (
-      .clk (sys_clk),
-      .rst (sys_rst)
-  );
-  dpe_if to_eth_3 (
-      .clk (sys_clk),
-      .rst (sys_rst)
-  );
-  dpe_if to_eth_4 (
+  dpe_if to_port[DPE_PORTS] (
       .clk (sys_clk),
       .rst (sys_rst)
   );
@@ -262,8 +232,8 @@ module top
   cpu_fifo u_cpu_fifo (
       .from_csr (from_csr),         //i
       .to_csr   (to_csr.cpu_fifo),  //o
-      .to_cpu   (to_cpu),           //SLV
-      .from_cpu (from_cpu)          //MST
+      .to_cpu   (to_port[0]),       //SLV
+      .from_cpu (from_port[0])      //MST
   );
 
   //==========================================================================
@@ -285,16 +255,8 @@ module top
       .to_csr_dpe             (to_csr.dpe),              //o
       .to_csr_routing_table   (to_csr.routing_table),    //o
       .to_csr_cryptokey_table (to_csr.cryptokey_table),  //o
-      .from_cpu               (from_cpu),                //SLV
-      .from_eth_1             (from_eth_1),              //SLV
-      .from_eth_2             (from_eth_2),              //SLV
-      .from_eth_3             (from_eth_3),              //SLV
-      .from_eth_4             (from_eth_4),              //SLV
-      .to_cpu                 (to_cpu),                  //MST
-      .to_eth_1               (to_eth_1),                //MST
-      .to_eth_2               (to_eth_2),                //MST
-      .to_eth_3               (to_eth_3),                //MST
-      .to_eth_4               (to_eth_4)                 //MST
+      .from_port              (from_port),               //SLV
+      .to_port                (to_port)                  //MST
   );
 
   //==========================================================================
@@ -351,8 +313,8 @@ module top
       .gtx_rst (eth_gtx_rst),
       .gmii    (gmii_1),
       .speed   (to_csr.ethernet[0].status.speed.next),
-      .rx_fifo (from_eth_1),
-      .tx_fifo (to_eth_1)
+      .rx_fifo (from_port[1]),
+      .tx_fifo (to_port[1])
   );
 
   //--------------------------------------------------------------------------
@@ -361,8 +323,8 @@ module top
       .gtx_rst (eth_gtx_rst),
       .gmii    (gmii_2),
       .speed   (to_csr.ethernet[1].status.speed.next),
-      .rx_fifo (from_eth_2),
-      .tx_fifo (to_eth_2)
+      .rx_fifo (from_port[2]),
+      .tx_fifo (to_port[2])
   );
 
   //--------------------------------------------------------------------------
@@ -371,8 +333,8 @@ module top
       .gtx_rst (eth_gtx_rst),
       .gmii    (gmii_3),
       .speed   (to_csr.ethernet[2].status.speed.next),
-      .rx_fifo (from_eth_3),
-      .tx_fifo (to_eth_3)
+      .rx_fifo (from_port[3]),
+      .tx_fifo (to_port[3])
   );
 
   //--------------------------------------------------------------------------
@@ -381,8 +343,8 @@ module top
       .gtx_rst (eth_gtx_rst),
       .gmii    (gmii_4),
       .speed   (to_csr.ethernet[3].status.speed.next),
-      .rx_fifo (from_eth_4),
-      .tx_fifo (to_eth_4)
+      .rx_fifo (from_port[4]),
+      .tx_fifo (to_port[4])
   );
 
   //--------------------------------------------------------------------------

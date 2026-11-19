@@ -65,7 +65,7 @@
     {
       "kind": "signal",
       "id": "gtkw-6",
-      "ref": "3215",
+      "ref": "3247",
       "path": "TOP.tb.dut.u_uart.tick_1us",
       "name": "tick_1us",
       "color": 4283215696,
@@ -75,7 +75,7 @@
     {
       "kind": "signal",
       "id": "gtkw-7",
-      "ref": "3235",
+      "ref": "3267",
       "path": "TOP.tb.dut.u_uart.tx_cnt1us",
       "name": "tx_cnt1us",
       "color": 4294938880,
@@ -85,7 +85,7 @@
     {
       "kind": "signal",
       "id": "gtkw-8",
-      "ref": "3236",
+      "ref": "3268",
       "path": "TOP.tb.dut.u_uart.tx_cnt1us_is0",
       "name": "tx_cnt1us_is0",
       "color": 4294938880,
@@ -95,7 +95,7 @@
     {
       "kind": "signal",
       "id": "gtkw-9",
-      "ref": "3238",
+      "ref": "3270",
       "path": "TOP.tb.dut.u_uart.tx_data",
       "name": "tx_data",
       "color": 4294938880,
@@ -105,7 +105,7 @@
     {
       "kind": "signal",
       "id": "gtkw-10",
-      "ref": "3234",
+      "ref": "3266",
       "path": "TOP.tb.dut.u_uart.tx_state",
       "name": "tx_state",
       "color": 4294938880,
@@ -135,7 +135,7 @@
     {
       "kind": "signal",
       "id": "gtkw-13",
-      "ref": "3223",
+      "ref": "3255",
       "path": "TOP.tb.dut.u_uart.rx_cnt1us",
       "name": "rx_cnt1us",
       "color": 4282434815,
@@ -145,7 +145,7 @@
     {
       "kind": "signal",
       "id": "gtkw-14",
-      "ref": "3224",
+      "ref": "3256",
       "path": "TOP.tb.dut.u_uart.rx_cnt1us_is0",
       "name": "rx_cnt1us_is0",
       "color": 4282434815,
@@ -155,7 +155,7 @@
     {
       "kind": "signal",
       "id": "gtkw-15",
-      "ref": "3222",
+      "ref": "3254",
       "path": "TOP.tb.dut.u_uart.rx_state",
       "name": "rx_state",
       "color": 4282434815,
@@ -165,7 +165,7 @@
     {
       "kind": "signal",
       "id": "gtkw-16",
-      "ref": "3226",
+      "ref": "3258",
       "path": "TOP.tb.dut.u_uart.rx_shift",
       "name": "rx_shift",
       "color": 4282434815,
@@ -175,7 +175,7 @@
     {
       "kind": "signal",
       "id": "gtkw-17",
-      "ref": "3228",
+      "ref": "3260",
       "path": "TOP.tb.dut.u_uart.u_rx_fifo.full",
       "name": "full",
       "color": 4293848814,
@@ -185,7 +185,7 @@
     {
       "kind": "signal",
       "id": "gtkw-18",
-      "ref": "3272",
+      "ref": "3304",
       "path": "TOP.tb.dut.u_uart.u_rx_fifo.we_protected",
       "name": "we_protected",
       "color": 4283215696,
@@ -195,7 +195,7 @@
     {
       "kind": "signal",
       "id": "gtkw-19",
-      "ref": "3226",
+      "ref": "3258",
       "path": "TOP.tb.dut.u_uart.u_rx_fifo.din",
       "name": "din",
       "color": 4280731354,
@@ -205,7 +205,7 @@
     {
       "kind": "signal",
       "id": "gtkw-20",
-      "ref": "3230",
+      "ref": "3262",
       "path": "TOP.tb.dut.u_uart.u_rx_fifo.empty",
       "name": "empty",
       "color": 4294962776,
@@ -215,7 +215,7 @@
     {
       "kind": "signal",
       "id": "gtkw-21",
-      "ref": "3273",
+      "ref": "3305",
       "path": "TOP.tb.dut.u_uart.u_rx_fifo.re_protected",
       "name": "re_protected",
       "color": 4293673082,
@@ -225,7 +225,7 @@
     {
       "kind": "signal",
       "id": "gtkw-22",
-      "ref": "3231",
+      "ref": "3263",
       "path": "TOP.tb.dut.u_uart.u_rx_fifo.dout_comb",
       "name": "dout_comb",
       "color": 4294944550,
@@ -326,8 +326,8 @@
       "kind": "signal",
       "id": "gtkw-32",
       "ref": "382",
-      "path": "TOP.tb.dut.from_eth_1.clk",
-      "name": "from_eth_1.clk",
+      "path": "TOP.tb.dut.from_port[1].clk",
+      "name": "from_port[1].clk",
       "color": 4294962776,
       "format": "hexadecimal",
       "height": 30.0
@@ -336,8 +336,8 @@
       "kind": "signal",
       "id": "gtkw-33",
       "ref": "383",
-      "path": "TOP.tb.dut.from_eth_1.rst",
-      "name": "from_eth_1.rst",
+      "path": "TOP.tb.dut.from_port[1].rst",
+      "name": "from_port[1].rst",
       "color": 4293673082,
       "format": "hexadecimal",
       "height": 30.0
@@ -346,8 +346,8 @@
       "kind": "signal",
       "id": "gtkw-34",
       "ref": "499",
-      "path": "TOP.tb.dut.from_eth_1.tdata",
-      "name": "from_eth_1.tdata",
+      "path": "TOP.tb.dut.from_port[1].tdata",
+      "name": "from_port[1].tdata",
       "color": 4294944550,
       "format": "hexadecimal",
       "height": 30.0
@@ -356,8 +356,8 @@
       "kind": "signal",
       "id": "gtkw-35",
       "ref": "496",
-      "path": "TOP.tb.dut.from_eth_1.tid",
-      "name": "from_eth_1.tid",
+      "path": "TOP.tb.dut.from_port[1].tid",
+      "name": "from_port[1].tid",
       "color": 4293848814,
       "format": "hexadecimal",
       "height": 30.0
@@ -366,8 +366,8 @@
       "kind": "signal",
       "id": "gtkw-36",
       "ref": "501",
-      "path": "TOP.tb.dut.from_eth_1.tkeep",
-      "name": "from_eth_1.tkeep",
+      "path": "TOP.tb.dut.from_port[1].tkeep",
+      "name": "from_port[1].tkeep",
       "color": 4283215696,
       "format": "hexadecimal",
       "height": 30.0
@@ -376,8 +376,8 @@
       "kind": "signal",
       "id": "gtkw-37",
       "ref": "500",
-      "path": "TOP.tb.dut.from_eth_1.tlast",
-      "name": "from_eth_1.tlast",
+      "path": "TOP.tb.dut.from_port[1].tlast",
+      "name": "from_port[1].tlast",
       "color": 4280731354,
       "format": "hexadecimal",
       "height": 30.0
@@ -386,8 +386,8 @@
       "kind": "signal",
       "id": "gtkw-38",
       "ref": "497",
-      "path": "TOP.tb.dut.from_eth_1.tready",
-      "name": "from_eth_1.tready",
+      "path": "TOP.tb.dut.from_port[1].tready",
+      "name": "from_port[1].tready",
       "color": 4294962776,
       "format": "hexadecimal",
       "height": 30.0
@@ -395,9 +395,9 @@
     {
       "kind": "signal",
       "id": "gtkw-39",
-      "ref": "7",
-      "path": "TOP.tb.dut.from_eth_1.tuser.bypass_all",
-      "name": "from_eth_1.tuser.bypass_all",
+      "ref": "8",
+      "path": "TOP.tb.dut.from_port[1].tuser.bypass_all",
+      "name": "from_port[1].tuser.bypass_all",
       "color": 4293673082,
       "format": "hexadecimal",
       "height": 30.0
@@ -405,9 +405,9 @@
     {
       "kind": "signal",
       "id": "gtkw-40",
-      "ref": "7",
-      "path": "TOP.tb.dut.from_eth_1.tuser.bypass_stage",
-      "name": "from_eth_1.tuser.bypass_stage",
+      "ref": "8",
+      "path": "TOP.tb.dut.from_port[1].tuser.bypass_stage",
+      "name": "from_port[1].tuser.bypass_stage",
       "color": 4294944550,
       "format": "hexadecimal",
       "height": 30.0
@@ -415,9 +415,9 @@
     {
       "kind": "signal",
       "id": "gtkw-41",
-      "ref": "8",
-      "path": "TOP.tb.dut.from_eth_1.tuser.dst",
-      "name": "from_eth_1.tuser.dst",
+      "ref": "9",
+      "path": "TOP.tb.dut.from_port[1].tuser.dst",
+      "name": "from_port[1].tuser.dst",
       "color": 4293848814,
       "format": "hexadecimal",
       "height": 30.0
@@ -425,9 +425,9 @@
     {
       "kind": "signal",
       "id": "gtkw-42",
-      "ref": "8",
-      "path": "TOP.tb.dut.from_eth_1.tuser.src",
-      "name": "from_eth_1.tuser.src",
+      "ref": "9",
+      "path": "TOP.tb.dut.from_port[1].tuser.src",
+      "name": "from_port[1].tuser.src",
       "color": 4283215696,
       "format": "hexadecimal",
       "height": 30.0
@@ -436,8 +436,8 @@
       "kind": "signal",
       "id": "gtkw-43",
       "ref": "498",
-      "path": "TOP.tb.dut.from_eth_1.tvalid",
-      "name": "from_eth_1.tvalid",
+      "path": "TOP.tb.dut.from_port[1].tvalid",
+      "name": "from_port[1].tvalid",
       "color": 4280731354,
       "format": "hexadecimal",
       "height": 30.0
@@ -446,8 +446,8 @@
       "kind": "signal",
       "id": "gtkw-44",
       "ref": "382",
-      "path": "TOP.tb.dut.to_eth_1.clk",
-      "name": "to_eth_1.clk",
+      "path": "TOP.tb.dut.to_port[1].clk",
+      "name": "to_port[1].clk",
       "color": 4294962776,
       "format": "hexadecimal",
       "height": 30.0
@@ -456,8 +456,8 @@
       "kind": "signal",
       "id": "gtkw-45",
       "ref": "383",
-      "path": "TOP.tb.dut.to_eth_1.rst",
-      "name": "to_eth_1.rst",
+      "path": "TOP.tb.dut.to_port[1].rst",
+      "name": "to_port[1].rst",
       "color": 4293673082,
       "format": "hexadecimal",
       "height": 30.0
@@ -466,8 +466,8 @@
       "kind": "signal",
       "id": "gtkw-46",
       "ref": "528",
-      "path": "TOP.tb.dut.to_eth_1.tdata",
-      "name": "to_eth_1.tdata",
+      "path": "TOP.tb.dut.to_port[1].tdata",
+      "name": "to_port[1].tdata",
       "color": 4294944550,
       "format": "hexadecimal",
       "height": 30.0
@@ -476,8 +476,8 @@
       "kind": "signal",
       "id": "gtkw-47",
       "ref": "535",
-      "path": "TOP.tb.dut.to_eth_1.tid",
-      "name": "to_eth_1.tid",
+      "path": "TOP.tb.dut.to_port[1].tid",
+      "name": "to_port[1].tid",
       "color": 4293848814,
       "format": "hexadecimal",
       "height": 30.0
@@ -486,8 +486,8 @@
       "kind": "signal",
       "id": "gtkw-48",
       "ref": "530",
-      "path": "TOP.tb.dut.to_eth_1.tkeep",
-      "name": "to_eth_1.tkeep",
+      "path": "TOP.tb.dut.to_port[1].tkeep",
+      "name": "to_port[1].tkeep",
       "color": 4283215696,
       "format": "hexadecimal",
       "height": 30.0
@@ -496,8 +496,8 @@
       "kind": "signal",
       "id": "gtkw-49",
       "ref": "529",
-      "path": "TOP.tb.dut.to_eth_1.tlast",
-      "name": "to_eth_1.tlast",
+      "path": "TOP.tb.dut.to_port[1].tlast",
+      "name": "to_port[1].tlast",
       "color": 4280731354,
       "format": "hexadecimal",
       "height": 30.0
@@ -506,8 +506,8 @@
       "kind": "signal",
       "id": "gtkw-50",
       "ref": "526",
-      "path": "TOP.tb.dut.to_eth_1.tready",
-      "name": "to_eth_1.tready",
+      "path": "TOP.tb.dut.to_port[1].tready",
+      "name": "to_port[1].tready",
       "color": 4294962776,
       "format": "hexadecimal",
       "height": 30.0
@@ -516,8 +516,8 @@
       "kind": "signal",
       "id": "gtkw-51",
       "ref": "531",
-      "path": "TOP.tb.dut.to_eth_1.tuser.bypass_all",
-      "name": "to_eth_1.tuser.bypass_all",
+      "path": "TOP.tb.dut.to_port[1].tuser.bypass_all",
+      "name": "to_port[1].tuser.bypass_all",
       "color": 4293673082,
       "format": "hexadecimal",
       "height": 30.0
@@ -526,8 +526,8 @@
       "kind": "signal",
       "id": "gtkw-52",
       "ref": "532",
-      "path": "TOP.tb.dut.to_eth_1.tuser.bypass_stage",
-      "name": "to_eth_1.tuser.bypass_stage",
+      "path": "TOP.tb.dut.to_port[1].tuser.bypass_stage",
+      "name": "to_port[1].tuser.bypass_stage",
       "color": 4294944550,
       "format": "hexadecimal",
       "height": 30.0
@@ -536,8 +536,8 @@
       "kind": "signal",
       "id": "gtkw-53",
       "ref": "534",
-      "path": "TOP.tb.dut.to_eth_1.tuser.dst",
-      "name": "to_eth_1.tuser.dst",
+      "path": "TOP.tb.dut.to_port[1].tuser.dst",
+      "name": "to_port[1].tuser.dst",
       "color": 4293848814,
       "format": "hexadecimal",
       "height": 30.0
@@ -546,8 +546,8 @@
       "kind": "signal",
       "id": "gtkw-54",
       "ref": "533",
-      "path": "TOP.tb.dut.to_eth_1.tuser.src",
-      "name": "to_eth_1.tuser.src",
+      "path": "TOP.tb.dut.to_port[1].tuser.src",
+      "name": "to_port[1].tuser.src",
       "color": 4283215696,
       "format": "hexadecimal",
       "height": 30.0
@@ -556,8 +556,8 @@
       "kind": "signal",
       "id": "gtkw-55",
       "ref": "527",
-      "path": "TOP.tb.dut.to_eth_1.tvalid",
-      "name": "to_eth_1.tvalid",
+      "path": "TOP.tb.dut.to_port[1].tvalid",
+      "name": "to_port[1].tvalid",
       "color": 4280731354,
       "format": "hexadecimal",
       "height": 30.0
@@ -675,7 +675,7 @@
     {
       "kind": "signal",
       "id": "gtkw-67",
-      "ref": "1123",
+      "ref": "1155",
       "path": "TOP.tb.dut.u_eth_1.speed",
       "name": "speed",
       "color": 4280731354,
@@ -755,7 +755,7 @@
     {
       "kind": "signal",
       "id": "gtkw-75",
-      "ref": "7",
+      "ref": "8",
       "path": "TOP.tb.dut.u_eth_1.rx_fifo.tuser.bypass_all",
       "name": "rx_fifo.tuser.bypass_all",
       "color": 4293673082,
@@ -765,7 +765,7 @@
     {
       "kind": "signal",
       "id": "gtkw-76",
-      "ref": "7",
+      "ref": "8",
       "path": "TOP.tb.dut.u_eth_1.rx_fifo.tuser.bypass_stage",
       "name": "rx_fifo.tuser.bypass_stage",
       "color": 4294944550,
@@ -775,7 +775,7 @@
     {
       "kind": "signal",
       "id": "gtkw-77",
-      "ref": "8",
+      "ref": "9",
       "path": "TOP.tb.dut.u_eth_1.rx_fifo.tuser.dst",
       "name": "rx_fifo.tuser.dst",
       "color": 4293848814,
@@ -785,7 +785,7 @@
     {
       "kind": "signal",
       "id": "gtkw-78",
-      "ref": "8",
+      "ref": "9",
       "path": "TOP.tb.dut.u_eth_1.rx_fifo.tuser.src",
       "name": "rx_fifo.tuser.src",
       "color": 4283215696,
@@ -1255,7 +1255,7 @@
     {
       "kind": "signal",
       "id": "gtkw-125",
-      "ref": "7",
+      "ref": "8",
       "path": "TOP.tb.dut.e1_mdio",
       "name": "e1_mdio",
       "color": 4293848814,

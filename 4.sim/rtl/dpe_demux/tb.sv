@@ -50,11 +50,7 @@ module tb;
     logic out_ready;  // tready of every output
 
     dpe_if from_dpe(.clk(clk), .rst(rst));
-    dpe_if to_cpu(.clk(clk), .rst(rst));
-    dpe_if to_eth_1(.clk(clk), .rst(rst));
-    dpe_if to_eth_2(.clk(clk), .rst(rst));
-    dpe_if to_eth_3(.clk(clk), .rst(rst));
-    dpe_if to_eth_4(.clk(clk), .rst(rst));
+    dpe_if to_port[DPE_PORTS] (.clk(clk), .rst(rst));  // CPU, Ethernet 1 to 4
 
     // One test packet per destination, sent one after the other from the CPU
     typedef struct packed {
@@ -91,21 +87,17 @@ module tb;
     // DUT instantiation
     dpe_demux DUT (
         .from_dpe(from_dpe),
-        .to_cpu(to_cpu),
-        .to_eth_1(to_eth_1),
-        .to_eth_2(to_eth_2),
-        .to_eth_3(to_eth_3),
-        .to_eth_4(to_eth_4)
+        .to_port(to_port)
     );
 
     // The source and the sinks
     dpe_tb_src #(.SRC(DPE_ADDR_CPU)) src (.outp(from_dpe));
 
-    dpe_tb_sink #(.NAME("to_cpu"))   snk_cpu   (.ready(out_ready), .inp(to_cpu));
-    dpe_tb_sink #(.NAME("to_eth_1")) snk_eth_1 (.ready(out_ready), .inp(to_eth_1));
-    dpe_tb_sink #(.NAME("to_eth_2")) snk_eth_2 (.ready(out_ready), .inp(to_eth_2));
-    dpe_tb_sink #(.NAME("to_eth_3")) snk_eth_3 (.ready(out_ready), .inp(to_eth_3));
-    dpe_tb_sink #(.NAME("to_eth_4")) snk_eth_4 (.ready(out_ready), .inp(to_eth_4));
+    dpe_tb_sink #(.NAME("to_cpu"))   snk_cpu   (.ready(out_ready), .inp(to_port[0]));
+    dpe_tb_sink #(.NAME("to_eth_1")) snk_eth_1 (.ready(out_ready), .inp(to_port[1]));
+    dpe_tb_sink #(.NAME("to_eth_2")) snk_eth_2 (.ready(out_ready), .inp(to_port[2]));
+    dpe_tb_sink #(.NAME("to_eth_3")) snk_eth_3 (.ready(out_ready), .inp(to_port[3]));
+    dpe_tb_sink #(.NAME("to_eth_4")) snk_eth_4 (.ready(out_ready), .inp(to_port[4]));
 
     // Each output must receive p when p's dst selects it
     task automatic expect_on(input test_pkt_t p);

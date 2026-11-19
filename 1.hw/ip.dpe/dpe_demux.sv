@@ -37,177 +37,69 @@
 //              https://opensource.org/license/bsd-3-clause
 //--------------------------------------------------------------------------
 // Description:
-//   DPE demultiplexer with multicast and broadcast support
+//   DPE demultiplexer with multicast and broadcast support: each beat goes
+//   to the output ports (to_port, indexed by address: CPU, then Ethernet 1
+//   to 4) its tuser.dst selects, and waits for all of them
 //==========================================================================
 
 module dpe_demux
   import dpe_pkg::*;
 (
     dpe_if.s_axis from_dpe,
-    dpe_if.m_axis to_cpu,
-    dpe_if.m_axis to_eth_1,
-    dpe_if.m_axis to_eth_2,
-    dpe_if.m_axis to_eth_3,
-    dpe_if.m_axis to_eth_4
+    dpe_if.m_axis to_port [DPE_PORTS]
 );
 
   dpe_if from_dpe_sbuff (
       .clk (from_dpe.clk),
       .rst (from_dpe.rst)
   );
-  dpe_if to_cpu_sbuff (
-      .clk (from_dpe.clk),
-      .rst (from_dpe.rst)
-  );
-  dpe_if to_eth_1_sbuff (
-      .clk (from_dpe.clk),
-      .rst (from_dpe.rst)
-  );
-  dpe_if to_eth_2_sbuff (
-      .clk (from_dpe.clk),
-      .rst (from_dpe.rst)
-  );
-  dpe_if to_eth_3_sbuff (
-      .clk (from_dpe.clk),
-      .rst (from_dpe.rst)
-  );
-  dpe_if to_eth_4_sbuff (
-      .clk (from_dpe.clk),
-      .rst (from_dpe.rst)
-  );
 
-  // Destination decode: unicast, multicast pair or broadcast
-  logic [2:0] dst;
-  logic sel_cpu, sel_eth_1, sel_eth_2, sel_eth_3, sel_eth_4;
-  always_comb begin
-    dst       = from_dpe_sbuff.tuser.dst;
-    sel_cpu   = (dst == DPE_ADDR_CPU) || (dst == DPE_ADDR_BCAST);
-    sel_eth_1 = (dst == DPE_ADDR_ETH_1) || (dst == DPE_ADDR_MCAST_13) || (dst == DPE_ADDR_BCAST);
-    sel_eth_2 = (dst == DPE_ADDR_ETH_2) || (dst == DPE_ADDR_MCAST_24) || (dst == DPE_ADDR_BCAST);
-    sel_eth_3 = (dst == DPE_ADDR_ETH_3) || (dst == DPE_ADDR_MCAST_13) || (dst == DPE_ADDR_BCAST);
-    sel_eth_4 = (dst == DPE_ADDR_ETH_4) || (dst == DPE_ADDR_MCAST_24) || (dst == DPE_ADDR_BCAST);
-  end
+  // the ports a destination address selects: unicast, a multicast pair or
+  // broadcast
+  function automatic logic [DPE_PORTS-1:0] port_bit(dpe_addr_t a);
+    return DPE_PORTS'(1) << a;
+  endfunction
+
+  function automatic logic [DPE_PORTS-1:0] dst_ports(dpe_addr_t dst);
+    unique case (dst)
+      DPE_ADDR_MCAST_13: return port_bit(DPE_ADDR_ETH_1) | port_bit(DPE_ADDR_ETH_3);
+      DPE_ADDR_MCAST_24: return port_bit(DPE_ADDR_ETH_2) | port_bit(DPE_ADDR_ETH_4);
+      DPE_ADDR_BCAST:    return '1;
+      default:           return port_bit(dst);  // the CPU or one Ethernet port
+    endcase
+  endfunction
+
+  logic [DPE_PORTS-1:0] sel, out_ready;
+  assign                sel = dst_ports(from_dpe_sbuff.tuser.dst);
 
   // Backpressure: wait for every selected output
-  assign from_dpe_sbuff.tready = (~sel_cpu | to_cpu_sbuff.tready) &
-                                 (~sel_eth_1 | to_eth_1_sbuff.tready) &
-                                 (~sel_eth_2 | to_eth_2_sbuff.tready) &
-                                 (~sel_eth_3 | to_eth_3_sbuff.tready) &
-                                 (~sel_eth_4 | to_eth_4_sbuff.tready);
+  assign from_dpe_sbuff.tready = &(~sel | out_ready);
 
-  // Demultiplexer
-  always_comb begin
-    if (sel_cpu) begin
-      to_cpu_sbuff.tvalid = from_dpe_sbuff.tvalid;
-      to_cpu_sbuff.tdata  = from_dpe_sbuff.tdata;
-      to_cpu_sbuff.tkeep  = from_dpe_sbuff.tkeep;
-      to_cpu_sbuff.tlast  = from_dpe_sbuff.tlast;
-      to_cpu_sbuff.tuser  = from_dpe_sbuff.tuser;
-      to_cpu_sbuff.tid    = from_dpe_sbuff.tid;
-    end
-    else begin
-      to_cpu_sbuff.tvalid = 1'b0;
-      to_cpu_sbuff.tdata  = '0;
-      to_cpu_sbuff.tkeep  = '0;
-      to_cpu_sbuff.tlast  = '0;
-      to_cpu_sbuff.tuser  = '0;
-      to_cpu_sbuff.tid    = '0;
-    end
-    if (sel_eth_1) begin
-      to_eth_1_sbuff.tvalid = from_dpe_sbuff.tvalid;
-      to_eth_1_sbuff.tdata  = from_dpe_sbuff.tdata;
-      to_eth_1_sbuff.tkeep  = from_dpe_sbuff.tkeep;
-      to_eth_1_sbuff.tlast  = from_dpe_sbuff.tlast;
-      to_eth_1_sbuff.tuser  = from_dpe_sbuff.tuser;
-      to_eth_1_sbuff.tid    = from_dpe_sbuff.tid;
-    end
-    else begin
-      to_eth_1_sbuff.tvalid = 1'b0;
-      to_eth_1_sbuff.tdata  = '0;
-      to_eth_1_sbuff.tkeep  = '0;
-      to_eth_1_sbuff.tlast  = '0;
-      to_eth_1_sbuff.tuser  = '0;
-      to_eth_1_sbuff.tid    = '0;
-    end
-    if (sel_eth_2) begin
-      to_eth_2_sbuff.tvalid = from_dpe_sbuff.tvalid;
-      to_eth_2_sbuff.tdata  = from_dpe_sbuff.tdata;
-      to_eth_2_sbuff.tkeep  = from_dpe_sbuff.tkeep;
-      to_eth_2_sbuff.tlast  = from_dpe_sbuff.tlast;
-      to_eth_2_sbuff.tuser  = from_dpe_sbuff.tuser;
-      to_eth_2_sbuff.tid    = from_dpe_sbuff.tid;
-    end
-    else begin
-      to_eth_2_sbuff.tvalid = 1'b0;
-      to_eth_2_sbuff.tdata  = '0;
-      to_eth_2_sbuff.tkeep  = '0;
-      to_eth_2_sbuff.tlast  = '0;
-      to_eth_2_sbuff.tuser  = '0;
-      to_eth_2_sbuff.tid    = '0;
-    end
-    if (sel_eth_3) begin
-      to_eth_3_sbuff.tvalid = from_dpe_sbuff.tvalid;
-      to_eth_3_sbuff.tdata  = from_dpe_sbuff.tdata;
-      to_eth_3_sbuff.tkeep  = from_dpe_sbuff.tkeep;
-      to_eth_3_sbuff.tlast  = from_dpe_sbuff.tlast;
-      to_eth_3_sbuff.tuser  = from_dpe_sbuff.tuser;
-      to_eth_3_sbuff.tid    = from_dpe_sbuff.tid;
-    end
-    else begin
-      to_eth_3_sbuff.tvalid = 1'b0;
-      to_eth_3_sbuff.tdata  = '0;
-      to_eth_3_sbuff.tkeep  = '0;
-      to_eth_3_sbuff.tlast  = '0;
-      to_eth_3_sbuff.tuser  = '0;
-      to_eth_3_sbuff.tid    = '0;
-    end
-    if (sel_eth_4) begin
-      to_eth_4_sbuff.tvalid = from_dpe_sbuff.tvalid;
-      to_eth_4_sbuff.tdata  = from_dpe_sbuff.tdata;
-      to_eth_4_sbuff.tkeep  = from_dpe_sbuff.tkeep;
-      to_eth_4_sbuff.tlast  = from_dpe_sbuff.tlast;
-      to_eth_4_sbuff.tuser  = from_dpe_sbuff.tuser;
-      to_eth_4_sbuff.tid    = from_dpe_sbuff.tid;
-    end
-    else begin
-      to_eth_4_sbuff.tvalid = 1'b0;
-      to_eth_4_sbuff.tdata  = '0;
-      to_eth_4_sbuff.tkeep  = '0;
-      to_eth_4_sbuff.tlast  = '0;
-      to_eth_4_sbuff.tuser  = '0;
-      to_eth_4_sbuff.tid    = '0;
-    end
+  // each output: the beat when selected, through its skid buffer
+  for (genvar p = 0; p < DPE_PORTS; p++) begin : g_out
+    dpe_if to_sbuff (
+        .clk (from_dpe.clk),
+        .rst (from_dpe.rst)
+    );
+
+    assign to_sbuff.tvalid = sel[p] & from_dpe_sbuff.tvalid;
+    assign to_sbuff.tdata  = sel[p] ? from_dpe_sbuff.tdata : '0;
+    assign to_sbuff.tkeep  = sel[p] ? from_dpe_sbuff.tkeep : '0;
+    assign to_sbuff.tlast  = sel[p] & from_dpe_sbuff.tlast;
+    assign to_sbuff.tuser  = sel[p] ? from_dpe_sbuff.tuser : '0;
+    assign to_sbuff.tid    = sel[p] ? from_dpe_sbuff.tid   : '0;
+    assign out_ready[p]    = to_sbuff.tready;
+
+    dpe_if_skid_buffer u_dpe_if_skid_buffer_to_port (
+        .inp  (to_sbuff),
+        .outp (to_port[p])
+    );
   end
 
-  // Skid buffers
+  // Skid buffer
   dpe_if_skid_buffer u_dpe_if_skid_buffer_from_dpe (
       .inp  (from_dpe),
       .outp (from_dpe_sbuff)
-  );
-
-  dpe_if_skid_buffer u_dpe_if_skid_buffer_to_cpu (
-      .inp  (to_cpu_sbuff),
-      .outp (to_cpu)
-  );
-
-  dpe_if_skid_buffer u_dpe_if_skid_buffer_to_eth_1 (
-      .inp  (to_eth_1_sbuff),
-      .outp (to_eth_1)
-  );
-
-  dpe_if_skid_buffer u_dpe_if_skid_buffer_to_eth_2 (
-      .inp  (to_eth_2_sbuff),
-      .outp (to_eth_2)
-  );
-
-  dpe_if_skid_buffer u_dpe_if_skid_buffer_to_eth_3 (
-      .inp  (to_eth_3_sbuff),
-      .outp (to_eth_3)
-  );
-
-  dpe_if_skid_buffer u_dpe_if_skid_buffer_to_eth_4 (
-      .inp  (to_eth_4_sbuff),
-      .outp (to_eth_4)
   );
 endmodule
 

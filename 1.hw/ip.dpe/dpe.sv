@@ -49,25 +49,17 @@ module dpe
     output csr__dpe__in_t to_csr_dpe,
     output rt_sta_t       to_csr_routing_table,
     output ck_sta_t       to_csr_cryptokey_table,
-    dpe_if.s_axis         from_cpu,
-    dpe_if.s_axis         from_eth_1,
-    dpe_if.s_axis         from_eth_2,
-    dpe_if.s_axis         from_eth_3,
-    dpe_if.s_axis         from_eth_4,
-    dpe_if.m_axis         to_cpu,
-    dpe_if.m_axis         to_eth_1,
-    dpe_if.m_axis         to_eth_2,
-    dpe_if.m_axis         to_eth_3,
-    dpe_if.m_axis         to_eth_4
+    dpe_if.s_axis         from_port             [DPE_PORTS],  // CPU, Ethernet 1 to 4
+    dpe_if.m_axis         to_port               [DPE_PORTS]   // CPU, Ethernet 1 to 4
 );
 
   dpe_if muxed_1 (
-      .clk (from_cpu.clk),
-      .rst (from_cpu.rst)
+      .clk (from_port[0].clk),
+      .rst (from_port[0].rst)
   );
   dpe_if muxed_2 (
-      .clk (from_cpu.clk),
-      .rst (from_cpu.rst)
+      .clk (from_port[0].clk),
+      .rst (from_port[0].rst)
   );
 
   // fcr.idle: the multiplexer stopped (pause) and the switch holds no packet
@@ -76,14 +68,10 @@ module dpe
 
   // DPE multiplexer
   dpe_mux u_dpe_mux (
-      .pause      (from_csr.dpe.fcr.pause.value),
-      .idle       (mux_idle),
-      .from_cpu   (from_cpu),
-      .from_eth_1 (from_eth_1),
-      .from_eth_2 (from_eth_2),
-      .from_eth_3 (from_eth_3),
-      .from_eth_4 (from_eth_4),
-      .to_dpe     (muxed_1)
+      .pause     (from_csr.dpe.fcr.pause.value),
+      .idle      (mux_idle),
+      .from_port (from_port),
+      .to_dpe    (muxed_1)
   );
 
   // DPE switch: the fixed crossbar (dpe_switch.DUMMY.sv) or the WireGuard
@@ -103,11 +91,7 @@ module dpe
   // DPE demultiplexer
   dpe_demux u_dpe_demux (
       .from_dpe (muxed_2),
-      .to_cpu   (to_cpu),
-      .to_eth_1 (to_eth_1),
-      .to_eth_2 (to_eth_2),
-      .to_eth_3 (to_eth_3),
-      .to_eth_4 (to_eth_4)
+      .to_port  (to_port)
   );
 
 endmodule

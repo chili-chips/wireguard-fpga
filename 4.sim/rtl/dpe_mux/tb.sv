@@ -50,11 +50,7 @@ module tb;
     logic pause;
     logic out_ready;  // tready of to_dpe
 
-    dpe_if from_cpu(.clk(clk), .rst(rst));
-    dpe_if from_eth_1(.clk(clk), .rst(rst));
-    dpe_if from_eth_2(.clk(clk), .rst(rst));
-    dpe_if from_eth_3(.clk(clk), .rst(rst));
-    dpe_if from_eth_4(.clk(clk), .rst(rst));
+    dpe_if from_port[DPE_PORTS] (.clk(clk), .rst(rst));  // CPU, Ethernet 1 to 4
     dpe_if to_dpe(.clk(clk), .rst(rst));
 
     // One test packet per input port. The multiplexer passes dst through
@@ -97,20 +93,16 @@ module tb;
     dpe_mux DUT (
         .pause(pause),
         .idle(mux_idle),
-        .from_cpu(from_cpu),
-        .from_eth_1(from_eth_1),
-        .from_eth_2(from_eth_2),
-        .from_eth_3(from_eth_3),
-        .from_eth_4(from_eth_4),
+        .from_port(from_port),
         .to_dpe(to_dpe)
     );
 
     // Sources and the sink
-    dpe_tb_src #(.SRC(DPE_ADDR_CPU))   src_cpu   (.outp(from_cpu));
-    dpe_tb_src #(.SRC(DPE_ADDR_ETH_1)) src_eth_1 (.outp(from_eth_1));
-    dpe_tb_src #(.SRC(DPE_ADDR_ETH_2)) src_eth_2 (.outp(from_eth_2));
-    dpe_tb_src #(.SRC(DPE_ADDR_ETH_3)) src_eth_3 (.outp(from_eth_3));
-    dpe_tb_src #(.SRC(DPE_ADDR_ETH_4)) src_eth_4 (.outp(from_eth_4));
+    dpe_tb_src #(.SRC(DPE_ADDR_CPU))   src_cpu   (.outp(from_port[0]));
+    dpe_tb_src #(.SRC(DPE_ADDR_ETH_1)) src_eth_1 (.outp(from_port[1]));
+    dpe_tb_src #(.SRC(DPE_ADDR_ETH_2)) src_eth_2 (.outp(from_port[2]));
+    dpe_tb_src #(.SRC(DPE_ADDR_ETH_3)) src_eth_3 (.outp(from_port[3]));
+    dpe_tb_src #(.SRC(DPE_ADDR_ETH_4)) src_eth_4 (.outp(from_port[4]));
 
     dpe_tb_sink #(.NAME("to_dpe")) snk (.ready(out_ready), .inp(to_dpe));
 

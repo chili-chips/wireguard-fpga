@@ -49,6 +49,7 @@ package dpe_pkg;
   localparam int DPE_DATA_W     = 8 * DPE_DATA_BYTES;  // tdata, 128 bits
   localparam int DPE_KEEP_W     = DPE_DATA_BYTES;      // tkeep, a bit per byte
   localparam int DPE_ID_W       = 8;                   // tid, the peer index
+  localparam int DPE_PORTS      = 5;                   // the CPU (address 0) and Ethernet 1 to 4
 
   typedef logic [7:0] byte_t;
   typedef logic [DPE_DATA_W-1:0] dpe_data_t;  // a beat

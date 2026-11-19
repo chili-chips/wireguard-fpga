@@ -50,16 +50,8 @@ module tb;
    logic out_ready;  // tready of every output
 
    csr_pkg::csr__out_t from_csr;
-   dpe_if from_cpu(.clk(clk), .rst(rst));
-   dpe_if from_eth_1(.clk(clk), .rst(rst));
-   dpe_if from_eth_2(.clk(clk), .rst(rst));
-   dpe_if from_eth_3(.clk(clk), .rst(rst));
-   dpe_if from_eth_4(.clk(clk), .rst(rst));
-   dpe_if to_cpu(.clk(clk), .rst(rst));
-   dpe_if to_eth_1(.clk(clk), .rst(rst));
-   dpe_if to_eth_2(.clk(clk), .rst(rst));
-   dpe_if to_eth_3(.clk(clk), .rst(rst));
-   dpe_if to_eth_4(.clk(clk), .rst(rst));
+   dpe_if from_port[DPE_PORTS] (.clk(clk), .rst(rst));  // CPU, Ethernet 1 to 4
+   dpe_if to_port[DPE_PORTS] (.clk(clk), .rst(rst));  // CPU, Ethernet 1 to 4
 
    // One test packet per input port. dst is where the DPE delivers it: its
    // dpe_switch.DUMMY.sv picks the output from the source port (CPU to ETH 1,
@@ -99,30 +91,22 @@ module tb;
       .to_csr_dpe(),
       .to_csr_routing_table(),
       .to_csr_cryptokey_table(),
-      .from_cpu(from_cpu),
-      .from_eth_1(from_eth_1),
-      .from_eth_2(from_eth_2),
-      .from_eth_3(from_eth_3),
-      .from_eth_4(from_eth_4),
-      .to_cpu(to_cpu),
-      .to_eth_1(to_eth_1),
-      .to_eth_2(to_eth_2),
-      .to_eth_3(to_eth_3),
-      .to_eth_4(to_eth_4)
+      .from_port(from_port),
+      .to_port(to_port)
    );
 
    // Sources and sinks
-   dpe_tb_src #(.SRC(DPE_ADDR_CPU))   src_cpu   (.outp(from_cpu));
-   dpe_tb_src #(.SRC(DPE_ADDR_ETH_1)) src_eth_1 (.outp(from_eth_1));
-   dpe_tb_src #(.SRC(DPE_ADDR_ETH_2)) src_eth_2 (.outp(from_eth_2));
-   dpe_tb_src #(.SRC(DPE_ADDR_ETH_3)) src_eth_3 (.outp(from_eth_3));
-   dpe_tb_src #(.SRC(DPE_ADDR_ETH_4)) src_eth_4 (.outp(from_eth_4));
+   dpe_tb_src #(.SRC(DPE_ADDR_CPU))   src_cpu   (.outp(from_port[0]));
+   dpe_tb_src #(.SRC(DPE_ADDR_ETH_1)) src_eth_1 (.outp(from_port[1]));
+   dpe_tb_src #(.SRC(DPE_ADDR_ETH_2)) src_eth_2 (.outp(from_port[2]));
+   dpe_tb_src #(.SRC(DPE_ADDR_ETH_3)) src_eth_3 (.outp(from_port[3]));
+   dpe_tb_src #(.SRC(DPE_ADDR_ETH_4)) src_eth_4 (.outp(from_port[4]));
 
-   dpe_tb_sink #(.NAME("to_cpu"))   snk_cpu   (.ready(out_ready), .inp(to_cpu));
-   dpe_tb_sink #(.NAME("to_eth_1")) snk_eth_1 (.ready(out_ready), .inp(to_eth_1));
-   dpe_tb_sink #(.NAME("to_eth_2")) snk_eth_2 (.ready(out_ready), .inp(to_eth_2));
-   dpe_tb_sink #(.NAME("to_eth_3")) snk_eth_3 (.ready(out_ready), .inp(to_eth_3));
-   dpe_tb_sink #(.NAME("to_eth_4")) snk_eth_4 (.ready(out_ready), .inp(to_eth_4));
+   dpe_tb_sink #(.NAME("to_cpu"))   snk_cpu   (.ready(out_ready), .inp(to_port[0]));
+   dpe_tb_sink #(.NAME("to_eth_1")) snk_eth_1 (.ready(out_ready), .inp(to_port[1]));
+   dpe_tb_sink #(.NAME("to_eth_2")) snk_eth_2 (.ready(out_ready), .inp(to_port[2]));
+   dpe_tb_sink #(.NAME("to_eth_3")) snk_eth_3 (.ready(out_ready), .inp(to_port[3]));
+   dpe_tb_sink #(.NAME("to_eth_4")) snk_eth_4 (.ready(out_ready), .inp(to_port[4]));
 
    // Each output must receive p (from src) when p's dst selects it
    task automatic expect_on(input test_pkt_t p, input dpe_addr_t src);

@@ -37,7 +37,11 @@
 //              https://opensource.org/license/bsd-3-clause
 //--------------------------------------------------------------------------
 // Description:
-//   DPE multiplexer
+//   DPE multiplexer: round robin over the input ports (from_port, indexed
+//   by source address: CPU, then Ethernet 1 to 4), a whole packet at a time.
+//   A port is visited (R) and, when it has a beat, its packet is sent (S)
+//   to its tlast. tuser.src is the port's address. pause: stop between
+//   packets; idle: stopped, and the output holds nothing
 //==========================================================================
 
 module dpe_mux
@@ -46,301 +50,135 @@ module dpe_mux
     input  logic  pause,
     output logic  idle,
 
-    dpe_if.s_axis from_cpu,
-    dpe_if.s_axis from_eth_1,
-    dpe_if.s_axis from_eth_2,
-    dpe_if.s_axis from_eth_3,
-    dpe_if.s_axis from_eth_4,
+    dpe_if.s_axis from_port[DPE_PORTS],
     dpe_if.m_axis to_dpe
 );
 
-  typedef enum logic [3:0] {
-    IDLE,
-    R0,
-    S0,
-    R1,
-    S1,
-    R2,
-    S2,
-    R3,
-    S3,
-    R4,
-    S4
-  } state_t;
+  typedef logic [$clog2(DPE_PORTS)-1:0] port_t;
 
-  state_t state, state_next;
+  function automatic port_t next_port(port_t p);
+    return (p == port_t'(DPE_PORTS - 1)) ? '0 : p + port_t'(1);
+  endfunction
+
+  // each input, indexable by the port the FSM serves
+  logic [DPE_PORTS-1:0] in_valid, in_last, in_ready;
+  dpe_data_t  in_data[DPE_PORTS];
+  dpe_keep_t  in_keep[DPE_PORTS];
+  dpe_tuser_t in_user[DPE_PORTS];
+
+  for (genvar p = 0; p < DPE_PORTS; p++) begin : g_in
+    assign in_valid[p]         = from_port[p].tvalid;
+    assign in_last[p]          = from_port[p].tlast;
+    assign in_data[p]          = from_port[p].tdata;
+    assign in_keep[p]          = from_port[p].tkeep;
+    assign in_user[p]          = from_port[p].tuser;
+    assign from_port[p].tready = in_ready[p];
+  end
+
+  typedef enum logic [1:0] {
+    IDLE,
+    VISIT,  // R: is there a packet on port?
+    SEND    // S: its beats, to its tlast
+  } phase_t;
+
+  phase_t phase, phase_next;
+  port_t port, port_next;
 
   dpe_if to_dpe_sbuff (
-      .clk (from_cpu.clk),
-      .rst (from_cpu.rst)
+      .clk (to_dpe.clk),
+      .rst (to_dpe.rst)
   );
 
   // FSM registers
-  always_ff @(posedge from_cpu.clk) begin
-    if (from_cpu.rst) begin
-      state <= IDLE;
+  always_ff @(posedge to_dpe.clk) begin
+    if (to_dpe.rst) begin
+      phase <= IDLE;
+      port  <= '0;
     end
     else begin
-      state <= state_next;
+      phase <= phase_next;
+      port  <= port_next;
     end
   end
 
-  // FSM transition logic
-  always_comb begin
-    state_next = state;
+  // a beat of port's goes out this clock
+  logic  beat;
+  assign beat = in_valid[port] & to_dpe_sbuff.tready;
 
-    unique case (state)
+  // FSM transition logic. After a packet, or a visit with nothing to send,
+  // the next port; pause stops it there (and a restart begins at port 0)
+  always_comb begin
+    phase_next = phase;
+    port_next  = port;
+
+    unique case (phase)
       IDLE: begin
         if (!pause) begin
-          state_next = R0;
+          phase_next = VISIT;
+          port_next  = '0;
         end
       end
 
-      R0: begin
-        if (from_cpu.tvalid && to_dpe_sbuff.tready) begin
+      VISIT: begin
+        if (beat) begin
           // a one-beat packet ends here: on to the next port
-          if (!from_cpu.tlast) begin
-            state_next = S0;
+          if (!in_last[port]) begin
+            phase_next = SEND;
           end
           else if (pause) begin
-            state_next = IDLE;
+            phase_next = IDLE;
           end
           else begin
-            state_next = R1;
+            port_next = next_port(port);
           end
         end
         else if (pause) begin
-          state_next = IDLE;
+          phase_next = IDLE;
         end
-        else if (!from_cpu.tvalid && to_dpe_sbuff.tready) begin
-          state_next = R1;
+        else if (!in_valid[port] && to_dpe_sbuff.tready) begin
+          port_next = next_port(port);  // nothing to send
         end
       end
 
-      S0: begin
-        if (from_cpu.tlast && from_cpu.tvalid && to_dpe_sbuff.tready) begin
+      SEND: begin
+        if (beat && in_last[port]) begin
           if (pause) begin
-            state_next = IDLE;
+            phase_next = IDLE;
           end
           else begin
-            state_next = R1;
+            phase_next = VISIT;
+            port_next  = next_port(port);
           end
         end
       end
 
-      R1: begin
-        if (from_eth_1.tvalid && to_dpe_sbuff.tready) begin
-          // a one-beat packet ends here: on to the next port
-          if (!from_eth_1.tlast) begin
-            state_next = S1;
-          end
-          else if (pause) begin
-            state_next = IDLE;
-          end
-          else begin
-            state_next = R2;
-          end
-        end
-        else if (pause) begin
-          state_next = IDLE;
-        end
-        else if (!from_eth_1.tvalid && to_dpe_sbuff.tready) begin
-          state_next = R2;
-        end
-      end
-
-      S1: begin
-        if (from_eth_1.tlast && from_eth_1.tvalid && to_dpe_sbuff.tready) begin
-          if (pause) begin
-            state_next = IDLE;
-          end
-          else begin
-            state_next = R2;
-          end
-        end
-      end
-
-      R2: begin
-        if (from_eth_2.tvalid && to_dpe_sbuff.tready) begin
-          // a one-beat packet ends here: on to the next port
-          if (!from_eth_2.tlast) begin
-            state_next = S2;
-          end
-          else if (pause) begin
-            state_next = IDLE;
-          end
-          else begin
-            state_next = R3;
-          end
-        end
-        else if (pause) begin
-          state_next = IDLE;
-        end
-        else if (!from_eth_2.tvalid && to_dpe_sbuff.tready) begin
-          state_next = R3;
-        end
-      end
-
-      S2: begin
-        if (from_eth_2.tlast && from_eth_2.tvalid && to_dpe_sbuff.tready) begin
-          if (pause) begin
-            state_next = IDLE;
-          end
-          else begin
-            state_next = R3;
-          end
-        end
-      end
-
-      R3: begin
-        if (from_eth_3.tvalid && to_dpe_sbuff.tready) begin
-          // a one-beat packet ends here: on to the next port
-          if (!from_eth_3.tlast) begin
-            state_next = S3;
-          end
-          else if (pause) begin
-            state_next = IDLE;
-          end
-          else begin
-            state_next = R4;
-          end
-        end
-        else if (pause) begin
-          state_next = IDLE;
-        end
-        else if (!from_eth_3.tvalid && to_dpe_sbuff.tready) begin
-          state_next = R4;
-        end
-      end
-
-      S3: begin
-        if (from_eth_3.tlast && from_eth_3.tvalid && to_dpe_sbuff.tready) begin
-          if (pause) begin
-            state_next = IDLE;
-          end
-          else begin
-            state_next = R4;
-          end
-        end
-      end
-
-      R4: begin
-        if (from_eth_4.tvalid && to_dpe_sbuff.tready) begin
-          // a one-beat packet ends here: on to the next port
-          if (!from_eth_4.tlast) begin
-            state_next = S4;
-          end
-          else if (pause) begin
-            state_next = IDLE;
-          end
-          else begin
-            state_next = R0;
-          end
-        end
-        else if (pause) begin
-          state_next = IDLE;
-        end
-        else if (!from_eth_4.tvalid && to_dpe_sbuff.tready) begin
-          state_next = R0;
-        end
-      end
-
-      S4: begin
-        if (from_eth_4.tlast && from_eth_4.tvalid && to_dpe_sbuff.tready) begin
-          if (pause) begin
-            state_next = IDLE;
-          end
-          else begin
-            state_next = R0;
-          end
-        end
-      end
-
-      default: state_next = state;
+      default: phase_next = phase;
     endcase
   end
 
-  // Outputs logic
+  // Outputs logic: the served port's beats, stamped with its address
   always_comb begin
-    // Default assignments
-    idle                = 1'b0;
+    idle                = (phase == IDLE) & !to_dpe.tvalid;
+    in_ready            = '0;
     to_dpe_sbuff.tvalid = 1'b0;
     to_dpe_sbuff.tdata  = '0;
     to_dpe_sbuff.tlast  = 1'b0;
     to_dpe_sbuff.tkeep  = '0;
     to_dpe_sbuff.tuser  = '0;
     to_dpe_sbuff.tid    = '0;  // no peer yet: the lookup sets it
-    from_cpu.tready     = 1'b0;
-    from_eth_1.tready   = 1'b0;
-    from_eth_2.tready   = 1'b0;
-    from_eth_3.tready   = 1'b0;
-    from_eth_4.tready   = 1'b0;
 
-    unique case (state)
-      IDLE: begin
-        idle = !to_dpe.tvalid;
-      end
-
-      R0, S0: begin
-        idle                   = 1'b0;
-        to_dpe_sbuff.tvalid    = from_cpu.tvalid;
-        to_dpe_sbuff.tdata     = from_cpu.tdata;
-        to_dpe_sbuff.tlast     = from_cpu.tlast;
-        to_dpe_sbuff.tkeep     = from_cpu.tkeep;
-        to_dpe_sbuff.tuser     = from_cpu.tuser;
-        to_dpe_sbuff.tuser.src = DPE_ADDR_CPU;
-        from_cpu.tready        = to_dpe_sbuff.tready;
-      end
-
-      R1, S1: begin
-        idle                   = 1'b0;
-        to_dpe_sbuff.tvalid    = from_eth_1.tvalid;
-        to_dpe_sbuff.tdata     = from_eth_1.tdata;
-        to_dpe_sbuff.tlast     = from_eth_1.tlast;
-        to_dpe_sbuff.tkeep     = from_eth_1.tkeep;
-        to_dpe_sbuff.tuser     = from_eth_1.tuser;
-        to_dpe_sbuff.tuser.src = DPE_ADDR_ETH_1;
-        from_eth_1.tready      = to_dpe_sbuff.tready;
-      end
-
-      R2, S2: begin
-        idle                   = 1'b0;
-        to_dpe_sbuff.tvalid    = from_eth_2.tvalid;
-        to_dpe_sbuff.tdata     = from_eth_2.tdata;
-        to_dpe_sbuff.tlast     = from_eth_2.tlast;
-        to_dpe_sbuff.tkeep     = from_eth_2.tkeep;
-        to_dpe_sbuff.tuser     = from_eth_2.tuser;
-        to_dpe_sbuff.tuser.src = DPE_ADDR_ETH_2;
-        from_eth_2.tready      = to_dpe_sbuff.tready;
-      end
-
-      R3, S3: begin
-        idle                   = 1'b0;
-        to_dpe_sbuff.tvalid    = from_eth_3.tvalid;
-        to_dpe_sbuff.tdata     = from_eth_3.tdata;
-        to_dpe_sbuff.tlast     = from_eth_3.tlast;
-        to_dpe_sbuff.tkeep     = from_eth_3.tkeep;
-        to_dpe_sbuff.tuser     = from_eth_3.tuser;
-        to_dpe_sbuff.tuser.src = DPE_ADDR_ETH_3;
-        from_eth_3.tready      = to_dpe_sbuff.tready;
-      end
-
-      R4, S4: begin
-        idle                   = 1'b0;
-        to_dpe_sbuff.tvalid    = from_eth_4.tvalid;
-        to_dpe_sbuff.tdata     = from_eth_4.tdata;
-        to_dpe_sbuff.tlast     = from_eth_4.tlast;
-        to_dpe_sbuff.tkeep     = from_eth_4.tkeep;
-        to_dpe_sbuff.tuser     = from_eth_4.tuser;
-        to_dpe_sbuff.tuser.src = DPE_ADDR_ETH_4;
-        from_eth_4.tready      = to_dpe_sbuff.tready;
-      end
-
-      default: idle = !to_dpe.tvalid;
-    endcase
+    if (phase != IDLE) begin
+      to_dpe_sbuff.tvalid    = in_valid[port];
+      to_dpe_sbuff.tdata     = in_data[port];
+      to_dpe_sbuff.tlast     = in_last[port];
+      to_dpe_sbuff.tkeep     = in_keep[port];
+      to_dpe_sbuff.tuser     = in_user[port];
+      to_dpe_sbuff.tuser.src = dpe_addr_t'(port);
+      in_ready[port]         = to_dpe_sbuff.tready;
+    end
   end
 
-  // Skid buffers
+  // Skid buffer
   dpe_if_skid_buffer u_dpe_if_skid_buffer_to_dpe (
       .inp  (to_dpe_sbuff),
       .outp (to_dpe)
