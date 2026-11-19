@@ -13,7 +13,7 @@ extern "C" {
 #include "csr_regs.h"
 #include "string_bare.h"
 
-#define UART_RXBUF_SIZE 32
+#define UART_RXBUF_SIZE 48  // a base64 key: 44 characters
 #define UART_RX_VALID   0x80000000
 #define UART_RX_OFLOW   0x40000000
 #define UART_RX_DATA    0x000000FF

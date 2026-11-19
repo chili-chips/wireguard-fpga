@@ -87,7 +87,7 @@ Routing table entry updated.
 (wireguard-fpga)# 
 ```
 
-Next, we still need to configure the WireGuard peer. The keys go in as 64 hex digits, 8 per prompt, starting from key byte 31: the key is one little-endian 256-bit number (`csr.rdl`). A key that a WireGuard tool prints byte 0 first is entered byte-reversed.
+Next, we still need to configure the WireGuard peer. A key goes in as base64, as WireGuard tools print it (`wg genkey`, 44 characters). Or press Enter and give 64 hex digits, 8 per prompt, starting from key byte 31: the key is one little-endian 256-bit number (`csr.rdl`).
 
 ```
 (wireguard-fpga)# config cryptokeys
@@ -101,6 +101,7 @@ Enter new cryptokey table entry:
   Remote IP address [0.0.0.0]: 192.168.1.99
   Remote port (0-65535) [0]: 51820
   Remote ID (8 hex digits) [00000000]: CCBACA41
+  Encryption key, base64 (Enter: 8 hex words): 
   Encryption key (1st 8 hex digits) [00000000]: 01234567
   Encryption key (2nd 8 hex digits) [00000000]: 89ABCDEF
   Encryption key (3rd 8 hex digits) [00000000]: 01234567
@@ -109,6 +110,7 @@ Enter new cryptokey table entry:
   Encryption key (6th 8 hex digits) [00000000]: 89ABCDEF
   Encryption key (7th 8 hex digits) [00000000]: 01234567
   Encryption key (8th 8 hex digits) [00000000]: 89ABCDEF
+  Decryption key, base64 (Enter: 8 hex words): 
   Decryption key (1st 8 hex digits) [00000000]: FEDCBA98
   Decryption key (2nd 8 hex digits) [00000000]: 76543210
   Decryption key (3rd 8 hex digits) [00000000]: FEDCBA98
@@ -158,6 +160,7 @@ Enter new cryptokey table entry:
   Remote IP address [0.0.0.0]: 192.168.1.98
   Remote port (0-65535) [0]: 51820
   Remote ID (8 hex digits) [00000000]: CCBACA01
+  Encryption key, base64 (Enter: 8 hex words): 
   Encryption key (1st 8 hex digits) [00000000]: FEDCBA98
   Encryption key (2nd 8 hex digits) [00000000]: 76543210
   Encryption key (3rd 8 hex digits) [00000000]: FEDCBA98
@@ -166,6 +169,7 @@ Enter new cryptokey table entry:
   Encryption key (6th 8 hex digits) [00000000]: 76543210
   Encryption key (7th 8 hex digits) [00000000]: FEDCBA98
   Encryption key (8th 8 hex digits) [00000000]: 76543210
+  Decryption key, base64 (Enter: 8 hex words): 
   Decryption key (1st 8 hex digits) [00000000]: 01234567
   Decryption key (2nd 8 hex digits) [00000000]: 89ABCDEF
   Decryption key (3rd 8 hex digits) [00000000]: 01234567

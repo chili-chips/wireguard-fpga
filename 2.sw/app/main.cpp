@@ -598,6 +598,62 @@ void show_cryptokeys(void) {
    }
 }
 
+// A 32-byte key in base64 (44 characters, as WireGuard tools print it),
+// followed by <LF> or the end of the string: true and the key bytes, else false
+static bool base64_key(const char* s, uint8_t key[32]) {
+   uint32_t acc = 0;
+   int      bits = 0, n = 0;
+   for (int i = 0; i < 43; i++) {
+      char c = s[i];
+      int  v = (c >= 'A' && c <= 'Z') ? c - 'A' :
+               (c >= 'a' && c <= 'z') ? c - 'a' + 26 :
+               (c >= '0' && c <= '9') ? c - '0' + 52 :
+               (c == '+') ? 62 : (c == '/') ? 63 : -1;
+      if (v < 0) return false;
+      acc = (acc << 6) | (uint32_t)v;
+      bits += 6;
+      if (bits >= 8) {
+         bits -= 8;
+         if (n < 32) key[n++] = (uint8_t)(acc >> bits);
+      }
+   }
+   return n == 32 && s[43] == '=' && (s[44] == '\n' || s[44] == '\0');
+}
+
+// Ask for a key: base64, or Enter for 8 hex words from bits 255:224 (key
+// byte 31 first; Enter keeps a word). w: the current words in, the new out.
+// The CSR words hold the key as one little-endian 256-bit number (csr.rdl)
+static void read_key(const char* name, uint32_t w[8], char* buf) {
+   static const char* const nth[8] = {"1st", "2nd", "3rd", "4th", "5th", "6th", "7th", "8th"};
+   uint8_t key[32];
+
+   uart_send("  ");
+   uart_send(name);
+   uart_send(" key, base64 (Enter: 8 hex words): ");
+   while (!uart_recv(buf));
+   if (buf[0] != '\n' && buf[0] != '\0') {
+      if (base64_key(buf, key)) {
+         for (int k = 0; k < 8; k++) {
+            w[k] = ((uint32_t)key[31 - 4 * k] << 24) | ((uint32_t)key[30 - 4 * k] << 16) |
+                   ((uint32_t)key[29 - 4 * k] << 8) | (uint32_t)key[28 - 4 * k];
+         }
+         return;
+      }
+      uart_send("  Not a base64 key (44 characters); as 8 hex words:\r\n");
+   }
+   for (int k = 0; k < 8; k++) {
+      uart_send("  ");
+      uart_send(name);
+      uart_send(" key (");
+      uart_send(nth[k]);
+      uart_send(" 8 hex digits) [");
+      uart_send_hex(w[k], 8);
+      uart_send("]: ");
+      while (!uart_recv(buf));
+      str_parse_hex(buf, &w[k], 0, 0xFFFFFFFF);
+   }
+}
+
 // As config_routes: the DPE pauses only for the writes
 void config_cryptokeys(void) {
    char uart_rx_data[UART_RXBUF_SIZE];
@@ -680,117 +736,27 @@ void config_cryptokeys(void) {
    while (!uart_recv(uart_rx_data));
    str_parse_hex(uart_rx_data, &remote_id, 0, 0xFFFFFFFF);
 
-   uart_send("  Encryption key (1st 8 hex digits) [");
-   uint32_t encrypt_key_255_224 = CSR_REG32(cryptokey_table.entry[entry_idx].encrypt_key_255_224);
-   uart_send_hex(encrypt_key_255_224, 8);
-   uart_send("]: ");
-   while (!uart_recv(uart_rx_data));
-   str_parse_hex(uart_rx_data, &encrypt_key_255_224, 0, 0xFFFFFFFF);
+   uint32_t encrypt_key[8] = {
+      CSR_REG32(cryptokey_table.entry[entry_idx].encrypt_key_255_224),
+      CSR_REG32(cryptokey_table.entry[entry_idx].encrypt_key_223_192),
+      CSR_REG32(cryptokey_table.entry[entry_idx].encrypt_key_191_160),
+      CSR_REG32(cryptokey_table.entry[entry_idx].encrypt_key_159_128),
+      CSR_REG32(cryptokey_table.entry[entry_idx].encrypt_key_127_96),
+      CSR_REG32(cryptokey_table.entry[entry_idx].encrypt_key_95_64),
+      CSR_REG32(cryptokey_table.entry[entry_idx].encrypt_key_63_32),
+      CSR_REG32(cryptokey_table.entry[entry_idx].encrypt_key_31_0)};
+   read_key("Encryption", encrypt_key, uart_rx_data);
 
-   uart_send("  Encryption key (2nd 8 hex digits) [");
-   uint32_t encrypt_key_223_192 = CSR_REG32(cryptokey_table.entry[entry_idx].encrypt_key_223_192);
-   uart_send_hex(encrypt_key_223_192, 8);
-   uart_send("]: ");
-   while (!uart_recv(uart_rx_data));
-   str_parse_hex(uart_rx_data, &encrypt_key_223_192, 0, 0xFFFFFFFF);
-
-   uart_send("  Encryption key (3rd 8 hex digits) [");
-   uint32_t encrypt_key_191_160 = CSR_REG32(cryptokey_table.entry[entry_idx].encrypt_key_191_160);
-   uart_send_hex(encrypt_key_191_160, 8);
-   uart_send("]: ");
-   while (!uart_recv(uart_rx_data));
-   str_parse_hex(uart_rx_data, &encrypt_key_191_160, 0, 0xFFFFFFFF);
-
-   uart_send("  Encryption key (4th 8 hex digits) [");
-   uint32_t encrypt_key_159_128 = CSR_REG32(cryptokey_table.entry[entry_idx].encrypt_key_159_128);
-   uart_send_hex(encrypt_key_159_128, 8);
-   uart_send("]: ");
-   while (!uart_recv(uart_rx_data));
-   str_parse_hex(uart_rx_data, &encrypt_key_159_128, 0, 0xFFFFFFFF);
-
-   uart_send("  Encryption key (5th 8 hex digits) [");
-   uint32_t encrypt_key_127_96 = CSR_REG32(cryptokey_table.entry[entry_idx].encrypt_key_127_96);
-   uart_send_hex(encrypt_key_127_96, 8);
-   uart_send("]: ");
-   while (!uart_recv(uart_rx_data));
-   str_parse_hex(uart_rx_data, &encrypt_key_127_96, 0, 0xFFFFFFFF);
-
-   uart_send("  Encryption key (6th 8 hex digits) [");
-   uint32_t encrypt_key_95_64 = CSR_REG32(cryptokey_table.entry[entry_idx].encrypt_key_95_64);
-   uart_send_hex(encrypt_key_95_64, 8);
-   uart_send("]: ");
-   while (!uart_recv(uart_rx_data));
-   str_parse_hex(uart_rx_data, &encrypt_key_95_64, 0, 0xFFFFFFFF);
-
-   uart_send("  Encryption key (7th 8 hex digits) [");
-   uint32_t encrypt_key_63_32 = CSR_REG32(cryptokey_table.entry[entry_idx].encrypt_key_63_32);
-   uart_send_hex(encrypt_key_63_32, 8);
-   uart_send("]: ");
-   while (!uart_recv(uart_rx_data));
-   str_parse_hex(uart_rx_data, &encrypt_key_63_32, 0, 0xFFFFFFFF);
-
-   uart_send("  Encryption key (8th 8 hex digits) [");
-   uint32_t encrypt_key_31_0 = CSR_REG32(cryptokey_table.entry[entry_idx].encrypt_key_31_0);
-   uart_send_hex(encrypt_key_31_0, 8);
-   uart_send("]: ");
-   while (!uart_recv(uart_rx_data));
-   str_parse_hex(uart_rx_data, &encrypt_key_31_0, 0, 0xFFFFFFFF);
-
-   uart_send("  Decryption key (1st 8 hex digits) [");
-   uint32_t decrypt_key_255_224 = CSR_REG32(cryptokey_table.entry[entry_idx].decrypt_key_255_224);
-   uart_send_hex(decrypt_key_255_224, 8);
-   uart_send("]: ");
-   while (!uart_recv(uart_rx_data));
-   str_parse_hex(uart_rx_data, &decrypt_key_255_224, 0, 0xFFFFFFFF);
-
-   uart_send("  Decryption key (2nd 8 hex digits) [");
-   uint32_t decrypt_key_223_192 = CSR_REG32(cryptokey_table.entry[entry_idx].decrypt_key_223_192);
-   uart_send_hex(decrypt_key_223_192, 8);
-   uart_send("]: ");
-   while (!uart_recv(uart_rx_data));
-   str_parse_hex(uart_rx_data, &decrypt_key_223_192, 0, 0xFFFFFFFF);
-
-   uart_send("  Decryption key (3rd 8 hex digits) [");
-   uint32_t decrypt_key_191_160 = CSR_REG32(cryptokey_table.entry[entry_idx].decrypt_key_191_160);
-   uart_send_hex(decrypt_key_191_160, 8);
-   uart_send("]: ");
-   while (!uart_recv(uart_rx_data));
-   str_parse_hex(uart_rx_data, &decrypt_key_191_160, 0, 0xFFFFFFFF);
-
-   uart_send("  Decryption key (4th 8 hex digits) [");
-   uint32_t decrypt_key_159_128 = CSR_REG32(cryptokey_table.entry[entry_idx].decrypt_key_159_128);
-   uart_send_hex(decrypt_key_159_128, 8);
-   uart_send("]: ");
-   while (!uart_recv(uart_rx_data));
-   str_parse_hex(uart_rx_data, &decrypt_key_159_128, 0, 0xFFFFFFFF);
-
-   uart_send("  Decryption key (5th 8 hex digits) [");
-   uint32_t decrypt_key_127_96 = CSR_REG32(cryptokey_table.entry[entry_idx].decrypt_key_127_96);
-   uart_send_hex(decrypt_key_127_96, 8);
-   uart_send("]: ");
-   while (!uart_recv(uart_rx_data));
-   str_parse_hex(uart_rx_data, &decrypt_key_127_96, 0, 0xFFFFFFFF);
-
-   uart_send("  Decryption key (6th 8 hex digits) [");
-   uint32_t decrypt_key_95_64 = CSR_REG32(cryptokey_table.entry[entry_idx].decrypt_key_95_64);
-   uart_send_hex(decrypt_key_95_64, 8);
-   uart_send("]: ");
-   while (!uart_recv(uart_rx_data));
-   str_parse_hex(uart_rx_data, &decrypt_key_95_64, 0, 0xFFFFFFFF);
-
-   uart_send("  Decryption key (7th 8 hex digits) [");
-   uint32_t decrypt_key_63_32 = CSR_REG32(cryptokey_table.entry[entry_idx].decrypt_key_63_32);
-   uart_send_hex(decrypt_key_63_32, 8);
-   uart_send("]: ");
-   while (!uart_recv(uart_rx_data));
-   str_parse_hex(uart_rx_data, &decrypt_key_63_32, 0, 0xFFFFFFFF);
-
-   uart_send("  Decryption key (8th 8 hex digits) [");
-   uint32_t decrypt_key_31_0 = CSR_REG32(cryptokey_table.entry[entry_idx].decrypt_key_31_0);
-   uart_send_hex(decrypt_key_31_0, 8);
-   uart_send("]: ");
-   while (!uart_recv(uart_rx_data));
-   str_parse_hex(uart_rx_data, &decrypt_key_31_0, 0, 0xFFFFFFFF);
+   uint32_t decrypt_key[8] = {
+      CSR_REG32(cryptokey_table.entry[entry_idx].decrypt_key_255_224),
+      CSR_REG32(cryptokey_table.entry[entry_idx].decrypt_key_223_192),
+      CSR_REG32(cryptokey_table.entry[entry_idx].decrypt_key_191_160),
+      CSR_REG32(cryptokey_table.entry[entry_idx].decrypt_key_159_128),
+      CSR_REG32(cryptokey_table.entry[entry_idx].decrypt_key_127_96),
+      CSR_REG32(cryptokey_table.entry[entry_idx].decrypt_key_95_64),
+      CSR_REG32(cryptokey_table.entry[entry_idx].decrypt_key_63_32),
+      CSR_REG32(cryptokey_table.entry[entry_idx].decrypt_key_31_0)};
+   read_key("Decryption", decrypt_key, uart_rx_data);
 
    uart_send("  Reset send/recv counters? (y/n) [n]: ");
    while (!uart_recv(uart_rx_data));
@@ -808,22 +774,22 @@ void config_cryptokeys(void) {
    CSR_REG32(cryptokey_table.entry[entry_idx].remote_ip) = uremote_ip;
    CSR_SET(cryptokey_table.entry[entry_idx].remote_port, CSR__CRYPTOKEY_TABLE__ENTRY__REMOTE_PORT__PORT, remote_port);
    CSR_REG32(cryptokey_table.entry[entry_idx].remote_id) = remote_id;
-   CSR_REG32(cryptokey_table.entry[entry_idx].encrypt_key_255_224) = encrypt_key_255_224;
-   CSR_REG32(cryptokey_table.entry[entry_idx].encrypt_key_223_192) = encrypt_key_223_192;
-   CSR_REG32(cryptokey_table.entry[entry_idx].encrypt_key_191_160) = encrypt_key_191_160;
-   CSR_REG32(cryptokey_table.entry[entry_idx].encrypt_key_159_128) = encrypt_key_159_128;
-   CSR_REG32(cryptokey_table.entry[entry_idx].encrypt_key_127_96) = encrypt_key_127_96;
-   CSR_REG32(cryptokey_table.entry[entry_idx].encrypt_key_95_64) = encrypt_key_95_64;
-   CSR_REG32(cryptokey_table.entry[entry_idx].encrypt_key_63_32) = encrypt_key_63_32;
-   CSR_REG32(cryptokey_table.entry[entry_idx].encrypt_key_31_0) = encrypt_key_31_0;
-   CSR_REG32(cryptokey_table.entry[entry_idx].decrypt_key_255_224) = decrypt_key_255_224;
-   CSR_REG32(cryptokey_table.entry[entry_idx].decrypt_key_223_192) = decrypt_key_223_192;
-   CSR_REG32(cryptokey_table.entry[entry_idx].decrypt_key_191_160) = decrypt_key_191_160;
-   CSR_REG32(cryptokey_table.entry[entry_idx].decrypt_key_159_128) = decrypt_key_159_128;
-   CSR_REG32(cryptokey_table.entry[entry_idx].decrypt_key_127_96) = decrypt_key_127_96;
-   CSR_REG32(cryptokey_table.entry[entry_idx].decrypt_key_95_64) = decrypt_key_95_64;
-   CSR_REG32(cryptokey_table.entry[entry_idx].decrypt_key_63_32) = decrypt_key_63_32;
-   CSR_REG32(cryptokey_table.entry[entry_idx].decrypt_key_31_0) = decrypt_key_31_0;
+   CSR_REG32(cryptokey_table.entry[entry_idx].encrypt_key_255_224) = encrypt_key[0];
+   CSR_REG32(cryptokey_table.entry[entry_idx].encrypt_key_223_192) = encrypt_key[1];
+   CSR_REG32(cryptokey_table.entry[entry_idx].encrypt_key_191_160) = encrypt_key[2];
+   CSR_REG32(cryptokey_table.entry[entry_idx].encrypt_key_159_128) = encrypt_key[3];
+   CSR_REG32(cryptokey_table.entry[entry_idx].encrypt_key_127_96) = encrypt_key[4];
+   CSR_REG32(cryptokey_table.entry[entry_idx].encrypt_key_95_64) = encrypt_key[5];
+   CSR_REG32(cryptokey_table.entry[entry_idx].encrypt_key_63_32) = encrypt_key[6];
+   CSR_REG32(cryptokey_table.entry[entry_idx].encrypt_key_31_0) = encrypt_key[7];
+   CSR_REG32(cryptokey_table.entry[entry_idx].decrypt_key_255_224) = decrypt_key[0];
+   CSR_REG32(cryptokey_table.entry[entry_idx].decrypt_key_223_192) = decrypt_key[1];
+   CSR_REG32(cryptokey_table.entry[entry_idx].decrypt_key_191_160) = decrypt_key[2];
+   CSR_REG32(cryptokey_table.entry[entry_idx].decrypt_key_159_128) = decrypt_key[3];
+   CSR_REG32(cryptokey_table.entry[entry_idx].decrypt_key_127_96) = decrypt_key[4];
+   CSR_REG32(cryptokey_table.entry[entry_idx].decrypt_key_95_64) = decrypt_key[5];
+   CSR_REG32(cryptokey_table.entry[entry_idx].decrypt_key_63_32) = decrypt_key[6];
+   CSR_REG32(cryptokey_table.entry[entry_idx].decrypt_key_31_0) = decrypt_key[7];
    if (reset_cnt) {
       CSR_REG32(cryptokey_table.entry[entry_idx].send_cnt_63_32) = 0;
       CSR_REG32(cryptokey_table.entry[entry_idx].send_cnt_31_0) = 0;
