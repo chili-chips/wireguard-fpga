@@ -98,7 +98,16 @@ module dpe_mux
 
       R0: begin
         if (from_cpu.tvalid && to_dpe_sbuff.tready) begin
-          state_next = S0;
+          // a one-beat packet ends here: on to the next port
+          if (!from_cpu.tlast) begin
+            state_next = S0;
+          end
+          else if (pause) begin
+            state_next = IDLE;
+          end
+          else begin
+            state_next = R1;
+          end
         end
         else if (pause) begin
           state_next = IDLE;
@@ -121,7 +130,16 @@ module dpe_mux
 
       R1: begin
         if (from_eth_1.tvalid && to_dpe_sbuff.tready) begin
-          state_next = S1;
+          // a one-beat packet ends here: on to the next port
+          if (!from_eth_1.tlast) begin
+            state_next = S1;
+          end
+          else if (pause) begin
+            state_next = IDLE;
+          end
+          else begin
+            state_next = R2;
+          end
         end
         else if (pause) begin
           state_next = IDLE;
@@ -144,7 +162,16 @@ module dpe_mux
 
       R2: begin
         if (from_eth_2.tvalid && to_dpe_sbuff.tready) begin
-          state_next = S2;
+          // a one-beat packet ends here: on to the next port
+          if (!from_eth_2.tlast) begin
+            state_next = S2;
+          end
+          else if (pause) begin
+            state_next = IDLE;
+          end
+          else begin
+            state_next = R3;
+          end
         end
         else if (pause) begin
           state_next = IDLE;
@@ -167,7 +194,16 @@ module dpe_mux
 
       R3: begin
         if (from_eth_3.tvalid && to_dpe_sbuff.tready) begin
-          state_next = S3;
+          // a one-beat packet ends here: on to the next port
+          if (!from_eth_3.tlast) begin
+            state_next = S3;
+          end
+          else if (pause) begin
+            state_next = IDLE;
+          end
+          else begin
+            state_next = R4;
+          end
         end
         else if (pause) begin
           state_next = IDLE;
@@ -190,7 +226,16 @@ module dpe_mux
 
       R4: begin
         if (from_eth_4.tvalid && to_dpe_sbuff.tready) begin
-          state_next = S4;
+          // a one-beat packet ends here: on to the next port
+          if (!from_eth_4.tlast) begin
+            state_next = S4;
+          end
+          else if (pause) begin
+            state_next = IDLE;
+          end
+          else begin
+            state_next = R0;
+          end
         end
         else if (pause) begin
           state_next = IDLE;

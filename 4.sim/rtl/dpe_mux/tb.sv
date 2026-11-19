@@ -76,6 +76,11 @@ module tb;
         eth_4: '{dst: DPE_ADDR_BCAST, len: 4, data: '{8'h29, 8'h2A, 8'h2B, 8'h2C, 8'h00, 8'h00}}
     };
 
+    test_pkt_t one_beat;
+    initial one_beat = '{dst: DPE_ADDR_ETH_4, len: 1, data: '{8'h33, 8'h00, 8'h00, 8'h00, 8'h00, 8'h00}};
+    logic mux_idle;
+    int   errors = 0;
+
     // Clock generation
     // 80 MHz at 1 ns precision: halves of 6, 6, 7, 6 ns, 12.5 ns on average
     initial begin
@@ -91,7 +96,7 @@ module tb;
     // DUT instantiation
     dpe_mux DUT (
         .pause(pause),
-        .idle(),
+        .idle(mux_idle),
         .from_cpu(from_cpu),
         .from_eth_1(from_eth_1),
         .from_eth_2(from_eth_2),
@@ -135,9 +140,23 @@ module tb;
         snk.expect_pkt(packet_data.eth_2, DPE_ADDR_ETH_2);
         snk.expect_pkt(packet_data.eth_3, DPE_ADDR_ETH_3);
         snk.expect_pkt(packet_data.eth_4, DPE_ADDR_ETH_4);
+
+        // A one-beat packet, then pause: the multiplexer must stop and
+        // report idle (#13: it used to wait for that port's next tlast)
+        src_eth_2.send(one_beat);
+        pause = 1;
+        for (int t = 0; t < 50 && !mux_idle; t++) @(negedge clk);
+        if (!mux_idle) begin
+            $display("ERROR: not idle 50 clocks after a one-beat packet and pause");
+            errors++;
+        end
+        pause = 0;
+        repeat (10) @(negedge clk);
+        snk.expect_pkt(one_beat, DPE_ADDR_ETH_2);
+
         snk.report();
-        if (snk.errors == 0) $display("RESULT: PASS");
-        else                 $display("RESULT: FAIL (%0d errors)", snk.errors);
+        if (snk.errors + errors == 0) $display("RESULT: PASS");
+        else                          $display("RESULT: FAIL (%0d errors)", snk.errors + errors);
         $finish(2);
     end
 

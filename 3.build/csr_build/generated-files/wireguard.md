@@ -847,7 +847,7 @@ No supported members.
 
 #### idle field
 
-<p>Indicates that all stages of DPE have been succesfully paused</p>
+<p>1: the multiplexer has stopped (pause) and the switch holds no packet, so the routing and cryptokey tables and wg_ip/wg_port can be written. Packets past the switch (demultiplexer, Ethernet TX) may still be on their way: they no longer read the tables. An Ethernet port that does not send can hold the switch, and so this bit, at 0</p>
 
 #### pause field
 
