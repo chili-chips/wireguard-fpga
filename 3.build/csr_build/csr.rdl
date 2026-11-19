@@ -517,7 +517,7 @@ addrmap csr {
 
          field {
             name = "csr.dpe.fcr.idle";
-            desc = "1: the multiplexer has stopped (pause) and the switch holds no packet, so the routing and cryptokey tables and wg_ip/wg_port can be written. Packets past the switch (demultiplexer, Ethernet TX) may still be on their way: they no longer read the tables. An Ethernet port that does not send can hold the switch, and so this bit, at 0";
+            desc = "1: the multiplexer has stopped (pause) and the switch holds no packet that still reads the tables, so the routing and cryptokey tables and wg_ip/wg_port can be written. Packets past the switch (demultiplexer, Ethernet TX) may still be on their way: they no longer read the tables. An Ethernet port that does not send can hold the switch, and so this bit, at 0";
             sw = r;
             hw = w;
          } idle[0:0] = 0;

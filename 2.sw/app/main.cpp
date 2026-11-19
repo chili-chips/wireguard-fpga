@@ -610,6 +610,7 @@ static bool base64_key(const char* s, uint8_t key[32]) {
                (c >= '0' && c <= '9') ? c - '0' + 52 :
                (c == '+') ? 62 : (c == '/') ? 63 : -1;
       if (v < 0) return false;
+      if (i == 42 && (v & 3)) return false;  // its 2 low bits pad: 0, as WireGuard checks
       acc = (acc << 6) | (uint32_t)v;
       bits += 6;
       if (bits >= 8) {
