@@ -40,21 +40,21 @@ The rules are in [`sim.mk`](sim.mk): timescale `1ns/1ns`, `output/sim.log` and `
 
 ## Status
 
-JanusHDL: 0.20.0, 2026-11-18. "—": not tried.
+JanusHDL: 0.21.0, 2026-11-19. "—": not tried. JanusHDL elaborates every bench now; the three that run the ChaCha20-Poly1305 cores did not end within the 30 minutes we gave them (Verilator: seconds).
 
 | Bench | Verilator | Icarus | JanusHDL |
 |---|---|---|---|
-| `dpe_switch` | PASS | no: PeakRDL `csr_pkg.sv` uses unpacked structs | no: as `dpe_wg_decryptor` |
-| `dpe` | PASS | no: `csr_pkg.sv` | no: a member of a struct in an interface (`x.tuser.src`, [#41](https://github.com/chili-chips/wireguard-fpga/issues/41)) |
-| `dpe_mux` | PASS | PASS | no: [#41](https://github.com/chili-chips/wireguard-fpga/issues/41) |
-| `dpe_demux` | PASS | PASS | no: [#41](https://github.com/chili-chips/wireguard-fpga/issues/41) |
-| `dpe_wg_disassembler` | PASS | — | no: [#41](https://github.com/chili-chips/wireguard-fpga/issues/41) |
-| `dpe_wg_encryptor` | PASS | — | no: [#41](https://github.com/chili-chips/wireguard-fpga/issues/41); the `PEER` struct `localparam` ([#53](https://github.com/chili-chips/wireguard-fpga/issues/53)); an element of an interface array on an interface port (`axis_pipeline_register.sv:70`, [#54](https://github.com/chili-chips/wireguard-fpga/issues/54)) |
-| `dpe_wg_decryptor` | PASS | — | no: the two PipelineC cores define the same helper modules (Verilator: `-Wno-MODDUP`); then as `dpe_wg_encryptor` |
-| `lkup_egress` | PASS | no: `csr_pkg.sv` ([#45](https://github.com/chili-chips/wireguard-fpga/issues/45)); then the `'1` default ([#57](https://github.com/chili-chips/wireguard-fpga/issues/57)) | no: a named-member pattern for a struct `localparam` (`lkup_pkg.sv:47`, [#53](https://github.com/chili-chips/wireguard-fpga/issues/53)); `$bits` of a type in a part-select bound (`lkup_egress.sv:116`, [#55](https://github.com/chili-chips/wireguard-fpga/issues/55)); [#41](https://github.com/chili-chips/wireguard-fpga/issues/41); then the `'1` default as `lkup_peer_table` ([#56](https://github.com/chili-chips/wireguard-fpga/issues/56)) |
-| `lkup_peer_table` | PASS | no: `csr_pkg.sv` ([#45](https://github.com/chili-chips/wireguard-fpga/issues/45)); then the `'1` default ([#57](https://github.com/chili-chips/wireguard-fpga/issues/57)) | no: the struct `localparam` pattern ([#53](https://github.com/chili-chips/wireguard-fpga/issues/53)); past it, the bench's `'1` default byte enables read as 1, so bytes 1 to 3 stay X ([#56](https://github.com/chili-chips/wireguard-fpga/issues/56)) |
-| `pcap_reader_writer` | PASS | runs | no: [#41](https://github.com/chili-chips/wireguard-fpga/issues/41) |
-| `gmii2gmii_test` | runs | no: compiles all of `top.filelist` (`csr_pkg.sv`) | no: the struct `localparam` pattern ([#53](https://github.com/chili-chips/wireguard-fpga/issues/53)); runs past it |
-| `chacha20poly1305_encrypt` | runs | no: nested unpacked array pattern (`tb.sv:62`) | no: [#41](https://github.com/chili-chips/wireguard-fpga/issues/41) |
+| `dpe_switch` | PASS | no: PeakRDL `csr_pkg.sv` uses unpacked structs | no result: runs past 30 min, as `dpe_wg_encryptor` |
+| `dpe` | PASS | no: `csr_pkg.sv` | PASS |
+| `dpe_mux` | PASS | PASS | PASS |
+| `dpe_demux` | PASS | PASS | PASS |
+| `dpe_wg_disassembler` | PASS | — | PASS |
+| `dpe_wg_encryptor` | PASS | — | no result: runs past 30 min |
+| `dpe_wg_decryptor` | PASS | — | no result: runs past 30 min (it now takes the two cores' duplicate modules with a warning, [#59](https://github.com/chili-chips/wireguard-fpga/issues/59)) |
+| `lkup_egress` | PASS | no: `csr_pkg.sv` ([#45](https://github.com/chili-chips/wireguard-fpga/issues/45)); then the `'1` default ([#57](https://github.com/chili-chips/wireguard-fpga/issues/57)) | PASS |
+| `lkup_peer_table` | PASS | no: `csr_pkg.sv` ([#45](https://github.com/chili-chips/wireguard-fpga/issues/45)); then the `'1` default ([#57](https://github.com/chili-chips/wireguard-fpga/issues/57)) | PASS |
+| `pcap_reader_writer` | PASS | runs | PASS |
+| `gmii2gmii_test` | runs | no: compiles all of `top.filelist` (`csr_pkg.sv`) | runs |
+| `chacha20poly1305_encrypt` | runs | no: nested unpacked array pattern (`tb.sv:62`) | runs (2.7 µs simulated in 22 s) |
 
 "Runs" means the bench ends without error but has no self-check yet.
