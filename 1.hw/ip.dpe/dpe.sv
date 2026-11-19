@@ -43,21 +43,22 @@
 module dpe
   import csr_pkg::*;
   import dpe_pkg::*;
+  import lkup_pkg::*;
 (
-    input  csr__out_t                           from_csr,
-    output csr__dpe__in_t                       to_csr_dpe,
-    output csr__routing_table__external__in_t   to_csr_routing_table,
-    output csr__cryptokey_table__external__in_t to_csr_cryptokey_table,
-    dpe_if.s_axis                               from_cpu,
-    dpe_if.s_axis                               from_eth_1,
-    dpe_if.s_axis                               from_eth_2,
-    dpe_if.s_axis                               from_eth_3,
-    dpe_if.s_axis                               from_eth_4,
-    dpe_if.m_axis                               to_cpu,
-    dpe_if.m_axis                               to_eth_1,
-    dpe_if.m_axis                               to_eth_2,
-    dpe_if.m_axis                               to_eth_3,
-    dpe_if.m_axis                               to_eth_4
+    input  csr__out_t     from_csr,
+    output csr__dpe__in_t to_csr_dpe,
+    output rt_sta_t       to_csr_routing_table,
+    output ck_sta_t       to_csr_cryptokey_table,
+    dpe_if.s_axis         from_cpu,
+    dpe_if.s_axis         from_eth_1,
+    dpe_if.s_axis         from_eth_2,
+    dpe_if.s_axis         from_eth_3,
+    dpe_if.s_axis         from_eth_4,
+    dpe_if.m_axis         to_cpu,
+    dpe_if.m_axis         to_eth_1,
+    dpe_if.m_axis         to_eth_2,
+    dpe_if.m_axis         to_eth_3,
+    dpe_if.m_axis         to_eth_4
 );
 
   dpe_if muxed_1 (

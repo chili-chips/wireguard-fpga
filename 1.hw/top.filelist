@@ -42,6 +42,8 @@ ${HW_SRC}/ip.eth/gmii_if.sv
 
 #---PeakRDL-generated CSR + SOC CSR wrapper
 ${BLD_DIR}/csr_build/generated-files/csr_pkg.sv
+${HW_SRC}/ip.dpe/net_pkg.sv
+${HW_SRC}/ip.lkup/lkup_pkg.sv
 ${BLD_DIR}/csr_build/generated-files/csr.sv
 ${HW_SRC}/ip.infra/soc_csr.sv
 
@@ -86,8 +88,6 @@ ${HW_SRC}/ip.dpe/dpe_demux.sv
 # the ChaCha20-Poly1305 cores; a build or simulation of dpe_switch.sv also
 # needs 3.build/pypeline_build/soc/chacha20poly1305_{encrypt,decrypt}.v.gz
 # unpacked. The 4.sim/rtl/dpe bench checks the DUMMY's routing
-${HW_SRC}/ip.dpe/net_pkg.sv
-${HW_SRC}/ip.lkup/lkup_pkg.sv
 ${HW_SRC}/ip.dpe/dpe_switch.DUMMY.sv
 #${HW_SRC}/ip.lkup/lkup_route_mem.sv
 #${HW_SRC}/ip.lkup/lkup_egress.sv
