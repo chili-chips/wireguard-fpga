@@ -5,5 +5,7 @@
 # Move it forward in the same commit as any design change that needs a newer
 # PipelineC. The first line that is not a comment is the hash.
 # Requires simulation-only @MAINs (@MAIN over @sim_input/@sim_output), used by
-# the native testbenches.
-14bf2420dc237f80dbe86efb24d0ee5581aa0808
+# the native testbenches; native sim casting every wire write to the wire's type
+# (PipelineC#392: the testbenches write plain ints, port_waves packs them); and
+# a PipelineC that imports without distutils (CI runs Python 3.12).
+0caa1ce278ac281f0ac132d3a4187bb91972b4ea

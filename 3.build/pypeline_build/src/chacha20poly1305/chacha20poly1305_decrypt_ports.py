@@ -40,9 +40,8 @@ def decrypt_port_waves():
     if sim_wave_enabled():
         axis_wave("/decrypt_s_axis", axis_in_if)
         axis_wave("/decrypt_m_axis", axis_out_if)
-        # Testbenches can write plain ints. Pack each lane at its hardware width.
-        sim_wave("/decrypt_key", array_to_uint_le([uint8_t(b) for b in key]))
-        sim_wave("/decrypt_nonce", array_to_uint_le([uint8_t(b) for b in nonce]))
-        sim_wave("/decrypt_aad", array_to_uint_le([uint8_t(b) for b in aad]))
-        sim_wave("/decrypt_aad_len", uint8_t(aad_len))
-        sim_wave("/decrypt_m_verified", uint1_t(is_verified_out))
+        sim_wave("/decrypt_key", array_to_uint_le(key))
+        sim_wave("/decrypt_nonce", array_to_uint_le(nonce))
+        sim_wave("/decrypt_aad", array_to_uint_le(aad))
+        sim_wave("/decrypt_aad_len", aad_len)
+        sim_wave("/decrypt_m_verified", is_verified_out)

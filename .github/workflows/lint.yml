@@ -86,8 +86,6 @@ jobs:
           echo "PipelineC $ref"
           git clone -q https://github.com/JulianKemmerer/PipelineC "$RUNNER_TEMP/PipelineC"
           git -C "$RUNNER_TEMP/PipelineC" checkout -q "$ref"
-          # PipelineC imports distutils, gone from Python 3.12: setuptools brings it back
-          "${{ steps.py.outputs.python-path }}" -m pip install -q setuptools
           # pypelinec through this Python, not the OSS CAD Suite one
           printf '#!/bin/sh\nexec "%s" "%s" "$@"\n' "${{ steps.py.outputs.python-path }}" \
             "$RUNNER_TEMP/PipelineC/src/pypelinec" > "$RUNNER_TEMP/pypelinec"

@@ -37,8 +37,7 @@ def encrypt_port_waves():
     if sim_wave_enabled():
         axis_wave("/encrypt_s_axis", axis_in_if)
         axis_wave("/encrypt_m_axis", axis_out_if)
-        # Testbenches can write plain ints. Pack each lane at its hardware width.
-        sim_wave("/encrypt_key", array_to_uint_le([uint8_t(b) for b in key]))
-        sim_wave("/encrypt_nonce", array_to_uint_le([uint8_t(b) for b in nonce]))
-        sim_wave("/encrypt_aad", array_to_uint_le([uint8_t(b) for b in aad]))
-        sim_wave("/encrypt_aad_len", uint8_t(aad_len))
+        sim_wave("/encrypt_key", array_to_uint_le(key))
+        sim_wave("/encrypt_nonce", array_to_uint_le(nonce))
+        sim_wave("/encrypt_aad", array_to_uint_le(aad))
+        sim_wave("/encrypt_aad_len", aad_len)

@@ -23,15 +23,11 @@ from pypeline import (
     sim_output,
     sim_print,
     uint1_t,
-    uint8_t,
 )
 
 import chacha20poly1305_encrypt_ports
 
 from aead_types import (
-    CHACHA20_KEY_SIZE,
-    CHACHA20_NONCE_SIZE,
-    AAD_MAX_LEN,
     aead_axis_if_t,
     AEAD_BEAT_BYTES,
 )
@@ -179,13 +175,9 @@ def finish_checks():
 @MAIN
 @sim_input
 def encrypt_tb_drive():
-    key: uint8_t[CHACHA20_KEY_SIZE] = common.KEY
-    nonce: uint8_t[CHACHA20_NONCE_SIZE] = common.NONCE
-    aad: uint8_t[AAD_MAX_LEN] = common.AAD
-
-    chacha20poly1305_encrypt_ports.key = key
-    chacha20poly1305_encrypt_ports.nonce = nonce
-    chacha20poly1305_encrypt_ports.aad = aad
+    chacha20poly1305_encrypt_ports.key = common.KEY
+    chacha20poly1305_encrypt_ports.nonce = common.NONCE
+    chacha20poly1305_encrypt_ports.aad = common.AAD
     chacha20poly1305_encrypt_ports.aad_len = common.AAD_LEN
 
     chacha20poly1305_encrypt_ports.axis_in_if.stream = drive_in_word()
