@@ -27,7 +27,7 @@ from pypeline import (
     hex,
 )
 
-import chacha20poly1305_encrypt_ports
+import encrypt_dataflow
 
 from aead_types import (
     CHACHA20_KEY_SIZE,
@@ -102,10 +102,10 @@ def encrypt_syn_tb() -> aead_axis_if_t.fwd_t:
     expected_out_frame_lens: uint32_t[NUM_PLAINTEXT_TEST_STRS] = EXPECTED_OUT_FRAME_LENS
 
     # Hold the key, nonce and AAD constant for every packet.
-    chacha20poly1305_encrypt_ports.key = key
-    chacha20poly1305_encrypt_ports.nonce = nonce
-    chacha20poly1305_encrypt_ports.aad = aad
-    chacha20poly1305_encrypt_ports.aad_len = AAD_LEN
+    encrypt_dataflow.port_key = key
+    encrypt_dataflow.port_nonce = nonce
+    encrypt_dataflow.port_aad = aad
+    encrypt_dataflow.port_aad_len = AAD_LEN
 
     encrypt_all_done_reg: Reg[uint1_t]
 
@@ -129,16 +129,16 @@ def encrypt_syn_tb() -> aead_axis_if_t.fwd_t:
     if src.idle & input_loaded & (input_packet_count < NUM_PLAINTEXT_TEST_STRS - 1):
         input_packet_count = input_packet_count + 1
         input_loaded = 0
-    chacha20poly1305_encrypt_ports.axis_in_if.stream = src.stream_out_if.stream
-    dut_in_ready = chacha20poly1305_encrypt_ports.axis_in_if.ready
+    encrypt_dataflow.port_axis_in_if.stream = src.stream_out_if.stream
+    dut_in_ready = encrypt_dataflow.port_axis_in_if.ready
 
     # Collect ciphertext and tag, then check the complete frame's length and bytes.
     output_packet_count: Reg[uint32_t]
 
-    chacha20poly1305_encrypt_ports.axis_out_if.ready = 1
+    encrypt_dataflow.port_axis_out_if.ready = 1
     snk = byte_sink(
         stream_in_if=aead_axis_if_t.fwd_t(
-            chacha20poly1305_encrypt_ports.axis_out_if.stream
+            encrypt_dataflow.port_axis_out_if.stream
         )
     )
 
@@ -164,4 +164,4 @@ def encrypt_syn_tb() -> aead_axis_if_t.fwd_t:
             encrypt_all_done_reg = 1
 
     # Keep the observed output visible to the compiler.
-    return aead_axis_if_t.fwd_t(chacha20poly1305_encrypt_ports.axis_out_if.stream)
+    return aead_axis_if_t.fwd_t(encrypt_dataflow.port_axis_out_if.stream)

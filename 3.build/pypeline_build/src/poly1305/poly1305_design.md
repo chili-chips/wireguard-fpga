@@ -528,7 +528,7 @@ An unmatched final block bypasses both body pipelines and is saved for
 finalization, without advancing a lane or inventing a second block. The odd-tail
 expression computes its tail product independently of the lane reduction.
 
-The [wide formatter](../prep_auth_data/prep_auth_data_wide.py) pads AAD and
+The wide formatter in [prep_auth_data.py](../prep_auth_data/prep_auth_data.py) pads AAD and
 ciphertext separately to 16-byte boundaries, then packs pairs across those
 boundaries and the final lengths block. A MAC input beat therefore contains
 32 valid bytes, or 16 valid bytes on an unmatched final beat.

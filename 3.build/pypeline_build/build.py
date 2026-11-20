@@ -110,7 +110,7 @@ def main():
                              "testbenches show the hardware top's flat ports, encrypt_s_axis_tdata, ...")
     parser.add_argument("--wave-signals", action="append", default=[], metavar="PATTERN",
                         help="With --wave and --native, also record the global Wires whose waveform "
-                             "path matches the glob, e.g. 'chacha20poly1305_encrypt_ports/*' or '*' "
+                             "path matches the glob, e.g. 'encrypt_dataflow/*' or '*' "
                              "(pypelinec --wave_signals; repeatable)")
     parser.add_argument("-D", "--define", action="append", default=[], metavar="NAME=VALUE",
                         help="Pass a design parameter on to pypelinec, e.g. -D TB_STRESS=1 or "

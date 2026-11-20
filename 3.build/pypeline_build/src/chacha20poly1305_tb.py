@@ -36,10 +36,10 @@ if wireguard_env.DECRYPT:
 # Both performance runners register even when PERF_DIRS leaves one idle.
 if wireguard_env.ENCRYPT:
     import encrypt_tb
-    from chacha20poly1305_encrypt_ports import encrypt_port_waves
+    from encrypt_dataflow import encrypt_port_waves
 if wireguard_env.DECRYPT:
     import decrypt_tb
-    from chacha20poly1305_decrypt_ports import decrypt_port_waves
+    from decrypt_dataflow import decrypt_port_waves
 
 if common.PERF:
     import perf_tb_common as perf

@@ -28,7 +28,7 @@ from pypeline import (
     hex,
 )
 
-import chacha20poly1305_decrypt_ports
+import decrypt_dataflow
 
 from aead_types import (
     CHACHA20_KEY_SIZE,
@@ -108,10 +108,10 @@ def decrypt_syn_tb() -> aead_axis_if_t.fwd_t:
     expected_verified_flags: uint1_t[NUM_PACKETS] = EXPECTED_VERIFIED
 
     # Hold the key, nonce and AAD constant for every packet.
-    chacha20poly1305_decrypt_ports.key = key
-    chacha20poly1305_decrypt_ports.nonce = nonce
-    chacha20poly1305_decrypt_ports.aad = aad
-    chacha20poly1305_decrypt_ports.aad_len = AAD_LEN
+    decrypt_dataflow.port_key = key
+    decrypt_dataflow.port_nonce = nonce
+    decrypt_dataflow.port_aad = aad
+    decrypt_dataflow.port_aad_len = AAD_LEN
 
     decrypt_all_done_reg: Reg[uint1_t]
 
@@ -135,26 +135,26 @@ def decrypt_syn_tb() -> aead_axis_if_t.fwd_t:
     if src.idle & input_loaded & (input_packet_count < NUM_PACKETS - 1):
         input_packet_count = input_packet_count + 1
         input_loaded = 0
-    chacha20poly1305_decrypt_ports.axis_in_if.stream = src.stream_out_if.stream
-    dut_in_ready = chacha20poly1305_decrypt_ports.axis_in_if.ready
+    decrypt_dataflow.port_axis_in_if.stream = src.stream_out_if.stream
+    dut_in_ready = decrypt_dataflow.port_axis_in_if.ready
 
     # Collect plaintext, then check its verdict, length and bytes at frame completion.
     output_packet_count: Reg[uint32_t]
 
-    chacha20poly1305_decrypt_ports.axis_out_if.ready = 1
+    decrypt_dataflow.port_axis_out_if.ready = 1
     snk = byte_sink(
         stream_in_if=aead_axis_if_t.fwd_t(
-            chacha20poly1305_decrypt_ports.axis_out_if.stream
+            decrypt_dataflow.port_axis_out_if.stream
         )
     )
 
     if snk.frame_valid:
         expected_verified: uint1_t = expected_verified_flags[output_packet_count]
         sim_assert(
-            chacha20poly1305_decrypt_ports.is_verified_out == expected_verified,
+            decrypt_dataflow.port_is_verified_out == expected_verified,
             f"Decrypt: Test {output_packet_count} is_verified mismatch. "
             f"expected {expected_verified} "
-            f"got {chacha20poly1305_decrypt_ports.is_verified_out}",
+            f"got {decrypt_dataflow.port_is_verified_out}",
         )
         expected_len: uint32_t = expected_plaintext_lens[output_packet_count]
         sim_assert(
@@ -177,4 +177,4 @@ def decrypt_syn_tb() -> aead_axis_if_t.fwd_t:
             decrypt_all_done_reg = 1
 
     # Keep the observed output visible to the compiler.
-    return aead_axis_if_t.fwd_t(chacha20poly1305_decrypt_ports.axis_out_if.stream)
+    return aead_axis_if_t.fwd_t(decrypt_dataflow.port_axis_out_if.stream)

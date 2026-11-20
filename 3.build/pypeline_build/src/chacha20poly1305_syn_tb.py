@@ -27,11 +27,11 @@ DECRYPT = wireguard_env.DECRYPT
 if ENCRYPT:
     import encrypt_dataflow  # noqa: F401
     import encrypt_syn_tb
-    from chacha20poly1305_encrypt_ports import encrypt_port_waves
+    from encrypt_dataflow import encrypt_port_waves
 if DECRYPT:
     import decrypt_dataflow  # noqa: F401
     import decrypt_syn_tb
-    from chacha20poly1305_decrypt_ports import decrypt_port_waves
+    from decrypt_dataflow import decrypt_port_waves
 
 
 # Wait for every enabled direction's completion Wire so neither run is cut short.

@@ -26,7 +26,7 @@ from pypeline import (
     uint1_t,
 )
 
-import chacha20poly1305_decrypt_ports
+import decrypt_dataflow
 
 from aead_types import (
     aead_axis_if_t,
@@ -147,8 +147,8 @@ def report_new_packets():
 @sim_output
 def check_out():
     # Commit input acceptance and sample output after ready/valid have settled.
-    ready = int(chacha20poly1305_decrypt_ports.axis_in_if.ready)
-    incoming = chacha20poly1305_decrypt_ports.axis_in_if.stream
+    ready = int(decrypt_dataflow.port_axis_in_if.ready)
+    incoming = decrypt_dataflow.port_axis_in_if.stream
     if common.PERF:
         valid = int(incoming.valid)
         _runner.note_in(
@@ -163,11 +163,11 @@ def check_out():
             dec_state["cycle"], int(incoming.valid), ready, int(incoming.data.eod[0])
         )
     accepted_in = _src.commit(ready)
-    out = chacha20poly1305_decrypt_ports.axis_out_if.stream
+    out = decrypt_dataflow.port_axis_out_if.stream
     # Include the verdict in stalled-beat checks. PERF compares its expected
     # value when the packet completes; otherwise every accepted beat must carry it.
-    got_verified = chacha20poly1305_decrypt_ports.is_verified_out
-    accepted_out = int(out.valid) and int(chacha20poly1305_decrypt_ports.axis_out_if.ready)
+    got_verified = decrypt_dataflow.port_is_verified_out
+    accepted_out = int(out.valid) and int(decrypt_dataflow.port_axis_out_if.ready)
     if not common.PERF and accepted_out:
         idx = dec_state["out_packet_idx"]
         # An output beat with no packet in flight is reported by the scoreboard
@@ -192,7 +192,7 @@ def check_out():
     else:
         _snk.step(
             aead_axis_if_t.fwd_t(out),
-            ready=chacha20poly1305_decrypt_ports.axis_out_if.ready,
+            ready=decrypt_dataflow.port_axis_out_if.ready,
             sideband=got_verified,
         )
         if accepted_in or accepted_out:
@@ -232,15 +232,15 @@ def finish_checks():
 @MAIN
 @sim_input
 def decrypt_tb_drive():
-    chacha20poly1305_decrypt_ports.key = common.KEY
-    chacha20poly1305_decrypt_ports.nonce = common.NONCE
-    chacha20poly1305_decrypt_ports.aad = common.AAD
-    chacha20poly1305_decrypt_ports.aad_len = common.AAD_LEN
+    decrypt_dataflow.port_key = common.KEY
+    decrypt_dataflow.port_nonce = common.NONCE
+    decrypt_dataflow.port_aad = common.AAD
+    decrypt_dataflow.port_aad_len = common.AAD_LEN
 
-    chacha20poly1305_decrypt_ports.axis_in_if.stream = drive_in_word()
-    chacha20poly1305_decrypt_ports.axis_out_if.ready = 1
+    decrypt_dataflow.port_axis_in_if.stream = drive_in_word()
+    decrypt_dataflow.port_axis_out_if.ready = 1
     if not common.PERF and common.STRESS:
-        chacha20poly1305_decrypt_ports.axis_out_if.ready = drive_out_ready()
+        decrypt_dataflow.port_axis_out_if.ready = drive_out_ready()
 
 
 @MAIN

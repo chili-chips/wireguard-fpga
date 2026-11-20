@@ -25,7 +25,7 @@ from pypeline import (
     uint1_t,
 )
 
-import chacha20poly1305_encrypt_ports
+import encrypt_dataflow
 
 from aead_types import (
     aead_axis_if_t,
@@ -113,8 +113,8 @@ def report_new_packets():
 @sim_output
 def check_out():
     # Commit input acceptance and sample output after ready/valid have settled.
-    ready = int(chacha20poly1305_encrypt_ports.axis_in_if.ready)
-    incoming = chacha20poly1305_encrypt_ports.axis_in_if.stream
+    ready = int(encrypt_dataflow.port_axis_in_if.ready)
+    incoming = encrypt_dataflow.port_axis_in_if.stream
     if common.PERF:
         valid = int(incoming.valid)
         _runner.note_in(
@@ -129,7 +129,7 @@ def check_out():
             enc_state["cycle"], int(incoming.valid), ready, int(incoming.data.eod[0])
         )
     accepted_in = _src.commit(ready)
-    out = chacha20poly1305_encrypt_ports.axis_out_if.stream
+    out = encrypt_dataflow.port_axis_out_if.stream
     if common.PERF:
         _runner.note_out(
             valid=int(out.valid),
@@ -140,10 +140,10 @@ def check_out():
     else:
         _snk.step(
             aead_axis_if_t.fwd_t(out),
-            ready=chacha20poly1305_encrypt_ports.axis_out_if.ready,
+            ready=encrypt_dataflow.port_axis_out_if.ready,
         )
         if accepted_in or (
-            int(out.valid) and int(chacha20poly1305_encrypt_ports.axis_out_if.ready)
+            int(out.valid) and int(encrypt_dataflow.port_axis_out_if.ready)
         ):
             enc_state["last_move"] = enc_state["cycle"]
     result = _snk.check_nowait()
@@ -175,15 +175,15 @@ def finish_checks():
 @MAIN
 @sim_input
 def encrypt_tb_drive():
-    chacha20poly1305_encrypt_ports.key = common.KEY
-    chacha20poly1305_encrypt_ports.nonce = common.NONCE
-    chacha20poly1305_encrypt_ports.aad = common.AAD
-    chacha20poly1305_encrypt_ports.aad_len = common.AAD_LEN
+    encrypt_dataflow.port_key = common.KEY
+    encrypt_dataflow.port_nonce = common.NONCE
+    encrypt_dataflow.port_aad = common.AAD
+    encrypt_dataflow.port_aad_len = common.AAD_LEN
 
-    chacha20poly1305_encrypt_ports.axis_in_if.stream = drive_in_word()
-    chacha20poly1305_encrypt_ports.axis_out_if.ready = 1
+    encrypt_dataflow.port_axis_in_if.stream = drive_in_word()
+    encrypt_dataflow.port_axis_out_if.ready = 1
     if not common.PERF and common.STRESS:
-        chacha20poly1305_encrypt_ports.axis_out_if.ready = drive_out_ready()
+        encrypt_dataflow.port_axis_out_if.ready = drive_out_ready()
 
 
 @MAIN

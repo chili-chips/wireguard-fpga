@@ -122,7 +122,7 @@ else:
     lengths = sorted(set(range(1, 66)) | {127, 128, 129, 2031, 2032})
     cases = []
     if MODE == "prep":
-        from prep_auth_data_wide import prep_auth_data_wide
+        from prep_auth_data import prep_auth_data_wide
 
         for aad_len in (0, 1, 15, 16, 17, 31, 32):
             for n in lengths:
@@ -135,7 +135,7 @@ else:
                 source.send(ct)
                 scoreboard.expect(framed, idx=len(cases) - 1)
     else:
-        from auth_tag_wide import append_auth_tag_wide, strip_auth_tag_wide
+        from auth_tag import append_auth_tag_wide, strip_auth_tag_wide
 
         for n in lengths:
             ct = bytes(rng.randrange(256) for _ in range(n))

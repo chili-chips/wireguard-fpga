@@ -93,7 +93,7 @@ flowchart LR
     n3 ~~~ n1
 ```
 
-In [encrypt_dataflow_core](src/chacha20poly1305/encrypt_dataflow_core.py),
+In [encrypt_dataflow](src/chacha20poly1305/encrypt_dataflow.py),
 [ChaCha](src/chacha20/chacha20_design.md#packet-streams-and-the-poly1305-key)
 supplies ciphertext (`chacha.axis_out_if`) and a separate per-packet Poly1305 key
 (`chacha.key_if`). `aead_2broadcast` forks the ciphertext: the first
@@ -136,7 +136,7 @@ flowchart LR
     n8 ~~~ n1
 ```
 
-In [decrypt_dataflow_core](src/chacha20poly1305/decrypt_dataflow_core.py),
+In [decrypt_dataflow](src/chacha20poly1305/decrypt_dataflow.py),
 `stripping_func` separates the received tag (`strip.auth_tag_out_if`) from the
 ciphertext, which `aead_2broadcast` forks to authentication and decryption.
 [ChaCha](src/chacha20/chacha20_design.md) supplies plaintext and the per-packet
@@ -169,11 +169,11 @@ section built around the same kind of diagram:
 | [src/wireguard_env.py](src/wireguard_env.py) | Build parameters, default profile, and source imports. |
 | [src/aead_types.py](src/aead_types.py) | Stream types, limits, and buffer factories. |
 | [src/chacha20/](src/chacha20/) | ChaCha20 arithmetic and stream processing; [pipeline and sharing design](src/chacha20/chacha20_design.md). |
-| [src/poly1305/](src/poly1305/) | Poly1305 arithmetic, packet processing, and tag verification; [architecture and throughput](src/poly1305/poly1305_design.md). |
+| [src/poly1305/](src/poly1305/) | Poly1305 arithmetic and packet processing; [architecture and throughput](src/poly1305/poly1305_design.md). |
 | [src/prep_auth_data/](src/prep_auth_data/) | Authentication framing. |
-| [src/auth_tag/](src/auth_tag/) | Tag append/strip in [auth_tag.py](src/auth_tag/auth_tag.py) (128-bit) and [auth_tag_wide.py](src/auth_tag/auth_tag_wide.py) (256-bit); plaintext verification buffering. |
-| [src/chacha20poly1305/](src/chacha20poly1305/) | Encrypt/decrypt wiring, external ports, testbench support, and the [functional-coverage goals](src/chacha20poly1305/func_coverage_goals.py). |
-| [src/chacha20poly1305.py](src/chacha20poly1305.py) | Hardware top. |
+| [src/auth_tag/](src/auth_tag/) | Tag append/strip for both widths and decrypt verification buffering. |
+| [src/chacha20poly1305/](src/chacha20poly1305/) | Encrypt/decrypt dataflows and structured ports, testbench support, and the [functional-coverage goals](src/chacha20poly1305/func_coverage_goals.py). |
+| [src/chacha20poly1305.py](src/chacha20poly1305.py) | Hardware top and flat external I/O. |
 | [src/chacha20poly1305_tb.py](src/chacha20poly1305_tb.py) | Native testbench top for random/stress checks and performance measurement. |
 | [src/chacha20poly1305_syn_tb.py](src/chacha20poly1305_syn_tb.py) | Fixed-vector testbench top. |
 | [src/poly1305/mac_components_tb.py](src/poly1305/mac_components_tb.py), [src/poly1305/paired_path_tb.py](src/poly1305/paired_path_tb.py) | Poly1305 component and paired-path testbenches. |
@@ -257,7 +257,7 @@ clock, and both latency caps. The default hardware directory ends in
 | `--syn_tb` | Select fixed vectors; default correctness simulation uses random vectors and requires `--native`. |
 | `-D NAME=VALUE` | Pass non-profile testbench parameters, such as `TB_STRESS=1`; profile parameters use the named flags above. |
 | `--wave FILE` | With `--sim`, write the simulation's [waveform](#waveforms): `.vcd` or `.fst` natively (FST needs GTKWave's `vcd2fst`), or `.vcd`, `.fst` or `.ghw` from GHDL. |
-| `--wave-signals PATTERN` | With `--wave` and `--native`, also record the global Wires whose waveform path matches the glob (`pypelinec --wave_signals`), e.g. `'chacha20poly1305_encrypt_ports/*'`; repeatable. |
+| `--wave-signals PATTERN` | With `--wave` and `--native`, also record the global Wires whose waveform path matches the glob (`pypelinec --wave_signals`), e.g. `'encrypt_dataflow/*'`; repeatable. |
 | `--perf` | Set `PERF=1` on the native testbench; implies `--sim --native` and requires the combined design. Prefer `measure.py` for reports. |
 | `--verilog` | Export the hardware top to Verilog; cannot combine with simulation. |
 | `-j N`, `--jobs N` | Limit concurrent synthesis jobs; positive integer, available in both scripts. |
@@ -353,16 +353,16 @@ pipelining. Native checks are the ordinary development workflow.
 
 ```bash
 ./build.py --sim --comb --native --wave enc.vcd --enc
-./build.py --sim --syn_tb --comb --native --wave shared.fst --wave-signals '*ports/*'
+./build.py --sim --syn_tb --comb --native --wave shared.fst --wave-signals '*dataflow/*'
 ```
 
 A native waveform shows the hardware top's flat ports, `encrypt_s_axis_tdata`,
 `encrypt_s_axis_tkeep`, `_tlast`, `_tvalid`, `_tready`, the `encrypt_m_axis_*` side,
 `encrypt_key`, `_nonce`, `_aad` and `_aad_len`, and their `decrypt_*` counterparts with
-`decrypt_m_verified`, packed as `*_hw_io.py` packs them (lane 0 in the low byte). The
-[encrypt ports](src/chacha20poly1305/chacha20poly1305_encrypt_ports.py) and
-[decrypt ports](src/chacha20poly1305/chacha20poly1305_decrypt_ports.py) define these
-waveform names alongside the structured wires that the testbenches drive. Every
+`decrypt_m_verified`, packed by the [hardware top](src/chacha20poly1305.py) with
+lane 0 in the low byte. The [encrypt dataflow](src/chacha20poly1305/encrypt_dataflow.py)
+and [decrypt dataflow](src/chacha20poly1305/decrypt_dataflow.py) define these waveform
+names alongside the structured wires that the testbenches drive. Every
 stream probe appears too, as `<direction>/<block>/.../valid` and `ready`, and each state
 probe as its state's name. `--wave-signals` adds the structured port Wires themselves. A
 generated-VHDL run (no `--native`) has GHDL write the file instead, with the design's VHDL
