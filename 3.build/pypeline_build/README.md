@@ -591,6 +591,12 @@ For final Verilog export, first run the fixed-vector generated-HDL check:
 Run the export only after the check succeeds. The Verilog conversion uses
 GHDL and Yosys and retains the hardware top name.
 
+The standalone cores (`--enc`, `--dec`) start every module name of their
+Verilog with `enc_` or `dec_`, except the top (`chacha20poly1305_encrypt`,
+`chacha20poly1305_decrypt`). Both netlists then go into one design: without
+the prefix, the two define the same helper modules, and a simulator or
+synthesis tool keeps one of each name or stops.
+
 ## Comparison with the earlier PipelineC design
 
 The [earlier PipelineC sources](../pipelinec_build/src/) implement the same
@@ -610,6 +616,7 @@ Issues filed upstream from this design, open and closed.
 | --- | --- | --- | --- | --- |
 | PipelineC | [PipelineC#396](https://github.com/JulianKemmerer/PipelineC/issues/396) ([#37](https://github.com/chili-chips/wireguard-fpga/issues/37)) | Feature: auto-pipeliner aware of DSP48 boundaries. The Poly1305 coefficient product `(c0·r + c1) mod p` infers 36 DSP48E1 but runs them combinationally. | None needed; 80 MHz is met by more stages. | open |
 | PipelineC | [PipelineC#397](https://github.com/JulianKemmerer/PipelineC/issues/397) ([#38](https://github.com/chili-chips/wireguard-fpga/issues/38)) | Feature: faster sweep. The default build takes 1 h 55 min on Vivado 2026.1, 54 min of it in 7 whole-design syntheses of all three MAINs. | Reuse the latency memory and `--syn-cache`, or pass a kept `latency_profile.json` as `--latency-hints`. | open |
+| PipelineC | [PipelineC#400](https://github.com/JulianKemmerer/PipelineC/issues/400) ([#59](https://github.com/chili-chips/wireguard-fpga/issues/59)) | Feature: unique module names per top. The standalone encrypt and decrypt netlists share 419 module names, so Verilator needs `-Wno-MODDUP` and keeps one body of each. | `build.py --enc` and `--dec` pass `--module_prefix enc_` and `dec_`. | open |
 | PipelineC | [PipelineC#398](https://github.com/JulianKemmerer/PipelineC/issues/398) ([#42](https://github.com/chili-chips/wireguard-fpga/issues/42)) | Feature: prove the generated HDL equal to the Python source by formal equivalence (LEQ): an unpipelined reference HDL from the same source, a latency-shifted miter, Yosys or SymbiYosys. | Simulation only; our RTL LEQ, `3.build/hw_build.openXC7/run-leq.sh`, is the example. | open |
 
 ## Appendix: Vivado 2026.1 profile comparison

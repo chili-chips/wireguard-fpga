@@ -221,6 +221,10 @@ def main():
     else:
         src_file = "./src/chacha20poly1305.py"
         options = ["--top", f"chacha20poly1305_{design_name}"]
+        if args.enc or args.dec:
+            # Standalone cores share helper module names; each core's own
+            # prefix lets both netlists go into one SoC (PipelineC#400, #59)
+            options.extend(["--module_prefix", f"{design_short}_"])
         if args.verilog:
             options.append("--verilog")
         if args.rebuild:

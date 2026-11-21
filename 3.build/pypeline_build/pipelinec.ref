@@ -6,6 +6,7 @@
 # PipelineC. The first line that is not a comment is the hash.
 # Requires simulation-only @MAINs (@MAIN over @sim_input/@sim_output), used by
 # the native testbenches; native sim casting every wire write to the wire's type
-# (PipelineC#392: the testbenches write plain ints, port_waves packs them); and
-# a PipelineC that imports without distutils (CI runs Python 3.12).
-0caa1ce278ac281f0ac132d3a4187bb91972b4ea
+# (PipelineC#392: the testbenches write plain ints, port_waves packs them);
+# a PipelineC that imports without distutils (CI runs Python 3.12); and
+# --module_prefix (PipelineC#400), which build.py --enc and --dec pass.
+4e7a7ced62ac8ca141b68c9df9542406c8edc676

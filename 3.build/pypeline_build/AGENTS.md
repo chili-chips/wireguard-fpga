@@ -257,17 +257,23 @@ too: pull before you edit `1.hw/` or `4.sim/`.
   `4.sim/rtl/dpe_wg_decryptor` (encryptor to decryptor loopback).
   `4.sim/rtl/wg_check.py` rebuilds every frame in Python, tag included
   (RFC 8439, checked against `cryptography`).
-- **Two cores, one design:** the standalone encrypt and decrypt netlists
-  share helper module names (the old ones did: Verilator `MODDUP`); synthesis
-  of both will clash. The shared top (one ChaCha20 pipeline) avoids it but
-  needs one instance for both wrappers: our call at integration
-  ([#27](https://github.com/chili-chips/wireguard-fpga/issues/27)). If
-  PipelineC can prefix or uniquify module names per top, say so: asked in
-  [PipelineC#400](https://github.com/JulianKemmerer/PipelineC/issues/400)
-  ([#59](https://github.com/chili-chips/wireguard-fpga/issues/59)). 419
-  names are in both netlists, 169 with different bodies; Verilator keeps one.
-- **`pipelinec.ref`** is `0caa1ce2` (includes the #394, #395 and #392 fixes,
-  and imports without distutils, so CI's Python 3.12 needs no setuptools).
+- **Two cores, one design:** separate PipelineC builds give their helper
+  modules the same names (`bin_op_plus_uint128_t_uint128_t_0clk_de264c78_Barch`),
+  so two netlists read into one design clash: Verilator `MODDUP` keeps one
+  body, Yosys stops with "Re-definition of module", synthesis of both
+  clashes. `build.py --enc` and `--dec` pass `--module_prefix enc_` and
+  `dec_` ([PipelineC#400](https://github.com/JulianKemmerer/PipelineC/issues/400),
+  [#59](https://github.com/chili-chips/wireguard-fpga/issues/59)), so every
+  module of those netlists except the top has its own core's prefix. The
+  tracked `soc/*.v.gz` predate the flag: they share 419 names (169 differ
+  only in GHDL's net numbers, such as `\:3609.read_pipe`; with those
+  normalized, none does), and their benches keep `-Wno-MODDUP` until the
+  netlists are rebuilt with `build.py` (`pipelinec.ref` has the flag). The shared top (one ChaCha20 pipeline) avoids the clash
+  too but needs one instance for both wrappers: our call at integration
+  ([#27](https://github.com/chili-chips/wireguard-fpga/issues/27)).
+- **`pipelinec.ref`** is `4e7a7ced` (includes the #394, #395 and #392 fixes,
+  imports without distutils, so CI's Python 3.12 needs no setuptools, and has
+  `--module_prefix`, which `build.py --enc` and `--dec` pass).
   The SoC builds above started on `97097a87` with the old workaround; the
   lint and the native random sim pass on `99e5e018`; on `0b710cca` the GHDL
   lints pass with no waiver (the #395 one is gone).
