@@ -187,7 +187,8 @@ Full documents:
   (5 at 256 bits, lane stride `q^L` with `q = r²`). The body takes one 16-byte block per clock
   at 128 bits, or two at 256 bits, behind init and finalization AUTO_FSMs.
   Those FSMs are experimental placeholders, meant to be replaced by
-  hand-designed units.
+  hand-designed units. A nearer-term option is to
+  [derive the FSM latency caps from a small-packet throughput target](src/poly1305/poly1305_design.md#auto_fsm-versus-auto_mcp).
 - **Packet rate, not width, limits short packets:** finalization costs a fixed
   48 clocks per packet (init 44), so packets up to about 1.4 KB run at
   80 MHz / 48 = 1.67 Mpacket/s per direction whatever the width. 64-byte

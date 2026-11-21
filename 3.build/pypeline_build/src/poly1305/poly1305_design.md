@@ -5,7 +5,9 @@ The current default accepts up to two 16-byte authentication blocks per clock on
 accumulators, two packet contexts, and private AUTO_FSM initialization/finalization.
 The initialization/finalization [AUTO implementations](#auto_fsm-versus-auto_mcp)
 use experimental PypelineC features and serve mainly as placeholders for future
-hand-designed units.
+hand-designed units. A nearer-term option is to size the AUTO_FSM latency
+caps for smaller packets. The current throughput targets use 1420- and
+1920-byte payloads.
 The `inferred_body` arithmetic selection uses an inferred feedback multiplier
 and Karatsuba elsewhere.
 
@@ -803,10 +805,19 @@ and finalization; the body remains automatically pipelined in both modes.
 refers to the automatic multi-cycle-path mode (`AUTO_MULTI_CYCLE`). These AUTO
 implementations of initialization (`init`) and finalization (`finish`) serve
 mainly as placeholders so the pipelined body and full packet flow can be developed
-and measured. Future work is to replace them with better hand-designed init and
-finalize units, with arithmetic sharing and scheduling tailored to these kernels.
-The latency and resource tradeoffs below describe the current placeholders;
-they are not intended as the final design for these stages.
+and measured. The longer-term plan is to replace them with hand-designed init
+and finish units, with arithmetic sharing and scheduling tailored to each kernel.
+
+In the shorter term, the AUTO_FSM latency caps could be derived from a target
+payload size and a required fraction of peak datapath throughput. For example,
+sustaining 90% of the default 32 bytes/clock per direction on `B`-byte payloads
+allows at most `B / (0.90 × 32)` clocks between packet completions on average.
+For a 1024-byte payload, each private stage can therefore spend at most 35
+whole clocks per packet. Init and finish overlap across packets, so each gets
+that budget. Allowing one handshake clock for each and one more for the tag
+handoff gives candidate AUTO_FSM caps of 34 clocks for init and 33 for finish.
+The [end-to-end measurement](../../README.md#throughput-measurement) would
+show whether the body and the rest of the packet path also sustain that rate.
 
 | | AUTO_FSM (default) | AUTO_MCP |
 | --- | --- | --- |

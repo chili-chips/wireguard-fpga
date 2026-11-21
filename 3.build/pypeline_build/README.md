@@ -13,6 +13,9 @@ datapath**, one shared ChaCha20 pipeline, and a private pipelined Poly1305 MAC
 per direction. Poly1305 processes two 16-byte blocks per beat using
 [paired, interleaved accumulators](src/poly1305/poly1305_design.md#breaking-the-serial-chain), and experimental Pypeline HDL
 [AUTO_FSM based initialization/finalization state machines](src/poly1305/poly1305_design.md#auto_fsm-versus-auto_mcp).
+Current throughput targets use 1420- and 1920-byte payloads. For smaller
+packets, the FSM latency caps could be derived from the required throughput
+at a chosen payload size.
 
 Packet streams use valid/ready handshakes, 32 byte-enable bits, and a last-beat
 flag. Encryption appends a 16-byte authentication tag; decryption buffers
