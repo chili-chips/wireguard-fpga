@@ -5,8 +5,9 @@
 # LintCrux gate: 3.build/lintcrux_build/run-lintcrux.sh runs GHDL on the
 # Pypeline VHDL and Verilator, Verible, slang and svlint on the SystemVerilog,
 # in one run, against the committed baseline (.lintcrux-baseline.json): the
-# job fails only on a finding the baseline does not have. The findings go to
-# GitHub code scanning as SARIF, so a new one shows on the PR line.
+# job fails only on a finding the baseline does not have. Those new findings
+# go to GitHub code scanning as SARIF, so a new one shows on the PR line; the
+# full SARIF, baselined findings included, is kept as a build artifact.
 #
 # The LintCrux CLI is the free open-core build; no licence is needed. Every
 # tool version is pinned: the baseline matches findings by message, so the
@@ -108,19 +109,28 @@ jobs:
           set -e
           echo "code=$code" >> "$GITHUB_OUTPUT"
 
+      # Code scanning gets only the new findings, the ones the gate fails on
+      # (sarif-new-only.py matches them against the baseline as the gate does);
+      # uploaded whole, every baselined finding would be an open alert
+      - name: New findings only, for code scanning
+        if: always() && hashFiles('lintcrux.sarif') != ''
+        run: |
+          python3 3.build/lintcrux_build/sarif-new-only.py lintcrux.sarif \
+            .lintcrux-baseline.json lintcrux-new.sarif
+
       # A pull request from a fork gets a read-only token: no upload there, the
       # gate and the SARIF artifact still work
       - name: Upload SARIF to code scanning
         if: >-
-          always() && hashFiles('lintcrux.sarif') != '' &&
+          always() && hashFiles('lintcrux-new.sarif') != '' &&
           (github.event_name != 'pull_request' ||
            github.event.pull_request.head.repo.full_name == github.repository)
         uses: github/codeql-action/upload-sarif@v4
         with:
-          sarif_file: lintcrux.sarif
+          sarif_file: lintcrux-new.sarif
           category: lintcrux
 
-      - name: Keep the SARIF report
+      - name: Keep the full SARIF report
         if: always() && hashFiles('lintcrux.sarif') != ''
         uses: actions/upload-artifact@v7
         with:
@@ -133,7 +143,7 @@ jobs:
           code="${{ steps.lint.outputs.code }}"
           case "$code" in
             0)       echo "::notice::LintCrux: no findings beyond the baseline." ;;
-            2)       echo "::error::LintCrux: new findings, see the log above or code scanning (each one is marked (new))."; exit 1 ;;
+            2)       echo "::error::LintCrux: new findings, marked (new) in the log above and listed in code scanning."; exit 1 ;;
             3)       echo "::error::LintCrux could not run: an engine failed or is missing, see the log above."; exit 1 ;;
             64)      echo "::error::LintCrux usage error."; exit 1 ;;
             130|143) echo "::warning::LintCrux was cancelled (exit $code)."; exit 1 ;;
