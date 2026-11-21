@@ -1,0 +1,141 @@
+# SPDX-FileCopyrightText: 2026 Chili.CHIPS*ba
+#
+# SPDX-License-Identifier: BSD-3-Clause
+#
+# LintCrux gate: 3.build/lintcrux_build/run-lintcrux.sh runs GHDL on the
+# Pypeline VHDL and Verilator, Verible, slang and svlint on the SystemVerilog,
+# in one run, against the committed baseline (.lintcrux-baseline.json): the
+# job fails only on a finding the baseline does not have. The findings go to
+# GitHub code scanning as SARIF, so a new one shows on the PR line.
+#
+# The LintCrux CLI is the free open-core build; no licence is needed. Every
+# tool version is pinned: the baseline matches findings by message, so the
+# same engine releases must run here and where the baseline was set.
+
+name: LintCrux
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+  security-events: write  # SARIF upload to code scanning
+
+env:
+  LINTCRUX_VERSION: '1.2.0'
+  LINTCRUX_SHA256: 328bc276171b99240c158ebd138b616cf69e46dfc0fbd4f96b2d75fc64ed3769
+  OSS_CAD_SUITE_VERSION: '2026-11-12'  # Verilator, slang, GHDL, yosys-config
+  VERIBLE_VERSION: v0.0-4296-g0f262651
+  SVLINT_VERSION: v0.9.5
+
+jobs:
+  lintcrux:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install OSS CAD Suite ${{ env.OSS_CAD_SUITE_VERSION }}
+        uses: YosysHQ/setup-oss-cad-suite@v4
+        with:
+          version: ${{ env.OSS_CAD_SUITE_VERSION }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: actions/setup-python@v6
+        id: py
+        with:
+          python-version: '3.12'
+
+      # LintCrux CLI, Verible, svlint and PipelineC, cached by version
+      - name: Cache tool downloads
+        id: cache
+        uses: actions/cache@v6
+        with:
+          path: ~/lintcrux-tools
+          key: lintcrux-tools-${{ env.LINTCRUX_VERSION }}-${{ env.VERIBLE_VERSION }}-${{ env.SVLINT_VERSION }}-${{ hashFiles('3.build/pypeline_build/pipelinec.ref') }}
+
+      - name: Download LintCrux ${{ env.LINTCRUX_VERSION }}, Verible, svlint, PipelineC
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          T=~/lintcrux-tools
+          mkdir -p "$T/bin"
+          curl -fsSL -o lintcrux-cli.tar.gz \
+            "https://updates.lintcrux.app/${LINTCRUX_VERSION}/lintcrux-cli-${LINTCRUX_VERSION}-linux-x64.tar.gz"
+          echo "${LINTCRUX_SHA256}  lintcrux-cli.tar.gz" | sha256sum -c -
+          tar -xzf lintcrux-cli.tar.gz -C "$T/bin" ./lintcrux
+          rm lintcrux-cli.tar.gz
+          curl -fsSL "https://github.com/chipsalliance/verible/releases/download/${VERIBLE_VERSION}/verible-${VERIBLE_VERSION}-linux-static-x86_64.tar.gz" |
+            tar -xz -C "$T"
+          mv "$T/verible-${VERIBLE_VERSION}/bin/verible-verilog-lint" "$T/bin/"
+          rm -rf "$T/verible-${VERIBLE_VERSION}"
+          curl -fsSL -o svlint.zip \
+            "https://github.com/dalance/svlint/releases/download/${SVLINT_VERSION}/svlint-${SVLINT_VERSION}-x86_64-lnx.zip"
+          unzip -q -j -o svlint.zip bin/svlint -d "$T/bin"
+          rm svlint.zip
+          # the oldest supported PipelineC: the first non-comment line of pipelinec.ref
+          ref=$(grep -v -E '^[[:space:]]*(#|$)' 3.build/pypeline_build/pipelinec.ref | head -1)
+          git clone -q https://github.com/JulianKemmerer/PipelineC "$T/PipelineC"
+          git -C "$T/PipelineC" checkout -q "$ref"
+          rm -rf "$T/PipelineC/.git"
+
+      - name: Tool versions
+        run: |
+          T=~/lintcrux-tools
+          chmod +x "$T/bin/"*
+          echo "$T/bin" >> "$GITHUB_PATH"
+          # pypelinec through this Python, not the OSS CAD Suite one
+          printf '#!/bin/sh\nexec "%s" "%s" "$@"\n' "${{ steps.py.outputs.python-path }}" \
+            "$T/PipelineC/src/pypelinec" > "$T/bin/pypelinec"
+          chmod +x "$T/bin/pypelinec"
+          export PATH="$T/bin:$PATH"
+          lintcrux --version
+          verilator --version
+          slang --version
+          ghdl --version | head -1
+          verible-verilog-lint --version | head -1
+          svlint --version
+
+      - name: LintCrux
+        id: lint
+        env:
+          PYTHON: ${{ steps.py.outputs.python-path }}
+        run: |
+          set +e
+          bash 3.build/lintcrux_build/run-lintcrux.sh --fail-on-new-violations \
+            --sarif "$GITHUB_WORKSPACE/lintcrux.sarif"
+          code=$?
+          set -e
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+
+      # A pull request from a fork gets a read-only token: no upload there, the
+      # gate and the SARIF artifact still work
+      - name: Upload SARIF to code scanning
+        if: >-
+          always() && hashFiles('lintcrux.sarif') != '' &&
+          (github.event_name != 'pull_request' ||
+           github.event.pull_request.head.repo.full_name == github.repository)
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: lintcrux.sarif
+          category: lintcrux
+
+      - name: Keep the SARIF report
+        if: always() && hashFiles('lintcrux.sarif') != ''
+        uses: actions/upload-artifact@v7
+        with:
+          name: lintcrux-sarif
+          path: lintcrux.sarif
+
+      - name: Gate
+        if: always()
+        run: |
+          code="${{ steps.lint.outputs.code }}"
+          case "$code" in
+            0)       echo "::notice::LintCrux: no findings beyond the baseline." ;;
+            2)       echo "::error::LintCrux: new findings, see the log above or code scanning (each one is marked (new))."; exit 1 ;;
+            3)       echo "::error::LintCrux could not run: an engine failed or is missing, see the log above."; exit 1 ;;
+            64)      echo "::error::LintCrux usage error."; exit 1 ;;
+            130|143) echo "::warning::LintCrux was cancelled (exit $code)."; exit 1 ;;
+            *)       echo "::error::LintCrux exited $code, which this job does not know."; exit 1 ;;
+          esac

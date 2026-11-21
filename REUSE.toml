@@ -60,3 +60,10 @@ path = ["4.sim/models/udpIpPg/udp_ip_pg-wireguard.patch", "4.sim/models/udpIpPg/
 precedence = "override"
 SPDX-FileCopyrightText = ["2024-2025 Simon Southwell", "2026 Chili.CHIPS"]
 SPDX-License-Identifier = "GPL-3.0-or-later"
+
+# LintCrux project and baseline (JSON, no comments; run-lintcrux.sh)
+[[annotations]]
+path = ["wireguard-fpga.lintcrux", ".lintcrux-baseline.json"]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2026 Chili.CHIPS*ba"
+SPDX-License-Identifier = "BSD-3-Clause"

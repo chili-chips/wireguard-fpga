@@ -1,0 +1,17 @@
+# SPDX-FileCopyrightText: 2026 Chili.CHIPS*ba
+#
+# SPDX-License-Identifier: BSD-3-Clause
+#
+# Verible rules for the PeakRDL-generated CSR (generated-files/), read by the
+# verible engine of run-lintcrux.sh (3.build/lintcrux_build), which finds the
+# .rules.verible_lint nearest to each file. As in run-lint.sh, our style rules
+# do not apply to generated code, so the style rules it trips are off
+-explicit-parameter-storage-type
+-generate-label
+-generate-label-prefix
+-line-length
+-no-trailing-spaces
+-parameter-name-style
+-struct-union-name-style
+-typedef-structs-unions
+-unpacked-dimensions-range-ordering

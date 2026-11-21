@@ -25,6 +25,8 @@ Build and lint tools as used locally (WSL, 2026-11-17). CI installs the latest O
 | Verilator | 5.055 devel (`v5.054-260-gb9f22851`) | lint | [verilator.org](https://verilator.org) |
 | GHDL | 7.0.0-dev (`6.0.0.r729.g8e642a9a5`, OSS CAD Suite 2026-11-12; latest release v6.0.0) | Pypeline VHDL lint, cocotb sim | [ghdl/ghdl](https://github.com/ghdl/ghdl) |
 | Yosys + GHDL plugin | 0.70+385 (OSS CAD Suite 2026-11-12) | Pypeline VHDL to Verilog | [YosysHQ/oss-cad-suite-build](https://github.com/YosysHQ/oss-cad-suite-build) |
+| LintCrux | 1.2.0 (the free open-core CLI) | lint: GHDL, Verilator, Verible, slang and svlint in one run, baseline gate, SARIF ([`run-lintcrux.sh`](lintcrux_build/run-lintcrux.sh), CI: [`lintcrux.yml`](../.github/workflows/lintcrux.yml), which pins every engine, OSS CAD Suite 2026-11-12) | [lintcrux.app](https://lintcrux.app) |
+| svlint | v0.9.5 | LintCrux lint, functional rules ([`.svlint.toml`](../.svlint.toml)) | [dalance/svlint](https://github.com/dalance/svlint) |
 | PipelineC (Pypeline) | the commit in [`pipelinec.ref`](pypeline_build/pipelinec.ref) | crypto core | [JulianKemmerer/PipelineC](https://github.com/JulianKemmerer/PipelineC) |
 | cocotb | 2.1.0 | Pypeline generated-VHDL sim | [cocotb.org](https://www.cocotb.org) |
 | PeakRDL | 1.5.0 (systemrdl-compiler 1.33) | CSR HAL | [peakrdl.readthedocs.io](https://peakrdl.readthedocs.io) |

@@ -87,3 +87,6 @@ tb.stems
 
 # Bitstreams: build them, never commit them
 *.bit
+
+# LintCrux: generated inputs of run-lintcrux.sh
+/3.build/lintcrux_build/generated/

@@ -1,0 +1,39 @@
+`verilator_config
+// SPDX-FileCopyrightText: 2026 Chili.CHIPS*ba
+//
+// SPDX-License-Identifier: BSD-3-Clause
+//
+// Waivers of the verilator engine in run-lintcrux.sh, as run-lint.sh has them:
+// its waive.vlt and the verilator lines of run-lint-waivers.txt (see the
+// reasons there). Keep the two in step.
+
+// The black boxes, and our forks of third-party RTL, linted as theirs
+lint_off -file "*/lintcrux_build/generated/*"
+lint_off -file "*/external_lib/*"
+lint_off -file "*/cpu.PICORV32/*"
+
+// .PIN (/*LINT:OK*/) on an unused output: run-lint.sh's tags phase checks
+// that each empty pin is an output and carries the tag
+lint_off -rule PINCONNECTEMPTY
+
+// One run elaborates top and the block tops (BLOCK_TOPS) together
+lint_off -rule MULTITOP
+
+// No-connect signals
+lint_off -rule UNUSEDSIGNAL -file "*" -match "*'NC_*'"
+
+// IMEM decodes only its own depth of the CPU word address
+lint_off -rule UNUSEDSIGNAL -file "*/ip.cpu/imem.sv" -match "Bits of signal are not used: 'raddr'*"
+lint_off -rule UNUSEDSIGNAL -file "*/ip.cpu/imem.sv" -match "Bits of signal are not used: 'waddr'*"
+
+// PeakRDL regblock output (generated)
+lint_off -rule UNUSEDSIGNAL -file "*/csr_build/generated-files/csr.sv" -match "Signal is not used: 'decoded_err'"
+lint_off -rule UNUSEDSIGNAL -file "*/csr_build/generated-files/csr.sv" -match "Signal is not used: 'is_valid_addr'"
+lint_off -rule UNUSEDSIGNAL -file "*/csr_build/generated-files/csr.sv" -match "Signal is not used: 'is_valid_rw'"
+lint_off -rule UNUSEDSIGNAL -file "*/csr_build/generated-files/csr.sv" -match "Bits of signal are not used: 'decoded_addr'*"
+lint_off -rule MULTIDRIVEN -file "*/csr_build/generated-files/csr.sv" -match "*'field_combo'"
+lint_off -rule MULTIDRIVEN -file "*/csr_build/generated-files/csr.sv" -match "*'field_storage'"
+lint_off -rule GENUNNAMED -file "*/csr_build/generated-files/csr.sv" -match "Unnamed generate block 'genblk*'*"
+lint_off -rule UNUSEDPARAM -file "*/csr_build/generated-files/csr_pkg.sv" -match "Parameter is not used: 'CSR_DATA_WIDTH'"
+lint_off -rule UNUSEDPARAM -file "*/csr_build/generated-files/csr_pkg.sv" -match "Parameter is not used: 'CSR_SIZE'"
+lint_off -rule CMPCONST -file "*/csr_build/generated-files/csr.sv" -match "Comparison is constant due to limited range"

@@ -1,0 +1,41 @@
+# SPDX-FileCopyrightText: 2026 Chili.CHIPS*ba
+#
+# SPDX-License-Identifier: BSD-3-Clause
+#
+# svlint rules for run-lintcrux.sh (3.build/lintcrux_build): the functional
+# ones, where simulation and synthesis can disagree or the intent is unclear.
+# Style is Verible's and run-format.sh's business, so no style rules here.
+# Our forks of third-party RTL are linted as theirs, the generated black boxes
+# not at all.
+
+[option]
+exclude_paths = ["external_lib/", "cpu\\.PICORV32/", "lintcrux_build/generated/"]
+
+[rules]
+# blocking and non-blocking assignments in the right processes
+blocking_assignment_in_always_ff = true
+blocking_assignment_in_always_latch = true
+blocking_assignment_in_always_at_edge = true
+non_blocking_assignment_in_always_comb = true
+non_blocking_assignment_in_always_no_edge = true
+# a plain always is edge-triggered and has no level-sensitive list
+general_always_no_edge = true
+general_always_level_sensitive = true
+# a case in always_comb covers every value
+case_default = true
+# === and !== do not synthesise as they simulate
+operator_case_equality = true
+# assign/deassign, force/release in procedural code
+procedural_continuous_assignment = true
+# functions: automatic, never named like a system function
+function_with_automatic = true
+function_same_as_system_function = true
+# an enum says its base type
+enum_with_type = true
+# an interface port says its modport
+interface_port_with_modport = true
+# assertion action blocks have no side effects
+action_block_with_side_effect = true
+# packages hold package items; parameters there are localparams
+package_item_not_in_package = true
+parameter_in_package = true
