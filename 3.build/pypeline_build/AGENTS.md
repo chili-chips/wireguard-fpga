@@ -339,8 +339,9 @@ throttle both at random).
 | `decrypt_m_axis` | the plaintext blocks, only after the tag is checked | `tlast` on the last block |
 
 **Decrypt verdict.** The core holds a packet's plaintext until its tag is
-checked (`wait_to_verify`; at most `AEAD_MAX_PT_BYTES` = 2032 bytes, the
-verify FIFO). Then it sends the plaintext with `decrypt_m_verified` valid on
+checked (`wait_to_verify`; at most `AEAD_MAX_PT_BYTES` = 2032 bytes of
+plaintext, the core's limit; the verify FIFO is sized for it). Then it sends
+the plaintext with `decrypt_m_verified` valid on
 every beat, the same value for the whole packet. A failed packet still comes
 out, with `decrypt_m_verified` low: the wrapper drains and drops it. The
 wrapper reads the verdict at the packet's first output beat.
