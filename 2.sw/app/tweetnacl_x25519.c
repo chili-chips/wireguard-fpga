@@ -16,7 +16,7 @@ typedef int64_t gf[16];
 
 // Wipe secret working values (key, ladder state) before returning; volatile
 // so the stores are not optimized away. M()'s scratch is left to the
-// firmware's stack scrub: wiping it on each of ~2500 calls costs too much.
+// firmware's stack scrub: wiping it on each of ~3000 calls costs too much.
 static void wipe(void *p, unsigned n)
 {
     volatile uint8_t *v = (volatile uint8_t *)p;
@@ -212,7 +212,6 @@ int x25519_scalarmult(uint8_t *q, const uint8_t *n, const uint8_t *p)
     wipe(d, sizeof(d));
     wipe(e, sizeof(e));
     wipe(f, sizeof(f));
-    r = 0;
     return 0;
 }
 

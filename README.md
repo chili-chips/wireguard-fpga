@@ -187,7 +187,7 @@ The details of software architecture can be found in the [README.md](./2.sw/READ
 **How it is addressed**, in two layers:
 
 1. **Wipe where the secret is made.** Each crypto function clears its secrets before it returns: the ChaCha20 state and keystream, the Poly1305 key and the expected tag, the X25519 scalar and ladder state, the BLAKE2s context and work words, the HMAC and KDF buffers. The stores cannot be optimized away (`volatile`, or `memset` in a freestanding build).
-2. **Scrub the stack.** After start-up, each packet and each command, `stack_scrub()` (`2.sw/app/main.cpp`) zeroes the stack below the stack pointer, where nothing is live (eduBOS5 takes no interrupts). It catches what layer 1 leaves, such as the X25519 multiply scratch, which is too hot to wipe on each of its ~2500 calls.
+2. **Scrub the stack.** After start-up, each packet and each command, `stack_scrub()` (`2.sw/app/main.cpp`) zeroes the stack below the stack pointer, where nothing is live (eduBOS5 takes no interrupts). It catches what layer 1 leaves, such as the X25519 multiply scratch, which is too hot to wipe on each of its ~3000 calls.
 
 Still open: on RV32I a multiply is a libgcc loop whose time depends on the operands, so X25519 and Poly1305 timing depends on the key ([#4](https://github.com/chili-chips/wireguard-fpga/issues/4)). A constant-time hardware multiplier for eduBOS5 is in progress.
 
