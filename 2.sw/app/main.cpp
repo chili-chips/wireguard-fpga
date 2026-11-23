@@ -360,10 +360,12 @@ void config_network(net_config_t* config) {
    uart_send("  Generate new MAC address? (y/n) [n]: ");
    while (!uart_recv(uart_rx_data));
    if (uart_rx_data[0] == 'y' || uart_rx_data[0] == 'Y') {
-      uint8_t random_bytes[2];
+      uint8_t random_bytes[32];  // random_32bytes() writes 32 bytes
       random_32bytes(random_bytes);
       config->mac[4] = random_bytes[0]; // Use random byte for MAC suffix
       config->mac[5] = random_bytes[1]; // Use random byte for MAC suffix
+      // a made-up MAC is locally administered (bit 1) and unicast (bit 0)
+      config->mac[0] = (uint8_t)((config->mac[0] | 0x02) & ~0x01);
    }
 
    uart_send("  Default gateway [");

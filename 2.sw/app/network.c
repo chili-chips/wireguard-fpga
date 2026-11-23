@@ -212,6 +212,22 @@ uint8_t net_process_icmp (net_config_t*     config,
    net_hdr_ipv4_t* tx_hdr_ipv4 = (net_hdr_ipv4_t*)(tx_packet->payload + sizeof(net_hdr_eth_t));
    net_hdr_icmp_t* tx_hdr_icmp = (net_hdr_icmp_t*)(tx_packet->payload + sizeof(net_hdr_eth_t) + sizeof(net_hdr_ipv4_t));
    uint16_t checksum;
+   // Drop what the reply below cannot handle: IPv4 options (IHL > 5), a frame
+   // shorter than its headers, or an IPv4 length beyond the frame. The ICMP
+   // length comes from the IPv4 total length, not the frame (which can carry
+   // Ethernet padding)
+   uint32_t ip_len = ((uint32_t)rx_hdr_ipv4->tot_len[0] << 8) | rx_hdr_ipv4->tot_len[1];
+   if (rx_hdr_ipv4->ihl != 5 || rx_packet->len < 42 ||
+       ip_len < 28 || ip_len > rx_packet->len - 14) {
+      return 0;
+   }
+   // ... a bad IPv4 header checksum, or a fragment (MF or a fragment offset;
+   // DF is fine): the echo needs the whole datagram
+   const uint8_t *ip_hdr = (const uint8_t *)rx_hdr_ipv4;
+   if (net_calculate_checksum((uint8_t *)ip_hdr, 20) != 0 ||
+       (ip_hdr[6] & 0x3F) != 0 || ip_hdr[7] != 0) {
+      return 0;
+   }
    // Check if targeted to my IP
    if (memcmp(rx_hdr_ipv4->daddr, config->ip, 4) != 0) {
       return 0;
@@ -221,7 +237,7 @@ uint8_t net_process_icmp (net_config_t*     config,
       // Assemble ICMP Echo reply
       tx_packet->dst = rx_packet->src;
       tx_packet->bypass_all = 1;
-      tx_packet->len = rx_packet->len;
+      tx_packet->len = 14 + ip_len;
       memcpy(tx_hdr_eth->dst_mac, rx_hdr_eth->src_mac, 6);
       memcpy(tx_hdr_eth->src_mac, config->mac, 6);
       tx_hdr_eth->ethertype[0] = 0x08;
@@ -252,8 +268,8 @@ uint8_t net_process_icmp (net_config_t*     config,
       tx_hdr_icmp->sequence[0] = rx_hdr_icmp->sequence[0];
       tx_hdr_icmp->sequence[1] = rx_hdr_icmp->sequence[1];
       memcpy(tx_packet->payload + sizeof(net_hdr_eth_t) + sizeof(net_hdr_ipv4_t) + sizeof(net_hdr_icmp_t),
-             rx_packet->payload + sizeof(net_hdr_eth_t) + sizeof(net_hdr_ipv4_t) + sizeof(net_hdr_icmp_t), rx_packet->len - 42);
-      checksum = net_calculate_checksum((uint8_t*)tx_hdr_icmp, rx_packet->len - 34);
+             rx_packet->payload + sizeof(net_hdr_eth_t) + sizeof(net_hdr_ipv4_t) + sizeof(net_hdr_icmp_t), ip_len - 28);
+      checksum = net_calculate_checksum((uint8_t*)tx_hdr_icmp, ip_len - 20);
       tx_hdr_icmp->checksum[0] = (checksum >> 8) & 0xFF;
       tx_hdr_icmp->checksum[1] = checksum & 0xFF;
       return 1;

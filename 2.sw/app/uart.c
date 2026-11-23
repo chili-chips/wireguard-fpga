@@ -259,7 +259,7 @@ uint8_t uart_recv(char *s) {
  * Returns:     None
  **********************************************************************/
 void uart_test(void) {
-   const char *rx_expd = "Mi smo FPGA raja";
+   const char *rx_expd = "Mi smo FPGA raja\n";  // uart_recv() keeps the <LF>
    char        rx_data[UART_RXBUF_SIZE];
    char       *rx_data_ptr;
    int         result;
