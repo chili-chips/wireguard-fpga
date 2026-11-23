@@ -14,6 +14,16 @@
 
 typedef int64_t gf[16];
 
+// Wipe secret working values (key, ladder state) before returning; volatile
+// so the stores are not optimized away. M()'s scratch is left to the
+// firmware's stack scrub: wiping it on each of ~2500 calls costs too much.
+static void wipe(void *p, unsigned n)
+{
+    volatile uint8_t *v = (volatile uint8_t *)p;
+    while (n--)
+        *v++ = 0;
+}
+
 static const uint8_t _9[32] = {9};
 static const gf gf1 = {1};
 static const gf _121665 = {0xDB41, 1};
@@ -70,6 +80,8 @@ static void pack25519(uint8_t *o, const gf n)
         o[2 * i] = t[i] & 0xff;
         o[2 * i + 1] = t[i] >> 8;
     }
+    wipe(m, sizeof(m));
+    wipe(t, sizeof(t));
 }
 
 static void unpack25519(gf o, const uint8_t *n)
@@ -130,6 +142,7 @@ static void inv25519(gf o, const gf i)
     }
     for (a = 0; a < 16; a++)
         o[a] = c[a];
+    wipe(c, sizeof(c));
 }
 
 int x25519_scalarmult(uint8_t *q, const uint8_t *n, const uint8_t *p)
@@ -190,6 +203,16 @@ int x25519_scalarmult(uint8_t *q, const uint8_t *n, const uint8_t *p)
     M(x + 16, x + 16, x + 32);
     pack25519(q, x + 16);
 
+    // the clamped scalar is the private key; the ladder state depends on it
+    wipe(z, sizeof(z));
+    wipe(x, sizeof(x));
+    wipe(a, sizeof(a));
+    wipe(b, sizeof(b));
+    wipe(c, sizeof(c));
+    wipe(d, sizeof(d));
+    wipe(e, sizeof(e));
+    wipe(f, sizeof(f));
+    r = 0;
     return 0;
 }
 
