@@ -10,6 +10,12 @@
 #include "chacha20.h"
 #include "string_bare.h"
 
+// Little-endian 32-bit load, byte by byte: key and nonce may sit at any address
+static inline uint32_t load32_le(const uint8_t *p)
+{
+    return (uint32_t)p[0] | ((uint32_t)p[1] << 8) | ((uint32_t)p[2] << 16) | ((uint32_t)p[3] << 24);
+}
+
 // Function to rotate left
 static inline uint32_t rotate_left(uint32_t x, uint32_t n)
 {
@@ -67,7 +73,7 @@ void chacha20_init(chacha20_state *state, const uint8_t *key, const uint8_t *non
     // Key
     for (int i = 0; i < 8; i++)
     {
-        state->state[4 + i] = ((uint32_t *)key)[i];
+        state->state[4 + i] = load32_le(key + 4 * i);
     }
 
     // Counter
@@ -76,7 +82,7 @@ void chacha20_init(chacha20_state *state, const uint8_t *key, const uint8_t *non
     // Nonce
     for (int i = 0; i < 3; i++)
     {
-        state->state[13 + i] = ((uint32_t *)nonce)[i];
+        state->state[13 + i] = load32_le(nonce + 4 * i);
     }
 }
 
@@ -85,17 +91,17 @@ void chacha20_encrypt(uint8_t *out, const uint8_t *in, size_t length, const uint
 {
     chacha20_state state;
     chacha20_state block;
-    uint8_t *block_bytes = (uint8_t *)(block.state);
 
     while (length > 0)
     {
         chacha20_init(&state, key, nonce, counter);
         chacha20_block(&state, &block);
 
+        // keystream bytes are the state words in little-endian order
         size_t chunk_size = length > 64 ? 64 : length;
         for (size_t i = 0; i < chunk_size; i++)
         {
-            out[i] = in[i] ^ block_bytes[i];
+            out[i] = in[i] ^ (uint8_t)(block.state[i / 4] >> (8 * (i % 4)));
         }
 
         counter++;

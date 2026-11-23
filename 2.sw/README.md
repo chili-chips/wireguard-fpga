@@ -92,11 +92,16 @@ accelerations.
 - One-time message authentication code
 - 128-bit authentication tag
 - Key derived from ChaCha20 keystream as per RFC 8439
+- Five 26-bit limbs: 32x32->64 multiplies only, so RV32I without the M extension works
+- Incremental API (`poly1305_init`/`update`/`finish`), any length and alignment
+- Constant-time tag compare (`poly1305_verify`)
 
 #### ChaCha20–Poly1305 AEAD
 - Encrypt-then-MAC construction
 - Produces a 16-byte authentication tag
+- Feeds Poly1305 piece by piece (AAD, pad, ciphertext, pad, lengths): no copy, no length limit
 - Verifies integrity before accepting decrypted data
+- `test chacha20poly1305` (CLI) checks the RFC 8439 2.5.2 and 2.8.2 vectors
 
 ### Implementation Notes
 - Follows RFC 8439 specification.

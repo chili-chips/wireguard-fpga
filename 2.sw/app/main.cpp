@@ -47,6 +47,7 @@
 #include "ethernet.h"
 #include "network.h"
 #include "chacha20poly1305.h"
+#include "poly1305.h"
 #include "blake2s.h"
 #include "curve25519.h"
 #include "hkdf.h"
@@ -55,55 +56,96 @@
 
 // TEST CODE
 
+// RFC 8439 2.5.2: Poly1305 over "Cryptographic Forum Research Group"
+static const uint8_t rfc_poly_key[32] = {
+   0x85, 0xd6, 0xbe, 0x78, 0x57, 0x55, 0x6d, 0x33,
+   0x7f, 0x44, 0x52, 0xfe, 0x42, 0xd5, 0x06, 0xa8,
+   0x01, 0x03, 0x80, 0x8a, 0xfb, 0x0d, 0xb2, 0xfd,
+   0x4a, 0xbf, 0xf6, 0xaf, 0x41, 0x49, 0xf5, 0x1b};
+
+static const uint8_t rfc_poly_tag[16] = {
+   0xa8, 0x06, 0x1d, 0xc1, 0x30, 0x51, 0x36, 0xc6,
+   0xc2, 0x2b, 0x8b, 0xaf, 0x0c, 0x01, 0x27, 0xa9};
+
+// RFC 8439 2.8.2: AEAD encryption of the "sunscreen" text
+static const uint8_t rfc_aead_key[32] = {
+   0x80, 0x81, 0x82, 0x83, 0x84, 0x85, 0x86, 0x87,
+   0x88, 0x89, 0x8a, 0x8b, 0x8c, 0x8d, 0x8e, 0x8f,
+   0x90, 0x91, 0x92, 0x93, 0x94, 0x95, 0x96, 0x97,
+   0x98, 0x99, 0x9a, 0x9b, 0x9c, 0x9d, 0x9e, 0x9f};
+
+static const uint8_t rfc_aead_nonce[12] = {
+   0x07, 0x00, 0x00, 0x00, 0x40, 0x41, 0x42, 0x43,
+   0x44, 0x45, 0x46, 0x47};
+
+static const uint8_t rfc_aead_aad[12] = {
+   0x50, 0x51, 0x52, 0x53, 0xc0, 0xc1, 0xc2, 0xc3,
+   0xc4, 0xc5, 0xc6, 0xc7};
+
+static const uint8_t rfc_aead_ct[114] = {
+   0xd3, 0x1a, 0x8d, 0x34, 0x64, 0x8e, 0x60, 0xdb, 0x7b, 0x86, 0xaf, 0xbc, 0x53, 0xef, 0x7e, 0xc2,
+   0xa4, 0xad, 0xed, 0x51, 0x29, 0x6e, 0x08, 0xfe, 0xa9, 0xe2, 0xb5, 0xa7, 0x36, 0xee, 0x62, 0xd6,
+   0x3d, 0xbe, 0xa4, 0x5e, 0x8c, 0xa9, 0x67, 0x12, 0x82, 0xfa, 0xfb, 0x69, 0xda, 0x92, 0x72, 0x8b,
+   0x1a, 0x71, 0xde, 0x0a, 0x9e, 0x06, 0x0b, 0x29, 0x05, 0xd6, 0xa5, 0xb6, 0x7e, 0xcd, 0x3b, 0x36,
+   0x92, 0xdd, 0xbd, 0x7f, 0x2d, 0x77, 0x8b, 0x8c, 0x98, 0x03, 0xae, 0xe3, 0x28, 0x09, 0x1b, 0x58,
+   0xfa, 0xb3, 0x24, 0xe4, 0xfa, 0xd6, 0x75, 0x94, 0x55, 0x85, 0x80, 0x8b, 0x48, 0x31, 0xd7, 0xbc,
+   0x3f, 0xf4, 0xde, 0xf0, 0x8e, 0x4b, 0x7a, 0x9d, 0xe5, 0x76, 0xd2, 0x65, 0x86, 0xce, 0xc6, 0x4b,
+   0x61, 0x16};
+
+static const uint8_t rfc_aead_tag[16] = {
+   0x1a, 0xe1, 0x0b, 0x59, 0x4f, 0x09, 0xe2, 0x6a,
+   0x7e, 0x90, 0x2e, 0xcb, 0xd0, 0x60, 0x06, 0x91};
+
+static void test_result(const char *name, int ok, int *pass) {
+   uart_send(name);
+   uart_send(ok ? ": PASS\r\n" : ": FAIL\r\n");
+   if (!ok) {
+      *pass = 0;
+   }
+}
+
 static int test_chacha20poly1305(void) {
-   // Test vectors
-   uint8_t key[32] = {
-      0x80, 0x81, 0x82, 0x83, 0x84, 0x85, 0x86, 0x87,
-      0x88, 0x89, 0x8a, 0x8b, 0x8c, 0x8d, 0x8e, 0x8f,
-      0x90, 0x91, 0x92, 0x93, 0x94, 0x95, 0x96, 0x97,
-      0x98, 0x99, 0x9a, 0x9b, 0x9c, 0x9d, 0x9e, 0x9f};
+   const char *poly_msg = "Cryptographic Forum Research Group";
+   const char *aead_pt  = "Ladies and Gentlemen of the class of '99: If I could offer you "
+                          "only one tip for the future, sunscreen would be it.";
+   const size_t pt_len  = sizeof(rfc_aead_ct);
 
-   uint8_t nonce[12] = {
-      0x07, 0x00, 0x00, 0x00, 0x40, 0x41, 0x42, 0x43,
-      0x44, 0x45, 0x46, 0x47};
+   uint8_t tag[16];
+   uint8_t buf[sizeof(rfc_aead_ct)];
+   int pass = 1;
 
-   const char *aad_str = "Additional authenticated data";
-   uint8_t *aad = (uint8_t *)aad_str;
-   size_t aad_len = bare_strlen(aad_str);
+   // Poly1305 alone, RFC 8439 2.5.2
+   poly1305_mac(tag, rfc_poly_key, (const uint8_t *)poly_msg, bare_strlen(poly_msg));
+   test_result("Poly1305 RFC 8439 2.5.2", memcmp(tag, rfc_poly_tag, 16) == 0, &pass);
 
-   const char *plaintext_str = "Hello CHILIChips - Wireguard team, let's test this aead!";
-   uint8_t *plaintext = (uint8_t *)plaintext_str;
-   size_t plaintext_len = bare_strlen(plaintext_str);
-
-   // Use stack allocation instead of malloc
-   uint8_t ciphertext[256]; // Buffer large enough for the plaintext
-   uint8_t decrypted[256];  // Buffer large enough for the plaintext
-   uint8_t auth_tag[16];
-   // Encrypt
+   // AEAD encrypt, RFC 8439 2.8.2: exact ciphertext and tag
    int ret = chacha20poly1305_encrypt(
-      ciphertext, auth_tag, key, nonce,
-      plaintext, plaintext_len, aad, aad_len);
+      buf, tag, rfc_aead_key, rfc_aead_nonce,
+      (const uint8_t *)aead_pt, pt_len, rfc_aead_aad, sizeof(rfc_aead_aad));
+   test_result("AEAD encrypt RFC 8439 2.8.2", ret == 0 && bare_strlen(aead_pt) == pt_len
+               && memcmp(buf, rfc_aead_ct, pt_len) == 0
+               && memcmp(tag, rfc_aead_tag, 16) == 0, &pass);
 
-   if (ret != 0)
-   {
-      return -1;
-   }
-   // Decrypt
+   // AEAD decrypt of the RFC ciphertext
    ret = chacha20poly1305_decrypt(
-      decrypted, key, nonce, ciphertext, plaintext_len,
-      auth_tag, aad, aad_len);
+      buf, rfc_aead_key, rfc_aead_nonce, rfc_aead_ct, pt_len,
+      rfc_aead_tag, rfc_aead_aad, sizeof(rfc_aead_aad));
+   test_result("AEAD decrypt RFC 8439 2.8.2", ret == 0
+               && memcmp(buf, aead_pt, pt_len) == 0, &pass);
 
-   if (ret == 0)
-   {
-      uart_send("ChaCha20-Poly1305 test passed!\r\n");
+   // A flipped tag bit must be rejected
+   for (int i = 0; i < 16; i++) {
+      tag[i] = rfc_aead_tag[i];
    }
-   else
-   {
-      uart_send("ChaCha20-Poly1305 test failed!\r\n");
-      return -1;
-   }
+   tag[15] ^= 0x80;
+   ret = chacha20poly1305_decrypt(
+      buf, rfc_aead_key, rfc_aead_nonce, rfc_aead_ct, pt_len,
+      tag, rfc_aead_aad, sizeof(rfc_aead_aad));
+   test_result("AEAD bad tag rejected", ret != 0, &pass);
 
-   return 0;
+   uart_send(pass ? "ChaCha20-Poly1305 test passed!\r\n"
+                  : "ChaCha20-Poly1305 test failed!\r\n");
+   return pass ? 0 : -1;
 }
 
 static int test_blake2s(void) {

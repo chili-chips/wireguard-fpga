@@ -32,7 +32,9 @@ extern "C" {
  * @param plaintext_len Length of plaintext in bytes
  * @param aad Additional authenticated data (can be NULL)
  * @param aad_len Length of AAD in bytes (can be 0)
- * @return 0 on success, non-zero on failure
+ * @return 0 on success, non-zero on a NULL buffer with a non-zero length
+ *
+ * Any message length, any alignment; ciphertext may equal plaintext.
  */
 int chacha20poly1305_encrypt(
     uint8_t *ciphertext,
@@ -55,7 +57,7 @@ int chacha20poly1305_encrypt(
  * @param auth_tag The 16-byte authentication tag to verify
  * @param aad Additional authenticated data (can be NULL)
  * @param aad_len Length of AAD in bytes (can be 0)
- * @return 0 on success (tag verified), non-zero on failure
+ * @return 0 on success (tag verified), non-zero on failure (plaintext untouched)
  */
 int chacha20poly1305_decrypt(
     uint8_t *plaintext,
