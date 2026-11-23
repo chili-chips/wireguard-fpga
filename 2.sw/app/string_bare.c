@@ -82,7 +82,9 @@ int memcmp(const void *s1, const void *s2, size_t len) {
    return 0;
 }
 
-size_t strlen(const char *str) {
+#endif  // VPROC
+
+size_t bare_strlen(const char *str) {
    size_t len = 0;
 
    /* Count characters until null terminator is reached */
@@ -94,7 +96,7 @@ size_t strlen(const char *str) {
    return len;
 }
 
-int strcmp(const void *s1, const void *s2) {
+int bare_strcmp(const char *s1, const char *s2) {
    const unsigned char *a = (const unsigned char *)s1;
    const unsigned char *b = (const unsigned char *)s2;
 
@@ -105,8 +107,6 @@ int strcmp(const void *s1, const void *s2) {
    }
    return (int)*a - (int)*b;
 }
-
-#endif  // VPROC
 
 uint8_t str_parse_uint32(const char* str, uint32_t* value, uint32_t min, uint32_t max) {
    uint32_t val = 0;

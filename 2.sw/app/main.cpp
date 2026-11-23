@@ -69,11 +69,11 @@ static int test_chacha20poly1305(void) {
 
    const char *aad_str = "Additional authenticated data";
    uint8_t *aad = (uint8_t *)aad_str;
-   size_t aad_len = strlen(aad_str);
+   size_t aad_len = bare_strlen(aad_str);
 
    const char *plaintext_str = "Hello CHILIChips - Wireguard team, let's test this aead!";
    uint8_t *plaintext = (uint8_t *)plaintext_str;
-   size_t plaintext_len = strlen(plaintext_str);
+   size_t plaintext_len = bare_strlen(plaintext_str);
 
    // Use stack allocation instead of malloc
    uint8_t ciphertext[256]; // Buffer large enough for the plaintext
@@ -138,7 +138,7 @@ static int test_blake2s(void) {
       const uint8_t *expected = tests[i].expected;
 
       // Compute hash
-      hash(out, 32, NULL, 0, msg, strlen(msg));
+      hash(out, 32, NULL, 0, msg, bare_strlen(msg));
 
       // Compare
       int ok = 1;
@@ -674,7 +674,7 @@ void config_cryptokeys(void) {
    uart_send_hex(local_mac_31_0, 8);
    uart_send("]: ");
    while (!uart_recv(uart_rx_data));
-   if (strlen(uart_rx_data) == 13) {
+   if (bare_strlen(uart_rx_data) == 13) {
       str_parse_hex(uart_rx_data + 4, &local_mac_31_0, 0, 0xFFFFFFFF);
       uart_rx_data[4] = '\n';
       str_parse_hex(uart_rx_data, &local_mac_47_32, 0, 0xFFFF);
@@ -710,7 +710,7 @@ void config_cryptokeys(void) {
    uart_send_hex(remote_mac_31_0, 8);
    uart_send("]: ");
    while (!uart_recv(uart_rx_data));
-   if (strlen(uart_rx_data) == 13) {
+   if (bare_strlen(uart_rx_data) == 13) {
       str_parse_hex(uart_rx_data + 4, &remote_mac_31_0, 0, 0xFFFFFFFF);
       uart_rx_data[4] = '\n';
       str_parse_hex(uart_rx_data, &remote_mac_47_32, 0, 0xFFFF);
@@ -920,29 +920,29 @@ int main(void) {
       // Receive and process CLI command
       uart_rx_len = uart_recv(uart_rx_data);
       if (uart_rx_len) {
-         if (strcmp(uart_rx_data, "test chacha20poly1305\n") == 0) {
+         if (bare_strcmp(uart_rx_data, "test chacha20poly1305\n") == 0) {
             test_chacha20poly1305();
-         } else if (strcmp(uart_rx_data, "test blake2s\n") == 0) {
+         } else if (bare_strcmp(uart_rx_data, "test blake2s\n") == 0) {
             test_blake2s();
-         } else if (strcmp(uart_rx_data, "test curve25519\n") == 0) {
+         } else if (bare_strcmp(uart_rx_data, "test curve25519\n") == 0) {
             test_curve25519();
-         } else if (strcmp(uart_rx_data, "test rng\n") == 0) {
+         } else if (bare_strcmp(uart_rx_data, "test rng\n") == 0) {
             test_rng();
-         } else if (strcmp(uart_rx_data, "test timer\n") == 0) {
+         } else if (bare_strcmp(uart_rx_data, "test timer\n") == 0) {
             test_timer();
-         } else if (strcmp(uart_rx_data, "show network\n") == 0) {
+         } else if (bare_strcmp(uart_rx_data, "show network\n") == 0) {
             show_network(&net_config);
-         } else if (strcmp(uart_rx_data, "config network\n") == 0) {
+         } else if (bare_strcmp(uart_rx_data, "config network\n") == 0) {
             config_network(&net_config);
-         } else if (strcmp(uart_rx_data, "show routes\n") == 0) {
+         } else if (bare_strcmp(uart_rx_data, "show routes\n") == 0) {
             show_routes();
-         } else if (strcmp(uart_rx_data, "config routes\n") == 0) {
+         } else if (bare_strcmp(uart_rx_data, "config routes\n") == 0) {
             config_routes();
-         } else if (strcmp(uart_rx_data, "show cryptokeys\n") == 0) {
+         } else if (bare_strcmp(uart_rx_data, "show cryptokeys\n") == 0) {
             show_cryptokeys();
-         } else if (strcmp(uart_rx_data, "config cryptokeys\n") == 0) {
+         } else if (bare_strcmp(uart_rx_data, "config cryptokeys\n") == 0) {
             config_cryptokeys();
-         } else if (strcmp(uart_rx_data, "debug\n") == 0) {
+         } else if (bare_strcmp(uart_rx_data, "debug\n") == 0) {
             debug_enabled = !debug_enabled;
             uart_send("Debug mode ");;
             if (debug_enabled) {
@@ -950,9 +950,9 @@ int main(void) {
             } else {
                uart_send("disabled.\r\n");
             }
-         } else if (strcmp(uart_rx_data, "reboot\n") == 0) {
+         } else if (bare_strcmp(uart_rx_data, "reboot\n") == 0) {
             reboot();
-         } else if (strcmp(uart_rx_data, "help\n") == 0) {
+         } else if (bare_strcmp(uart_rx_data, "help\n") == 0) {
             uart_send("Available commands:\r\n");
             uart_send("  test chacha20poly1305  - Test ChaCha20-Poly1305 AEAD\r\n");
             uart_send("  test blake2s           - Test BLAKE2s hash function\r\n");

@@ -276,7 +276,7 @@ void uart_test(void) {
       uart_send(rx_data_ptr);
 
       // check received data
-      if (strcmp(rx_expd, rx_data_ptr) == 0) {
+      if (bare_strcmp(rx_expd, rx_data_ptr) == 0) {
           //CSR -> gpo.fld.led_off = 0b10; // turn on first LED
           uart_send((char*)"\r\n\t| You hit it! :-)\r\n");
           break;

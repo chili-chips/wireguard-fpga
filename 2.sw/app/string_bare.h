@@ -17,9 +17,10 @@ extern "C" {
 #include <stddef.h> /* For size_t */
 #include <stdint.h> /* For uint8_t, uint32_t */
 
+// memset, memcpy and memcmp keep the C library's names: GCC calls them on its
+// own (struct copies, zeroing) even freestanding, so the bare build must
+// provide exactly these. The co-simulation (VPROC) takes the host's C library.
 #ifdef VPROC
-// Co-simulation: the host's C library has these (strcmp gives the same
-// result for the firmware's whole-line compares)
 #include <string.h>
 #else
 
@@ -53,13 +54,18 @@ __attribute__((used)) void *memcpy(void *dest, const void *src, size_t len);
  */
 int memcmp(const void *s1, const void *s2, size_t len);
 
+#endif  // VPROC
+
+// The firmware's own string functions: one copy for the CPU and the
+// co-simulation, so the co-simulation runs the code the CPU runs (not libc's)
+
 /**
  * @brief Calculate the length of a string
  *
  * @param str Pointer to the null-terminated string
  * @return size_t The number of characters in the string before the null terminator
  */
-size_t strlen(const char *str);
+size_t bare_strlen(const char *str);
 
 /**
  * @brief Compare two strings
@@ -68,9 +74,7 @@ size_t strlen(const char *str);
  * @param s2 Pointer to the second string
  * @return int < 0 if s1 < s2, 0 if s1 = s2, > 0 if s1 > s2
  */
-int strcmp(const void *s1, const void *s2);
-
-#endif  // VPROC
+int bare_strcmp(const char *s1, const char *s2);
 
 /**
  * @brief Parse uint32_t from string

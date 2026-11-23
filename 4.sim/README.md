@@ -597,7 +597,7 @@ The firmware source has no co-simulation code but four spots:
 
 - **Entry point:** every _VProc_ node starts at `VUserMain<n>`, and the simulator has its own `main()`. So the firmware is compiled with `-Dmain=fw_main`, and [`usercode/VUserMain0.cpp`](usercode/VUserMain0.cpp) calls it.
 - **Halt and reboot:** `ebreak` and `jr zero` (`2.sw/app/main.cpp`) become a loop that ticks the _VProc_ node, so the simulation runs on to its end.
-- **C library:** the bare-metal `memcpy`, `strcmp` and friends (`string_bare.c`) give way to the host's.
+- **C library:** the bare-metal `memset`, `memcpy` and `memcmp` (`string_bare.c`) give way to the host's, which GCC needs under those names; the firmware's own `bare_strlen` and `bare_strcmp` run in the co-simulation too.
 - **UART output:** `uart_send_char()` (`uart.c`) prints to the simulation log instead of waiting on the 115200-baud UART. The boot banner would otherwise keep the firmware out of its main loop, which forwards ETH_1 <-> ETH_2 frames, for about 40 ms.
 
 ## Simulation speed
