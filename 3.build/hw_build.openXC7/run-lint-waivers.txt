@@ -69,7 +69,7 @@ verilator ^%Warning-UNUSEDSIGNAL: 1\.hw/fpgatech_lib/XILINX/fpga_pll_(80M|125M)\
 # one (in eduBOS5 an illegal opcode halts, an unknown store width writes
 # nothing): unique checks that the items never overlap, the default that no
 # value goes unhandled. slang -Wextra flags it (-Wcase-redundant-default)
-slang ^1\.hw/[^ ]+\.sv:[0-9]+:[0-9]+: warning: .case. marked .unique. has .default. label
+slang ^1\.hw/[^ ]+\.sv:[0-9]+:[0-9]+: warning: .case[zx]?. marked .(unique|priority). has .default. label
 
 # Our forks of third-party RTL (Alex Forencich's external_lib, the PicoRV32
 # pcpi units) are Verible-formatted like our own. external_lib is
