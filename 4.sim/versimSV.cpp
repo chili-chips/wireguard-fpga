@@ -83,8 +83,10 @@ int main(int argc, char** argv, char**) {
    VerilatedFstC *m_trace = new VerilatedFstC;
 # endif
    
-   m_trace->set_time_resolution("1ps");
-   m_trace->set_time_unit("1ps");
+   // the trace time unit is the model's precision, the unit of contextp->time(): 1ps
+   // here, since the Xilinx models (models/no-change) have `timescale 1 ps / 1 ps
+   m_trace->set_time_resolution(contextp->timeprecisionString());
+   m_trace->set_time_unit(contextp->timeprecisionString());
    topp->trace(m_trace, 20);
 # if TRACE_VCD
    m_trace->open("wave.vcd");

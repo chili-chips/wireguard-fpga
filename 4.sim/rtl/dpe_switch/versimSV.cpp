@@ -58,8 +58,9 @@ int main(int argc, char** argv, char**) {
    // Construct the Verilated model, from Vtop.h generated from Verilating
    const std::unique_ptr<Vtb> topp{new Vtb{contextp.get()}};
 
-   m_trace->set_time_resolution("1ps");
-   m_trace->set_time_unit("1ps");
+   // the FST time unit is the model's precision (--timescale), the unit of contextp->time()
+   m_trace->set_time_resolution(contextp->timeprecisionString());
+   m_trace->set_time_unit(contextp->timeprecisionString());
    topp->trace(m_trace, 20);
    m_trace->open("wave.fst");
 
