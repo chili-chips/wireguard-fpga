@@ -54,6 +54,27 @@
 #include "random.h"
 #include "timer.h"
 
+//--------------------------------------------------------------------------
+// Stack scrub: crypto code leaves keys and intermediate values in its stack
+// frames after it returns (X25519 alone about 1.7 KB), and DMEM is readable
+// over the UART debug mode. After each command and each packet, zero the
+// stack below the current stack pointer: nothing there is live (eduBOS5
+// takes no interrupts). The co-simulation runs on the host stack: no-op.
+//--------------------------------------------------------------------------
+#ifndef VPROC
+extern "C" uint8_t _stack_end[];  // lowest stack address (link_map.lds)
+
+static void __attribute__((noinline)) stack_scrub(void) {
+   uintptr_t sp;
+   __asm__ volatile ("mv %0, sp" : "=r"(sp));
+   for (volatile uint32_t *p = (volatile uint32_t *)_stack_end; (uintptr_t)p < sp; p++) {
+      *p = 0;
+   }
+}
+#else
+static void stack_scrub(void) {}
+#endif
+
 // TEST CODE
 
 // RFC 8439 2.5.2: Poly1305 over "Cryptographic Forum Research Group"
@@ -893,6 +914,7 @@ int main(void) {
    uart_send("\r\nType 'help' to display commands.\r\n");
    uart_send("(wireguard-fpga)# ");
 
+   stack_scrub();  // the start-up key generation
    while (1) {
       // Receive Ethernet packet for CPU FIFO
       if (eth_receive_packet(&eth_packet_rx)) {
@@ -955,6 +977,7 @@ int main(void) {
             eth_packet_rx.bypass_all = 1;
             eth_send_packet(&eth_packet_rx);
          }
+         stack_scrub();
       } else {
          CSR_RMW(gpio, CSR__GPIO__LED2, 0);
       }
@@ -1013,6 +1036,7 @@ int main(void) {
          } else if (uart_rx_len > 1) {
             uart_send("Unknown command\r\n");
          }
+         stack_scrub();
          uart_send("(wireguard-fpga)# ");
       }
    }
