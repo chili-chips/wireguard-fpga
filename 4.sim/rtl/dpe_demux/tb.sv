@@ -47,12 +47,17 @@ module tb;
 
     logic clk;
     logic rst;
-    logic out_ready;  // tready of every output
+    logic   all_ready;  // tready of every output, unless stalled
+    ports_t stall;      // outputs held not ready on their own (multicast test)
+    ports_t out_ready;  // tready of each output
+    logic   stall_go;   // starts the stall pattern
+    assign out_ready = {5{all_ready}} & ~stall;
 
     dpe_if from_dpe(.clk(clk), .rst(rst));
     dpe_if to_port[DPE_PORTS] (.clk(clk), .rst(rst));  // CPU, Ethernet 1 to 4
 
-    // One test packet per destination, sent one after the other from the CPU
+    // One test packet per destination, sent one after the other from the CPU;
+    // then multicast and broadcast again while single outputs stall
     typedef struct packed {
        test_pkt_t to_cpu;
        test_pkt_t to_eth_1;
@@ -60,6 +65,9 @@ module tb;
        test_pkt_t to_eth_3;
        test_pkt_t to_eth_4;
        test_pkt_t to_all;
+       test_pkt_t to_13;
+       test_pkt_t to_24;
+       test_pkt_t to_all_2;
     } packet_data_t;
 
     packet_data_t packet_data;  // set below: JanusHDL 0.17 has no const variables
@@ -69,7 +77,10 @@ module tb;
         to_eth_2: '{dst: DPE_ADDR_ETH_2, len: 5, data: '{8'h15, 8'h16, 8'h17, 8'h18, 8'h19, 8'h00}},
         to_eth_3: '{dst: DPE_ADDR_ETH_3, len: 4, data: '{8'h1F, 8'h20, 8'h21, 8'h22, 8'h00, 8'h00}},
         to_eth_4: '{dst: DPE_ADDR_ETH_4, len: 4, data: '{8'h29, 8'h2A, 8'h2B, 8'h2C, 8'h00, 8'h00}},
-        to_all:   '{dst: DPE_ADDR_BCAST, len: 5, data: '{8'h33, 8'h34, 8'h35, 8'h36, 8'h37, 8'h00}}
+        to_all:   '{dst: DPE_ADDR_BCAST, len: 5, data: '{8'h33, 8'h34, 8'h35, 8'h36, 8'h37, 8'h00}},
+        to_13:    '{dst: DPE_ADDR_MCAST_13, len: 4, data: '{8'h41, 8'h42, 8'h43, 8'h44, 8'h00, 8'h00}},
+        to_24:    '{dst: DPE_ADDR_MCAST_24, len: 5, data: '{8'h51, 8'h52, 8'h53, 8'h54, 8'h55, 8'h00}},
+        to_all_2: '{dst: DPE_ADDR_BCAST, len: 6, data: '{8'h61, 8'h62, 8'h63, 8'h64, 8'h65, 8'h66}}
     };
 
     // Clock generation
@@ -93,11 +104,11 @@ module tb;
     // The source and the sinks
     dpe_tb_src #(.SRC(DPE_ADDR_CPU)) src (.outp(from_dpe));
 
-    dpe_tb_sink #(.NAME("to_cpu"))   snk_cpu   (.ready(out_ready), .inp(to_port[0]));
-    dpe_tb_sink #(.NAME("to_eth_1")) snk_eth_1 (.ready(out_ready), .inp(to_port[1]));
-    dpe_tb_sink #(.NAME("to_eth_2")) snk_eth_2 (.ready(out_ready), .inp(to_port[2]));
-    dpe_tb_sink #(.NAME("to_eth_3")) snk_eth_3 (.ready(out_ready), .inp(to_port[3]));
-    dpe_tb_sink #(.NAME("to_eth_4")) snk_eth_4 (.ready(out_ready), .inp(to_port[4]));
+    dpe_tb_sink #(.NAME("to_cpu"))   snk_cpu   (.ready(out_ready[0]), .inp(to_port[0]));
+    dpe_tb_sink #(.NAME("to_eth_1")) snk_eth_1 (.ready(out_ready[1]), .inp(to_port[1]));
+    dpe_tb_sink #(.NAME("to_eth_2")) snk_eth_2 (.ready(out_ready[2]), .inp(to_port[2]));
+    dpe_tb_sink #(.NAME("to_eth_3")) snk_eth_3 (.ready(out_ready[3]), .inp(to_port[3]));
+    dpe_tb_sink #(.NAME("to_eth_4")) snk_eth_4 (.ready(out_ready[4]), .inp(to_port[4]));
 
     // Each output must receive p when p's dst selects it
     task automatic expect_on(input test_pkt_t p);
@@ -113,7 +124,9 @@ module tb;
     // Main stimulus process
     initial begin
         int errors;
-        rst = 1;
+        rst      = 1;
+        stall    = '0;
+        stall_go = 0;
 
         repeat (5) @(negedge clk);
         rst = 0;
@@ -128,12 +141,24 @@ module tb;
 
         repeat (20) @(negedge clk);  // drain
 
+        // Multicast and broadcast while single outputs stall: each selected
+        // output must get every beat once (issue #11)
+        stall_go = 1;
+        src.send(packet_data.to_13);
+        src.send(packet_data.to_24);
+        src.send(packet_data.to_all_2);
+
+        repeat (20) @(negedge clk);  // drain
+
         expect_on(packet_data.to_cpu);
         expect_on(packet_data.to_eth_1);
         expect_on(packet_data.to_eth_2);
         expect_on(packet_data.to_eth_3);
         expect_on(packet_data.to_eth_4);
         expect_on(packet_data.to_all);
+        expect_on(packet_data.to_13);
+        expect_on(packet_data.to_24);
+        expect_on(packet_data.to_all_2);
         snk_cpu.report();
         snk_eth_1.report();
         snk_eth_2.report();
@@ -148,25 +173,44 @@ module tb;
 
     // Output back-pressure: tready low now and then
     initial begin
-        out_ready = 0;
+        all_ready = 0;
         @(negedge clk);
-        out_ready = 1;
+        all_ready = 1;
         repeat (7) @(negedge clk);
-        out_ready = 0;
+        all_ready = 0;
         @(negedge clk);
-        out_ready = 1;
+        all_ready = 1;
         repeat (4) @(negedge clk);
-        out_ready = 0;
+        all_ready = 0;
         repeat (3) @(negedge clk);
-        out_ready = 1;
+        all_ready = 1;
         repeat (4) @(negedge clk);
-        out_ready = 0;
+        all_ready = 0;
         repeat (2) @(negedge clk);
-        out_ready = 1;
+        all_ready = 1;
         repeat (6) @(negedge clk);
-        out_ready = 0;
+        all_ready = 0;
         repeat (2) @(negedge clk);
-        out_ready = 1;
+        all_ready = 1;
+    end
+
+    // Single outputs stall: ETH 3 for MCAST_13, ETH 2 and ETH 4 in turn for
+    // MCAST_24, then the CPU and ETH 1 for the broadcast
+    initial begin
+        wait (stall_go);
+        stall = 5'b01000;
+        repeat (10) @(negedge clk);
+        for (int i = 0; i < 12; i++) begin
+           stall = i[0] ? 5'b10000 : 5'b00100;
+           @(negedge clk);
+        end
+        stall = 5'b00001;
+        repeat (6) @(negedge clk);
+        stall = 5'b00010;
+        repeat (4) @(negedge clk);
+        stall = 5'b10101;
+        repeat (3) @(negedge clk);
+        stall = '0;
     end
 endmodule
 

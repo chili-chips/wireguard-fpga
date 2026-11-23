@@ -39,7 +39,8 @@
 // Description:
 //   DPE demultiplexer with multicast and broadcast support: each beat goes
 //   to the output ports (to_port, indexed by address: CPU, then Ethernet 1
-//   to 4) its tuser.dst selects, and waits for all of them
+//   to 4) its tuser.dst selects, once to each, and moves on when all of
+//   them have it
 //==========================================================================
 
 module dpe_demux
@@ -69,11 +70,24 @@ module dpe_demux
     endcase
   endfunction
 
-  logic [DPE_PORTS-1:0] sel, out_ready;
-  assign                sel = dst_ports(from_dpe_sbuff.tuser.dst);
+  // Multicast and broadcast: each selected output takes the beat when it is
+  // ready, and sent holds the ones that have taken it, so none gets it twice
+  // while another stalls. The input moves on when every pending output takes
+  // it, in the same clock or earlier.
+  logic [DPE_PORTS-1:0] sel, sent, pend, out_ready;
+  assign                sel  = dst_ports(from_dpe_sbuff.tuser.dst);
+  assign                pend = sel & ~sent;
 
-  // Backpressure: wait for every selected output
-  assign from_dpe_sbuff.tready = &(~sel | out_ready);
+  assign from_dpe_sbuff.tready = &(~pend | out_ready);
+
+  always_ff @(posedge from_dpe.clk) begin
+    if (from_dpe.rst) begin
+      sent <= '0;
+    end
+    else if (from_dpe_sbuff.tvalid) begin
+      sent <= from_dpe_sbuff.tready ? '0 : sent | (pend & out_ready);
+    end
+  end
 
   // each output: the beat when selected, through its skid buffer
   for (genvar p = 0; p < DPE_PORTS; p++) begin : g_out
@@ -82,7 +96,7 @@ module dpe_demux
         .rst (from_dpe.rst)
     );
 
-    assign to_sbuff.tvalid = sel[p] & from_dpe_sbuff.tvalid;
+    assign to_sbuff.tvalid = pend[p] & from_dpe_sbuff.tvalid;
     assign to_sbuff.tdata  = sel[p] ? from_dpe_sbuff.tdata : '0;
     assign to_sbuff.tkeep  = sel[p] ? from_dpe_sbuff.tkeep : '0;
     assign to_sbuff.tlast  = sel[p] & from_dpe_sbuff.tlast;
