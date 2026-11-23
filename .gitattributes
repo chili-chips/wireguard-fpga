@@ -80,3 +80,4 @@
 3.build/hw_build.openXC7/converted/** linguist-generated=true
 3.build/hw_build.openXC7/build_artifacts/** linguist-generated=true
 3.build/sw_build/** linguist-generated=true
+3.build/pypeline_build/0.doc/diagram.html linguist-generated=true
