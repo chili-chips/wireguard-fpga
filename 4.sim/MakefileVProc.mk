@@ -23,7 +23,7 @@ BUILD            = DEFAULT
 # vproc: VProc is soc_cpu (BUILD=DEFAULT or ISS); rtl: the RTL soc_cpu that
 # 1.hw/top.filelist lists (PicoRV32 or eduBOS5), running 3.build/sw_build
 CPU              = vproc
-# verilator, or janushdl (jhdl, 0.17 or later): it loads the same DPI-C
+# verilator, or janushdl (jhdl, 0.21 or later): it loads the same DPI-C
 # models as a shared library (--sv-lib) and compiles the HDL at each run
 SIM              = verilator
 TIMEOUTUS        = 10000
@@ -278,13 +278,11 @@ SIMMAKEFLAGS     = --quiet
 SIMEXE           = $(WORKDIR)/V$(TB_NAME)
 SIMCMD           = $(SIMEXE)
 
-# SIM=janushdl: the models' shared library, and the jhdl command line.
-# SYNTHESIS leaves out the two immediate assertions of the PeakRDL csr.sv,
-# which JanusHDL 0.17 does not parse.
+# SIM=janushdl: the models' shared library, and the jhdl command line
 ifeq ("$(SIM)", "janushdl")
   SIMEXE         = $(VOBJDIR)/libvprocdpi.so
   SIMCMD         = jhdl --top $(TB_NAME)                      \
-                   $(SIMDEFS) +define+SYNTHESIS               \
+                   $(SIMDEFS)                                 \
                    $(patsubst -I%,+incdir+%,$(SIMINCLPATHS))  \
                    -f $(TOPFILELIST) -f $(TBFILELIST)         \
                    $(VPROCDIR)/verilator/verilator_sim_ctrl.sv \
@@ -309,6 +307,8 @@ SPC =
 
 .PHONY: all compile run rungui gui help clean FORCE
 
+# make with no target builds: the first rule above is $(BUILD_STAMP)
+.DEFAULT_GOAL := all
 all: $(TOPFILELIST) $(SIMEXE)
 
 #
@@ -334,7 +334,7 @@ $(VLIB): $(BUILD_STAMP) $(VPROCDIR) $(MEMMODELDIR) $(addprefix $(VPROC_USRCDIR)/
 # Verilator make file does not track the libraries, and the linker (mold)
 # fails to overwrite an existing executable on a network share.
 #
-compile: $(USERLIB) $(VLIB) $(RV32LIB)
+compile: $(USERLIB) $(VLIB) $(RV32LIB) $(TOPFILELIST)
 	@rm -f $(SIMEXE)
 	@verilator    $(WARNOPTS)                            \
 	               -F $(TOPFILELIST)                      \

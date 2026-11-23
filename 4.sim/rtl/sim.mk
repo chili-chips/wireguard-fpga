@@ -10,7 +10,7 @@
 # then includes this file. SIM picks the simulator:
 #   make                  Verilator (default)
 #   make SIM=icarus       Icarus Verilog (iverilog -g2012, vvp)
-#   make SIM=janushdl     JanusHDL (jhdl 0.17 or later)
+#   make SIM=janushdl     JanusHDL (jhdl 0.21 or later)
 # Each one writes output/sim.log and output/wave.fst. Timescale 1ns/1ns:
 # no `timescale in our HDL, the command line gives it.
 #==========================================================================
@@ -77,16 +77,14 @@ sim: compile
 	$(CHECK)
 
 #------------------------
-# SYNTHESIS leaves out the immediate assertions of the PeakRDL csr.sv,
-# which JanusHDL 0.17 does not parse
 else ifeq ($(SIM),janushdl)
 
 compile: unpack output/files.f
-	jhdl --elaborate-only --top $(TB_NAME) +define+SIM_ONLY +define+SYNTHESIS \
+	jhdl --elaborate-only --top $(TB_NAME) +define+SIM_ONLY \
 		-f output/files.f $(SRC)
 
 sim: unpack output/files.f
-	cd output; jhdl --top $(TB_NAME) +define+SIM_ONLY +define+SYNTHESIS \
+	cd output; jhdl --top $(TB_NAME) +define+SIM_ONLY \
 		-f files.f $(SRC_ABS) --fst wave.fst | tee sim.log
 	$(CHECK)
 

@@ -11,7 +11,7 @@ One directory per block. In it:
 ```
 make                  # Verilator (default)
 make SIM=icarus       # Icarus Verilog
-make SIM=janushdl     # JanusHDL 0.17 or later
+make SIM=janushdl     # JanusHDL 0.21 or later
 make wave             # GTKWave on output/wave.fst
 ```
 
@@ -40,21 +40,21 @@ The rules are in [`sim.mk`](sim.mk): timescale `1ns/1ns`, `output/sim.log` and `
 
 ## Status
 
-JanusHDL: 0.21.0, 2026-11-19. "—": not tried. JanusHDL elaborates every bench now; `dpe_switch`, `dpe_wg_encryptor` and `dpe_wg_decryptor`, which run whole frames through the ChaCha20-Poly1305 cores, did not end within the 30 minutes we gave them (Verilator: seconds).
+JanusHDL: 0.21.0, run 2026-11-23 without `+define+SYNTHESIS`. "—": not tried. Times are the whole `make` (Verilator: with its build), several benches at once on one machine. JanusHDL elaborates and runs every bench; `dpe_switch`, `dpe_wg_encryptor` and `dpe_wg_decryptor`, which run whole frames through the ChaCha20-Poly1305 cores, wrote no output frame within the 20 minutes we gave them.
 
 | Bench | Verilator | Icarus | JanusHDL |
 |---|---|---|---|
-| `dpe_switch` | PASS | no: PeakRDL `csr_pkg.sv` uses unpacked structs | no result: runs past 30 min, as `dpe_wg_encryptor` |
-| `dpe` | PASS | no: `csr_pkg.sv` | PASS |
-| `dpe_mux` | PASS | PASS | PASS |
-| `dpe_demux` | PASS | PASS | PASS |
-| `dpe_wg_disassembler` | PASS | — | PASS |
-| `dpe_wg_encryptor` | PASS | — | no result: runs past 30 min |
-| `dpe_wg_decryptor` | PASS | — | no result: runs past 30 min (it now takes the two cores' duplicate modules with a warning, [#59](https://github.com/chili-chips/wireguard-fpga/issues/59)) |
-| `lkup_egress` | PASS | no: `csr_pkg.sv` ([#45](https://github.com/chili-chips/wireguard-fpga/issues/45)); then the `'1` default ([#57](https://github.com/chili-chips/wireguard-fpga/issues/57)) | PASS |
-| `lkup_peer_table` | PASS | no: `csr_pkg.sv` ([#45](https://github.com/chili-chips/wireguard-fpga/issues/45)); then the `'1` default ([#57](https://github.com/chili-chips/wireguard-fpga/issues/57)) | PASS |
-| `pcap_reader_writer` | PASS | runs | PASS |
-| `gmii2gmii_test` | runs | no: compiles all of `top.filelist` (`csr_pkg.sv`) | runs |
-| `chacha20poly1305_encrypt` | runs | no: nested unpacked array pattern (`tb.sv:62`) | runs (2.7 µs simulated in 22 s) |
+| `dpe_switch` | PASS (390 s) | no: PeakRDL `csr_pkg.sv` uses unpacked structs | no result: no frame out in 20 min |
+| `dpe` | PASS (5 s) | no: `csr_pkg.sv` | PASS (5 s) |
+| `dpe_mux` | PASS (5 s) | PASS | PASS (5 s) |
+| `dpe_demux` | PASS (11 s) | PASS | PASS (5 s) |
+| `dpe_wg_disassembler` | PASS (25 s) | — | PASS (6 s) |
+| `dpe_wg_encryptor` | PASS (36 s) | — | no result: no frame out in 20 min |
+| `dpe_wg_decryptor` | PASS (56 s) | — | no result: no frame out in 20 min (it takes the two cores' duplicate modules with a warning, [#59](https://github.com/chili-chips/wireguard-fpga/issues/59)) |
+| `lkup_egress` | PASS (26 s) | no: `csr_pkg.sv` ([#45](https://github.com/chili-chips/wireguard-fpga/issues/45)); then the `'1` default ([#57](https://github.com/chili-chips/wireguard-fpga/issues/57)) | PASS (5 s) |
+| `lkup_peer_table` | PASS (16 s) | no: `csr_pkg.sv` ([#45](https://github.com/chili-chips/wireguard-fpga/issues/45)); then the `'1` default ([#57](https://github.com/chili-chips/wireguard-fpga/issues/57)) | PASS (15 s) |
+| `pcap_reader_writer` | PASS (10 s) | runs | PASS (5 s) |
+| `gmii2gmii_test` | runs (25 s) | no: compiles all of `top.filelist` (`csr_pkg.sv`) | runs (6 s) |
+| `chacha20poly1305_encrypt` | runs (113 s) | no: nested unpacked array pattern (`tb.sv:62`) | runs (61 s) |
 
 "Runs" means the bench ends without error but has no self-check yet.

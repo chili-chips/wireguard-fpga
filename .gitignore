@@ -81,6 +81,7 @@ Thumbs.db
 /4.sim/rtl/*/output/
 /4.sim/libvproc.a
 /4.sim/libuser.a
+/4.sim/top.filelist
 *.fst
 tb.xml
 tb.stems

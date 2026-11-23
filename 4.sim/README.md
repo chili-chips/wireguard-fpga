@@ -411,22 +411,11 @@ make -f MakefileVProc.mk SIM=janushdl run
 
 - The models are the same DPI-C build. `libvproc.a`, `libuser.a` and _udpIpPg_ are linked into `obj/libvprocdpi.so`, which `jhdl --sv-lib` loads.
 - JanusHDL compiles the HDL at each run, so there is no simulator build.
-- `VERILATOR` is not defined: the models take their event-simulator branches. `SYNTHESIS` is defined, to leave out the two immediate assertions of the PeakRDL `csr.sv`, which JanusHDL does not parse.
+- `VERILATOR` is not defined: the models take their event-simulator branches.
 - `USRSIMOPTS` goes to `jhdl`, e.g. `USRSIMOPTS="--fst wave.fst"` for the waves.
 - Only the `run` target.
 
-Status with JanusHDL 0.17.0 (preview): **the run stops at elaboration**, on `tdp_ram.sv`. What stands in the way, found with scratch copies of the files:
-
-| Where | What JanusHDL 0.17.0 does | Runs |
-|---|---|---|
-| `1.hw/ip.infra/tdp_ram.sv:65,74` | error: `mem` written by two `always_ff` (IEEE 1800 9.2.2.4) | all |
-| `models/udpIpPg/bfm_ethernet.sv:134` | error: `inout` port on one bit of a net is not supported yet | all |
-| `models/bfm_phy_mdio.sv:73` | error: array of strings set from `{...}` is not supported yet | all |
-| `models/udpIpPg/bfm_ethernet.sv:94-100`, `tb.sv:304-318` | no message, wrong result: `gmii[i]` with a genvar `i` is always `gmii[0]`, so ports 2 to 4 receive X | all |
-| `1.hw/ip.cpu/cpu.EDUBOS5/edubos5_rf.sv:32,42`, `1.hw/ip.cpu/imem.sv:96` | error: variable written by an `always_ff` and an `initial` | `CPU=rtl` |
-| `1.hw/ip.cpu/cpu.EDUBOS5/edubos5.sv:211` | error: bit select of a packed union member is not supported yet | `CPU=rtl` |
-
-With scratch copies that work around the four `all` rows, the default run (`BUILD=DEFAULT`) starts: the firmware boots and both UDP nodes send their frame. No frame is received, and the run ends at the time limit. Verilator ends the same test with `All frames received: test done` at 2.002 ms. The cause is not found yet. Speed, on one loaded machine: 1709 s for 2.5 ms, against 178 s for the 2.0 ms of the Verilator executable.
+Status with JanusHDL 0.21.0 (2026-11-23, default run `BUILD=DEFAULT`): the design elaborates as written, with a warning for `tdp_ram.sv`'s two `always_ff` writers of `mem` (IEEE 1800-2023 9.2.2.4; `--strict` makes it an error). The firmware boots and Node1's frame is sent. It is too slow to end the test: about 1 ms simulated in 20 min, on a loaded machine. Verilator ends the same test with `All frames received: test done` at 3.96 ms, in 107 s with its build. The list of 0.17.0 limits is in [#1](https://github.com/chili-chips/wireguard-fpga/issues/1); all are fixed in 0.21.0.
 
 ## Debugging Code
 
@@ -620,7 +609,7 @@ The speed comes from VProc's [coroutine patch](#local-changes): before it, every
 | Component | In use | Source |
 |---|---|---|
 | Verilator | 5.055 (devel, `v5.054-260-gb9f22851`) | [verilator.org](https://verilator.org) |
-| JanusHDL | 0.17.0 (preview), optional (`SIM=janushdl`): stops at elaboration, see [JanusHDL](#janushdl) | [que.no/janushdl](https://que.no/janushdl/) |
+| JanusHDL | 0.21.0, optional (`SIM=janushdl`): runs, too slow to end the default test, see [JanusHDL](#janushdl) | [que.no/janushdl](https://que.no/janushdl/) |
 | VProc **(modified, see below)** | 1.13.4 + 2 (`ae80e5b5`) | [wyvernSemi/vproc](https://github.com/wyvernSemi/vproc) |
 | mem_model | `main` c7b9c62 (1.0.1 + one fix) | [wyvernSemi/mem_model](https://github.com/wyvernSemi/mem_model) |
 | rv32 ISS **(modified, see below)** | 1.3.3 (`774d84fa`) | [wyvernSemi/rv32](https://github.com/wyvernSemi/rv32) |
