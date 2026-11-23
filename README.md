@@ -180,6 +180,17 @@ The conceptual class diagram provides an overview of the components in the softw
 
 The details of software architecture can be found in the [README.md](./2.sw/README.md) in the `2.sw/` directory.
 
+### Keys do not linger in memory
+
+**The problem.** Crypto code leaves secrets in RAM after it returns: the X25519 private key and its ladder state, the BLAKE2s and HMAC key blocks, the Poly1305 one-time key, the expected tag of a rejected packet. They stay in local buffers and on the stack until something overwrites them, and the UART debug mode (an R&D tool) can read all of the data memory. A key could be read back long after its use.
+
+**How it is addressed**, in two layers:
+
+1. **Wipe where the secret is made.** Each crypto function clears its secrets before it returns: the ChaCha20 state and keystream, the Poly1305 key and the expected tag, the X25519 scalar and ladder state, the BLAKE2s context and work words, the HMAC and KDF buffers. The stores cannot be optimized away (`volatile`, or `memset` in a freestanding build).
+2. **Scrub the stack.** After start-up, each packet and each command, `stack_scrub()` (`2.sw/app/main.cpp`) zeroes the stack below the stack pointer, where nothing is live (eduBOS5 takes no interrupts). It catches what layer 1 leaves, such as the X25519 multiply scratch, which is too hot to wipe on each of its ~2500 calls.
+
+Still open: on RV32I a multiply is a libgcc loop whose time depends on the operands, so X25519 and Poly1305 timing depends on the key ([#4](https://github.com/chili-chips/wireguard-fpga/issues/4)). A constant-time hardware multiplier for eduBOS5 is in progress.
+
 ## HW/SW Working Together as a Coherent System
 To illustrate the operation of the system as a whole, we have prepared a step-by-step analysis of packets processing based on the capture of real WireGuard traffic. The experimental topology consists of four nodes:
 - 10.10.0.2 - the end-user host at site A
