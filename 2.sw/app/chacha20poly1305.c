@@ -140,7 +140,11 @@ int chacha20poly1305_decrypt(
    uint8_t calculated_tag[CHACHA20POLY1305_TAG_SIZE];
    aead_tag(calculated_tag, key, nonce, ciphertext, ciphertext_len, aad, aad_len);
 
-   if (!poly1305_verify(auth_tag, calculated_tag))
+   int tag_ok = poly1305_verify(auth_tag, calculated_tag);
+   // the expected tag must not stay in memory: on a rejected packet it is the
+   // valid tag for the attacker's ciphertext
+   memset(calculated_tag, 0, sizeof(calculated_tag));
+   if (!tag_ok)
       return -1; // Authentication failed: plaintext is not written
 
    // 2. Decrypt ciphertext using ChaCha20 starting with counter 1

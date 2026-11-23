@@ -109,6 +109,11 @@ void chacha20_encrypt(uint8_t *out, const uint8_t *in, size_t length, const uint
         out += chunk_size;
         in += chunk_size;
     }
+
+    // the key (state) and the keystream (block) must not outlive the call:
+    // block 0 of an AEAD is the Poly1305 one-time key
+    memset(&state, 0, sizeof(state));
+    memset(&block, 0, sizeof(block));
 }
 
 // -----------------------------------------------------------------------------
