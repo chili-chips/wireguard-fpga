@@ -37,7 +37,8 @@
 #
 # Exit status is lintcrux's: 0 clean or no gate failed, 1 findings with
 # --exit-code, 2 new findings with --fail-on-new-violations, 3 the run failed
-# (an engine missing or broken: never a clean result), 64 a usage error.
+# (an engine missing or broken, or the sourceFiles of wireguard-fpga.lintcrux
+# not those of top.filelist: never a clean result), 64 a usage error.
 #
 # Tools: LINTCRUX (default lintcrux, the free open-core CLI), VERILATOR,
 # VERIBLE (verible-verilog-lint), SLANG, SVLINT, GHDL, YOSYS_CONFIG (for the

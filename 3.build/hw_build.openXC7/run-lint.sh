@@ -185,8 +185,8 @@ exit_check() {  # $1 phase, $2 exit status
 
 run_tags() {
   bb || { skip tags "no Xilinx stubs (yosys-config)"; return; }
-  "$PYTHON" - -- bb.sv $ALL > tags.log <<'EOF'
-import re, sys
+  CASE_RTL="$OWN" "$PYTHON" - -- bb.sv $ALL > tags.log <<'EOF'
+import os, re, sys
 files = sys.argv[sys.argv.index('--') + 1:]
 text = {f: open(f).read() for f in files}
 types = {'logic', 'wire', 'reg', 'signed', 'unsigned', 'var', 'bit', 'integer', 'tri'}
@@ -218,24 +218,31 @@ for f in files:
 # our RTL rule: every unique and priority case has a default, also a full one
 # (no tool checks it: Verible's case-missing-default skips unique, Verilator
 # and slang only flag values no item covers); unique0 has none
+# (CASE_RTL: our own RTL, also the files no top reads)
 third_party = re.compile(r'external_lib/|cpu\.PICORV32/|csr_build/')
-tok = re.compile(r'\b(?:(unique0|unique|priority)\s+)?(case[zx]?|endcase|default)\b')
-for f in files:
+tok = re.compile(r'\b(?:(unique0|unique|priority)\s+)?(case[zx]?|endcase|default)\b|([{}])')
+blank = re.compile(r'"(?:\\.|[^"\\\n])*"|//[^\n]*|/\*.*?\*/', re.S)
+for f in dict.fromkeys(files + os.environ.get('CASE_RTL', '').split()):
     if f == 'bb.sv' or third_party.search(f):
         continue
-    # comments blanked, newlines kept, so line numbers stay
-    t = re.sub(r'//[^\n]*|/\*.*?\*/', lambda m: re.sub(r'[^\n]', ' ', m.group(0)), text[f], flags=re.S)
-    stack = []  # one [qualifier, line, has default] per open case
+    # strings and comments blanked, newlines kept, so line numbers stay
+    t = blank.sub(lambda m: re.sub(r'[^\n]', ' ', m.group(0)), text.get(f) or open(f).read())
+    stack, braces = [], 0  # one [qualifier, line, brace depth, has default] per open case
     for m in tok.finditer(t):
-        if m.group(2).startswith('case'):
-            stack.append([m.group(1), t.count('\n', 0, m.start()) + 1, False])
+        if m.group(3):
+            braces += 1 if m.group(3) == '{' else -1
+        elif m.group(2).startswith('case'):
+            stack.append([m.group(1), t.count('\n', 0, m.start()) + 1, braces, False])
         elif m.group(2) == 'default':
-            if stack:
-                stack[-1][2] = True
+            # a case label, not '{default: ...} in an assignment pattern
+            if stack and stack[-1][2] == braces:
+                stack[-1][3] = True
         elif stack:
-            q, n, has = stack.pop()
+            q, n, _, has = stack.pop()
             if q in ('unique', 'priority') and not has:
                 print(f'{f}:{n}: {q} case without default')
+    for q, n, _, _ in stack:
+        print(f'{f}:{n}: case without endcase (an `ifdef around case or endcase?)')
 EOF
   local rc=$?
   [ $rc -eq 0 ] || { failed tags "exit $rc"; return; }
