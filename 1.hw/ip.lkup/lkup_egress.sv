@@ -138,11 +138,13 @@ module lkup_egress
 
   logic [CSR_DATA_WIDTH-1:0] rd_data;
   always_comb begin
+    rd_data = '0;
     unique case (rd_field)
       FIELD_PREFIX: rd_data = rdata.prefix;
       FIELD_MASK:   rd_data = rdata.mask;
       FIELD_PEER:   rd_data = CSR_DATA_WIDTH'({rdata.act.encrypt, rdata.act.peer_idx});
       FIELD_DST:    rd_data = CSR_DATA_WIDTH'(rdata.act.dst);
+      default:      rd_data = '0;
     endcase
   end
   assign csr_sta.wr_ack  = csr_wr;

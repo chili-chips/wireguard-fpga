@@ -8,7 +8,8 @@
 # its own, interface ports and all): syntax and limited semantic
 # checks with a set of opensource tools, run in this order:
 #
-#   tags       every /*LINT:OK*/ sits on an output port (no tool needed)
+#   tags       every /*LINT:OK*/ sits on an output port, and every unique and
+#              priority case of our RTL has a default (no tool needed)
 #   verilator  Verilator --lint-only -Wall: unused/undriven signals, widths,
 #              implicit nets, multiple drivers, blocking vs non-blocking, case
 #   yosys      Yosys check on the read_slang netlist: combinational loops,
@@ -214,6 +215,27 @@ for f in files:
             d = dirs.get(typ, {}).get(m.group(1))
             if d != 'output':
                 print(f'{f}:{n}: LINT:OK on {d or "unknown"} port {typ}.{m.group(1)}')
+# our RTL rule: every unique and priority case has a default, also a full one
+# (no tool checks it: Verible's case-missing-default skips unique, Verilator
+# and slang only flag values no item covers); unique0 has none
+third_party = re.compile(r'external_lib/|cpu\.PICORV32/|csr_build/')
+tok = re.compile(r'\b(?:(unique0|unique|priority)\s+)?(case[zx]?|endcase|default)\b')
+for f in files:
+    if f == 'bb.sv' or third_party.search(f):
+        continue
+    # comments blanked, newlines kept, so line numbers stay
+    t = re.sub(r'//[^\n]*|/\*.*?\*/', lambda m: re.sub(r'[^\n]', ' ', m.group(0)), text[f], flags=re.S)
+    stack = []  # one [qualifier, line, has default] per open case
+    for m in tok.finditer(t):
+        if m.group(2).startswith('case'):
+            stack.append([m.group(1), t.count('\n', 0, m.start()) + 1, False])
+        elif m.group(2) == 'default':
+            if stack:
+                stack[-1][2] = True
+        elif stack:
+            q, n, has = stack.pop()
+            if q in ('unique', 'priority') and not has:
+                print(f'{f}:{n}: {q} case without default')
 EOF
   local rc=$?
   [ $rc -eq 0 ] || { failed tags "exit $rc"; return; }
