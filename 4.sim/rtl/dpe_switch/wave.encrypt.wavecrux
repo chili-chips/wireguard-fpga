@@ -1,0 +1,258 @@
+{
+  "version": 4,
+  "sourceFilePath": "output/wave.fst",
+  "signals": [
+    {
+      "kind": "signal",
+      "id": "wg-encrypt-0",
+      "ref": "34",
+      "path": "TOP.tb.dut.u_encryptor.u_chacha20poly1305_encrypt.clk_80p0",
+      "name": "clk_80p0",
+      "color": 4292927712,
+      "format": "hexadecimal",
+      "height": 24.0
+    },
+    {
+      "kind": "signal",
+      "id": "wg-encrypt-1",
+      "ref": "19038",
+      "path": "TOP.tb.dut.u_encryptor.u_chacha20poly1305_encrypt.encrypt_key",
+      "name": "encrypt_key",
+      "color": 4294938880,
+      "format": "hexadecimal",
+      "height": 24.0
+    },
+    {
+      "kind": "signal",
+      "id": "wg-encrypt-2",
+      "ref": "19039",
+      "path": "TOP.tb.dut.u_encryptor.u_chacha20poly1305_encrypt.encrypt_nonce",
+      "name": "encrypt_nonce",
+      "color": 4294938880,
+      "format": "hexadecimal",
+      "height": 24.0
+    },
+    {
+      "kind": "signal",
+      "id": "wg-encrypt-3",
+      "ref": "7",
+      "path": "TOP.tb.dut.u_encryptor.u_chacha20poly1305_encrypt.encrypt_aad_len",
+      "name": "encrypt_aad_len",
+      "color": 4294938880,
+      "format": "hexadecimal",
+      "height": 24.0
+    },
+    {
+      "kind": "signal",
+      "id": "wg-encrypt-4",
+      "ref": "19035",
+      "path": "TOP.tb.dut.u_encryptor.u_chacha20poly1305_encrypt.encrypt_s_axis_tvalid",
+      "name": "encrypt_s_axis_tvalid",
+      "color": 4294938880,
+      "format": "hexadecimal",
+      "height": 24.0
+    },
+    {
+      "kind": "signal",
+      "id": "wg-encrypt-5",
+      "ref": "19034",
+      "path": "TOP.tb.dut.u_encryptor.u_chacha20poly1305_encrypt.encrypt_s_axis_tready",
+      "name": "encrypt_s_axis_tready",
+      "color": 4294938880,
+      "format": "hexadecimal",
+      "height": 24.0
+    },
+    {
+      "kind": "signal",
+      "id": "wg-encrypt-6",
+      "ref": "19037",
+      "path": "TOP.tb.dut.u_encryptor.u_chacha20poly1305_encrypt.encrypt_s_axis_tlast",
+      "name": "encrypt_s_axis_tlast",
+      "color": 4294938880,
+      "format": "hexadecimal",
+      "height": 24.0
+    },
+    {
+      "kind": "signal",
+      "id": "wg-encrypt-7",
+      "ref": "19005",
+      "path": "TOP.tb.dut.u_encryptor.u_chacha20poly1305_encrypt.encrypt_m_axis_tvalid",
+      "name": "encrypt_m_axis_tvalid",
+      "color": 4294938880,
+      "format": "hexadecimal",
+      "height": 24.0
+    },
+    {
+      "kind": "signal",
+      "id": "wg-encrypt-8",
+      "ref": "19004",
+      "path": "TOP.tb.dut.u_encryptor.u_chacha20poly1305_encrypt.encrypt_m_axis_tready",
+      "name": "encrypt_m_axis_tready",
+      "color": 4294938880,
+      "format": "hexadecimal",
+      "height": 24.0
+    },
+    {
+      "kind": "signal",
+      "id": "wg-encrypt-9",
+      "ref": "19007",
+      "path": "TOP.tb.dut.u_encryptor.u_chacha20poly1305_encrypt.encrypt_m_axis_tlast",
+      "name": "encrypt_m_axis_tlast",
+      "color": 4294938880,
+      "format": "hexadecimal",
+      "height": 24.0
+    }
+  ],
+  "cursor": {
+    "primary": 9300,
+    "secondary": null
+  },
+  "markers": {},
+  "view": {
+    "ticksPerPixel": 9.0,
+    "panOffsetTicks": 9300.0,
+    "scrollOffset": 0.0
+  },
+  "panels": {
+    "signalTree": false,
+    "valueColumn": false,
+    "transactionView": true,
+    "stageView": false,
+    "statisticsStrip": false,
+    "cocotbLogPanel": false,
+    "rtlSource": false,
+    "bottomDockTab": "transactions",
+    "sizes": {
+      "left": 230.0,
+      "right": 150.0,
+      "bottom": 300.0
+    }
+  },
+  "translateFilters": {},
+  "stage": {
+    "panels": []
+  },
+  "activeTheme": "wavecrux-dark",
+  "decoders": [
+    {
+      "decoderId": "chacha20_poly1305",
+      "instanceNumber": 1,
+      "config": {
+        "bindings": {
+          "aclk": "34",
+          "tvalid": "19035",
+          "tready": "19034",
+          "tdata": "19040",
+          "tlast": "19037",
+          "tkeep": "246",
+          "key": "19038",
+          "nonce": "19039",
+          "aad": "244",
+          "aad_len": "7"
+        },
+        "bindingPaths": {
+          "aclk": "TOP.tb.dut.u_encryptor.u_chacha20poly1305_encrypt.clk_80p0",
+          "tvalid": "TOP.tb.dut.u_encryptor.u_chacha20poly1305_encrypt.encrypt_s_axis_tvalid",
+          "tready": "TOP.tb.dut.u_encryptor.u_chacha20poly1305_encrypt.encrypt_s_axis_tready",
+          "tdata": "TOP.tb.dut.u_encryptor.u_chacha20poly1305_encrypt.encrypt_s_axis_tdata",
+          "tlast": "TOP.tb.dut.u_encryptor.u_chacha20poly1305_encrypt.encrypt_s_axis_tlast",
+          "tkeep": "TOP.tb.dut.u_encryptor.u_chacha20poly1305_encrypt.encrypt_s_axis_tkeep",
+          "key": "TOP.tb.dut.u_encryptor.u_chacha20poly1305_encrypt.encrypt_key",
+          "nonce": "TOP.tb.dut.u_encryptor.u_chacha20poly1305_encrypt.encrypt_nonce",
+          "aad": "TOP.tb.dut.u_encryptor.u_chacha20poly1305_encrypt.encrypt_aad",
+          "aad_len": "TOP.tb.dut.u_encryptor.u_chacha20poly1305_encrypt.encrypt_aad_len"
+        },
+        "parameters": {
+          "mode": "plaintext",
+          "data_width": 128
+        }
+      }
+    },
+    {
+      "decoderId": "chacha20_poly1305",
+      "instanceNumber": 2,
+      "config": {
+        "bindings": {
+          "aclk": "34",
+          "tvalid": "19005",
+          "tready": "19004",
+          "tdata": "19041",
+          "tlast": "19007",
+          "tkeep": "19008",
+          "key": "19038",
+          "nonce": "19039",
+          "aad": "244",
+          "aad_len": "7"
+        },
+        "bindingPaths": {
+          "aclk": "TOP.tb.dut.u_encryptor.u_chacha20poly1305_encrypt.clk_80p0",
+          "tvalid": "TOP.tb.dut.u_encryptor.u_chacha20poly1305_encrypt.encrypt_m_axis_tvalid",
+          "tready": "TOP.tb.dut.u_encryptor.u_chacha20poly1305_encrypt.encrypt_m_axis_tready",
+          "tdata": "TOP.tb.dut.u_encryptor.u_chacha20poly1305_encrypt.encrypt_m_axis_tdata",
+          "tlast": "TOP.tb.dut.u_encryptor.u_chacha20poly1305_encrypt.encrypt_m_axis_tlast",
+          "tkeep": "TOP.tb.dut.u_encryptor.u_chacha20poly1305_encrypt.encrypt_m_axis_tkeep",
+          "key": "TOP.tb.dut.u_encryptor.u_chacha20poly1305_encrypt.encrypt_key",
+          "nonce": "TOP.tb.dut.u_encryptor.u_chacha20poly1305_encrypt.encrypt_nonce",
+          "aad": "TOP.tb.dut.u_encryptor.u_chacha20poly1305_encrypt.encrypt_aad",
+          "aad_len": "TOP.tb.dut.u_encryptor.u_chacha20poly1305_encrypt.encrypt_aad_len"
+        },
+        "parameters": {
+          "mode": "encrypt_output",
+          "data_width": 128
+        }
+      }
+    },
+    {
+      "decoderId": "axi_stream",
+      "instanceNumber": 3,
+      "config": {
+        "bindings": {
+          "aclk": "34",
+          "tvalid": "19035",
+          "tready": "19034",
+          "tdata": "19040",
+          "tlast": "19037",
+          "tkeep": "246"
+        },
+        "bindingPaths": {
+          "aclk": "TOP.tb.dut.u_encryptor.u_chacha20poly1305_encrypt.clk_80p0",
+          "tvalid": "TOP.tb.dut.u_encryptor.u_chacha20poly1305_encrypt.encrypt_s_axis_tvalid",
+          "tready": "TOP.tb.dut.u_encryptor.u_chacha20poly1305_encrypt.encrypt_s_axis_tready",
+          "tdata": "TOP.tb.dut.u_encryptor.u_chacha20poly1305_encrypt.encrypt_s_axis_tdata",
+          "tlast": "TOP.tb.dut.u_encryptor.u_chacha20poly1305_encrypt.encrypt_s_axis_tlast",
+          "tkeep": "TOP.tb.dut.u_encryptor.u_chacha20poly1305_encrypt.encrypt_s_axis_tkeep"
+        },
+        "parameters": {
+          "data_width": 128,
+          "check_handshake": true
+        }
+      }
+    },
+    {
+      "decoderId": "axi_stream",
+      "instanceNumber": 4,
+      "config": {
+        "bindings": {
+          "aclk": "34",
+          "tvalid": "19005",
+          "tready": "19004",
+          "tdata": "19041",
+          "tlast": "19007",
+          "tkeep": "19008"
+        },
+        "bindingPaths": {
+          "aclk": "TOP.tb.dut.u_encryptor.u_chacha20poly1305_encrypt.clk_80p0",
+          "tvalid": "TOP.tb.dut.u_encryptor.u_chacha20poly1305_encrypt.encrypt_m_axis_tvalid",
+          "tready": "TOP.tb.dut.u_encryptor.u_chacha20poly1305_encrypt.encrypt_m_axis_tready",
+          "tdata": "TOP.tb.dut.u_encryptor.u_chacha20poly1305_encrypt.encrypt_m_axis_tdata",
+          "tlast": "TOP.tb.dut.u_encryptor.u_chacha20poly1305_encrypt.encrypt_m_axis_tlast",
+          "tkeep": "TOP.tb.dut.u_encryptor.u_chacha20poly1305_encrypt.encrypt_m_axis_tkeep"
+        },
+        "parameters": {
+          "data_width": 128,
+          "check_handshake": true
+        }
+      }
+    }
+  ]
+}

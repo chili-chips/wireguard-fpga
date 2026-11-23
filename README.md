@@ -233,6 +233,24 @@ More details on the architecture and usage of the Wireguard test bench can be fo
    <img src="0.doc/sim/wavecrux-gmii-short-preamble.png" width=700>
 </div>
 
+**Crypto checked in the waveform.** The [`dpe_switch`](4.sim/rtl/dpe_switch) system bench with WaveCrux's ChaCha20-Poly1305 and AXI-Stream decoders on both cores ([`wave.encrypt.wavecrux`](4.sim/rtl/dpe_switch/wave.encrypt.wavecrux), [`wave.decrypt.wavecrux`](4.sim/rtl/dpe_switch/wave.decrypt.wavecrux); regenerate with [`wavecrux_sessions.py`](4.sim/rtl/dpe_switch/wavecrux_sessions.py) after an RTL change). The decoder reads key, nonce and AAD at each packet's first beat, computes what RFC 8439 gives, and checks it against the core; the AXI-Stream decoder checks the VALID/READY rules. Encryptor: one peer's key, its counter crossing 2³² (`…FFFFFFFE`, `…FFFFFFFF`, `0x1_00000000`), every output packet as expected.
+
+<div align="center">
+   <img src="0.doc/sim/wavecrux-chacha20-encrypt.png" width=800>
+</div>
+
+Decryptor: two peers' keys, tags OK; the listing shows each packet's length, nonce and plaintext.
+
+<div align="center">
+   <img src="0.doc/sim/wavecrux-chacha20-decrypt.png" width=800>
+</div>
+
+One of the bench's packets carries a corrupted tag on purpose ([`sys_check.py`](4.sim/rtl/dpe_switch/sys_check.py)). The decoder marks it red (tag mismatch), the decryptor leaves `m_verified` low, and the DPE drops the packet: 5 of 6 packets verify, as they should.
+
+<div align="center">
+   <img src="0.doc/sim/wavecrux-chacha20-tag-mismatch.png" width=800>
+</div>
+
 ## HAL
 
 The control and status register (CSR) RTL and the firmware's register header are [auto-generated](3.build/README.md#csr-hal-compilation) from one SystemRDL file, [`3.build/csr_build/csr.rdl`](3.build/csr_build/csr.rdl), with [`peakrdl`](https://peakrdl-cheader.readthedocs.io/en/latest/). The firmware reaches every register through four macros in `csr_regs.h`: `CSR_REG32`, `CSR_GET`, `CSR_SET`, `CSR_RMW`. They are loads and stores on the RISC-V core, and *VProc* bus cycles when the same firmware is compiled for the host in co-simulation ([4.sim](4.sim/README.md#hal)). One header and one source for both, with no generator beyond `peakrdl`.
