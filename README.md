@@ -408,7 +408,7 @@ If it was not for **Julian Kemmerer's** unreserved support helping us move our t
  <a href="https://github.com/JulianKemmerer/PipelineC#what-is-pypelinec"><img width="50%" alt="PypelineC logo" src="0.doc/artwork/pypelinec.logo.png"></a>
 </div>
 
-**openXC7**, with **Yosys** at its core, turns RTL into a loadable FPGA bitfile. **PeakRDL** turns our SystemRDL file into CSR RTL+headers+RegMap docs. **Verilator**, **slang** and **Verible** keep our RTL clean, and Verilator runs the SoC co-simulation. **cocotb** with **GHDL** verifies the generated crypto cores. **[sv2v](https://github.com/zachjs/sv2v)** converted our SystemVerilog for the first openXC7 port, and is still there as `FRONTEND=sv2v`. But, that's not everything that made this project possible -- Thank you all for these wonderful opensource tools :sparkles:.
+**openXC7**, with **Yosys** at its core, turns RTL into a loadable FPGA bitfile. **PeakRDL** turns our SystemRDL file into CSR RTL+headers+RegMap docs. **Verilator**, **slang** and **Verible** keep our RTL clean, and Verilator runs the SoC co-simulation. **cocotb** with **GHDL** verifies the generated crypto cores. **WaveCrux** decodes our waveforms, Ethernet, AXI-Stream and ChaCha20-Poly1305, and checks every tag. **[sv2v](https://github.com/zachjs/sv2v)** converted our SystemVerilog for the first openXC7 port, and is still there as `FRONTEND=sv2v`. But, that's not everything that made this project possible -- Thank you all for these wonderful opensource tools :sparkles:.
 
 <div align="center"> 
   <a href="https://github.com/openXC7"><img alt="openXC7 logo" width="35%" src="0.doc/artwork/openXC7.logo.png"></a>
@@ -423,6 +423,7 @@ If it was not for **Julian Kemmerer's** unreserved support helping us move our t
 <div align="center">
   <a href="https://verilator.org"><img alt="Verilator logo" width="25%" src="0.doc/artwork/Verilator.logo.png"></a>
   <a href="https://www.cocotb.org"><img alt="cocotb logo" width="20%" src="0.doc/artwork/cocotb.logo.png"></a>
+  <a href="https://wavecrux.app"><img alt="WaveCrux logo" width="12%" src="0.doc/artwork/wavecrux.logo.png"></a>
   <a href="https://que.no/janushdl/"><img alt="JanusHDL logo" width="25%" src="0.doc/artwork/JanusHDL.logo.png"></a>
   <a href="https://github.com/ghdl/ghdl"><img alt="GHDL logo" width="20%" src="0.doc/artwork/GHDL.logo.png"></a>
   <a href="https://github.com/MikePopoloski/slang"><img alt="MikePopoloski slang logo" width="25%" src="0.doc/artwork/slang.logo.png"></a>
