@@ -23,7 +23,7 @@ import sys
 sys.dont_write_bytecode = True
 HERE = os.path.dirname(os.path.abspath(__file__))
 FST = 'output/wave.fst'  # as the session names it: relative to the session
-CLK = 'TOP.tb.dut.u_encryptor.u_chacha20poly1305_encrypt.clk_80p0'
+CLK = 'TOP.tb.dut.u_{inst}.u_chacha20poly1305_{s}.clk_80p0'  # the core's own clock input
 WHITE = 0xFFE0E0E0
 CORES = (  # instance, port prefix, colour (TX orange, RX light blue), first view
     ('encryptor', 'encrypt', 0xFFFF9100, (9300, 9.0)),
@@ -52,7 +52,7 @@ def fst_ids(fst):
 
 
 def session(ids, inst, s, colour, view):
-    def ref(path):  # fst2vcd identifier -> FST handle (bijective base 94)
+    def ref(path):  # fst2vcd identifier -> WaveCrux ref: the 0-based FST handle (bijective base 94)
         return str(sum((ord(c) - 33 + (k > 0)) * 94 ** k for k, c in enumerate(ids[path])))
 
     p = f'TOP.tb.dut.u_{inst}.u_chacha20poly1305_{s}.{s}_'
@@ -62,13 +62,14 @@ def session(ids, inst, s, colour, view):
         sigs.append({'kind': 'signal', 'id': f'wg-{s}-{len(sigs)}', 'ref': ref(path), 'path': path,
                      'name': name, 'color': col, 'format': 'hexadecimal', 'height': 24.0})
 
-    sig(CLK, WHITE, 'clk_80p0')
+    clk = CLK.format(inst=inst, s=s)
+    sig(clk, WHITE, 'clk_80p0')
     for x in ('key', 'nonce', 'aad_len', 's_axis_tvalid', 's_axis_tready', 's_axis_tlast',
               'm_axis_tvalid', 'm_axis_tready', 'm_axis_tlast') + (('m_verified',) if s == 'decrypt' else ()):
         sig(p + x, colour, f'{s}_{x}')
 
     def axis(side):
-        return {'aclk': CLK, 'tvalid': f'{p}{side}_axis_tvalid', 'tready': f'{p}{side}_axis_tready',
+        return {'aclk': clk, 'tvalid': f'{p}{side}_axis_tvalid', 'tready': f'{p}{side}_axis_tready',
                 'tdata': f'{p}{side}_axis_tdata', 'tlast': f'{p}{side}_axis_tlast',
                 'tkeep': f'{p}{side}_axis_tkeep'}
 

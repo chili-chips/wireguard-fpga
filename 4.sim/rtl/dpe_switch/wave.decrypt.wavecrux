@@ -6,7 +6,7 @@
       "kind": "signal",
       "id": "wg-decrypt-0",
       "ref": "34",
-      "path": "TOP.tb.dut.u_encryptor.u_chacha20poly1305_encrypt.clk_80p0",
+      "path": "TOP.tb.dut.u_decryptor.u_chacha20poly1305_decrypt.clk_80p0",
       "name": "clk_80p0",
       "color": 4292927712,
       "format": "hexadecimal",
@@ -161,7 +161,7 @@
           "aad_len": "7"
         },
         "bindingPaths": {
-          "aclk": "TOP.tb.dut.u_encryptor.u_chacha20poly1305_encrypt.clk_80p0",
+          "aclk": "TOP.tb.dut.u_decryptor.u_chacha20poly1305_decrypt.clk_80p0",
           "tvalid": "TOP.tb.dut.u_decryptor.u_chacha20poly1305_decrypt.decrypt_s_axis_tvalid",
           "tready": "TOP.tb.dut.u_decryptor.u_chacha20poly1305_decrypt.decrypt_s_axis_tready",
           "tdata": "TOP.tb.dut.u_decryptor.u_chacha20poly1305_decrypt.decrypt_s_axis_tdata",
@@ -191,7 +191,7 @@
           "tkeep": "246"
         },
         "bindingPaths": {
-          "aclk": "TOP.tb.dut.u_encryptor.u_chacha20poly1305_encrypt.clk_80p0",
+          "aclk": "TOP.tb.dut.u_decryptor.u_chacha20poly1305_decrypt.clk_80p0",
           "tvalid": "TOP.tb.dut.u_decryptor.u_chacha20poly1305_decrypt.decrypt_s_axis_tvalid",
           "tready": "TOP.tb.dut.u_decryptor.u_chacha20poly1305_decrypt.decrypt_s_axis_tready",
           "tdata": "TOP.tb.dut.u_decryptor.u_chacha20poly1305_decrypt.decrypt_s_axis_tdata",
@@ -217,7 +217,7 @@
           "tkeep": "211"
         },
         "bindingPaths": {
-          "aclk": "TOP.tb.dut.u_encryptor.u_chacha20poly1305_encrypt.clk_80p0",
+          "aclk": "TOP.tb.dut.u_decryptor.u_chacha20poly1305_decrypt.clk_80p0",
           "tvalid": "TOP.tb.dut.u_decryptor.u_chacha20poly1305_decrypt.decrypt_m_axis_tvalid",
           "tready": "TOP.tb.dut.u_decryptor.u_chacha20poly1305_decrypt.decrypt_m_axis_tready",
           "tdata": "TOP.tb.dut.u_decryptor.u_chacha20poly1305_decrypt.decrypt_m_axis_tdata",

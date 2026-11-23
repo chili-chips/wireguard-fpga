@@ -233,13 +233,13 @@ More details on the architecture and usage of the Wireguard test bench can be fo
    <img src="0.doc/sim/wavecrux-gmii-short-preamble.png" width=700>
 </div>
 
-**Crypto checked in the waveform.** The [`dpe_switch`](4.sim/rtl/dpe_switch) system bench with WaveCrux's ChaCha20-Poly1305 and AXI-Stream decoders on both cores ([`wave.encrypt.wavecrux`](4.sim/rtl/dpe_switch/wave.encrypt.wavecrux), [`wave.decrypt.wavecrux`](4.sim/rtl/dpe_switch/wave.decrypt.wavecrux); regenerate with [`wavecrux_sessions.py`](4.sim/rtl/dpe_switch/wavecrux_sessions.py) after an RTL change). The decoder reads key, nonce and AAD at each packet's first beat, computes what RFC 8439 gives, and checks it against the core; the AXI-Stream decoder checks the VALID/READY rules. Encryptor: one peer's key, its counter crossing 2³² (`…FFFFFFFE`, `…FFFFFFFF`, `0x1_00000000`), every output packet as expected.
+**Crypto checked in the waveform.** The [`dpe_switch`](4.sim/rtl/dpe_switch) system bench with WaveCrux's ChaCha20-Poly1305 and AXI-Stream decoders on both cores ([`wave.encrypt.wavecrux`](4.sim/rtl/dpe_switch/wave.encrypt.wavecrux), [`wave.decrypt.wavecrux`](4.sim/rtl/dpe_switch/wave.decrypt.wavecrux); regenerate with [`wavecrux_sessions.py`](4.sim/rtl/dpe_switch/wavecrux_sessions.py) after an RTL change). The decoder reads key, nonce and AAD at each packet's first beat, computes what RFC 8439 gives, and checks it against the core; the AXI-Stream decoder checks the VALID/READY rules. Encryptor, its first three packets: peer 1's key, its counter crossing 2³² (`…FFFFFFFE`, `…FFFFFFFF`, `0x1_00000000`), every output packet as expected.
 
 <div align="center">
    <img src="0.doc/sim/wavecrux-chacha20-encrypt.png" width=800>
 </div>
 
-Decryptor: two peers' keys, tags OK; the listing shows each packet's length, nonce and plaintext.
+Decryptor: two peers' keys, tags OK; the listing shows each packet's length, nonce and, further right, its plaintext.
 
 <div align="center">
    <img src="0.doc/sim/wavecrux-chacha20-decrypt.png" width=800>

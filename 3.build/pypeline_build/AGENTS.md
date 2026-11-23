@@ -212,7 +212,7 @@ Full documents:
 Notes from the PR #34 review, merged 2026-11-16. Delete each item once it
 is done.
 
-- **Vivado 2026.1:** builds work with 2019.2 or 2026.1, and the published
+- **Vivado 2026.2:** builds work with 2019.2 or 2026.x, and the published
   results used 2019.2. Re-measure timing and area on 2026.2.
 - **Perf sim speed:** removing the native arithmetic models made the native
   perf sim about 24% slower (1.04 vs 0.84 s/cycle, same PipelineC). Restore
@@ -252,8 +252,8 @@ too: pull before you edit `1.hw/` or `4.sim/`.
   clocks for a 1420-byte packet, where 4 Gb/s at 80 MHz allows 227. The shared
   core needs it anyway. Keep AAD in the unit test (a different key, nonce,
   AAD and length per packet, overlapping, both directions) although our DPE
-  sends `aad_len = 0`: `prep_auth_data_wide` samples AAD when a packet leaves
-  the auth FIFO, and a handshake offload would need AAD.
+  sends `aad_len = 0`: `prep_auth_data_fsm` (`_wide` at 256 bits) takes AAD
+  when a packet leaves the auth FIFO, and a handshake offload would need AAD.
 - **WaveCrux checks the core** (Pro 1.2): its ChaCha20-Poly1305 decoder
   reads key, nonce and AAD at each packet's first beat, the same contract,
   and checks every tag (or computes the ciphertext a plaintext packet must
@@ -314,13 +314,54 @@ too: pull before you edit `1.hw/` or `4.sim/`.
   two standalone cores do not fit. Encrypt 71.7k LUT / 127k FF, decrypt
   77.3k LUT / 166k FF, 115 DSP48 each; with the SoC (17.7k LUT) and the DPE
   blocks (13.4k LUT) that is about 180k LUT, 134% of the xc7a200t. The
-  shared 128-bit core (63.6k LUT / 56k FF) gives about 71%: the SoC will use
+  shared 128-bit core (63.6k LUT / 56k FF) gives about 70%: the SoC will use
   one shared core for both directions.
 - **Routed timing:** the published 81.32 MHz is synthesis only (1.6% margin).
   Check timing after place and route, in the SoC.
 - **Reproducibility:** published results name the PipelineC commit they used,
   which must be `pipelinec.ref` or newer. A newer PipelineC should still build
   and pass, though its timing and area can differ.
+
+### The core's I/O, as the SoC drives it
+
+From `1.hw/ip.dpe/dpe_wg_encryptor.sv` and `dpe_wg_decryptor.sv` (the
+wrappers), 2026-11-23. One clock, `clk_80p0` (80 MHz); the core has no reset.
+
+**Streams.** AXI4-Stream, 128-bit beats, byte 0 in `tdata[7:0]`. Every
+handshake is independent: either side can stall at any beat (our benches
+throttle both at random).
+
+| Port | What travels | Framing |
+|---|---|---|
+| `encrypt_s_axis` | the IPv4 packet, zero-padded to 16-byte blocks | whole blocks, `tkeep` all ones, `tlast` on the last block |
+| `encrypt_m_axis` | the ciphertext blocks, then the 16-byte tag | the tag is the last beat (`tlast`) |
+| `decrypt_s_axis` | the ciphertext blocks, then the 16-byte tag | whole blocks, `tkeep` all ones, `tlast` on the tag |
+| `decrypt_m_axis` | the plaintext blocks, only after the tag is checked | `tlast` on the last block |
+
+**Decrypt verdict.** The core holds a packet's plaintext until its tag is
+checked (`wait_to_verify`; at most `AEAD_MAX_PT_BYTES` = 2032 bytes, the
+verify FIFO). Then it sends the plaintext with `decrypt_m_verified` valid on
+every beat, the same value for the whole packet. A failed packet still comes
+out, with `decrypt_m_verified` low: the wrapper drains and drops it. The
+wrapper reads the verdict at the packet's first output beat.
+
+**Key, nonce, AAD.**
+- `key` 256 bits, byte 0 in `[7:0]`. `nonce` 96 bits: `{counter, 32'd0}`
+  (4 zero bytes, then the little-endian 64-bit WireGuard counter). `aad`
+  256 bits and `aad_len` 8 bits, today always 0.
+- Encryptor: the peer table answers at `PEER_RSP`, before the packet's first
+  beat; key and `send_cnt` stay put until the tag's last byte has left, then
+  `send_cnt + 1` is written back.
+- Decryptor: the key comes from the peer table, the counter from the
+  WireGuard header (`FEED_WG`), both before the first ciphertext beat. They
+  stay put until the packet's plaintext has left.
+- So today one packet is in each core at a time. The target (#32): the core
+  takes key, nonce, AAD and `aad_len` with each packet's first `s_axis`
+  beat (`tvalid && tready`), and they may change on the next clock.
+
+**Rates.** 4x 1GbE needs at most 4 Gb/s per direction, both directions at
+once, so about 0.4 beats per clock each way at 80 MHz, and up to about
+6 Mpacket/s for minimum-size frames on all four ports.
 
 ### Checking the core in WaveCrux
 
@@ -335,11 +376,11 @@ then use the same setup on your own waves.
    python3 wavecrux_sessions.py  # wave.encrypt.wavecrux, wave.decrypt.wavecrux
    ```
    Open a session with File > Open (or `wavecrux_pro <session>`). Each one
-   shows one core's key, nonce, `aad_len` and stream handshakes, and four
-   decoder rows. The Transactions table lists every packet: length, nonce,
-   plaintext or ciphertext, and "tag OK" or a red tag mismatch (hover it for
-   the reason). The bench sends one corrupted tag on purpose: that packet must
-   be red, all others green.
+   shows one core's key, nonce, `aad_len` and stream handshakes, and its
+   decoder rows (ChaCha20-Poly1305 and AXI-Stream). The Transactions table
+   lists every packet: length, nonce, plaintext or ciphertext, and "tag OK"
+   or a red, hatched tag mismatch (hover it for the reason). The bench sends
+   one corrupted tag on purpose: that packet, and only that one, must be red.
 2. **After an RTL change**, run `wavecrux_sessions.py` again: a session names
    signals by FST handle, and stale handles leave the decoders empty.
 3. **Your own waves.** `./build.py --sim --comb --native --soc --wave enc.vcd
@@ -350,9 +391,9 @@ then use the same setup on your own waves.
    `aad_len` to the core's ports, and set:
    - **Data width 128** (the default 32 reads `tdata[31:0]` only and gives
      false tag mismatches);
-   - **Stream carries:** Plaintext on `s_axis` of the encryptor, Ciphertext +
-     tag (encryptor output) on its `m_axis`, (decryptor input) on the
-     decryptor's `s_axis`.
+   - **Stream carries:** Plaintext on the encryptor's `s_axis`; Ciphertext +
+     tag (encryptor output) on its `m_axis`; Ciphertext + tag (decryptor
+     input) on the decryptor's `s_axis`.
    Add an AXI-Stream decoder (data width 128) on each stream for the
    VALID/READY checks. Save the session next to the wave; for scripts, copy
    `session()` from `wavecrux_sessions.py` and change the paths.

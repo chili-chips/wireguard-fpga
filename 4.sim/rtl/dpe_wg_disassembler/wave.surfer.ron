@@ -636,7 +636,7 @@
     show_performance: false,
     show_logs: false,
     show_cursor_window: false,
-    wanted_timeunit: PicoSeconds,
+    wanted_timeunit: NanoSeconds,
     time_string_format: None,
     show_url_entry: false,
     variable_name_filter_focused: false,
