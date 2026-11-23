@@ -213,7 +213,7 @@ Notes from the PR #34 review, merged 2026-11-16. Delete each item once it
 is done.
 
 - **Vivado 2026.1:** builds work with 2019.2 or 2026.1, and the published
-  results used 2019.2. Re-measure timing and area on 2026.1.
+  results used 2019.2. Re-measure timing and area on 2026.2.
 - **Perf sim speed:** removing the native arithmetic models made the native
   perf sim about 24% slower (1.04 vs 0.84 s/cycle, same PipelineC). Restore
   the models or accept the cost.
@@ -225,7 +225,7 @@ is done.
 
 ### SoC integration
 
-Where it stands (2026-11-17). Chili.CHIPS works on the SoC side, on `main`
+Where it stands (2026-11-23). Chili.CHIPS works on the SoC side, on `main`
 too: pull before you edit `1.hw/` or `4.sim/`.
 
 - **Swapped in** ([#48](https://github.com/chili-chips/wireguard-fpga/issues/48), `98cc510`,
@@ -244,6 +244,23 @@ too: pull before you edit `1.hw/` or `4.sim/`.
   `{counter, 32'd0}` (4 zero bytes, then the little-endian counter); no AAD.
   Key and nonce stay put while a packet is in the core: one packet at a time
   for now, so the core's throughput is not yet the limit.
+- **Open for you: latch key, nonce, AAD and `aad_len` per packet in the core**
+  ([#32](https://github.com/chili-chips/wireguard-fpga/issues/32), 2026-11-23).
+  Take them at each packet's first beat (`tvalid && tready`) and carry them
+  with the packet through the FIFOs. Then we stop holding them (one place,
+  no duplication) and packets can overlap: one at a time costs about 290
+  clocks for a 1420-byte packet, where 4 Gb/s at 80 MHz allows 227. The shared
+  core needs it anyway. Keep AAD in the unit test (a different key, nonce,
+  AAD and length per packet, overlapping, both directions) although our DPE
+  sends `aad_len = 0`: `prep_auth_data_wide` samples AAD when a packet leaves
+  the auth FIFO, and a handshake offload would need AAD.
+- **WaveCrux checks the core** (Pro 1.2): its ChaCha20-Poly1305 decoder
+  reads key, nonce and AAD at each packet's first beat, the same contract,
+  and checks every tag (or computes the ciphertext a plaintext packet must
+  give); its AXI-Stream decoder checks VALID/READY. Sessions on our bench:
+  `4.sim/rtl/dpe_switch/wave.{encrypt,decrypt}.wavecrux` (regenerate with
+  `wavecrux_sessions.py`; set `data_width` 128, the default 32 gives false tag
+  mismatches). Snapshots in the top-level README. Use it on your own benches.
 - **Open for you ([#58](https://github.com/chili-chips/wireguard-fpga/issues/58),
   2026-11-18):** `dpe_wg_encryptor` sends the outer IPv4 header checksum as
   0 (a real peer drops it), and `wg_padded_len()` adds a 16-byte block when
@@ -293,8 +310,54 @@ too: pull before you edit `1.hw/` or `4.sim/`.
   19.2 Gb/s per direction. 4x 1GbE needs at most 4 Gb/s per direction, and the
   MACs, CPU and DPE must fit too. Measure `--data-bitwidth 128` at 80 MHz as
   the SoC profile.
+  **Measured 2026-11-22** (Vivado 2026.2 out of context, `soc/*.v.gz`): the
+  two standalone cores do not fit. Encrypt 71.7k LUT / 127k FF, decrypt
+  77.3k LUT / 166k FF, 115 DSP48 each; with the SoC (17.7k LUT) and the DPE
+  blocks (13.4k LUT) that is about 180k LUT, 134% of the xc7a200t. The
+  shared 128-bit core (63.6k LUT / 56k FF) gives about 71%: the SoC will use
+  one shared core for both directions.
 - **Routed timing:** the published 81.32 MHz is synthesis only (1.6% margin).
   Check timing after place and route, in the SoC.
 - **Reproducibility:** published results name the PipelineC commit they used,
   which must be `pipelinec.ref` or newer. A newer PipelineC should still build
   and pass, though its timing and area can differ.
+
+### Checking the core in WaveCrux
+
+[WaveCrux](https://wavecrux.app) Pro 1.2 decodes ChaCha20-Poly1305 on an
+AXI-Stream and checks every tag against RFC 8439. Start from our sessions,
+then use the same setup on your own waves.
+
+1. **Our bench, as is.** From the repository root:
+   ```bash
+   cd 4.sim/rtl/dpe_switch
+   make                          # the system bench, writes output/wave.fst
+   python3 wavecrux_sessions.py  # wave.encrypt.wavecrux, wave.decrypt.wavecrux
+   ```
+   Open a session with File > Open (or `wavecrux_pro <session>`). Each one
+   shows one core's key, nonce, `aad_len` and stream handshakes, and four
+   decoder rows. The Transactions table lists every packet: length, nonce,
+   plaintext or ciphertext, and "tag OK" or a red tag mismatch (hover it for
+   the reason). The bench sends one corrupted tag on purpose: that packet must
+   be red, all others green.
+2. **After an RTL change**, run `wavecrux_sessions.py` again: a session names
+   signals by FST handle, and stale handles leave the decoders empty.
+3. **Your own waves.** `./build.py --sim --comb --native --soc --wave enc.vcd
+   --enc` writes the core's flat ports under the same names
+   (`encrypt_s_axis_tdata`, `encrypt_key`, ...). Open it, add Protocol
+   Decoder > ChaCha20-Poly1305 (AXI-Stream), bind `aclk`, `tvalid`, `tready`,
+   `tdata`, `tlast`, `tkeep` to one stream and `key`, `nonce`, `aad`,
+   `aad_len` to the core's ports, and set:
+   - **Data width 128** (the default 32 reads `tdata[31:0]` only and gives
+     false tag mismatches);
+   - **Stream carries:** Plaintext on `s_axis` of the encryptor, Ciphertext +
+     tag (encryptor output) on its `m_axis`, (decryptor input) on the
+     decryptor's `s_axis`.
+   Add an AXI-Stream decoder (data width 128) on each stream for the
+   VALID/READY checks. Save the session next to the wave; for scripts, copy
+   `session()` from `wavecrux_sessions.py` and change the paths.
+4. **The per-packet test (#32):** the decoder samples key, nonce and AAD at
+   each packet's first beat, the contract we ask of the core. With a
+   different key, nonce and AAD per packet and packets overlapping, every
+   packet should still read "tag OK"; one that took the next packet's params
+   shows red.
