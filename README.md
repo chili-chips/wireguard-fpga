@@ -375,7 +375,7 @@ This is about managing the bring-up, maintenance and tear-down of VPN tunnels be
   - This is challenging, as openXC7 has thus far been crashing for NES SV
   - Ported to openXC7 v1.0.0 (Yosys 0.69 + nextpnr-himbaechel) on 2026-10-21, now with `read_slang` instead of sv2v ([3.build](3.build/README.md#hw-compilation---openxc7))
 
-- 🟠 Timing closure with openXC7 v1.0.0: met on 2026-10-21 (PicoRV32 at seed 3, eduBOS5 at seed 1); since 2026-10-23 seed 3 misses, a new seed sweep is pending ([#3](https://github.com/chili-chips/wireguard-fpga/issues/3))
+- ✅ Timing closure with openXC7 v1.0.0: eduBOS5 meets every clock at the default seed 2 (seed sweep 2026-11-23, [#3](https://github.com/chili-chips/wireguard-fpga/issues/3)); RX margins are thin, so sweep again after RTL changes
   - This is definitely challenging, given that openXC7 is currently without accurate timing-driven STA
 
 - ✅ Filing bug tickets with open source developers for issues found in their tools, supporting them all the way to the resolution

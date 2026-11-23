@@ -95,7 +95,7 @@ Ported to openXC7 v1.0.0 (Yosys 0.69 + nextpnr-himbaechel) on 2026-10-21. The ol
 
 ### openXC7 v1.0.0 (default)
 
-**Toolchain:** openXC7 v1.0.0, built with [`toolchain-installer`](https://github.com/openXC7/toolchain-installer): Yosys 0.69 with `read_slang`, nextpnr-himbaechel (called through openXC7's `nextpnr-xilinx` shim), prjxray-db and `fpga-as`. Point `NEXTPNR_XILINX_DIR` at its install prefix, or put its `bin` on `PATH`.
+**Toolchain:** openXC7 v1.0.0, built with [`toolchain-installer`](https://github.com/openXC7/toolchain-installer): Yosys 0.70 (v1.0.0 ships 0.69; upgraded) with `read_slang`, nextpnr-himbaechel (called through openXC7's `nextpnr-xilinx` shim), prjxray-db and `fpga-as`. Point `NEXTPNR_XILINX_DIR` at its install prefix, or put its `bin` on `PATH`.
 
 **Build:**
 ```bash
@@ -112,16 +112,22 @@ make                             # -> build_artifacts.slang/top.bit
 - nextpnr reads only the port constraints of `1.hw/constraints/top.xdc` (#6), plus `top.openxc7.xdc` with the `clk_n` pin (#7). A Yosys techmap, `bufgmux_map.v`, builds each `BUFGMUX` from a `BUFGCTRL` (#5); openXC7 `main` maps `BUFGMUX` itself (nextpnr#132), so the techmap goes with the next release.
 - Place and route uses `--tmg-ripup --placer-heap-timingweight 30` (`NEXTPNR_OPTS`). With nextpnr's defaults the Ethernet RX clocks land at 102-128 MHz, depending on the seed.
 
-**Result (2026-10-21):** about 9.5 minutes, 3 GB RAM; every clock meets its constraint with PicoRV32, then the default CPU, at `SEED=3` (the Makefile default), and with eduBOS5 at `SEED=1`. The table is the eduBOS5 run. Seed sweep for PicoRV32 ([#3](https://github.com/chili-chips/wireguard-fpga/issues/3)): seed 1 misses `u_eth_2` RX (108.7 MHz), seed 2 misses `u_eth_1` RX (121.0 MHz) and `sys_clk` (69.8 MHz), seed 3 passes all (`sys_clk` 83.1 MHz, RX 125.6-131.8 MHz), seed 4 misses `sys_clk` (77.3 MHz). **Rechecked 2026-10-23 at `40c8664`:** seed 3 now misses `sys_clk` (74.4 MHz) and `u_eth_3` RX (108.1 MHz); a new seed sweep is pending (#3).
+**Result (2026-11-23, eduBOS5, `SEED=2`, the Makefile default):** about 8 minutes, 3 GB RAM; every clock meets its constraint. Seed sweep ([#3](https://github.com/chili-chips/wireguard-fpga/issues/3)), max frequency in MHz:
 
-| Clock | Max frequency | Constraint |
-|---|---|---|
-| `sys_clk` (CPU, SoC) | 82.6 MHz | 80 MHz |
-| Ethernet RX, 4 ports | 127.2-136.5 MHz | 125 MHz |
-| Ethernet TX, 4 ports | 171.8-201.2 MHz | 125 MHz |
-| `eth_gtx_clk` | 158.3 MHz | 125 MHz |
+| Seed | `sys_clk` (80) | RX 1-4 (125) | TX 1-4 (125) | `eth_gtx_clk` (125) | Result |
+|---|---|---|---|---|---|
+| 1 | 91.9 | 127.0, 126.6, 127.7, 141.3 | 177.1-220.6 | 190.1 | pass |
+| **2** | **89.6** | **138.9, 145.3, 131.4, 128.0** | **179.5-222.4** | **170.0** | **pass, widest margin** |
+| 3 | 84.8 | 146.4, 132.3, 127.6, 150.4 | 168.4-209.7 | 215.7 | pass |
+| 4 | 78.8 | 147.9, 124.1, 126.4, 129.5 | 167.2-233.6 | 160.8 | misses `sys_clk`, RX 2 |
+| 5 | 79.5 | 130.8, 130.4, 131.1, 127.9 | 165.5-200.0 | 211.2 | misses `sys_clk` |
+| 6 | 92.5 | 146.5, 137.0, 126.1, 133.2 | 151.5-192.0 | 231.4 | pass |
+| 7 | 87.1 | 125.6, 125.9, 105.0, 126.4 | 177.2-209.3 | 207.7 | misses RX 3 |
+| 8 | - | - | - | - | stopped after 40 min in timing ripup, about 430 failing paths |
 
-Use: 17,700 LUTs (6%), 9,347 FFs (3%), 34 RAMB36 + 1 RAMB18, 10 of 32 BUFGCTRL, 2 PLLs. The RX margins are thin, and nextpnr's timing analysis is simpler than Vivado's (openXC7/nextpnr#42): not yet tried on the board.
+Seed 2 rebuilt from a clean tree gives the same numbers. The netlist changes with any RTL change, and with it the result of a seed: rerun the sweep then (`make -B SEED=N`; without `-B` a finished build is not redone), read the `Max frequency` lines at the end of `build_artifacts.slang/nextpnr.log`). Earlier sweeps, PicoRV32, 2026-10: one seed in four met timing.
+
+Use: 18,021 LUTs (6%), 9,432 FFs (3%), 34 RAMB36 + 1 RAMB18, 10 of 32 BUFGCTRL, 2 PLLs. The RX margins are thin (2.4% at seed 2), and nextpnr's timing analysis is simpler than Vivado's (openXC7/nextpnr#42): not yet tried on the board.
 
 ### Legacy flow: pre-v1.0.0 nextpnr-xilinx (`TOOLCHAIN=old`)
 
@@ -302,7 +308,7 @@ Each open item has an issue here, labelled `openXC7`. Upstream numbers without a
 | No mapping for `BUFGMUX` | v1.0.0 | fixed in `main` ([nextpnr#132](https://github.com/openXC7/nextpnr/pull/132)), not released | [#5](https://github.com/chili-chips/wireguard-fpga/issues/5) | nextpnr#125 | `hw_build.openXC7/bufgmux_map.v`: a `BUFGCTRL` after synthesis. On v1.0.0 its `IGNORE` bits come out inverted, so the mux switches asynchronously |
 | XDC targets other than `get_ports`/`get_cells` abort | v1.0.0 | fixed on main (nextpnr#193), not released | [#6](https://github.com/chili-chips/wireguard-fpga/issues/6) | [nextpnr#185](https://github.com/openXC7/nextpnr/issues/185) | the Makefile passes nextpnr only the `get_ports` lines of `top.xdc` |
 | Differential input needs its N pin constrained | v1.0.0 | fixed on main (nextpnr#194), not released | [#7](https://github.com/chili-chips/wireguard-fpga/issues/7) | [nextpnr#184](https://github.com/openXC7/nextpnr/issues/184) | `hw_build.openXC7/top.openxc7.xdc`: `clk_n` on T4 |
-| Timing at the default seed (the sv2v failure is gone: `read_slang`) | v1.0.0 | open | [#3](https://github.com/chili-chips/wireguard-fpga/issues/3) | - | a new seed sweep |
+| Timing closes on some seeds only (the sv2v failure is gone: `read_slang`) | v1.0.0 | swept 2026-11-23: seeds 1, 2, 3, 6 of 1-7 pass | [#3](https://github.com/chili-chips/wireguard-fpga/issues/3) (closed) | - | `SEED ?= 2`; sweep again after RTL changes |
 | `BUFGMUX` not supported | legacy | closed | - | [nextpnr-xilinx#75](https://github.com/openXC7/nextpnr-xilinx/issues/75) | fixed upstream (nextpnr-xilinx#81) |
 | `IBUFGDS` not supported | legacy | closed | - | [nextpnr-xilinx#74](https://github.com/openXC7/nextpnr-xilinx/issues/74) | `IBUFDS` + `BUFG` |
 | `IOBUFGDS`, `PLLE2_BASE` not supported | legacy | closed | - | [nextpnr-xilinx#73](https://github.com/openXC7/nextpnr-xilinx/issues/73) | Yosys 0.38 -> 0.60 |

@@ -5,7 +5,7 @@
 #==========================================================================
 # wireguard-fpga openXC7 build, as on openPCIE (4.build/hw_build.openXC7)
 #
-#   TOOLCHAIN=new (default): openXC7 v1.0.0 -- Yosys 0.69 + nextpnr-himbaechel
+#   TOOLCHAIN=new (default): openXC7 v1.0.0 -- Yosys 0.70 + nextpnr-himbaechel
 #     (through the nextpnr-xilinx shim), chipdb from xilinx_gen.py, bitstream
 #     with fpga-as. FRONTEND=slang (default) reads the SystemVerilog with
 #     read_slang; FRONTEND=sv2v converts it with sv2v first.
@@ -213,12 +213,16 @@ endif
 # PLACE AND ROUTE. The exit status is taken directly, not through tee: make
 # uses /bin/sh (dash), which has no pipefail.
 # =============================================================================
-SEED ?= 3  # met timing on 2026-10-21; misses since 2026-10-23, sweep pending (#3)
+# Seed sweep 2026-11-23 (eduBOS5, #3): seeds 1, 2, 3, 6 meet every clock;
+# 4, 5 miss sys_clk (78.8, 79.5 MHz), 4 and 7 an RX clock, 8 did not finish.
+# 2 has the widest margin (sys_clk 89.6 MHz, RX 128.0-145.3 MHz). Sweep again
+# after RTL changes (3.build/README.md).
+SEED ?= 2
 
 # TOOLCHAIN=new: timing-driven ripup and a heavier placer timing weight. The
 # Ethernet RX clocks (verilog-ethernet's axis_async_fifo write-pointer logic)
 # sit near 125 MHz: with the defaults, seeds 1-4 each missed 1-3 RX clocks
-# (102-128 MHz); with these, seed 1 meets all (RX 127-137, sys_clk 83 MHz).
+# (102-128 MHz, 2026-10).
 NEXTPNR_OPTS ?= $(if $(filter new,$(TOOLCHAIN)),--tmg-ripup --placer-heap-timingweight 30)
 
 # nextpnr reads XDC constraints on ports only (get_ports). top.xdc is shared
@@ -247,7 +251,7 @@ $(BUILD_ARTIFACTS)/top.fasm: $(BUILD_ARTIFACTS)/top.json $(CHIPDB)/$(PART).bin $
 	tail -3 $(BUILD_ARTIFACTS)/nextpnr.log; \
 	[ $$rc -eq 0 ] || { echo "ERROR: nextpnr failed (rc=$$rc), see $(BUILD_ARTIFACTS)/nextpnr.log"; exit 1; }
 	@test -s $@ || { echo "ERROR: $@ is empty or missing"; exit 1; }
-	@grep -E "Max frequency" $(BUILD_ARTIFACTS)/nextpnr.log | tail -6
+	@grep -E "Max frequency" $(BUILD_ARTIFACTS)/nextpnr.log | tail -10
 
 # =============================================================================
 # BITSTREAM

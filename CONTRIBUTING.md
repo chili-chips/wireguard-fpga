@@ -20,7 +20,7 @@ Open an [Issue](https://github.com/chili-chips/wireguard-fpga/issues). For bugs,
    - **[run-lint](3.build/hw_build.openXC7/run-lint.sh)** shows no errors. Fix lint findings at the root. Waive only as the last resort, following steps in [run-lint-waivers.txt](3.build/hw_build.openXC7/run-lint-waivers.txt).
    - **[run-format --check](3.build/hw_build.openXC7/run-format.sh)** passes.
    - Ensure that **[co-sim](4.sim)** passes
-   - and that the **[openXC7 build](3.build/hw_build.openXC7)** completes. Timing at the default seed is open: [#3](https://github.com/chili-chips/wireguard-fpga/issues/3).
+   - and that the **[openXC7 build](3.build/hw_build.openXC7)** completes. It meets timing at the default seed; after an RTL change, check the `Max frequency` lines of `nextpnr.log` ([#3](https://github.com/chili-chips/wireguard-fpga/issues/3)).
    - For a mere cleanup: **[run-leq](3.build/hw_build.openXC7/run-leq.sh)** to prove that there are no functional changes.
 
 4. Open a Pull Request against `main`.
