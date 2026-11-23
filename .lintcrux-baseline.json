@@ -2117,13 +2117,6 @@
       "filePath": "1.hw/external_lib/ethernet/oddr.sv",
       "line": 22,
       "message": "parse error"
-    },
-    {
-      "fingerprint": "60c9d92998aabcb6",
-      "ruleId": "svlint/case_default",
-      "filePath": "1.hw/ip.lkup/lkup_egress.sv",
-      "line": 141,
-      "message": "Use a `default` expression in `case` statements."
     }
   ]
 }

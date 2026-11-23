@@ -1,5 +1,5 @@
 #!/bin/bash
-# SPDX-FileCopyrightText: 2026 Chili.CHIPS*ba
+# SPDX-FileCopyrightText: 2026 Chili.CHIPS
 #
 # SPDX-License-Identifier: BSD-3-Clause
 #
@@ -10,8 +10,8 @@
 #              core, as the VHDL that pypelinec --no_synth generates
 #   verilator  Verilator --lint-only -Wall, with the waivers of run-lint.sh
 #              (lintcrux.vlt)
-#   verible    Verible with our rules (1.hw/.rules.verible_lint is a link to
-#              run-lint.verible)
+#   verible    Verible with our rules (run-lint.verible, copied to
+#              1.hw/.rules.verible_lint, which Verible finds)
 #   slang      slang elaboration: strict IEEE 1800
 #   svlint     the functional rules in .svlint.toml, no style rules
 #
@@ -80,8 +80,30 @@ SLANG=$(abs "$SLANG" SLANG)
 SVLINT=$(abs "$SVLINT" SVLINT)
 GHDL=$(abs "$GHDL" GHDL)
 
+# ---- the project's sources are the design's -----------------------------------
+# wireguard-fpga.lintcrux lists the RTL files by hand: they must be those of
+# top.filelist and the block tops (sources.sh, as for run-lint.sh), or a new
+# file would go unlinted
+. "$REPO/3.build/hw_build.openXC7/sources.sh"
+want=$(cd "$REPO" && { design_rtl 1.hw 3.build
+  for t in $BLOCK_TOPS; do block_rtl $t 1.hw 3.build | tr ' ' '\n'; done; } | grep . | sort -u)
+have=$("$PYTHON" -c 'import json, sys
+for f in json.load(open(sys.argv[1]))["sourceFiles"]:
+    if not f.startswith("3.build/lintcrux_build/generated/"):
+        print(f)' "$PROJECT" | sort -u)
+if [ "$want" != "$have" ]; then
+  echo "run-lintcrux.sh: the sourceFiles of wireguard-fpga.lintcrux differ from top.filelist" \
+    "and BLOCK_TOPS (< missing, > extra):" >&2
+  diff <(echo "$want") <(echo "$have") | grep '^[<>]' >&2
+  exit 3
+fi
+
 rm -rf "$GEN"
 mkdir -p "$GEN/bin"
+# Verible finds the .rules.verible_lint nearest to each file: our rules for
+# 1.hw, copied rather than linked (a Windows checkout turns a link into a
+# text file); not tracked
+cp "$REPO/3.build/hw_build.openXC7/run-lint.verible" "$REPO/1.hw/.rules.verible_lint"
 
 # ---- black boxes: the Xilinx primitives and the generated cores -------------
 "$PYTHON" "$REPO/3.build/hw_build.openXC7/gen_xilinx_bb.py" \

@@ -90,3 +90,6 @@ tb.stems
 
 # LintCrux: generated inputs of run-lintcrux.sh
 /3.build/lintcrux_build/generated/
+
+# LintCrux: run-lintcrux.sh copies run-lint.verible here for Verible
+/1.hw/.rules.verible_lint
