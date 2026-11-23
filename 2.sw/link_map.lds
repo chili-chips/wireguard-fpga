@@ -56,7 +56,11 @@ OUTPUT_FORMAT( "elf32-littleriscv" )
 OUTPUT_ARCH( "riscv" )
 /*specify the output architecture is RISCV*/
 
-_STACK_SIZE = 0x200;  /*define a macro */
+/* Stack reserved at the top of DMEM. Measured worst case 2592 bytes
+   (GCC -fstack-usage -fcallgraph-info with the MakefileSW flags, LTO):
+   main -> x25519_scalarmult -> M -> car25519 = 2576, plus 16 for libgcc
+   __muldi3. 4 KB leaves 1.5 KB margin. Re-measure when adding deep calls. */
+_STACK_SIZE = 0x1000;
 
 
 MEMORY {
@@ -240,7 +244,8 @@ SECTIONS {
 
    _stack_end = _stack_start - SIZEOF(.stack);
  
-   //ASSERT (_stack_end <= _end, "Error: Stack overflow. RAM is too small for this program")
+   /* .data + .bss must end below the reserved stack */
+   ASSERT (_bss_end <= _stack_end, "Error: Stack overflow. RAM is too small for this program")
 
 
 //--------------------------------------------------------------------
