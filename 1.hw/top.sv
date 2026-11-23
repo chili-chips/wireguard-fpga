@@ -239,10 +239,23 @@ module top
   //==========================================================================
   // GPIO
   //==========================================================================
+  // the keys: asynchronous and bouncing, active low (1 at rest)
+  logic [1:0] key;
+
+  debounce #(
+      .N    (2),
+      .IDLE (2'b11)
+  ) u_debounce_key (
+      .arst_n (sys_rst_n),  //i
+      .clk    (sys_clk),    //i
+      .inp    (key_in),     //i
+      .out    (key)         //o
+  );
+
   assign led[1]                  = ~from_csr.gpio.led2.value;
   assign led[0]                  = ~from_csr.gpio.led1.value;
-  assign to_csr.gpio.key2.next   = ~key_in[1];  //TODO: Add debounce
-  assign to_csr.gpio.key1.next   = ~key_in[0];  //TODO: Add debounce
+  assign to_csr.gpio.key2.next   = ~key[1];
+  assign to_csr.gpio.key1.next   = ~key[0];
 
   // free-running cycle counter (csr.cycle): the firmware's time base
   assign to_csr.cycle.count.incr = 1'b1;

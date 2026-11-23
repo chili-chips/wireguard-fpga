@@ -71,6 +71,15 @@ package soc_pkg;
   localparam int UART_TICK_CLKS = NUM_1US_CLKS;
 `endif
 
+  // Push-button debounce (debounce.sv): clocks between two samples of a key,
+  // 4 ms in hardware. A simulation build samples every 16 clocks, so a key the
+  // bench sets reaches the CSR in about 50 clocks, not 12 ms.
+`ifdef SIM_ONLY
+  localparam int KEY_SAMPLE_CLKS = 16;
+`else
+  localparam int KEY_SAMPLE_CLKS = 4_000 * (NUM_1US_CLKS + 1);
+`endif
+
 
   //-----------------------------------------
   // derived values. Don't touch anything in this section

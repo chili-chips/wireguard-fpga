@@ -41,6 +41,7 @@
     "1.hw/ip.infra/clk_rst_gen.sv",
     "1.hw/ip.infra/cpu_fifo.sv",
     "1.hw/ip.infra/uart.sv",
+    "1.hw/ip.infra/debounce.sv",
     "1.hw/ip.infra/sync_fifo_ram.sv",
     "1.hw/ip.dpe/dpe_if_skid_buffer.sv",
     "1.hw/ip.infra/tdp_ram.sv",
