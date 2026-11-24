@@ -109,21 +109,21 @@ module dpe_wg_encryptor
 
   // the registers: r, and r_next, what they hold in the next clock
   typedef struct packed {
-    state_t             state;
-    feed_t              feed;
-    emit_t              emit;
-    dpe_addr_t          tuser_dst;
-    dpe_addr_t          tuser_src;
-    dpe_peer_idx_t      peer_idx;
-    wg_peer_cfg_t       peer_cfg;         // the packet's peer, from the peer table
-    wg_counter_t        new_send_cnt;
-    logic               update_send_cnt;
-    logic [CARRY_W-1:0] carry;            // the frame beat before: its last bytes
-    logic               in_done;          // the frame's last beat is in
-    logic               have_len;         // ip_len holds the IPv4 total length
-    len16_t             ip_len;
-    len16_t             fed;              // IPv4 bytes into the core so far
-    beat_t              held;             // the core beat out before this one
+    state_t             state;            // [808:806]
+    feed_t              feed;             // [805:804]
+    emit_t              emit;             // [803:801]
+    dpe_addr_t          tuser_dst;        // [800:798]
+    dpe_addr_t          tuser_src;        // [797:795]
+    dpe_peer_idx_t      peer_idx;         // [794:787]
+    wg_peer_cfg_t       peer_cfg;         // [786:243] the packet's peer, from the peer table
+    wg_counter_t        new_send_cnt;     // [242:179]
+    logic               update_send_cnt;  // [178]
+    logic [CARRY_W-1:0] carry;            // [177:162] the frame beat before: its last bytes
+    logic               in_done;          // [161]   the frame's last beat is in
+    logic               have_len;         // [160]   ip_len holds the IPv4 total length
+    len16_t             ip_len;           // [159:144]
+    len16_t             fed;              // [143:128] IPv4 bytes into the core so far
+    beat_t              held;             // [127:0] the core beat out before this one
   } regs_t;
   regs_t r, r_next;
 

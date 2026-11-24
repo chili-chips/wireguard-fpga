@@ -5,7 +5,7 @@
 # Accepted lint findings, read by run-lint.sh.
 #
 # One waiver per line:  <phase> <regex>
-#   <phase>  verilator | yosys | slang | verible | ghdl | ghdl-verilator
+#   <phase>  tags | verilator | yosys | reset | slang | verible | ghdl | ghdl-verilator
 #   <regex>  extended regex (grep -E), matched against one finding line as it
 #            appears in <phase>.all of a run-lint.sh work directory
 # A finding that matches is waived. Put the reason on a comment line above it.
@@ -56,11 +56,6 @@ verilator ^%Warning-UNUSEDPARAM: bld/csr_build/generated-files/csr_pkg\.sv:[0-9]
 #   compare is always true (PeakRDL-regblock#225, tracked in #52)
 verilator ^%Warning-CMPCONST: bld/csr_build/generated-files/csr\.sv:[0-9]+:[0-9]+: Comparison is constant due to limited range$
 
-# verilog-ethernet (third party, external_lib): eth_mac_1g_gmii leaves the PTP
-# timestamp inputs of eth_mac_1g open. PTP is off (PTP_TS_ENABLE = 0), so the
-# logic that reads them is constant-folded away
-yosys ^Warning: Wire top\.\\u_eth_[1-4]\.eth\.eth_mac_1g_gmii_inst\.eth_mac_1g_inst\.(tx|rx)_ptp_ts \[[0-9]+\] is used but has no driver\.$
-
 # Simulation view (VIEW=sim): the PLL wrappers' SIM_ONLY models are free-running
 # behavioural clocks; the chip view uses clk and rst_n on PLLE2_BASE
 verilator ^%Warning-UNUSEDSIGNAL: 1\.hw/fpgatech_lib/XILINX/fpga_pll_(80M|125M)\.sv:[0-9]+:[0-9]+: Signal is not used: '(clk|rst_n)'$
@@ -71,12 +66,39 @@ verilator ^%Warning-UNUSEDSIGNAL: 1\.hw/fpgatech_lib/XILINX/fpga_pll_(80M|125M)\
 # value goes unhandled. slang -Wextra flags it (-Wcase-redundant-default)
 slang ^1\.hw/[^ ]+\.sv:[0-9]+:[0-9]+: warning: .case[zx]?. marked .(unique|priority). has .default. label
 
-# Our forks of third-party RTL (Alex Forencich's external_lib, the PicoRV32
-# pcpi units) are Verible-formatted like our own. external_lib is
-# SystemVerilog now (logic, always_ff/always_comb, unique case), but keeps
-# untyped parameters, unlabelled generate blocks, [N] unpacked dimensions and
-# untyped function arguments; the pcpi units are still Verilog 2001 (always @*
-# too). These style rules come with the rest of the conversion (and axis_if
-# interfaces); until then, waived for these files only
-verible ^1\.hw/(external_lib/(axis|ethernet)/[a-z0-9_]+\.sv|ip\.cpu/cpu\.PICORV32/picorv32_pcpi_[a-z_]+\.sv):[0-9]+:[0-9-]+: .*\[(explicit-parameter-storage-type|unpacked-dimensions-range-ordering|generate-label|generate-label-prefix|explicit-function-task-parameter-type)\]$
+# The PicoRV32 pcpi units (third party) are Verible-formatted like our own RTL
+# but still Verilog 2001: untyped parameters, unlabelled generate blocks, [N]
+# unpacked dimensions, untyped function arguments, always @*. Waived for these
+# files only
+verible ^1\.hw/ip\.cpu/cpu\.PICORV32/picorv32_pcpi_[a-z_]+\.sv:[0-9]+:[0-9-]+: .*\[(explicit-parameter-storage-type|unpacked-dimensions-range-ordering|generate-label|generate-label-prefix|explicit-function-task-parameter-type)\]$
 verible ^1\.hw/ip\.cpu/cpu\.PICORV32/picorv32_pcpi_[a-z_]+\.sv:[0-9]+:[0-9-]+: .*\[always-comb\]$
+
+# reset: data and address flops need no reset (our rule: control flops and
+# flags do). These reach a select through a compare or an address decode, each
+# anchored to its instance path.
+#   eduBOS5: operands, load/store offset, data address, ALU result and operand
+#   signs, the RV32M divider's data path; IMEM: the instruction word
+reset 'u_cpu\.u_cpu\.(rs1_reg|rs2_reg|ls_offset_reg|dmem_addr|g_md\.(div_res|dvs|r_sh)|u_alu\.(alu_minus_reg|aluin_[12]_31_reg))'
+reset 'u_cpu\.u_imem\.rdat'
+#   MAC: the GMII receive byte pipeline (preamble, SFD compares)
+reset 'u_eth_[1-4]\.eth\.eth_mac_1g_gmii_inst\.eth_mac_1g_inst\.axis_gmii_rx_inst\.gmii_rxd_d[0-4]'
+#   ssio_sdr_in: the IOB register that samples a pin every clock (no feedback;
+#   a reset would keep the register out of the IOB)
+reset 'u_eth_[1-4]\.eth\.eth_mac_1g_gmii_inst\.gmii_phy_if_inst\.rx_ssio_sdr_inst\.output_q_reg'
+#   DPE input pipeline: tdata (header fields)
+reset 'u_dpe_if_pipeline_input\.pipeline\.g_pipe_reg\[0\]\.reg_inst\.g_skid\.m_axis_tdata_reg'
+
+# external_lib: a reset synchronizer's output resets the async FIFO reset
+# synchronizers (async) and the logic of its clock domain (sync), by design
+verilator ^%Warning-SYNCASYNCNET: 1\.hw/external_lib/(axis/sync_reset|ethernet/gmii_phy_if)\.sv:[0-9]+:[0-9]+: Signal flopped as both synchronous and async: '[^']*\.(sync_reg|tx_rst_reg|rx_rst_reg)'$
+# external_lib: an axis_fifo built with ID_ENABLE = 0 (the MAC FIFOs) reads no tid
+verilator ^%Warning-UNUSEDSIGNAL: 1\.hw/external_lib/axis/axis_fifo\.sv:[0-9]+:[0-9]+: Signal is not used: 's_axis_tid'$
+# external_lib: the receive tuser (bad frame) of the MAC FIFO is not used
+verilator ^%Warning-UNUSEDSIGNAL: 1\.hw/external_lib/ethernet/eth_mac_1g_gmii_fifo\.sv:[0-9]+:[0-9]+: Signal is not used: 'rx_axis_tuser'$
+# CPU=picorv32: read data (PicoRV32's mem_rdata_q, the data bus, the
+# routing and cryptokey table RAMs) reaches the instruction decode, a select
+reset 'u_cpu\.u_cpu\.mem_rdata_q'
+reset 'bus_dmem\.rdat'
+reset 'u_dpe\.u_dpe_switch\.u_(cryptokey|routing)_table\.dout_a'
+# CPU=picorv32 with RV32M: the multiplier's and divider's operands
+reset 'u_cpu\.u_cpu\.(g_enable_mul\.pcpi_mul\.rs1|g_enable_div\.pcpi_div\.(dividend|divisor))'

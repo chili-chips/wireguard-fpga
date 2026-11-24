@@ -71,10 +71,10 @@ package dpe_pkg;
   // AXI-Stream TUSER of the DPE: TUSER[7] bypass_all, [6] bypass_stage,
   // [5:3] src, [2:0] dst (the order of the fields)
   typedef struct packed {
-    logic      bypass_all;    // skip the whole DPE
-    logic      bypass_stage;  // skip the next DPE stage
-    dpe_addr_t src;           // where the packet came from
-    dpe_addr_t dst;           // where it goes
+    logic      bypass_all;    // [7]   skip the whole DPE
+    logic      bypass_stage;  // [6]   skip the next DPE stage
+    dpe_addr_t src;           // [5:3] where the packet came from
+    dpe_addr_t dst;           // [2:0] where it goes
   } dpe_tuser_t;
 
   localparam int DPE_USER_W = $bits(dpe_tuser_t);  // tuser, 8 bits

@@ -4,35 +4,30 @@
 // wireguard-fpga (https://github.com/chili-chips/wireguard-fpga).
 // The original header follows.
 
-// verilator lint_off GENUNNAMED
-
 // Copyright (c) 2016-2023 Alex Forencich
 //
 // SPDX-License-Identifier: MIT
 
 // Language: Verilog 2001
 
-`resetall
-`default_nettype none
-
 /*
  * Parametrizable combinatorial parallel LFSR/CRC
  */
 module lfsr #(
     // width of LFSR
-    parameter LFSR_WIDTH        = 31,
+    parameter int                     LFSR_WIDTH        = 31,
     // LFSR polynomial
-    parameter LFSR_POLY         = 31'h10000001,
+    parameter logic  [LFSR_WIDTH-1:0] LFSR_POLY         = 31'h10000001,
     // LFSR configuration: "GALOIS", "FIBONACCI"
-    parameter LFSR_CONFIG       = "FIBONACCI",
+    parameter string                  LFSR_CONFIG       = "FIBONACCI",
     // LFSR feed forward enable
-    parameter LFSR_FEED_FORWARD = 0,
+    parameter bit                     LFSR_FEED_FORWARD = 0,
     // bit-reverse input and output
-    parameter REVERSE           = 0,
+    parameter bit                     REVERSE           = 0,
     // width of data input
-    parameter DATA_WIDTH        = 8,
+    parameter int                     DATA_WIDTH        = 8,
     // implementation style: "AUTO", "LOOP", "REDUCTION"
-    parameter STYLE             = "AUTO"
+    parameter string                  STYLE             = "AUTO"
 ) (
     input  logic [DATA_WIDTH-1:0] data_in,
     input  logic [LFSR_WIDTH-1:0] state_in,
@@ -186,11 +181,11 @@ PRBS31      Fibonacci, inverted    31     31'h10000001   any
 
 */
 
-  function automatic [LFSR_WIDTH+DATA_WIDTH-1:0] lfsr_mask(input [31:0] index);
-    logic [LFSR_WIDTH-1:0] lfsr_mask_state  [LFSR_WIDTH-1:0];
-    logic [DATA_WIDTH-1:0] lfsr_mask_data   [LFSR_WIDTH-1:0];
-    logic [LFSR_WIDTH-1:0] output_mask_state[DATA_WIDTH-1:0];
-    logic [DATA_WIDTH-1:0] output_mask_data [DATA_WIDTH-1:0];
+  function automatic [LFSR_WIDTH+DATA_WIDTH-1:0] lfsr_mask(input logic [31:0] index);
+    logic [LFSR_WIDTH-1:0] lfsr_mask_state  [LFSR_WIDTH];
+    logic [DATA_WIDTH-1:0] lfsr_mask_data   [LFSR_WIDTH];
+    logic [LFSR_WIDTH-1:0] output_mask_state[DATA_WIDTH];
+    logic [DATA_WIDTH-1:0] output_mask_data [DATA_WIDTH];
 
     logic [LFSR_WIDTH-1:0] state_val;
     logic [DATA_WIDTH-1:0] data_val;
@@ -215,9 +210,7 @@ PRBS31      Fibonacci, inverted    31     31'h10000001   any
       end
 
       // simulate shift register
-      // verilator lint_off WIDTHEXPAND
       if (LFSR_CONFIG == "FIBONACCI") begin
-        // verilator lint_on WIDTHEXPAND
         // Fibonacci configuration
         for (
             data_mask = {1'b1, {DATA_WIDTH - 1{1'b0}}}; data_mask != 0; data_mask = data_mask >> 1
@@ -230,9 +223,7 @@ PRBS31      Fibonacci, inverted    31     31'h10000001   any
 
           // add XOR inputs from correct indicies
           for (j = 1; j < LFSR_WIDTH; j = j + 1) begin
-            // verilator lint_off WIDTHTRUNC
-            if ((LFSR_POLY >> j) & 1) begin
-              // verilator lint_on WIDTHTRUNC
+            if (LFSR_POLY[j]) begin
               state_val = lfsr_mask_state[j-1] ^ state_val;
               data_val  = lfsr_mask_data[j-1] ^ data_val;
             end
@@ -290,9 +281,7 @@ PRBS31      Fibonacci, inverted    31     31'h10000001   any
 
           // add XOR inputs at correct indicies
           for (j = 1; j < LFSR_WIDTH; j = j + 1) begin
-            // verilator lint_off WIDTHTRUNC
-            if ((LFSR_POLY >> j) & 1) begin
-              // verilator lint_on WIDTHTRUNC
+            if (LFSR_POLY[j]) begin
               lfsr_mask_state[j] = lfsr_mask_state[j] ^ state_val;
               lfsr_mask_data[j]  = lfsr_mask_data[j] ^ data_val;
             end
@@ -349,19 +338,17 @@ PRBS31      Fibonacci, inverted    31     31'h10000001   any
 
 `ifdef SIMULATION
   // "AUTO" style is "REDUCTION" for faster simulation
-  // verilator lint_off WIDTHEXPAND
-  parameter STYLE_INT = (STYLE == "AUTO") ? "REDUCTION" : STYLE;
-  // verilator lint_on WIDTHEXPAND
+  localparam string STYLE_INT = (STYLE == "AUTO") ? "REDUCTION" : STYLE;
 `else
   // "AUTO" style is "LOOP" for better synthesis result
-  parameter STYLE_INT = (STYLE == "AUTO") ? "LOOP" : STYLE;
+  localparam string STYLE_INT = (STYLE == "AUTO") ? "LOOP" : STYLE;
 `endif
 
   genvar n;
 
   generate
 
-    if (STYLE_INT == "REDUCTION") begin
+    if (STYLE_INT == "REDUCTION") begin : g_reduction
 
       // use Verilog reduction operator
       // fast in iverilog
@@ -370,19 +357,19 @@ PRBS31      Fibonacci, inverted    31     31'h10000001   any
       // slightly smaller than generated code with Quartus
       // --> better for simulation
 
-      for (n = 0; n < LFSR_WIDTH; n = n + 1) begin : lfsr_state
+      for (n = 0; n < LFSR_WIDTH; n = n + 1) begin : g_lfsr_state
         logic [LFSR_WIDTH+DATA_WIDTH-1:0] mask;
         assign                            mask         = lfsr_mask(n);
         assign                            state_out[n] = ^({data_in, state_in} & mask);
       end
-      for (n = 0; n < DATA_WIDTH; n = n + 1) begin : lfsr_data
+      for (n = 0; n < DATA_WIDTH; n = n + 1) begin : g_lfsr_data
         logic [LFSR_WIDTH+DATA_WIDTH-1:0] mask;
         assign                            mask        = lfsr_mask(n + LFSR_WIDTH);
         assign                            data_out[n] = ^({data_in, state_in} & mask);
       end
 
     end
-    else if (STYLE_INT == "LOOP") begin
+    else if (STYLE_INT == "LOOP") begin : g_loop
 
       // use nested loops
       // very slow in iverilog
@@ -390,7 +377,7 @@ PRBS31      Fibonacci, inverted    31     31'h10000001   any
       // same size as generated code with Quartus
       // --> better for synthesis
 
-      for (n = 0; n < LFSR_WIDTH; n = n + 1) begin : lfsr_state
+      for (n = 0; n < LFSR_WIDTH; n = n + 1) begin : g_lfsr_state
         logic [LFSR_WIDTH+DATA_WIDTH-1:0] mask;
         assign                            mask = lfsr_mask(n);
 
@@ -414,7 +401,7 @@ PRBS31      Fibonacci, inverted    31     31'h10000001   any
           end
         end
       end
-      for (n = 0; n < DATA_WIDTH; n = n + 1) begin : lfsr_data
+      for (n = 0; n < DATA_WIDTH; n = n + 1) begin : g_lfsr_data
         logic [LFSR_WIDTH+DATA_WIDTH-1:0] mask;
         assign                            mask = lfsr_mask(n + LFSR_WIDTH);
 
@@ -440,7 +427,7 @@ PRBS31      Fibonacci, inverted    31     31'h10000001   any
       end
 
     end
-    else begin
+    else begin : g_unknown_style
 
       initial begin
         $error("Error: unknown style setting!");
@@ -453,5 +440,3 @@ PRBS31      Fibonacci, inverted    31     31'h10000001   any
 
 endmodule
 
-`resetall
-// verilator lint_on GENUNNAMED

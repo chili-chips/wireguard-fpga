@@ -97,24 +97,6 @@
           <Attr Name="UsedIn" Val="simulation"/>
         </FileInfo>
       </File>
-      <File Path="$PPRDIR/../../1.hw/external_lib/ethernet/mac_ctrl_rx.sv">
-        <FileInfo>
-          <Attr Name="ImportPath" Val="$PPRDIR/../../1.hw/external_lib/ethernet/mac_ctrl_rx.sv"/>
-          <Attr Name="ImportTime" Val="1737073974"/>
-          <Attr Name="UsedIn" Val="synthesis"/>
-          <Attr Name="UsedIn" Val="implementation"/>
-          <Attr Name="UsedIn" Val="simulation"/>
-        </FileInfo>
-      </File>
-      <File Path="$PPRDIR/../../1.hw/external_lib/ethernet/mac_pause_ctrl_tx.sv">
-        <FileInfo>
-          <Attr Name="ImportPath" Val="$PPRDIR/../../1.hw/external_lib/ethernet/mac_pause_ctrl_tx.sv"/>
-          <Attr Name="ImportTime" Val="1737073974"/>
-          <Attr Name="UsedIn" Val="synthesis"/>
-          <Attr Name="UsedIn" Val="implementation"/>
-          <Attr Name="UsedIn" Val="simulation"/>
-        </FileInfo>
-      </File>
       <File Path="$PPRDIR/../../1.hw/external_lib/ethernet/eth_mac_1g_gmii.sv">
         <FileInfo>
           <Attr Name="ImportPath" Val="$PPRDIR/../../1.hw/external_lib/ethernet/eth_mac_1g_gmii.sv"/>
@@ -167,15 +149,6 @@
           <Attr Name="UsedIn" Val="simulation"/>
         </FileInfo>
       </File>
-      <File Path="$PPRDIR/../../1.hw/external_lib/ethernet/oddr.sv">
-        <FileInfo>
-          <Attr Name="ImportPath" Val="$PPRDIR/../../1.hw/external_lib/ethernet/oddr.sv"/>
-          <Attr Name="ImportTime" Val="1737073974"/>
-          <Attr Name="UsedIn" Val="synthesis"/>
-          <Attr Name="UsedIn" Val="implementation"/>
-          <Attr Name="UsedIn" Val="simulation"/>
-        </FileInfo>
-      </File>
       <File Path="$PPRDIR/../../1.hw/top.sv">
         <FileInfo>
           <Attr Name="ImportPath" Val="$PPRDIR/../../1.hw/top.sv"/>
@@ -189,15 +162,6 @@
         <FileInfo>
           <Attr Name="ImportPath" Val="$PPRDIR/../../1.hw/external_lib/ethernet/axis_gmii_tx.sv"/>
           <Attr Name="ImportTime" Val="1737073973"/>
-          <Attr Name="UsedIn" Val="synthesis"/>
-          <Attr Name="UsedIn" Val="implementation"/>
-          <Attr Name="UsedIn" Val="simulation"/>
-        </FileInfo>
-      </File>
-      <File Path="$PPRDIR/../../1.hw/external_lib/ethernet/mac_ctrl_tx.sv">
-        <FileInfo>
-          <Attr Name="ImportPath" Val="$PPRDIR/../../1.hw/external_lib/ethernet/mac_ctrl_tx.sv"/>
-          <Attr Name="ImportTime" Val="1737073974"/>
           <Attr Name="UsedIn" Val="synthesis"/>
           <Attr Name="UsedIn" Val="implementation"/>
           <Attr Name="UsedIn" Val="simulation"/>
@@ -243,15 +207,6 @@
         <FileInfo>
           <Attr Name="ImportPath" Val="$PPRDIR/../../1.hw/ip.dpe/dpe_pkg.sv"/>
           <Attr Name="ImportTime" Val="1739172929"/>
-          <Attr Name="UsedIn" Val="synthesis"/>
-          <Attr Name="UsedIn" Val="implementation"/>
-          <Attr Name="UsedIn" Val="simulation"/>
-        </FileInfo>
-      </File>
-      <File Path="$PPRDIR/../../1.hw/external_lib/ethernet/mac_pause_ctrl_rx.sv">
-        <FileInfo>
-          <Attr Name="ImportPath" Val="$PPRDIR/../../1.hw/external_lib/ethernet/mac_pause_ctrl_rx.sv"/>
-          <Attr Name="ImportTime" Val="1737073974"/>
           <Attr Name="UsedIn" Val="synthesis"/>
           <Attr Name="UsedIn" Val="implementation"/>
           <Attr Name="UsedIn" Val="simulation"/>

@@ -25,7 +25,7 @@ Open an [Issue](https://github.com/chili-chips/wireguard-fpga/issues). For bugs,
 
 4. Open a Pull Request against `main`.
 
-RTL changes go to [1.hw](1.hw). Observe our [RTL coding rules](1.hw/README.md#rtl-coding-rules). Third-party code in [1.hw/external_lib](1.hw/external_lib) (Alex Forencich's verilog-ethernet and verilog-axis) and PicoRV32 in [1.hw/ip.cpu/cpu.PICORV32](1.hw/ip.cpu/cpu.PICORV32) changes upstream first.
+RTL changes go to [1.hw](1.hw). Observe our [RTL coding rules](1.hw/README.md#rtl-coding-rules). [1.hw/external_lib](1.hw/external_lib) (Alex Forencich's verilog-ethernet and verilog-axis) is our trimmed fork, under the same rules. PicoRV32 in [1.hw/ip.cpu/cpu.PICORV32](1.hw/ip.cpu/cpu.PICORV32) changes upstream first.
 
 ## License
 

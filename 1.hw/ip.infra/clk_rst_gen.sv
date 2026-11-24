@@ -76,11 +76,14 @@ module clk_rst_gen (
       .sys_pll_locked (sys_pll_locked)
   );
 
+  logic  sys_pll_unlocked;  // reset until the PLL locks
+  assign sys_pll_unlocked = ~sys_pll_locked;
+
   sync_reset #(
       .N (4)
   ) sys_sync_reset_inst (
       .clk (sys_pll_clk),
-      .rst (~sys_pll_locked),
+      .rst (sys_pll_unlocked),
       .out (sys_reset)
   );
 
@@ -101,11 +104,14 @@ module clk_rst_gen (
       .eth_pll_locked (eth_pll_locked)
   );
 
+  logic  eth_pll_unlocked;  // reset until the PLL locks
+  assign eth_pll_unlocked = ~eth_pll_locked;
+
   sync_reset #(
       .N (4)
   ) eth_sync_reset_inst (
       .clk (eth_pll_clk),
-      .rst (~eth_pll_locked),
+      .rst (eth_pll_unlocked),
       .out (eth_gtx_rst)
   );
 

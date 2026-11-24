@@ -9,7 +9,6 @@
 
 // The black boxes, and our forks of third-party RTL, linted as theirs
 lint_off -file "*/lintcrux_build/generated/*"
-lint_off -file "*/external_lib/*"
 lint_off -file "*/cpu.PICORV32/*"
 
 // .PIN (/*LINT:OK*/) on an unused output: run-lint.sh's tags phase checks
@@ -37,3 +36,10 @@ lint_off -rule GENUNNAMED -file "*/csr_build/generated-files/csr.sv" -match "Unn
 lint_off -rule UNUSEDPARAM -file "*/csr_build/generated-files/csr_pkg.sv" -match "Parameter is not used: 'CSR_DATA_WIDTH'"
 lint_off -rule UNUSEDPARAM -file "*/csr_build/generated-files/csr_pkg.sv" -match "Parameter is not used: 'CSR_SIZE'"
 lint_off -rule CMPCONST -file "*/csr_build/generated-files/csr.sv" -match "Comparison is constant due to limited range"
+// external_lib, as in run-lint-waivers.txt: a reset synchronizer's output resets
+// async and sync logic by design; an axis_fifo with ID_ENABLE = 0 reads no tid;
+// the MAC FIFO's receive tuser (bad frame) is not used
+lint_off -rule SYNCASYNCNET -file "*/external_lib/axis/sync_reset.sv" -match "*'*sync_reg'"
+lint_off -rule SYNCASYNCNET -file "*/external_lib/ethernet/gmii_phy_if.sv" -match "*'*_rst_reg'"
+lint_off -rule UNUSEDSIGNAL -file "*/external_lib/axis/axis_fifo.sv" -match "Signal is not used: 's_axis_tid'"
+lint_off -rule UNUSEDSIGNAL -file "*/external_lib/ethernet/eth_mac_1g_gmii_fifo.sv" -match "Signal is not used: 'rx_axis_tuser'"

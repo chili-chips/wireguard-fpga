@@ -48,16 +48,17 @@ module eth_mac (
     dpe_if.s_axis      tx_fifo,
     dpe_if.m_axis      rx_fifo
 );
+  // FIFOs of 8 KB: 512 words of 16 bytes, all the depth of the RAMB18s their
+  // width takes (4 Kb would leave half of each empty). A frame needs under
+  // 2 KB, so we don't need it now, but it costs nothing and rides out longer
+  // pauses (tready low) without dropping frames
   eth_mac_1g_gmii_fifo #(
-      .TARGET            ("XILINX"),
-      .IODDR_STYLE       ("IODDR"),
-      .CLOCK_INPUT_STYLE ("BUFG"),
-      .ENABLE_PADDING    (1),
-      .MIN_FRAME_LENGTH  (64),
-      .TX_FIFO_DEPTH     (4096),
-      .TX_FRAME_FIFO     (1),
-      .RX_FIFO_DEPTH     (4096),
-      .RX_FRAME_FIFO     (1)
+      .ENABLE_PADDING   (1),
+      .MIN_FRAME_LENGTH (64),
+      .TX_FIFO_DEPTH    (8192),
+      .TX_FRAME_FIFO    (1),
+      .RX_FIFO_DEPTH    (8192),
+      .RX_FRAME_FIFO    (1)
   ) eth (
       .gtx_clk (gtx_clk),
       .gtx_rst (gtx_rst),
@@ -75,16 +76,7 @@ module eth_mac (
       .gmii_tx_en  (gmii.txen),
       .gmii_tx_er  (gmii.txer),
 
-      .tx_fifo_overflow   (  /*LINT:OK*/),  // MAC/FIFO status not monitored
-      .tx_fifo_bad_frame  (  /*LINT:OK*/),  // MAC/FIFO status not monitored
-      .tx_fifo_good_frame (  /*LINT:OK*/),  // MAC/FIFO status not monitored
-      .rx_error_bad_frame (  /*LINT:OK*/),  // MAC/FIFO status not monitored
-      .rx_error_bad_fcs   (  /*LINT:OK*/),  // MAC/FIFO status not monitored
-      .rx_fifo_overflow   (  /*LINT:OK*/),  // MAC/FIFO status not monitored
-      .rx_fifo_bad_frame  (  /*LINT:OK*/),  // MAC/FIFO status not monitored
-      .rx_fifo_good_frame (  /*LINT:OK*/),  // MAC/FIFO status not monitored
-      .tx_error_underflow (  /*LINT:OK*/),  // MAC/FIFO status not monitored
-      .speed              (speed),
+      .speed (speed),
 
       .cfg_ifg       (8'd12),
       .cfg_tx_enable (1'b1),

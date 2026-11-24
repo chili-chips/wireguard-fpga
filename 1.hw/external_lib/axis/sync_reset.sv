@@ -10,16 +10,13 @@
 
 // Language: Verilog-2001
 
-`resetall
-`default_nettype none
-
 /*
  * Synchronizes an active-high asynchronous reset signal to a given clock by
  * using a pipeline of N registers.
  */
 module sync_reset #(
     // depth of synchronizer
-    parameter N = 2
+    parameter int N = 2
 ) (
     input  logic clk,
     input  logic rst,
@@ -27,7 +24,7 @@ module sync_reset #(
 );
 
   (* srl_style = "register" *)
-  logic [N-1:0] sync_reg = {N{1'b1}};
+  logic [N-1:0] sync_reg;
 
   assign out = sync_reg[N-1];
 
@@ -42,4 +39,3 @@ module sync_reset #(
 
 endmodule
 
-`resetall

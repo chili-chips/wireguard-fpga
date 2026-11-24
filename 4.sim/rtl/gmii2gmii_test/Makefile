@@ -4,9 +4,10 @@
 
 # gmii2gmii_test block-level bench: make [SIM=verilator|icarus|janushdl], see ../sim.mk
 
-VFLAGS = -Wall -Wno-PINCONNECTEMPTY -Wno-UNUSEDPARAM -Wno-GENUNNAMED
+VFLAGS = -Wall -Wno-SPECIFYIGN -Wno-PINCONNECTEMPTY -Wno-UNUSEDPARAM -Wno-GENUNNAMED
 SRC_F  = ${HW_SRC}/top.filelist
-SRC    = tb.sv
+# the Xilinx primitives the MAC instantiates, and glbl
+SRC    = $(addprefix ${SIM_SRC}/models/no-change/,BUFG.v BUFGMUX.v ODDR.v glbl.v) tb.sv
 
 include ../sim.mk
 

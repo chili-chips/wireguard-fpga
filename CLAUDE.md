@@ -75,7 +75,7 @@ make -f MakefileVProc.mk clean
 **Lint, format, LEQ** (`3.build/hw_build.openXC7/`, as on openPCIE; sources from `1.hw/top.filelist`, plus the DPE blocks top does not instantiate yet (`BLOCK_TOPS` in `sources.sh`, each a top of its own: `read_slang --allow-toplevel-iface-ports`); CI: `.github/workflows/lint.yml`, `verible.yml` run the same scripts):
 ```bash
 S=3.build/hw_build.openXC7
-bash $S/run-lint.sh                       # tags, verilator, yosys, slang, verible, ghdl, ghdl-verilator; waivers in run-lint-waivers.txt
+bash $S/run-lint.sh                       # tags, verilator, yosys, reset, slang, verible, ghdl, ghdl-verilator; waivers in run-lint-waivers.txt
 PYPELINEC=<PipelineC>/src/pypelinec bash $S/run-lint.sh ghdl ghdl-verilator  # Pypeline core VHDL (pypelinec --no_synth, no Vivado)
 VIEW=sim bash $S/run-lint.sh              # simulation view (SIM_ONLY)
 CPU=picorv32 bash $S/run-lint.sh          # the other CPU (default: the one top.filelist lists)
@@ -84,9 +84,9 @@ bash $S/run-leq.sh <gold 1.hw> <gate 1.hw> # prove a cleanup keeps the logic
 ```
 Verible rules and their rationale are in `3.build/hw_build.openXC7/rules.md`.
 
-RTL conventions: [`1.hw/README.md#rtl-coding-rules`](1.hw/README.md#rtl-coding-rules). The gate enforces: our own RTL (incl. eduBOS5 and both `soc_cpu` wrappers) is Verible-formatted (2-space indent, LF line endings, at most 100 columns); third-party code (`external_lib`, PicoRV32) and the PeakRDL CSR are checked but not reformatted. An open output is `.PIN (  /*LINT:OK*/),  // why`. A waiver goes in `run-lint-waivers.txt` with its reason, only for a false positive. Each CSR client (uart, cpu_fifo, dpe) drives only its own sub-struct of `csr__in_t`, never the whole struct.
+RTL conventions: [`1.hw/README.md#rtl-coding-rules`](1.hw/README.md#rtl-coding-rules). The gate enforces: our own RTL, eduBOS5, PicoRV32 and `external_lib` (our fork of Alex Forencich's verilog-ethernet/verilog-axis, trimmed to Xilinx 7-series and what the design uses) are linted and Verible-formatted (2-space indent, LF line endings, at most 100 columns); only the PeakRDL CSR is checked but not reformatted. Every control flop and flag has a reset (data and address flops need none; the `reset` phase checks it). `&&`, `||` and `!` only in `if`/`while`/`case` conditions and assertions; `&`, `|`, `~` on 1-bit operands elsewhere. An open output is `.PIN (  /*LINT:OK*/),  // why`. A waiver goes in `run-lint-waivers.txt` with its reason, only for a false positive. Each CSR client (uart, cpu_fifo, dpe) drives only its own sub-struct of `csr__in_t`, never the whole struct.
 
-**CPU:** eduBOS5 (default; pure RV32I, Harvard; #61 fixed (`STORE_WAITS_RDY=1`, soc_fabric) and passes the RTL `UART_BUS_STRESS` sim; hardware check pending) or PicoRV32, selected by which `soc_cpu.*.sv` lines `1.hw/top.filelist` lists. eduBOS5 halts on any SYSTEM instruction, so the firmware reads the `csr.cycle` CSR counter (`cycles()` in `2.sw/app/timer.c`), never `rdcycle`/`csrr`.
+**CPU:** eduBOS5 (default; RV32I as built here, Harvard; options `USE_HW_MUL` (RV32M) and `EN_COUNTERS` (Zicntr) are off; #61 fixed (`STORE_WAITS_RDY=1`, soc_fabric) and passes the RTL `UART_BUS_STRESS` sim; hardware check pending) or PicoRV32, selected by which `soc_cpu.*.sv` lines `1.hw/top.filelist` lists. eduBOS5 halts on any SYSTEM instruction, so the firmware reads the `csr.cycle` CSR counter (`cycles()` in `2.sw/app/timer.c`), never `rdcycle`/`csrr`.
 
 **Crypto core HLS builds** (`3.build/pipelinec_build/`, `3.build/pypeline_build/`) — each has its own build scripts/`build.py` and CLAUDE.md with full sim/synth command reference; don't duplicate that detail here.
 

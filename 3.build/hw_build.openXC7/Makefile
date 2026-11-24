@@ -86,23 +86,15 @@ EXTRACT_TIMESTAMP = $(EXTRACTED_DIR)/.extraction_timestamp
 
 DESIGN_RTL := $(shell bash -c '. ./sources.sh && design_rtl $(HW_DIR) $(BUILD_DIR_ROOT)')
 
-# eth_mac_1g instantiates the MAC control blocks in a generate branch
-# (MAC_CTRL_ENABLE = 0): not in top.filelist, but Yosys reads every module
-MAC_CTRL_SRC = \
-    $(HW_DIR)/external_lib/ethernet/mac_ctrl_rx.sv \
-    $(HW_DIR)/external_lib/ethernet/mac_ctrl_tx.sv \
-    $(HW_DIR)/external_lib/ethernet/mac_pause_ctrl_rx.sv \
-    $(HW_DIR)/external_lib/ethernet/mac_pause_ctrl_tx.sv
-
 # Pure Verilog: read by Yosys as is, no conversion needed (none left: the
 # external_lib files are SystemVerilog now)
 PURE_V_FILES = $(filter %.v,$(DESIGN_RTL))
 
-# SystemVerilog, in top.filelist order, then the MAC control blocks
-SV_ORDERED = $(filter %.sv,$(DESIGN_RTL)) $(MAC_CTRL_SRC)
+# SystemVerilog, in top.filelist order
+SV_ORDERED = $(filter %.sv,$(DESIGN_RTL))
 
 # Xilinx primitives the RTL instantiates (stubs for read_slang)
-XILINX_PRIMS = PLLE2_BASE BUFG IBUFGDS BUFGMUX BUFIO BUFIO2 BUFR ODDR ODDR2
+XILINX_PRIMS = PLLE2_BASE BUFG IBUFGDS BUFGMUX ODDR DSP48E1
 
 .PHONY: all convert check-env check-sources clean clean-converted clean-all help info
 .DEFAULT_GOAL := all
@@ -181,6 +173,8 @@ $(BUILD_ARTIFACTS)/top.json: $(SV_ORDERED) $(PURE_V_FILES) $(IMEM_INIT) gen_xili
 	        synth_xilinx -flatten -abc9 -arch xc7 -top $(TOP); \
 	        $(BUFGMUX_MAP) \
 	        write_json $@"
+	@# no large memory in LUTs: it belongs in block RAM (check-lutram.py)
+	python3 check-lutram.py $@
 else
 $(BUILD_ARTIFACTS)/top.json: $(EXTRACT_TIMESTAMP) $(PURE_V_FILES) $(IMEM_INIT) bufgmux_map.v
 	@mkdir -p $(BUILD_ARTIFACTS)
@@ -190,6 +184,8 @@ $(BUILD_ARTIFACTS)/top.json: $(EXTRACT_TIMESTAMP) $(PURE_V_FILES) $(IMEM_INIT) b
 	        synth_xilinx -flatten $(if $(filter new,$(TOOLCHAIN)),-abc9) -arch xc7 -top $(TOP); \
 	        $(BUFGMUX_MAP) \
 	        write_json $@"
+	@# no large memory in LUTs: it belongs in block RAM (check-lutram.py)
+	python3 check-lutram.py $@
 endif
 
 # =============================================================================

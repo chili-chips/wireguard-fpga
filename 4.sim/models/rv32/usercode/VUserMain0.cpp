@@ -91,7 +91,7 @@ uint32_t iss_int_callback   (const rv32i_time_t time, rv32i_time_t *wakeup_time)
 // openPCIE: RV32I-only fetch filter
 // ---------------------------------------------
 
-// RV32I with FENCE, ECALL and EBREAK: no M/A/F/D/C/Zb*, no CSR instructions
+// RV32IM with FENCE, ECALL and EBREAK: no A/F/D/C/Zb*, no CSR instructions
 // (rdcycle, rdinstret, rdtime), no FENCE.I
 static bool is_rv32i(const uint32_t insn)
 {
@@ -110,6 +110,7 @@ static bool is_rv32i(const uint32_t insn)
                     : funct3 == 5 ? funct7 == 0x00 || funct7 == 0x20  // SRLI, SRAI
                     : true;                                           // ADDI .. ANDI
     case 0x33: return funct7 == 0x00 ||                               // ADD .. AND
+                      funct7 == 0x01 ||                               // MUL .. REMU (RV32M)
                       (funct7 == 0x20 && (funct3 == 0 || funct3 == 5)); // SUB, SRA
     case 0x0f: return funct3 == 0;                                    // FENCE
     case 0x73: return insn == 0x00000073 || insn == 0x00100073;       // ECALL, EBREAK

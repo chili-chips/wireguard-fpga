@@ -124,22 +124,22 @@ module dpe_wg_decryptor
 
   // the registers: r, and r_next, what they hold in the next clock
   typedef struct packed {
-    state_t             state;
-    feed_t              feed;
-    emit_t              emit;
-    dpe_addr_t          tuser_dst;
-    dpe_addr_t          tuser_src;
-    dpe_peer_idx_t      peer_idx;
-    wg_peer_cfg_t       peer_cfg;    // the packet's peer, from the peer table
-    logic [1:0]         hdr_k;       // header beats in so far
-    logic [ETH_W-1:0]   eth_hdr;     // the outer Ethernet header
-    wg_counter_t        counter;     // the packet's counter: the nonce
-    logic [CARRY_W-1:0] carry;       // the frame beat before: its last bytes
-    len16_t             ip_len;      // the plaintext IPv4 total length
-    len16_t             sent;        // IPv4 bytes out so far
-    logic               core_done;   // the core's last beat is in
-    beat_t              held;        // the plaintext beat before
-    len16_t             core_bytes;  // bytes fed to the core: ciphertext and tag
+    state_t             state;       // [969:967]
+    feed_t              feed;        // [966:964]
+    emit_t              emit;        // [963:961]
+    dpe_addr_t          tuser_dst;   // [960:958]
+    dpe_addr_t          tuser_src;   // [957:955]
+    dpe_peer_idx_t      peer_idx;    // [954:947]
+    wg_peer_cfg_t       peer_cfg;    // [946:403] the packet's peer, from the peer table
+    logic [1:0]         hdr_k;       // [402:401] header beats in so far
+    logic [ETH_W-1:0]   eth_hdr;     // [400:289] the outer Ethernet header
+    wg_counter_t        counter;     // [288:225] the packet's counter: the nonce
+    logic [CARRY_W-1:0] carry;       // [224:177] the frame beat before: its last bytes
+    len16_t             ip_len;      // [176:161] the plaintext IPv4 total length
+    len16_t             sent;        // [160:145] IPv4 bytes out so far
+    logic               core_done;   // [144]   the core's last beat is in
+    beat_t              held;        // [143:16] the plaintext beat before
+    len16_t             core_bytes;  // [15:0]  bytes fed to the core: ciphertext and tag
   } regs_t;
   regs_t r, r_next;
 

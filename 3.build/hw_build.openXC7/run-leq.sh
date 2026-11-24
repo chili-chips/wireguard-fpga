@@ -66,7 +66,7 @@ YOSYS=${YOSYS:-yosys}
 YOSYS_CONFIG=${YOSYS_CONFIG:-yosys-config}
 YOSYS_ARGS=${YOSYS_ARGS:-}
 PYTHON=${PYTHON:-python3}
-PRIMS="PLLE2_BASE BUFG IBUFGDS BUFGMUX BUFIO BUFIO2 BUFR ODDR ODDR2"
+PRIMS="PLLE2_BASE BUFG IBUFGDS BUFGMUX ODDR DSP48E1"
 # The generated ChaCha20-Poly1305 cores are black boxes too (the same files
 # on both sides; their proof against the Python source is PipelineC#398)
 GEN=$BLD/pypeline_build/soc  # the cores the DPE uses, gzip'd

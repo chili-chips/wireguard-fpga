@@ -35,7 +35,7 @@
 
 module soc_cpu
   import edubos5_pkg::*;
-  import soc_pkg::imem_wr_t;
+  import soc_pkg::*;
 #(
     parameter logic [31:0] ADDR_RESET     = 32'h0000_0000,
     parameter int          NUM_WORDS_IMEM = 8192
@@ -55,6 +55,15 @@ module soc_cpu
   localparam int EDUBOS5_WAIT4REGS = 1;  // 3-stage pipeline
 `else
   localparam int EDUBOS5_WAIT4REGS = 0;  // 2-stage pipeline
+`endif
+
+  // RV32M (USE_HW_MUL): the firmware is built for rv32im (3.build/MakefileSW).
+  // The build multiplies in one DSP48E1; a simulation in plain RTL, with the
+  // same registers and timing (our simulators carry no DSP48E1 model)
+`ifdef SYNTHESIS
+  localparam bit EDUBOS5_DSP48E1 = 1'b1;
+`else
+  localparam bit EDUBOS5_DSP48E1 = 1'b0;
 `endif
 
   // instruction port
@@ -121,12 +130,17 @@ module soc_cpu
   //--------------------------------------------------------
   // eduBOS5 itself
   //--------------------------------------------------------
+  logic  cpu_arst_n;  // the bus reset, or the IMEM loader holding the CPU
+  assign cpu_arst_n = bus.arst_n & imem_cpu_rst_n;
+
   edubos5 #(
       .EN_WAIT4REGS    (EDUBOS5_WAIT4REGS),
-      .STORE_WAITS_RDY (1'b1)                // the UART can hold the bus (#61)
+      .STORE_WAITS_RDY (1'b1),               // the UART can hold the bus (#61)
+      .USE_HW_MUL      (1'b1),               // RV32M: mul, div, rem
+      .USE_DSP48E1     (EDUBOS5_DSP48E1)
   ) u_cpu (
       .clk    (bus.clk),
-      .arst_n (bus.arst_n & imem_cpu_rst_n),
+      .arst_n (cpu_arst_n),
 
       .imem_addr (imem_addr),
       .imem_rdat (imem_rdat),

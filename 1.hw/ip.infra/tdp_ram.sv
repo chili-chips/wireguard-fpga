@@ -59,8 +59,18 @@ module tdp_ram #(
 );
   logic [DATA_WIDTH-1:0] mem[DEPTH];
 
+  // One plain always per port, not always_ff, by design (our RAM rule):
+  // IEEE 1800-2017 9.2.2.4 forbids two processes to write a variable that
+  // an always_ff writes, and a true dual-port RAM has two write ports. One
+  // always_ff for both ports is legal, but Vivado then cannot infer a block
+  // RAM and builds the whole array from flip-flops (Synth 8-4767: 32k flops
+  // for 1k x 32). Two plain always blocks are the legal form, and the one in
+  // the Vivado and Yosys true dual-port templates. Standalone slang (LintCrux)
+  // rejects two always_ff; read_slang and simulators let them pass, so do not
+  // "fix" this back.
+
   // Port A
-  always_ff @(posedge clk) begin
+  always @(posedge clk) begin
     if (we_a) begin
       mem[addr_a] <= din_a;
     end
@@ -69,7 +79,7 @@ module tdp_ram #(
   end
 
   // Port B
-  always_ff @(posedge clk) begin
+  always @(posedge clk) begin
     if (we_b) begin
       mem[addr_b] <= din_b;
     end

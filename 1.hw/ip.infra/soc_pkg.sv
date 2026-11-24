@@ -108,9 +108,9 @@ package soc_pkg;
   // a write into the CPU's program memory (IMEM): the UART loader's, while
   // the CPU is held in reset
   typedef struct packed {
-    logic      we;
-    soc_addr_t addr;  // a word address, [31:2]
-    soc_data_t data;
+    logic      we;    // [62]
+    soc_addr_t addr;  // [61:32] a word address, [31:2]
+    soc_data_t data;  // [31:0]
   } imem_wr_t;
 
   //- - - - - - - - - - - - - - - - - - - - -

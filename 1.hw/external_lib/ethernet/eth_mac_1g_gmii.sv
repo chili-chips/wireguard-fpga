@@ -10,26 +10,12 @@
 
 // Language: Verilog 2001
 
-`resetall
-`default_nettype none
-
 /*
  * 1G Ethernet MAC with GMII interface
  */
 module eth_mac_1g_gmii #(
-    // target ("SIM", "GENERIC", "XILINX", "ALTERA")
-    parameter TARGET            = "GENERIC",
-    // IODDR style ("IODDR", "IODDR2")
-    // Use IODDR for Virtex-4, Virtex-5, Virtex-6, 7 Series, Ultrascale
-    // Use IODDR2 for Spartan-6
-    parameter IODDR_STYLE       = "IODDR2",
-    // Clock input style ("BUFG", "BUFR", "BUFIO", "BUFIO2")
-    // Use BUFR for Virtex-5, Virtex-6, 7-series
-    // Use BUFG for Ultrascale
-    // Use BUFIO2 for Spartan-6
-    parameter CLOCK_INPUT_STYLE = "BUFIO2",
-    parameter ENABLE_PADDING    = 1,
-    parameter MIN_FRAME_LENGTH  = 64
+    parameter bit ENABLE_PADDING   = 1,
+    parameter int MIN_FRAME_LENGTH = 64
 ) (
     input  logic       gtx_clk,
     input  logic       gtx_rst,
@@ -71,9 +57,6 @@ module eth_mac_1g_gmii #(
     /*
      * Status
      */
-    output logic       tx_error_underflow,
-    output logic       rx_error_bad_frame,
-    output logic       rx_error_bad_fcs,
     output logic [1:0] speed,
 
     /*
@@ -91,39 +74,59 @@ module eth_mac_1g_gmii #(
   logic       mac_gmii_tx_en;
   logic       mac_gmii_tx_er;
 
-  logic [1:0] speed_reg = 2'b10;
-  logic       mii_select_reg = 1'b0;
+  logic [1:0] speed_reg;
+  logic       mii_select_reg;
 
   (* srl_style = "register" *)
-  logic [1:0] tx_mii_select_sync = 2'd0;
+  logic [1:0] tx_mii_select_sync;
 
   always_ff @(posedge tx_clk) begin
-    tx_mii_select_sync <= {tx_mii_select_sync[0], mii_select_reg};
+    if (tx_rst) begin
+      tx_mii_select_sync <= '0;
+    end
+    else begin
+      tx_mii_select_sync <= {tx_mii_select_sync[0], mii_select_reg};
+    end
   end
 
   (* srl_style = "register" *)
-  logic [1:0] rx_mii_select_sync = 2'd0;
+  logic [1:0] rx_mii_select_sync;
 
   always_ff @(posedge rx_clk) begin
-    rx_mii_select_sync <= {rx_mii_select_sync[0], mii_select_reg};
+    if (rx_rst) begin
+      rx_mii_select_sync <= '0;
+    end
+    else begin
+      rx_mii_select_sync <= {rx_mii_select_sync[0], mii_select_reg};
+    end
   end
 
   // PHY speed detection
-  logic [2:0] rx_prescale = 3'd0;
+  logic [2:0] rx_prescale;
 
   always_ff @(posedge rx_clk) begin
-    rx_prescale <= rx_prescale + 3'd1;
+    if (rx_rst) begin
+      rx_prescale <= '0;
+    end
+    else begin
+      rx_prescale <= rx_prescale + 3'd1;
+    end
   end
 
   (* srl_style = "register" *)
-  logic [2:0] rx_prescale_sync = 3'd0;
+  logic [2:0] rx_prescale_sync;
 
   always_ff @(posedge gtx_clk) begin
-    rx_prescale_sync <= {rx_prescale_sync[1:0], rx_prescale[2]};
+    if (gtx_rst) begin
+      rx_prescale_sync <= '0;
+    end
+    else begin
+      rx_prescale_sync <= {rx_prescale_sync[1:0], rx_prescale[2]};
+    end
   end
 
-  logic [6:0] rx_speed_count_1 = 0;
-  logic [1:0] rx_speed_count_2 = 0;
+  logic [6:0] rx_speed_count_1;
+  logic [1:0] rx_speed_count_2;
 
   always_ff @(posedge gtx_clk) begin
     if (gtx_rst) begin
@@ -151,9 +154,7 @@ module eth_mac_1g_gmii #(
         // prescaled count overflow - 100M or 1000M
         rx_speed_count_1 <= 0;
         rx_speed_count_2 <= 0;
-        // verilator lint_off WIDTHTRUNC
-        if (rx_speed_count_1[6:5]) begin
-          // verilator lint_on WIDTHTRUNC
+        if (rx_speed_count_1[6:5] != 0) begin
           // large reference count - 100M
           speed_reg      <= 2'b01;
           mii_select_reg <= 1'b1;
@@ -169,11 +170,7 @@ module eth_mac_1g_gmii #(
 
   assign speed = speed_reg;
 
-  gmii_phy_if #(
-      .TARGET            (TARGET),
-      .IODDR_STYLE       (IODDR_STYLE),
-      .CLOCK_INPUT_STYLE (CLOCK_INPUT_STYLE)
-  ) gmii_phy_if_inst (
+  gmii_phy_if gmii_phy_if_inst (
       .clk (gtx_clk),
       .rst (gtx_rst),
 
@@ -205,106 +202,31 @@ module eth_mac_1g_gmii #(
       .ENABLE_PADDING   (ENABLE_PADDING),
       .MIN_FRAME_LENGTH (MIN_FRAME_LENGTH)
   ) eth_mac_1g_inst (
-      .tx_clk                         (tx_clk),
-      .tx_rst                         (tx_rst),
-      .rx_clk                         (rx_clk),
-      .rx_rst                         (rx_rst),
-      .tx_axis_tdata                  (tx_axis_tdata),
-      .tx_axis_tvalid                 (tx_axis_tvalid),
-      .tx_axis_tready                 (tx_axis_tready),
-      .tx_axis_tlast                  (tx_axis_tlast),
-      .tx_axis_tuser                  (tx_axis_tuser),
-      .rx_axis_tdata                  (rx_axis_tdata),
-      .rx_axis_tvalid                 (rx_axis_tvalid),
-      .rx_axis_tlast                  (rx_axis_tlast),
-      .rx_axis_tuser                  (rx_axis_tuser),
-      .gmii_rxd                       (mac_gmii_rxd),
-      .gmii_rx_dv                     (mac_gmii_rx_dv),
-      .gmii_rx_er                     (mac_gmii_rx_er),
-      .gmii_txd                       (mac_gmii_txd),
-      .gmii_tx_en                     (mac_gmii_tx_en),
-      .gmii_tx_er                     (mac_gmii_tx_er),
-      .rx_clk_enable                  (1'b1),
-      .tx_clk_enable                  (1'b1),
-      .rx_mii_select                  (rx_mii_select_sync[1]),
-      .tx_mii_select                  (tx_mii_select_sync[1]),
-      .tx_error_underflow             (tx_error_underflow),
-      .rx_error_bad_frame             (rx_error_bad_frame),
-      .rx_error_bad_fcs               (rx_error_bad_fcs),
-      .cfg_ifg                        (cfg_ifg),
-      .cfg_tx_enable                  (cfg_tx_enable),
-      .cfg_rx_enable                  (cfg_rx_enable),
-      .tx_ptp_ts                      (),
-      .rx_ptp_ts                      (),
-      .tx_axis_ptp_ts                 (),
-      .tx_axis_ptp_ts_tag             (),
-      .tx_axis_ptp_ts_valid           (),
-      .tx_lfc_req                     (),
-      .tx_lfc_resend                  (),
-      .rx_lfc_en                      (),
-      .rx_lfc_req                     (),
-      .rx_lfc_ack                     (),
-      .tx_pfc_req                     (),
-      .tx_pfc_resend                  (),
-      .rx_pfc_en                      (),
-      .rx_pfc_req                     (),
-      .rx_pfc_ack                     (),
-      .tx_lfc_pause_en                (),
-      .tx_pause_req                   (),
-      .tx_pause_ack                   (),
-      .tx_start_packet                (),
-      .rx_start_packet                (),
-      .stat_tx_mcf                    (),
-      .stat_rx_mcf                    (),
-      .stat_tx_lfc_pkt                (),
-      .stat_tx_lfc_xon                (),
-      .stat_tx_lfc_xoff               (),
-      .stat_tx_lfc_paused             (),
-      .stat_tx_pfc_pkt                (),
-      .stat_tx_pfc_xon                (),
-      .stat_tx_pfc_xoff               (),
-      .stat_tx_pfc_paused             (),
-      .stat_rx_lfc_pkt                (),
-      .stat_rx_lfc_xon                (),
-      .stat_rx_lfc_xoff               (),
-      .stat_rx_lfc_paused             (),
-      .stat_rx_pfc_pkt                (),
-      .stat_rx_pfc_xon                (),
-      .stat_rx_pfc_xoff               (),
-      .stat_rx_pfc_paused             (),
-      .cfg_mcf_rx_eth_dst_mcast       (),
-      .cfg_mcf_rx_check_eth_dst_mcast (),
-      .cfg_mcf_rx_eth_dst_ucast       (),
-      .cfg_mcf_rx_check_eth_dst_ucast (),
-      .cfg_mcf_rx_eth_src             (),
-      .cfg_mcf_rx_check_eth_src       (),
-      .cfg_mcf_rx_eth_type            (),
-      .cfg_mcf_rx_opcode_lfc          (),
-      .cfg_mcf_rx_check_opcode_lfc    (),
-      .cfg_mcf_rx_opcode_pfc          (),
-      .cfg_mcf_rx_check_opcode_pfc    (),
-      .cfg_mcf_rx_forward             (),
-      .cfg_mcf_rx_enable              (),
-      .cfg_tx_lfc_eth_dst             (),
-      .cfg_tx_lfc_eth_src             (),
-      .cfg_tx_lfc_eth_type            (),
-      .cfg_tx_lfc_opcode              (),
-      .cfg_tx_lfc_en                  (),
-      .cfg_tx_lfc_quanta              (),
-      .cfg_tx_lfc_refresh             (),
-      .cfg_tx_pfc_eth_dst             (),
-      .cfg_tx_pfc_eth_src             (),
-      .cfg_tx_pfc_eth_type            (),
-      .cfg_tx_pfc_opcode              (),
-      .cfg_tx_pfc_en                  (),
-      .cfg_tx_pfc_quanta              (),
-      .cfg_tx_pfc_refresh             (),
-      .cfg_rx_lfc_opcode              (),
-      .cfg_rx_lfc_en                  (),
-      .cfg_rx_pfc_opcode              (),
-      .cfg_rx_pfc_en                  ()
+      .tx_clk         (tx_clk),
+      .tx_rst         (tx_rst),
+      .rx_clk         (rx_clk),
+      .rx_rst         (rx_rst),
+      .tx_axis_tdata  (tx_axis_tdata),
+      .tx_axis_tvalid (tx_axis_tvalid),
+      .tx_axis_tready (tx_axis_tready),
+      .tx_axis_tlast  (tx_axis_tlast),
+      .tx_axis_tuser  (tx_axis_tuser),
+      .rx_axis_tdata  (rx_axis_tdata),
+      .rx_axis_tvalid (rx_axis_tvalid),
+      .rx_axis_tlast  (rx_axis_tlast),
+      .rx_axis_tuser  (rx_axis_tuser),
+      .gmii_rxd       (mac_gmii_rxd),
+      .gmii_rx_dv     (mac_gmii_rx_dv),
+      .gmii_rx_er     (mac_gmii_rx_er),
+      .gmii_txd       (mac_gmii_txd),
+      .gmii_tx_en     (mac_gmii_tx_en),
+      .gmii_tx_er     (mac_gmii_tx_er),
+      .rx_mii_select  (rx_mii_select_sync[1]),
+      .tx_mii_select  (tx_mii_select_sync[1]),
+      .cfg_ifg        (cfg_ifg),
+      .cfg_tx_enable  (cfg_tx_enable),
+      .cfg_rx_enable  (cfg_rx_enable)
   );
 
 endmodule
 
-`resetall

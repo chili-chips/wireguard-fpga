@@ -42,6 +42,8 @@
 
 
 module tb;
+   glbl glbl ();  // the GSR the Xilinx primitive models read
+
    // Constants
 
    // Clock and reset signals
@@ -125,9 +127,6 @@ module tb;
 
    // DUT instantiation
    eth_mac_1g_gmii_fifo #(
-      .TARGET("GENERIC"),
-      .IODDR_STYLE("IODDR"),
-      .CLOCK_INPUT_STYLE("BUFR"),
       .ENABLE_PADDING(1),
       .MIN_FRAME_LENGTH(64),
       .TX_FIFO_DEPTH(4096),
@@ -150,15 +149,6 @@ module tb;
       .gmii_tx_en(gmii_tx_en),
       .gmii_tx_er(gmii_tx_er),
 
-      .tx_error_underflow(),
-      .tx_fifo_overflow(),
-      .tx_fifo_bad_frame(),
-      .tx_fifo_good_frame(),
-      .rx_error_bad_frame(),
-      .rx_error_bad_fcs(),
-      .rx_fifo_overflow(),
-      .rx_fifo_bad_frame(),
-      .rx_fifo_good_frame(),
       .speed(),
 
       .cfg_ifg(8'd12),

@@ -125,22 +125,22 @@ module uart
 
   // the registers: r, and r_next, what they hold in the next clock
   typedef struct packed {
-    spec_state_t state;
-    logic        bus_vld;
-    logic        uart_tx_valid;  // transmit uart_tx_data (the IMEM FSM)
-    logic [7:0]  uart_tx_data;   // the byte to transmit (the IMEM FSM)
-    logic        cpu_rst_n;
-    logic [15:0] data_length;
-    logic [15:0] data_cnt;
-    logic        ram_wen;
-    logic [31:0] ram_data;
-    logic [31:0] ram_addr;
-    logic [3:0]  bus_we;
-    soc_addr_t   bus_addr;       // a word address: the host's bits [1:0] are not kept
-    logic [31:0] bus_rdat;
-    logic [31:0] bus_wdat;
-    logic [7:0]  checksum;
-    logic [21:0] timeout;
+    spec_state_t state;          // [241:236]
+    logic        bus_vld;        // [235]
+    logic        uart_tx_valid;  // [234]   transmit uart_tx_data (the IMEM FSM)
+    logic [7:0]  uart_tx_data;   // [233:226] the byte to transmit (the IMEM FSM)
+    logic        cpu_rst_n;      // [225]
+    logic [15:0] data_length;    // [224:209]
+    logic [15:0] data_cnt;       // [208:193]
+    logic        ram_wen;        // [192]
+    logic [31:0] ram_data;       // [191:160]
+    logic [31:0] ram_addr;       // [159:128]
+    logic [3:0]  bus_we;         // [127:124]
+    soc_addr_t   bus_addr;       // [123:94] a word address: the host's bits [1:0] are not kept
+    logic [31:0] bus_rdat;       // [93:62]
+    logic [31:0] bus_wdat;       // [61:30]
+    logic [7:0]  checksum;       // [29:22]
+    logic [21:0] timeout;        // [21:0]
   } regs_t;
   regs_t r, r_next;
 
@@ -396,6 +396,9 @@ module uart
 
 
 
+  logic  rx_fifo_wr;  // a received byte, while the bus does not read the FIFO
+  assign rx_fifo_wr = ~r.bus_vld & rx_fifo_we;
+
   // synchronous RxFIFO absorbs the variability of CPU reads
   sync_fifo_ram #(
       .DWIDTH (8),
@@ -407,7 +410,7 @@ module uart
       .clk    (clk),
 
       .din (rx_shift),
-      .we  (~r.bus_vld & rx_fifo_we),
+      .we  (rx_fifo_wr),
       //.re        (from_csr.uart.rx_trigger.read.value), // FIFO internal logic prevents underflow
       .re  (from_csr.uart.rx.data.swacc), // FIFO internal logic prevents underflow
 

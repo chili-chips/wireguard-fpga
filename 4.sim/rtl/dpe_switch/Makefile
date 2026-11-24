@@ -4,7 +4,7 @@
 
 # dpe_switch system bench: make [SIM=verilator], see ../sim.mk and tb.sv
 
-VFLAGS = -Wno-MODDUP -Wno-PINCONNECTEMPTY -Wno-UNUSEDPARAM -Wno-UNUSEDSIGNAL -Wno-GENUNNAMED -Wno-DECLFILENAME -Wno-UNOPTFLAT
+VFLAGS = -Wno-PINCONNECTEMPTY -Wno-UNUSEDPARAM -Wno-UNUSEDSIGNAL -Wno-GENUNNAMED -Wno-DECLFILENAME -Wno-UNOPTFLAT
 SRC_F  = tb.filelist
 SRC    = tb.sv
 PLAIN  = ../dpe_wg_encryptor/plaintext_mix.pcap

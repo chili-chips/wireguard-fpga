@@ -22,9 +22,11 @@ SW_BLD  := $(BLD_DIR)/sw_build
 #-------------------------------------------------------------
 # You must have gcc installed to build software:
 #   sudo apt install gcc-riscv64-unknown-elf
+#   Another toolchain: CROSS=<prefix>, e.g. make -f MakefileSW CROSS=riscv-none-elf-
+#   (xPack); in the environment too
 #   For more, see: 0.doc/1.README.Tool-Installs.txt
 #=============================================================
-CROSS = riscv64-unknown-elf-
+CROSS ?= riscv64-unknown-elf-
 CFLAGS = -Os -std=c++11 -DTCM=1 -DHARVARD=1 -DUART_TEST
 
 #------------------------
@@ -32,13 +34,14 @@ CFLAGS = -Os -std=c++11 -DTCM=1 -DHARVARD=1 -DUART_TEST
 sw_all: sw_clean sw_out
 
 #------------------------
-# Remove all output files created from SW build process
+# Remove the intermediate files of the SW build. Not the two tracked images
+# that synthesis and simulation read (imem.INIT.vh, main.bin): sw_out writes
+# them only after a successful compile, so a failed build (a missing
+# toolchain, a compile error) keeps the last good image instead of deleting it
 sw_clean:
-	rm -rf $(SW_BLD)/imem.INIT.vh
 	rm -rf $(SW_BLD)/main.lds
 	rm -rf $(SW_BLD)/main.map
 	rm -rf $(SW_BLD)/main.elf
-	rm -rf $(SW_BLD)/main.bin
 	rm -rf $(SW_BLD)/main.hex
 	rm -rf $(SW_BLD)/main.dump
 
@@ -73,7 +76,7 @@ $(SW_MAIN)/main.cpp
 	$(CROSS)g++ \
    $(CFLAGS) \
    -I$(CSR_BLD) -I$(BLD_DIR)/csr_build -I$(SW_APP) \
-   -march=rv32i \
+   -march=rv32im \
    -mabi=ilp32 \
    -Wl,--build-id=none,-Bstatic,-T,$(SW_BLD)/main.lds,-Map,$(SW_BLD)/main.map \
    -ffreestanding \

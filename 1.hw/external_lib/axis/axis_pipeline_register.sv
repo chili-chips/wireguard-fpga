@@ -10,27 +10,24 @@
 
 // Language: Verilog 2001 (ports: SystemVerilog dpe_if, by Chili.CHIPS)
 
-`resetall
-`default_nettype none
-
 /*
  * AXI4-Stream pipeline register
  */
 module axis_pipeline_register #(
     // Propagate tkeep signal
-    parameter KEEP_ENABLE = 1,
+    parameter bit KEEP_ENABLE = 1,
     // Propagate tlast signal
-    parameter LAST_ENABLE = 1,
+    parameter bit LAST_ENABLE = 1,
     // Propagate tid signal
     // (Chili.CHIPS: on by default, dpe_if carries the peer index in tid)
-    parameter ID_ENABLE   = 1,
+    parameter bit ID_ENABLE   = 1,
     // Propagate tuser signal
-    parameter USER_ENABLE = 1,
+    parameter bit USER_ENABLE = 1,
     // Register type
     // 0 to bypass, 1 for simple buffer, 2 for skid buffer
-    parameter REG_TYPE    = 2,
+    parameter int REG_TYPE    = 2,
     // Number of registers in pipeline
-    parameter LENGTH      = 2
+    parameter int LENGTH      = 2
 ) (
     dpe_if.s_axis s_axis,
     dpe_if.m_axis m_axis
@@ -59,7 +56,7 @@ module axis_pipeline_register #(
   assign m_axis.tid          = link[LENGTH].tid;
   assign m_axis.tuser        = link[LENGTH].tuser;
 
-  for (genvar i = 0; i < LENGTH; i = i + 1) begin : pipe_reg
+  for (genvar i = 0; i < LENGTH; i = i + 1) begin : g_pipe_reg
     axis_register #(
         .KEEP_ENABLE (KEEP_ENABLE),
         .LAST_ENABLE (LAST_ENABLE),
@@ -74,4 +71,3 @@ module axis_pipeline_register #(
 
 endmodule
 
-`resetall

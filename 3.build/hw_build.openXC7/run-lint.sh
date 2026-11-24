@@ -14,6 +14,8 @@
 #              implicit nets, multiple drivers, blocking vs non-blocking, case
 #   yosys      Yosys check on the read_slang netlist: combinational loops,
 #              conflicting drivers, used-but-undriven wires, latches
+#   reset      Yosys netlist and run-lint-reset.py: a control flop or flag with
+#              no reset (data and address flops need none: waived by name)
 #   slang      read_slang -Wextra: strict IEEE parse, second opinion
 #   verible    Verible style rules (run-lint.verible) on our own RTL: our case
 #              rule -- signals and ports lower case, constants UPPER case --
@@ -51,10 +53,9 @@
 # plugin: YOSYS_ARGS="-m slang". The Xilinx primitives come from the Yosys
 # library (yosys-config --datdir), as blackboxes (gen_xilinx_bb.py).
 #
-# Our forks of third-party code, formatted like ours but linted as theirs:
-# external_lib (Alex Forencich's verilog-ethernet and verilog-axis) and
-# PicoRV32. Their
-# Verilator and slang findings are not shown; the Yosys check findings, which
+# external_lib (our fork of Alex Forencich's verilog-ethernet and
+# verilog-axis) is linted like our own RTL. PicoRV32, formatted like ours, is
+# linted as third party: its Verilator and slang findings are not shown; the Yosys check findings, which
 # can be bugs (latches, undriven wires), stay. The PeakRDL CSR is linted, with
 # waivers for its generated constructs.
 #
@@ -98,7 +99,7 @@ case $VIEW in
 esac
 
 WAIVERS=${LINT_WAIVERS:-$HERE/run-lint-waivers.txt}
-PHASES=${*:-tags verilator yosys slang verible ghdl ghdl-verilator}
+PHASES=${*:-tags verilator yosys reset slang verible ghdl ghdl-verilator}
 W=${LINT_WORK:-$(mktemp -d)}
 mkdir -p "$W"
 W=$(cd "$W" && pwd)
@@ -120,7 +121,7 @@ top_sv() {
 ALL=$(for t in $TOPS; do top_sv $t; done | tr ' ' '\n' | awk 'NF && !seen[$0]++' | tr '\n' ' ')
 OWN=$(own_rtl 1.hw bld | tr '\n' ' ')
 INC="bld/sw_build"
-PRIMS="PLLE2_BASE BUFG IBUFGDS BUFGMUX BUFIO BUFIO2 BUFR ODDR ODDR2"
+PRIMS="PLLE2_BASE BUFG IBUFGDS BUFGMUX ODDR DSP48E1"
 
 have() { command -v "$1" >/dev/null 2>&1; }
 declare -A RESULT
@@ -185,9 +186,11 @@ exit_check() {  # $1 phase, $2 exit status
 
 run_tags() {
   bb || { skip tags "no Xilinx stubs (yosys-config)"; return; }
-  CASE_RTL="$OWN" "$PYTHON" - -- bb.sv $ALL > tags.log <<'EOF'
+  # every external_lib file too: one a generate branch instantiates is tagged
+  # even when no file list names it
+  CASE_RTL="$OWN" "$PYTHON" - -- bb.sv $ALL $(ls 1.hw/external_lib/*/*.sv) > tags.log <<'EOF'
 import os, re, sys
-files = sys.argv[sys.argv.index('--') + 1:]
+files = list(dict.fromkeys(sys.argv[sys.argv.index('--') + 1:]))
 text = {f: open(f).read() for f in files}
 types = {'logic', 'wire', 'reg', 'signed', 'unsigned', 'var', 'bit', 'integer', 'tri'}
 dirs = {}
@@ -219,7 +222,7 @@ for f in files:
 # (no tool checks it: Verible's case-missing-default skips unique, Verilator
 # and slang only flag values no item covers); unique0 has none
 # (CASE_RTL: our own RTL, also the files no top reads)
-third_party = re.compile(r'external_lib/|cpu\.PICORV32/|csr_build/')
+third_party = re.compile(r'cpu\.PICORV32/|csr_build/')
 tok = re.compile(r'\b(?:(unique0|unique|priority)\s+)?(case[zx]?|endcase|default)\b|([{}])')
 blank = re.compile(r'"(?:\\.|[^"\\\n])*"|//[^\n]*|/\*.*?\*/', re.S)
 for f in dict.fromkeys(files + os.environ.get('CASE_RTL', '').split()):
@@ -255,7 +258,6 @@ run_verilator() {
   cat > waive.vlt <<'VLT'
 `verilator_config
 lint_off -file "*bb.sv"
-lint_off -file "*/external_lib/*"
 lint_off -file "*/cpu.PICORV32/*"
 VLT
   # --timescale: none of the RTL sets one (no delays)
@@ -301,6 +303,32 @@ run_yosys() {
   found yosys < <(for t in $TOPS; do awk '/Executing CHECK pass/ { c = 1 } c && /^Warning:/' yosys.$t.log; done)
 }
 
+# Our rule: every control flop and flag has a reset; data and address flops
+# need none. A flop with no reset that reaches an enable, a select or a reset
+# starts at X in a 4-state simulator and can lock the design up (eduBOS5
+# dmem_vld). One finding per flop, at its source line; the rules are in
+# run-lint-reset.py.
+run_reset() {
+  have "$YOSYS" || { skip reset "$YOSYS not found"; return; }
+  [ $VIEW = sim ] && { skip reset "chip view only"; return; }
+  bb || { skip reset "no Xilinx stubs"; return; }
+  local t rc
+  : > reset.log; : > reset.out
+  for t in $TOPS; do
+    "$YOSYS" $YOSYS_ARGS -q -l reset.$t.log -p "read_slang --allow-toplevel-iface-ports $SL_DEFS --top $t -I $INC \
+        bb.sv $(top_sv $t); hierarchy -check -top $t; proc; flatten; opt_expr; opt_clean; opt_dff; opt_clean; \
+        write_json reset.$t.json" >/dev/null 2>&1
+    rc=$?
+    cat reset.$t.log >> reset.log
+    [ $rc -eq 0 ] && [ -s reset.$t.json ] || { failed reset "top $t: exit $rc, no netlist"; return; }
+    "$PYTHON" "$HERE/run-lint-reset.py" reset.$t.json >> reset.out 2>> reset.log
+    rc=$?
+    [ $rc -eq 0 ] || { failed reset "top $t: netlist check exit $rc"; return; }
+  done
+  # paths relative to the work directory, as in the slang phase
+  found reset < <(sed -E 's#^(\.\./)+[^ ]*/(1\.hw|bld)/#\2/#' reset.out | sort -u)
+}
+
 run_slang() {
   have "$YOSYS" || { skip slang "$YOSYS not found"; return; }
   bb || { skip slang "no Xilinx stubs"; return; }
@@ -317,7 +345,7 @@ run_slang() {
   found slang < <(sed -E 's#^(\.\./)+[^ ]*/(1\.hw|bld)/#\2/#;
                           s/^([^ :]+:[0-9]+): Warning:/\1:0: warning:/;
                           s/^([^ :]+:[0-9]+): Error:/\1:0: error:/' slang.log |
-                  grep -E 'warning:|error:' | grep -v -E '^(bb\.sv|1\.hw/external_lib/|1\.hw/ip\.cpu/cpu\.PICORV32/)')
+                  grep -E 'warning:|error:' | grep -v -E '^(bb\.sv|1\.hw/ip\.cpu/cpu\.PICORV32/)')
   exit_check slang $rc
 }
 
@@ -335,9 +363,11 @@ run_verible() {
 pypeline_vhdl() {
   [ -s pypeline/vhdl_files.txt ] && return 0
   [ -e pypeline.failed ] && return 1
-  # no __pycache__ in the source tree
+  # no __pycache__ in the source tree. --comb with --no_synth: with Vivado
+  # found, a plain --no_synth build writes no vhdl_files.txt (without a
+  # synthesis tool pypelinec switches to --comb itself)
   (cd "$REPO/3.build/pypeline_build" && PYTHONDONTWRITEBYTECODE=1 \
-     "$PYPELINEC" ./src/chacha20poly1305.py --out_dir "$W/pypeline" --top $PYP_TOP --no_synth) \
+     "$PYPELINEC" ./src/chacha20poly1305.py --out_dir "$W/pypeline" --top $PYP_TOP --comb --no_synth) \
      > pypeline.log 2>&1 && [ -s pypeline/vhdl_files.txt ] && return 0
   touch pypeline.failed; return 1
 }
@@ -374,8 +404,8 @@ run_ghdl_verilator() {
 
 for ph in $PHASES; do
   case $ph in
-    tags|verilator|yosys|slang|verible|ghdl|ghdl-verilator) echo "== $ph"; run_${ph//-/_} ;;
-    *) echo "unknown phase: $ph (tags verilator yosys slang verible ghdl ghdl-verilator)"; exit 2 ;;
+    tags|verilator|yosys|reset|slang|verible|ghdl|ghdl-verilator) echo "== $ph"; run_${ph//-/_} ;;
+    *) echo "unknown phase: $ph (tags verilator yosys reset slang verible ghdl ghdl-verilator)"; exit 2 ;;
   esac
 done
 

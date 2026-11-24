@@ -9,7 +9,7 @@
 # not at all.
 
 [option]
-exclude_paths = ["external_lib/", "cpu\\.PICORV32/", "lintcrux_build/generated/"]
+exclude_paths = ["cpu\\.PICORV32/", "lintcrux_build/generated/"]
 
 [rules]
 # blocking and non-blocking assignments in the right processes

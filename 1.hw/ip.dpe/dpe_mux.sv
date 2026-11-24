@@ -158,7 +158,7 @@ module dpe_mux
 
   // Outputs logic: the served port's beats, stamped with its address
   always_comb begin
-    idle                = (phase == IDLE) & !to_dpe.tvalid;
+    idle                = (phase == IDLE) & ~to_dpe.tvalid;
     in_ready            = '0;
     to_dpe_sbuff.tvalid = 1'b0;
     to_dpe_sbuff.tdata  = '0;

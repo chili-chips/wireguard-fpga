@@ -79,8 +79,8 @@ package net_pkg;
   // true bit positions in the struct.
   typedef struct packed {
     mac_addr_t   dst;        // [111:64]
-    mac_addr_t   src;        // [ 63:16]
-    logic [15:0] ethertype;  // [ 15: 0]
+    mac_addr_t   src;        // [63:16]
+    logic [15:0] ethertype;  // [15:0]
   } eth_hdr_t;
 
   typedef struct packed {
@@ -89,27 +89,27 @@ package net_pkg;
     logic [7:0]  dscp_ecn;    // [151:144]
     len16_t      total_len;   // [143:128] IPv4 header + payload, bytes
     logic [15:0] id;          // [127:112]
-    logic [15:0] flags_frag;  // [111: 96] flags, fragment offset
-    logic [7:0]  ttl;         // [ 95: 88]
-    logic [7:0]  proto;       // [ 87: 80]
-    logic [15:0] checksum;    // [ 79: 64]
-    ipv4_addr_t  src;         // [ 63: 32]
-    ipv4_addr_t  dst;         // [ 31:  0]
+    logic [15:0] flags_frag;  // [111:96] flags, fragment offset
+    logic [7:0]  ttl;         // [95:88]
+    logic [7:0]  proto;       // [87:80]
+    logic [15:0] checksum;    // [79:64]
+    ipv4_addr_t  src;         // [63:32]
+    ipv4_addr_t  dst;         // [31:0]
   } ipv4_hdr_t;
 
   typedef struct packed {
     udp_port_t   src_port;  // [63:48]
     udp_port_t   dst_port;  // [47:32]
     len16_t      len;       // [31:16] UDP header + payload, bytes
-    logic [15:0] checksum;  // [15: 0]
+    logic [15:0] checksum;  // [15:0]
   } udp_hdr_t;
 
   // WireGuard fields are little-endian on the wire: wg_frame_bytes() swaps
   // them, so they too hold natural values here
   typedef struct packed {
     logic [31:0]  msg_type;  // [127:96] WG_TYPE_DATA
-    wg_receiver_t receiver;  // [ 95:64]
-    wg_counter_t  counter;   // [ 63: 0]
+    wg_receiver_t receiver;  // [95:64]
+    wg_counter_t  counter;   // [63:0]
   } wg_data_hdr_t;
 
   // The headers of an outgoing WireGuard data frame, in wire order
@@ -117,7 +117,7 @@ package net_pkg;
     eth_hdr_t     eth;   // [463:352] frame bytes  0-13
     ipv4_hdr_t    ipv4;  // [351:192] frame bytes 14-33
     udp_hdr_t     udp;   // [191:128] frame bytes 34-41
-    wg_data_hdr_t wg;    // [127:  0] frame bytes 42-57
+    wg_data_hdr_t wg;    // [127:0] frame bytes 42-57
   } wg_frame_hdr_t;
 
   localparam int WG_FRAME_HDR_LEN = $bits(wg_frame_hdr_t) / 8;  // 58 = WG_PAYLOAD_OFFSET
@@ -146,8 +146,8 @@ package net_pkg;
     ipv4_addr_t   remote_ip;    // [399:368]
     udp_port_t    remote_port;  // [367:352]
     wg_receiver_t remote_id;    // [351:320] the peer's receiver index
-    wg_key_t      key;          // [319: 64]
-    wg_counter_t  send_cnt;     // [ 63:  0]
+    wg_key_t      key;          // [319:64]
+    wg_counter_t  send_cnt;     // [63:0]
   } wg_peer_cfg_t;
 
   // a block's request to the peer table (lkup_peer_table): the peer, and
@@ -155,16 +155,16 @@ package net_pkg;
   // pulses once a packet). The answer is the peer's wg_peer_cfg_t, from the
   // 2nd clock after idx
   typedef struct packed {
-    dpe_peer_idx_t idx;
-    wg_counter_t   new_send_cnt;
-    logic          update_send_cnt;
+    dpe_peer_idx_t idx;              // [72:65]
+    wg_counter_t   new_send_cnt;     // [64:1]
+    logic          update_send_cnt;  // [0]
   } peer_req_t;
 
   // the peer table's answer to a receiver index, combinationally: its peer,
   // and whether the index is known
   typedef struct packed {
-    dpe_peer_idx_t idx;
-    logic          match;
+    dpe_peer_idx_t idx;    // [8:1]
+    logic          match;  // [0]
   } rcv_rsp_t;
 
   //------------------------------------------------------------------

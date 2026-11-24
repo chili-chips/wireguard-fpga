@@ -100,18 +100,18 @@ module dpe_wg_disassembler
           ETH_TYPE_OFFSET
       )):
       // IPv4 without options: the UDP and WireGuard offsets hold
-          beat_ok = be16(inp.tdata, ETH_TYPE_OFFSET) == ETHERTYPE_IPV4 &&
+          beat_ok = be16(inp.tdata, ETH_TYPE_OFFSET) == ETHERTYPE_IPV4 &
           byte_at(inp.tdata, IPV4_VER_IHL_OFFSET) == {IPV4_VERSION, 4'd5};
       2'(beat_of(
           IPV4_PROTO_OFFSET
       )):
       // UDP, to wg_ip (its upper half here, the lower half in the next beat)
-          beat_ok = byte_at(inp.tdata, IPV4_PROTO_OFFSET) == IP_PROTO_UDP &&
+          beat_ok = byte_at(inp.tdata, IPV4_PROTO_OFFSET) == IP_PROTO_UDP &
           be16(inp.tdata, IPV4_DST_OFFSET) == wg_ip[31:16];
       2'(beat_of(
           UDP_DST_PORT_OFFSET
       )):
-      beat_ok = be16(inp.tdata, IPV4_DST_OFFSET + 2) == wg_ip[15:0] &&
+      beat_ok = be16(inp.tdata, IPV4_DST_OFFSET + 2) == wg_ip[15:0] &
           be16(inp.tdata, UDP_DST_PORT_OFFSET) == wg_port;
       default: beat_ok = 1'b1;
     endcase
@@ -121,8 +121,12 @@ module dpe_wg_disassembler
   logic decide, is_wg, first_keep_tuser;
   logic [31:0] wg_type;  // the WireGuard message type, from its beat (below)
   logic        is_hs;  // a handshake message (types 1 to 3): for the CPU
-  assign is_hs   = (in_beat == 2'(HDR_LAST_BEAT)) & hdr_ok & beat_ok & ~keep_tuser &
-      (wg_type >= 32'd1) & (wg_type <= 32'd3);
+  assign is_hs   = (in_beat == 2'(HDR_LAST_BEAT))
+                 & hdr_ok
+                 & beat_ok
+                 & ~keep_tuser
+                 & (wg_type >= 32'd1)
+                 & (wg_type <= 32'd3);
   assign first_keep_tuser = inp.tuser.bypass_all | inp.tuser.bypass_stage;
   assign decide = in_hs & ~hdr_done & ((in_beat == 2'(HDR_LAST_BEAT)) | inp.tlast);
   // a WireGuard packet of another type (none is defined) is dropped as a bad one
@@ -197,11 +201,11 @@ module dpe_wg_disassembler
   //------------------------------------------------------------------
   // Decision FIFO: one entry per packet, in packet order
   typedef struct packed {
-    logic          decrypt;     // tid = peer, bypass_stage clear
-    logic          to_cpu;      // a handshake: bypass_all, to the CPU
-    logic          drop;        // WireGuard data of an unknown receiver index, or bad
-    logic          keep_tuser;  // unchanged
-    dpe_peer_idx_t peer_idx;
+    logic          decrypt;     // [11]   tid = peer, bypass_stage clear
+    logic          to_cpu;      // [10]   a handshake: bypass_all, to the CPU
+    logic          drop;        // [9]    WireGuard data of an unknown receiver index, or bad
+    logic          keep_tuser;  // [8]    unchanged
+    dpe_peer_idx_t peer_idx;    // [7:0]
   } dcsn_t;
 
   dcsn_t dcsn_mem[DCSN_DEPTH];
@@ -218,9 +222,9 @@ module dpe_wg_disassembler
           DCSN_DEPTH
       )-1:0]] <=
       '{
-          decrypt: dcsn_is_wg & dcsn_is_data & rcv_rsp.match & !dcsn_keep_tuser,
-          to_cpu: dcsn_is_hs & !dcsn_keep_tuser,
-          drop: dcsn_is_wg & !(dcsn_is_data & rcv_rsp.match) & !dcsn_keep_tuser,
+          decrypt: dcsn_is_wg & dcsn_is_data & rcv_rsp.match & ~dcsn_keep_tuser,
+          to_cpu: dcsn_is_hs & ~dcsn_keep_tuser,
+          drop: dcsn_is_wg & ~(dcsn_is_data & rcv_rsp.match) & ~dcsn_keep_tuser,
           keep_tuser: dcsn_keep_tuser,
           peer_idx: rcv_rsp.idx
       };
@@ -252,15 +256,8 @@ module dpe_wg_disassembler
   axis_fifo #(
       .DEPTH (FIFO_BEATS * DPE_DATA_BYTES)  // bytes
   ) u_fifo (
-      .s_axis              (inp),
-      .m_axis              (buffered),
-      .pause_req           (1'b0),
-      .pause_ack           (  /*LINT:OK*/),  // no pause
-      .status_depth        (  /*LINT:OK*/),  // status not used
-      .status_depth_commit (  /*LINT:OK*/),  // status not used
-      .status_overflow     (  /*LINT:OK*/),  // status not used
-      .status_bad_frame    (  /*LINT:OK*/),  // status not used
-      .status_good_frame   (  /*LINT:OK*/)   // status not used
+      .s_axis (inp),
+      .m_axis (buffered)
   );
 
   //------------------------------------------------------------------
@@ -282,7 +279,7 @@ module dpe_wg_disassembler
       outp.tuser.dst          = DPE_ADDR_CPU;
     end
     else if (!dcsn.keep_tuser) begin
-      outp.tuser.bypass_stage = !dcsn.decrypt;
+      outp.tuser.bypass_stage = ~dcsn.decrypt;
       if (dcsn.decrypt) begin
         outp.tid = dcsn.peer_idx;
       end

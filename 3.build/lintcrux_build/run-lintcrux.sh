@@ -18,22 +18,18 @@
 # What is linted: the project wireguard-fpga.lintcrux at the repository root,
 # the chip view of top with eduBOS5 plus the DPE block tops (BLOCK_TOPS in
 # hw_build.openXC7/sources.sh), the Xilinx primitives and the generated
-# ChaCha20-Poly1305 cores as black boxes, as in run-lint.sh. The findings that
-# exist today are frozen in .lintcrux-baseline.json (the root too): with
-# --fail-on-new-violations a run fails (exit 2) only on a finding that is not
-# in it. A finding is matched by rule, file and message, not by line, so code
-# moving up or down does not make it new.
+# ChaCha20-Poly1305 cores as black boxes, as in run-lint.sh. The baseline,
+# .lintcrux-baseline.json (the root too), is empty: the design has no
+# findings, so with --fail-on-new-violations any finding fails the run
+# (exit 2). Fix it, or waive it with its reason in lintcrux.vlt or
+# .svlint.toml; do not baseline it. (Writing a baseline takes LintCrux Pro,
+# which CI cannot run, lintcrux#57; the free lintcrux only reads one.)
 #
 # usage:  bash run-lintcrux.sh [lintcrux options]
 #           (no options)                      the table, exit 0
 #           --fail-on-new-violations          the CI gate
 #           --sarif lint.sarif                SARIF 2.1.0 for code scanning
 #           --engine slang                    one engine only (repeatable)
-#         LINTCRUX=lintcrux-pro bash run-lintcrux.sh baseline set
-#                                             freeze the findings of this run
-#                                             as the new baseline (writing a
-#                                             baseline takes LintCrux Pro;
-#                                             reading it, the free lintcrux)
 #
 # Exit status is lintcrux's: 0 clean or no gate failed, 1 findings with
 # --exit-code, 2 new findings with --fail-on-new-violations, 3 the run failed
@@ -65,7 +61,7 @@ YOSYS_CONFIG=${YOSYS_CONFIG:-yosys-config}
 PYTHON=${PYTHON:-python3}
 PYPELINEC=${PYPELINEC:-pypelinec}
 PYP_TOP=chacha20poly1305_encrypt_decrypt_shared
-PRIMS="PLLE2_BASE BUFG IBUFGDS BUFGMUX BUFIO BUFIO2 BUFR ODDR ODDR2"
+PRIMS="PLLE2_BASE BUFG IBUFGDS BUFGMUX ODDR DSP48E1"
 CORES="chacha20poly1305_encrypt chacha20poly1305_decrypt"
 
 # LintCrux starts an engine by path: resolve each tool to an absolute one
@@ -122,10 +118,13 @@ printf '%s\n' -explicit-parameter-storage-type -line-length -module-filename \
 # ---- the Pypeline VHDL, in one file -------------------------------------------
 # pypelinec names each file after a hash of its contents, so the names change
 # with the design; one file keeps the project and the baseline stable. GHDL
-# analyses the units in file order, so they go in dependency order
-echo "-- pypelinec --no_synth --top $PYP_TOP"
+# analyses the units in file order, so they go in dependency order.
+# --comb with --no_synth: pypelinec switches to that mode itself when no
+# synthesis tool is installed (CI), but with Vivado found a plain --no_synth
+# build writes no vhdl_files.txt; --comb makes both write the same files
+echo "-- pypelinec --comb --no_synth --top $PYP_TOP"
 (cd "$REPO/3.build/pypeline_build" && PYTHONDONTWRITEBYTECODE=1 \
-   "$PYPELINEC" ./src/chacha20poly1305.py --out_dir "$GEN/pypeline" --top $PYP_TOP --no_synth) \
+   "$PYPELINEC" ./src/chacha20poly1305.py --out_dir "$GEN/pypeline" --top $PYP_TOP --comb --no_synth) \
    > "$GEN/pypelinec.log" 2>&1 || { tail -20 "$GEN/pypelinec.log"; echo "run-lintcrux.sh: pypelinec failed" >&2; exit 3; }
 "$PYTHON" - "$GEN/pypeline" "$GEN/pypeline.vhd" <<'EOF'
 import os, re, sys
@@ -177,7 +176,15 @@ cat > "$GEN/bin/ghdl" <<EOF
 shift
 exec "$GHDL" -s --std=08 -frelaxed "\$@"
 EOF
-chmod +x "$GEN/bin/slang" "$GEN/bin/ghdl"
+# svlint: the project's include path (3.build/sw_build, imem.INIT.vh) by its
+# absolute path: svlint too runs in the folder of the first source, where the
+# relative one does not resolve
+cat > "$GEN/bin/svlint" <<EOF
+#!/bin/sh
+[ "\$1" = --version ] && exec "$SVLINT" "\$@"
+exec "$SVLINT" -i "$REPO/3.build/sw_build" "\$@"
+EOF
+chmod +x "$GEN/bin/slang" "$GEN/bin/ghdl" "$GEN/bin/svlint"
 # Verilator's waiver file by its absolute path: a relative one is looked up
 # from the folder of the first source, not from the project's
 "$PYTHON" - "$PROJECT" "$GEN/paths.lintcrux" <<'EOF'
@@ -191,7 +198,7 @@ json.dump({'perEngineOptions': opts}, open(dest, 'w'), indent=2)
 EOF
 
 ENGINES="--verilator-path=$VERILATOR --verible-path=$VERIBLE --slang-path=$GEN/bin/slang
-  --svlint-path=$SVLINT --ghdl-path=$GEN/bin/ghdl --config=$GEN/paths.lintcrux"
+  --svlint-path=$GEN/bin/svlint --ghdl-path=$GEN/bin/ghdl --config=$GEN/paths.lintcrux"
 
 cd "$REPO"
 if [ "${1:-}" = baseline ]; then

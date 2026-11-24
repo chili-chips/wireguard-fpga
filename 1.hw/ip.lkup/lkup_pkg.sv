@@ -22,8 +22,8 @@ package lkup_pkg;
   // when encrypt is set
   typedef struct packed {
     dpe_peer_idx_t peer_idx;  // [11:4]
-    logic          encrypt;   // [   3]
-    dpe_addr_t     dst;       // [ 2:0]
+    logic          encrypt;   // [3]
+    dpe_addr_t     dst;       // [2:0]
   } route_act_t;
 
   // a routing-table entry (csr.rdl routing_table.entry): a packet whose IPv4
@@ -31,16 +31,16 @@ package lkup_pkg;
   typedef struct packed {
     logic [31:0] prefix;  // [75:44]
     logic [31:0] mask;    // [43:12]
-    route_act_t  act;     // [11: 0]
+    route_act_t  act;     // [11:0]
   } route_t;
 
   // a write enable per field: the CPU writes one field per access
   typedef struct packed {
-    logic prefix;
-    logic mask;
-    logic peer_idx;
-    logic encrypt;
-    logic dst;
+    logic prefix;    // [4]
+    logic mask;      // [3]
+    logic peer_idx;  // [2]
+    logic encrypt;   // [1]
+    logic dst;       // [0]
   } route_we_t;
 
   // no route matches: to the CPU, as it is

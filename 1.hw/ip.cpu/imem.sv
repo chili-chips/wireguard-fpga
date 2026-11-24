@@ -87,8 +87,16 @@ module imem #(
 
   //------------------------------------------------------------
   // storage element: Writes and Reads are synchronous
+  //
+  // A plain always, not always_ff, by design (our RAM rule): IEEE 1800-2017
+  // 9.2.2.4 forbids any other process to write a variable that an always_ff
+  // writes, and the initial block above that loads the program is such a
+  // process. Plain always is the legal form, and the one in the Vivado and
+  // Yosys RAM templates, so both still infer a block RAM. Standalone slang
+  // (LintCrux) rejects the always_ff form; read_slang and simulators let
+  // it pass, so do not "fix" this back.
   //------------------------------------------------------------
-  always_ff @(posedge clk) begin
+  always @(posedge clk) begin
     rdat  <= mem[raddr[ADDR_MSB:2]];
     wrdat <= mem[waddr[ADDR_MSB:2]];
 

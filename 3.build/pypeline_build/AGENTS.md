@@ -230,10 +230,11 @@ too: pull before you edit `1.hw/` or `4.sim/`.
 
 - **Swapped in** ([#48](https://github.com/chili-chips/wireguard-fpga/issues/48), `98cc510`,
   2026-11-17): `1.hw/ip.dpe/dpe_wg_encryptor.sv` and `dpe_wg_decryptor.sv`
-  now take this core: standalone `--enc --soc` and `--dec --soc` builds
-  (PipelineC `97097a87`, Vivado 2026.1), Verilog gzip'd in `soc/*.v.gz`
-  (`4.sim/rtl/sim.mk` unpacks it; lint and LEQ read it as is), their
-  `latency_profile.json` in `latency_hints/`. With them our benches pass byte
+  now take this core: standalone `--enc --soc` and `--dec --soc` builds,
+  Verilog gzip'd in `soc/*.v.gz` (`4.sim/rtl/sim.mk` unpacks it; lint and LEQ
+  read it as is). The first ones (PipelineC `97097a87`, Vivado 2026.1) left
+  their `latency_profile.json` in `latency_hints/`; the tracked netlists are
+  the 2026-11-23 rebuild with module prefixes (below). With them our benches pass byte
   for byte, RFC 8439 tags included. The ports keep the old core's names, so
   the swap was an instance change. Keep the port names and their meaning
   stable; tell us (issue or note here) before changing them.
@@ -281,16 +282,26 @@ too: pull before you edit `1.hw/` or `4.sim/`.
   clashes. `build.py --enc` and `--dec` pass `--module_prefix enc_` and
   `dec_` ([PipelineC#400](https://github.com/JulianKemmerer/PipelineC/issues/400),
   [#59](https://github.com/chili-chips/wireguard-fpga/issues/59)), so every
-  module of those netlists except the top has its own core's prefix. The
-  tracked `soc/*.v.gz` predate the flag: they share 419 names (169 differ
-  only in GHDL's net numbers, such as `\:3609.read_pipe`; with those
-  normalized, none does), and their benches keep `-Wno-MODDUP` until the
-  netlists are rebuilt with `build.py` (`pipelinec.ref` has the flag). The shared top (one ChaCha20 pipeline) avoids the clash
-  too but needs one instance for both wrappers: our call at integration
+  module of those netlists except the top has its own core's prefix.
+  **Rebuilt 2026-11-23** (main `385d383`, PipelineC `4e7a7ced`, Vivado 2026.2,
+  full sweep): 487 of 488 encrypt and 494 of 495 decrypt modules carry the
+  prefix (the tops do not), none shared, and the benches dropped
+  `-Wno-MODDUP`; `dpe_wg_encryptor`, `dpe_wg_decryptor` and `dpe_switch` pass.
+  **Timing not met:** both sweeps keep 65.6 MHz (WNS -2.745 ns; best seen
+  71.6 MHz) against 80 MHz, at 40.7k / 39.5k LUT, 32k FF, 121 DSP48 each, so
+  these netlists are for simulation only, not hardware. Reported in
+  [#59](https://github.com/chili-chips/wireguard-fpga/issues/59): the sweep keeps
+  its last observation, not its best, and stops at "more states cannot help".
+  `latency_hints/` still holds the 2026.1 profiles: the new ones would start
+  the next build from 65.6 MHz.
+- **Next on our side: the shared core.** The two standalone cores do not fit
+  beside the SoC (about 134%, #40), so `dpe_switch.sv` moves to one
+  `--shared --soc` core for both directions, which also avoids the name clash
   ([#27](https://github.com/chili-chips/wireguard-fpga/issues/27)).
 - **`pipelinec.ref`** is `4e7a7ced` (includes the #394, #395 and #392 fixes,
   imports without distutils, so CI's Python 3.12 needs no setuptools, and has
-  `--module_prefix`, which `build.py --enc` and `--dec` pass).
+  `--module_prefix`, which `build.py --enc` and `--dec` pass). PipelineC
+  master `f0471102` (2026-11-23) adds only docs and tests on top of it.
   The SoC builds above started on `97097a87` with the old workaround; the
   lint and the native random sim pass on `99e5e018`; on `0b710cca` the GHDL
   lints pass with no waiver (the #395 one is gone).
@@ -302,7 +313,11 @@ too: pull before you edit `1.hw/` or `4.sim/`.
   a default `--syn-cache` shared across output directories (today each
   build's cache sits inside its own copy). Valid while the source is
   unchanged; a design change needs one full build to re-verify 80 MHz and
-  refresh the hints. We also skip `--sim --syn_tb` for the SoC cores: our
+  refresh the hints. The prefix renames every module, so on `4e7a7ced` the
+  old cache gave 0 hits and a `--no_sweep` build took 90 min and planned about
+  5 MHz (2026-11-23). The caches of the prefixed full builds (455 and 439 MB)
+  are kept outside the repo on our build PC, at
+  `~/.cache/wg-pypeline/syn_cache_{enc,dec}`, for `--syn-cache`. We also skip `--sim --syn_tb` for the SoC cores: our
   benches check the exported Verilog against RFC 8439.
 - **Size the core to the board** ([#40](https://github.com/chili-chips/wireguard-fpga/issues/40)):
   the published default uses about 61% of the

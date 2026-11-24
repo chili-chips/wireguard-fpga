@@ -2,11 +2,20 @@
 //
 // SPDX-License-Identifier: BSD-3-Clause
 
-// Block-level benches: no warnings from third-party and generated code
-// (run-lint.sh checks it with its own waivers)
+// Block-level benches: no warnings from vendor models and generated code
+// (run-lint.sh checks the generated code with its own waivers)
 `verilator_config
-lint_off -file "*/external_lib/*"
+lint_off -file "*/models/no-change/*"
 lint_off -file "*/pipelinec_build/*"
+// external_lib is linted in full; the same waivers as run-lint-waivers.txt:
+// a reset synchronizer's output resets async and sync logic by design, and
+// the MAC FIFO's receive tuser (bad frame) is not used
+lint_off -rule SYNCASYNCNET -file "*/external_lib/axis/sync_reset.sv"
+lint_off -rule SYNCASYNCNET -file "*/external_lib/ethernet/gmii_phy_if.sv"
+lint_off -rule UNUSEDSIGNAL -file "*/external_lib/ethernet/eth_mac_1g_gmii_fifo.sv" -match "*rx_axis_tuser*"
+// gmii2gmii_test: its reset is driven from an initial block and resets the
+// MAC's async and sync logic
+lint_off -rule SYNCASYNCNET -file "*/gmii2gmii_test/tb.sv"
 
 // -----------------------------------------------------------------------------
 // Project:     WireGuard-FPGA

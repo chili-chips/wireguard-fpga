@@ -85,7 +85,7 @@ block_rtl() {
 }
 
 cpu_select() {
-  local p='(ip.cpu/cpu.PICORV32/picorv32.CHILI|ip.cpu/soc_cpu.PICORV32).sv'
+  local p='(ip.cpu/cpu.PICORV32/picorv32(.CHILI|_pcpi_mul|_pcpi_div)|ip.cpu/soc_cpu.PICORV32).sv'
   local e='(ip.cpu/cpu.EDUBOS5/edubos5[a-z_]*|ip.cpu/soc_cpu.EDUBOS5).sv'
   case $2 in
     picorv32) sed -i -E -e "s@^#(.*$p)@\1@" -e "s@^([^#].*$e)@#\1@" "$1" ;;

@@ -84,7 +84,7 @@
 //==========================================================================
 
 module soc_cpu
-  import soc_pkg::imem_wr_t;
+  import soc_pkg::*;
 #(
     parameter logic [31:0] ADDR_RESET     = 32'h0000_0000,
     parameter int          NUM_WORDS_IMEM = 8192
@@ -140,6 +140,9 @@ module soc_cpu
   // RISC-V convention for the StackPointer is to point to the last word in
   // use, i.e. free memory is at the addresses below the current SP value.
   //--------------------------------------------------------
+  logic  cpu_arst_n;  // the bus reset, or the IMEM loader holding the CPU
+  assign cpu_arst_n = bus.arst_n & imem_cpu_rst_n;
+
   picorv32 #(
       .PROGADDR_RESET (ADDR_RESET),
       .STACKADDR      (32'h1000_8000), // 32KB
@@ -152,9 +155,9 @@ module soc_cpu
 
       .LATCHED_MEM_RDATA (0),
       .BARREL_SHIFTER    (0),
-      .ENABLE_MUL        (0),
+      .ENABLE_MUL        (1),  // RV32M: the same firmware as eduBOS5
       .ENABLE_FAST_MUL   (0),
-      .ENABLE_DIV        (0),
+      .ENABLE_DIV        (1),
 
       .ENABLE_REGS_DUALPORT (1),
       .ENABLE_REGS_16_31    (1),
@@ -177,8 +180,8 @@ module soc_cpu
       .CATCH_MISALIGN (1),
       .CATCH_ILLINSN  (1)
   ) u_cpu (
-      .clk    (bus.clk),                     //i
-      .resetn (bus.arst_n & imem_cpu_rst_n), //i
+      .clk    (bus.clk),    //i
+      .resetn (cpu_arst_n), //i
 
       .trap (  /*LINT:OK*/),  // not monitored
 

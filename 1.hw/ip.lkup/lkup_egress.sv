@@ -209,9 +209,9 @@ module lkup_egress
   logic          last_in;  // the frame's last beat is in the buffer
 
   typedef struct packed {
-    dpe_data_t data;
-    dpe_keep_t keep;
-    logic      last;
+    dpe_data_t data;  // [144:17]
+    dpe_keep_t keep;  // [16:1]
+    logic      last;  // [0]
   } buf_beat_t;
 
   buf_beat_t beat_buf   [BUF_BEATS];  // the buffered beats (no reset)

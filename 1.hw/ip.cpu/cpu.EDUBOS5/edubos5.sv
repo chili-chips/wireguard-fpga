@@ -18,7 +18,14 @@ module edubos5
     // 1: the Zicntr counters, read with csrrs/csrrc rd, csr, x0 (rdcycle,
     // rdtime, rdinstret and the h halves; time is cycle, at the fixed clock).
     // Any other SYSTEM instruction halts the core, as with 0
-    parameter bit EN_COUNTERS     = 1'b0
+    parameter bit EN_COUNTERS     = 1'b0,
+    // 1: RV32M (mul, mulh, mulhsu, mulhu, div, divu, rem, remu), each in a
+    // fixed count of clocks whatever its operands; firmware -march=rv32im.
+    // 0: RV32I only, no logic
+    parameter bit USE_HW_MUL      = 1'b0,
+    // USE_HW_MUL: 1 multiplies in a DSP48E1 primitive (Xilinx 7-series), 0 in
+    // plain RTL with the same registers and timing
+    parameter bit USE_DSP48E1     = 1'b0
 ) (
     input  logic             clk,
     input  logic             arst_n,          // reset button
@@ -100,6 +107,10 @@ module edubos5
 
   logic eq, lt, ltu;
 
+  // RV32M (USE_HW_MUL): an M instruction stays in EXECUTE while md_hold
+  logic                md_hold;
+  cpu_data_t           alu_md_out;  // to the register file: alu_out, or the M result
+
   cpu_data_t           dmem_rdat_reg;
   logic                dmem_rdy_reg;
 
@@ -158,8 +169,10 @@ module edubos5
 
       // csrrs/csrrc with rs1 x0, or csrrsi/csrrci with uimm 0 (no write; the
       // same bits), of 0xC00-0xC02 or 0xC80-0xC82
-      assign cnt_rd = instr.grp.imm.func3[1] & (instr.grp.reg2reg.rs1 == '0)
-                    & (instr.grp.imm.imm11_0[11:8] == 4'hC) & (instr.grp.imm.imm11_0[6:2] == '0)
+      assign cnt_rd = instr.grp.imm.func3[1]
+                    & (instr.grp.reg2reg.rs1 == '0)
+                    & (instr.grp.imm.imm11_0[11:8] == 4'hC)
+                    & (instr.grp.imm.imm11_0[6:2] == '0)
                     & (instr.grp.imm.imm11_0[1:0] != 2'b11);
 
       // [1]: instret, else cycle or time; [7]: the high half
@@ -197,8 +210,11 @@ module edubos5
       assign cnt_rdat = '0;
     end
   endgenerate
-  always_ff @(posedge clk) begin : _instr_decode_flop
-    if (go2exec) begin
+  always_ff @(negedge arst_n or posedge clk) begin : _instr_decode_flop
+    if (arst_n == LO) begin
+      instr_decode_reg <= '0;
+    end
+    else if (go2exec) begin
       instr_decode_reg <= instr_decode;
     end
   end : _instr_decode_flop
@@ -251,12 +267,22 @@ module edubos5
 
   assign NC_imm_low = {imm_brnch[1:0], imm_jump[1:0], imm_uload_reg[1:0]};
 
+  // the functs select: reset; the immediates are data
+  always_ff @(negedge arst_n or posedge clk) begin
+    if (arst_n == LO) begin
+      funct3_brnch <= funct3_brnch_t'(0);
+      funct7_alu   <= 1'b0;
+      funct3_imm   <= funct3_load_t'(0);
+    end
+    else if (go2exec) begin
+      funct3_brnch <= instr.grp.brnch.func3;
+      funct7_alu   <= instr.grp.reg2reg.func7[5];
+      funct3_imm   <= instr.grp.imm.func3;
+    end
+  end
+
   always_ff @(posedge clk) begin
     if (go2exec) begin
-      funct3_brnch  <= instr.grp.brnch.func3;
-      funct7_alu    <= instr.grp.reg2reg.func7[5];
-      funct3_imm    <= instr.grp.imm.func3;
-
       pc_imm_reg    <= pc_imm;
       imm_uload_reg <= imm_uload;
     end
@@ -413,11 +439,11 @@ module edubos5
   always_comb begin : _branch
     unique case (funct3_brnch)
       BEQ:     take_brnch = eq;
-      BNE:     take_brnch = !eq;
+      BNE:     take_brnch = ~eq;
       BLT:     take_brnch = lt;
-      BGE:     take_brnch = !lt;
+      BGE:     take_brnch = ~lt;
       BLTU:    take_brnch = ltu;
-      BGEU:    take_brnch = !ltu;
+      BGEU:    take_brnch = ~ltu;
       default: take_brnch = eq;
     endcase
   end : _branch
@@ -461,7 +487,7 @@ module edubos5
       rf_wdat = imm_uload;  //KEEP AS IS, affects timing
     end
     else if (instr_decode_reg.ALUIMM | instr_decode_reg.ALUREG) begin
-      rf_wdat = alu_out;  // ALU*: Save the result of ALU operation
+      rf_wdat = alu_md_out;  // ALU*: Save the result of ALU operation (or M)
     end
     else begin
       rf_wdat = load_to_reg;  // LOAD: Save the data read from memory, and other (CNT: funct3 as LW)
@@ -533,7 +559,7 @@ module edubos5
             state <= LOAD_DATA;
           end
           else begin
-            if (!instr_decode.SYSTEM) begin
+            if (!instr_decode.SYSTEM & !md_hold) begin
               state    <= FETCH_INSTR;
               imem_vld <= 1'b0;
             end
@@ -595,6 +621,7 @@ module edubos5
       .SHIFT_PRE_REG (EN_WAIT4REGS == 1)  //3-stage: shift before the register
   ) u_alu (
       .clk            (clk),                         //i
+      .arst_n         (arst_n),                      //i
       .reset          (1'b0),                        //i
       .ce             (go2exec),                     //i
       .aluin_1        (aluin_1),                     //i
@@ -611,6 +638,312 @@ module edubos5
       .lt             (lt)                           //o
   );
 
+  //-------------------------------------------------
+  // RV32M: multiply and divide (USE_HW_MUL)
+  //-------------------------------------------------
+  generate
+    if (USE_HW_MUL == 1'b1) begin : g_md
+      // An M instruction stays in EXECUTE for a fixed count of clocks, the same
+      // for any operands (constant time), then retires in FETCH_INSTR like an
+      // ALU one. md_cnt counts its EXECUTE clocks from 0; at 0 the operands
+      // load into rs1_reg, rs2_reg and the funct3 into funct3_imm.
+      localparam int MUL_END = 6;   // 4 partial products, + M and P registers
+      localparam int DIV_END = 34;  // setup, 32 steps, sign
+
+      logic       md_op;  // decode: ALUREG with funct7 0000001
+      logic       md_sel;  // md_op registered: the retiring instruction is an M one
+      logic       md_step;  // an M instruction in EXECUTE, not stalled
+      logic       md_end;  // its last EXECUTE clock
+      logic [2:0] md_f3;  // funct3, registered
+      logic [5:0] md_cnt;
+      cpu_data_t mul_res, div_res;
+
+      assign md_op   = instr_decode.ALUREG & (instr.grp.reg2reg.func7 == SEL_MULDIV);
+      assign md_f3   = funct3_imm;
+      assign md_step = (state == EXECUTE) & md_op & ~store_stall;
+      assign md_end  = (md_cnt == (md_f3[2] ? 6'(DIV_END) : 6'(MUL_END)));
+      assign md_hold = (state == EXECUTE) & md_op & ~md_end;
+
+      always_ff @(negedge arst_n or posedge clk) begin : _md_cnt
+        if (arst_n == LO) begin
+          md_cnt <= '0;
+        end
+        else if (md_step) begin
+          md_cnt <= md_end ? '0 : md_cnt + 6'd1;
+        end
+      end : _md_cnt
+
+      always_ff @(negedge arst_n or posedge clk) begin : _md_sel
+        if (arst_n == LO) begin
+          md_sel <= 1'b0;
+        end
+        else if (go2exec) begin
+          md_sel <= md_op;
+        end
+      end : _md_sel
+
+      //--- MUL, MULH, MULHSU, MULHU --------------------------------------
+      // One signed 33x33 multiply, each operand sign- or zero-extended by
+      // funct3, as four 17-bit partial products through one DSP48E1 (25x18),
+      // one per clock, summed in its post-adder (P = Z + M):
+      //   p1 = al*bl, p2 = (p1 >>> 17) + al*bh, p3 = p2 + ah*bl,
+      //   p4 = (p3 >>> 17) + ah*bh
+      // al, bl: the low 17 bits (unsigned); ah, bh: the high 16 (signed).
+      // Z is 0, P or P >>> 17 (OPMODE), so the sum needs no fabric adder; the
+      // low bits are kept as they shift out: product {p4[29:0], p3[16:0],
+      // p1[16:0]}. The DSP registers its operands (AREG, BREG), product (MREG),
+      // OPMODE and sum (PREG). md_cnt: 1-4 operands in, 2-5 products, 3-6 sums.
+      // p1 clears the old sum, so nothing from before counts.
+      typedef enum logic [2:0] {
+        Z_ZERO = 3'b000,
+        Z_P    = 3'b010,
+        Z_P17  = 3'b110   // P >>> 17
+      } mul_z_t;
+
+      logic mul_ce;
+      logic a_sx, b_sx;  // 33rd operand bit: the sign, or 0
+      logic signed [24:0] mul_a;  // to the A register: al, al, ah, ah
+      logic signed [17:0] mul_b;  // to the B register: bl, bh, bl, bh
+      mul_z_t             mul_z;  // to the OPMODE register: for the product
+      logic [47:0] mul_p;  // the P register
+      logic [16:0] mul_lo, mul_mid;  // p1[16:0], p3[16:0]
+      logic [17:0] NC_mul_p;  // above bit 63 of the product
+      assign       NC_mul_p = mul_p[47:30];
+
+      assign mul_ce   = md_step & ~md_f3[2];
+      assign a_sx     = rs1_reg[31] & (md_f3[1:0] != 2'b11);  // MULH, MULHSU (MUL: any)
+      assign b_sx     = rs2_reg[31] & (md_f3[1:0] == 2'b01);  // MULH
+      assign mul_a    = (md_cnt >= 6'd3) ? {{10{a_sx}}, rs1_reg[31:17]} : {8'd0, rs1_reg[16:0]};
+      assign mul_b    = md_cnt[0]
+                      ? {1'b0, rs2_reg[16:0]}
+                      : {{3{b_sx}}, rs2_reg[31:17]};
+
+      always_comb begin : _mul_z
+        unique case (md_cnt)
+          6'd3, 6'd5: mul_z = Z_P17;
+          6'd4:       mul_z = Z_P;
+          default:    mul_z = Z_ZERO;  // md_cnt 2: p1
+        endcase
+      end : _mul_z
+
+      always_ff @(posedge clk) begin : _mul_bits
+        if (mul_ce & (md_cnt == 6'd4)) begin
+          mul_lo <= mul_p[16:0];
+        end
+        if (mul_ce & (md_cnt == 6'd6)) begin
+          mul_mid <= mul_p[16:0];
+        end
+      end : _mul_bits
+
+      if (USE_DSP48E1 == 1'b1) begin : g_dsp48e1
+        // the Xilinx 7-series primitive: A/B, M, OPMODE and P registers
+        logic [29:0] NC_acout;
+        logic [17:0] NC_bcout;
+        logic [47:0] NC_pcout;
+        logic [ 3:0] NC_carryout;
+        logic NC_carrycascout, NC_multsignout, NC_overflow, NC_underflow;
+        logic NC_patterndetect, NC_patternbdetect;
+
+        logic [29:0] mul_a_dsp;  // A: 30 bits, mul_a sign-extended
+        assign       mul_a_dsp = {{5{mul_a[24]}}, mul_a};
+
+        DSP48E1 #(
+            .A_INPUT       ("DIRECT"),
+            .B_INPUT       ("DIRECT"),
+            .USE_DPORT     ("FALSE"),
+            .USE_MULT      ("MULTIPLY"),
+            .USE_SIMD      ("ONE48"),
+            .AREG          (1),
+            .ACASCREG      (1),
+            .BREG          (1),
+            .BCASCREG      (1),
+            .MREG          (1),
+            .PREG          (1),
+            .OPMODEREG     (1),
+            .ALUMODEREG    (1),
+            .INMODEREG     (1),
+            .CARRYINREG    (1),
+            .CARRYINSELREG (1),
+            .CREG          (0),
+            .DREG          (0),
+            .ADREG         (0)
+        ) u_dsp (
+            .CLK            (clk),
+            .A              (mul_a_dsp),
+            .B              (mul_b),
+            .C              (48'd0),
+            .D              (25'd0),
+            .OPMODE         ({mul_z, 4'b0101}),  // X = M, Y = M
+            .ALUMODE        (4'b0000),           // Z + X + Y + CIN
+            .INMODE         (5'b00000),          // A2 * B2
+            .CARRYIN        (1'b0),
+            .CARRYINSEL     (3'b000),
+            .CEA1           (1'b0),
+            .CEA2           (mul_ce),
+            .CEB1           (1'b0),
+            .CEB2           (mul_ce),
+            .CEM            (mul_ce),
+            .CEP            (mul_ce),
+            .CECTRL         (mul_ce),
+            .CEALUMODE      (1'b1),
+            .CEINMODE       (1'b1),
+            .CECARRYIN      (1'b1),
+            .CEC            (1'b0),
+            .CED            (1'b0),
+            .CEAD           (1'b0),
+            .RSTA           (1'b0),
+            .RSTB           (1'b0),
+            .RSTM           (1'b0),
+            .RSTP           (1'b0),
+            .RSTC           (1'b0),
+            .RSTD           (1'b0),
+            .RSTCTRL        (1'b0),
+            .RSTALUMODE     (1'b0),
+            .RSTINMODE      (1'b0),
+            .RSTALLCARRYIN  (1'b0),
+            .ACIN           (30'd0),
+            .BCIN           (18'd0),
+            .PCIN           (48'd0),
+            .CARRYCASCIN    (1'b0),
+            .MULTSIGNIN     (1'b0),
+            .P              (mul_p),             //o
+            .ACOUT          (NC_acout),          //o
+            .BCOUT          (NC_bcout),          //o
+            .PCOUT          (NC_pcout),          //o
+            .CARRYOUT       (NC_carryout),       //o
+            .CARRYCASCOUT   (NC_carrycascout),   //o
+            .MULTSIGNOUT    (NC_multsignout),    //o
+            .OVERFLOW       (NC_overflow),       //o
+            .UNDERFLOW      (NC_underflow),      //o
+            .PATTERNDETECT  (NC_patterndetect),  //o
+            .PATTERNBDETECT (NC_patternbdetect)  //o
+        );
+      end : g_dsp48e1
+      else begin : g_mul_rtl
+        // portable: the same registers and timing in plain RTL
+        logic signed [24:0] mul_a_reg;
+        logic signed [17:0] mul_b_reg;
+        logic signed [42:0] mul_m;
+        mul_z_t             mul_z_reg;
+
+        // OPMODE: selects the sum, reset
+        always_ff @(negedge arst_n or posedge clk) begin : _mul_z_reg
+          if (arst_n == LO) begin
+            mul_z_reg <= Z_ZERO;
+          end
+          else if (mul_ce) begin
+            mul_z_reg <= mul_z;
+          end
+        end : _mul_z_reg
+
+        always_ff @(posedge clk) begin : _mul
+          if (mul_ce) begin
+            mul_a_reg <= mul_a;
+            mul_b_reg <= mul_b;
+            mul_m     <= mul_a_reg * mul_b_reg;
+            unique case (mul_z_reg)
+              Z_P:     mul_p <= mul_p + 48'(mul_m);
+              Z_P17:   mul_p <= ($signed(mul_p) >>> 17) + 48'(mul_m);
+              default: mul_p <= 48'(mul_m);
+            endcase
+          end
+        end : _mul
+      end : g_mul_rtl
+
+      always_comb begin : _mul_res
+        if (md_f3[1:0] == 2'b00) begin
+          mul_res = {mul_mid[14:0], mul_lo};  // MUL: the low word
+        end
+        else begin
+          mul_res = {mul_p[29:0], mul_mid[16:15]};
+        end
+      end : _mul_res
+
+      //--- DIV, DIVU, REM, REMU ------------------------------------------
+      // Restoring division of the magnitudes, one quotient bit per clock,
+      // always 32 steps, then the signs. The ISA corner cases need no special
+      // path: a zero divisor gives quotient all ones and remainder the
+      // dividend (the quotient is not negated then), INT_MIN / -1 gives INT_MIN
+      // and remainder 0. The last clock writes the result into quo.
+      logic div_ce;
+      logic n_sx, d_sx;  // signed DIV, REM: the operand is negative
+      logic q_neg, r_neg;
+      logic [31:0] quo, rem, dvs;
+      logic [32:0] r_sh;  // the remainder shifted, with the next dividend bit
+      logic [33:0] r_dif;  // r_sh - dvs: negative when dvs does not fit
+
+      assign div_ce  = md_step & md_f3[2];
+      assign n_sx    = rs1_reg[31] & ~md_f3[0];
+      assign d_sx    = rs2_reg[31] & ~md_f3[0];
+      assign r_sh    = {rem, quo[31]};
+      assign r_dif   = {1'b0, r_sh} - {2'b00, dvs};
+      assign div_res = quo;
+
+      logic  NC_r_dif;  // 0 unless dvs is 0: a remainder is below dvs
+      assign NC_r_dif = r_dif[32];
+
+      // the result signs: they select, reset
+      always_ff @(negedge arst_n or posedge clk) begin : _div_signs
+        if (arst_n == LO) begin
+          q_neg <= 1'b0;
+          r_neg <= 1'b0;
+        end
+        else if (div_ce & (md_cnt == 6'd1)) begin  // setup
+          q_neg <= (n_sx ^ d_sx) & (|rs2_reg);
+          r_neg <= n_sx;
+        end
+      end : _div_signs
+
+      always_ff @(posedge clk) begin : _div
+        if (div_ce) begin
+          if (md_cnt == 6'd1) begin  // setup
+            quo <= n_sx ? -rs1_reg : rs1_reg;
+            dvs <= d_sx ? -rs2_reg : rs2_reg;
+            rem <= '0;
+          end
+          else if (md_cnt == 6'(DIV_END)) begin  // the signs
+            quo <= md_f3[1] ? (r_neg ? -rem : rem) : (q_neg ? -quo : quo);
+          end
+          else if (md_cnt != '0) begin  // a step
+            rem <= r_dif[33] ? r_sh[31:0] : r_dif[31:0];
+            quo <= {quo[30:0], ~r_dif[33]};
+          end
+        end
+      end : _div
+
+`ifdef RISCV_FORMAL_ALTOPS
+      // riscv-formal's alternative M results (formal only): its checks then
+      // see decode, timing and write-back, not the arithmetic, which a SAT
+      // solver cannot prove at 32 bits
+      cpu_data_t alt_res;
+      cpu_data_t NC_md_res;
+      assign NC_md_res = mul_res ^ div_res;
+
+      always_comb begin : _altops
+        unique case (md_f3)
+          3'b000:  alt_res = (rs1_reg + rs2_reg) ^ 32'h5876_063e;
+          3'b001:  alt_res = (rs1_reg + rs2_reg) ^ 32'hf658_3fb7;
+          3'b010:  alt_res = (rs1_reg - rs2_reg) ^ 32'hecfb_e137;
+          3'b011:  alt_res = (rs1_reg + rs2_reg) ^ 32'h949c_e5e8;
+          3'b100:  alt_res = (rs1_reg - rs2_reg) ^ 32'h7f85_29ec;
+          3'b101:  alt_res = (rs1_reg - rs2_reg) ^ 32'h10e8_fd70;
+          3'b110:  alt_res = (rs1_reg - rs2_reg) ^ 32'h8da6_8fa5;
+          3'b111:  alt_res = (rs1_reg - rs2_reg) ^ 32'h3138_d0e1;
+          default: alt_res = '0;
+        endcase
+      end : _altops
+
+      assign alu_md_out = md_sel ? alt_res : alu_out;
+`else
+      assign alu_md_out = md_sel ? (md_f3[2] ? div_res : mul_res) : alu_out;
+`endif
+    end : g_md
+    else begin : g_no_md
+      assign md_hold    = 1'b0;
+      assign alu_md_out = alu_out;
+    end : g_no_md
+  endgenerate
+
   //---------------------------------------------------------------------
   // Flopping the interface to dmem: avoid circular logic, increase Fmax
   //---------------------------------------------------------------------
@@ -624,6 +957,27 @@ module edubos5
 
   assign store_stall = STORE_WAITS_RDY & dmem_vld & (dmem_we != NOWR) & ~dmem_rdy;
 
+  // the request and its write strobes: reset, as store_stall feeds back on them
+  always_ff @(negedge arst_n or posedge clk) begin : _dmem_vld
+    if (arst_n == LO) begin
+      dmem_vld <= 1'b0;
+      dmem_we  <= NOWR;
+    end
+    else if (!store_stall) begin
+      dmem_vld <= dmem_vld_next;
+      dmem_we  <= we_bs_t'(dmem_we_next & {4{state == FETCH_INSTR}});
+    end
+  end : _dmem_vld
+
+  always_ff @(negedge arst_n or posedge clk) begin : _dmem_rdy
+    if (arst_n == LO) begin
+      dmem_rdy_reg <= 1'b0;
+    end
+    else begin
+      dmem_rdy_reg <= dmem_rdy;
+    end
+  end : _dmem_rdy
+
   always_ff @(posedge clk) begin : _dmem_connection
     // data gating; a waiting STORE keeps its request
     if (!store_stall) begin
@@ -631,8 +985,6 @@ module edubos5
       if (state == FETCH_INSTR) begin
         dmem_wdat <= dmem_wdat_next;
       end
-      dmem_we  <= we_bs_t'(dmem_we_next & {4{state == FETCH_INSTR}});
-      dmem_vld <= dmem_vld_next;
     end
     if (state == WAIT_DATA) begin
       dmem_rdat_reg <= dmem_rdat;
@@ -642,9 +994,6 @@ module edubos5
       // new input on the timing-critical rf_wdat mux
       dmem_rdat_reg <= cnt_rdat;
     end
-
-    dmem_rdy_reg <= dmem_rdy;
-
   end : _dmem_connection
 
   // MCP capture side: the registers the sources feed (pc and the FSM load

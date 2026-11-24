@@ -60,12 +60,17 @@ module soc_csr
   //assign bus.rdy = 1'b1;
   assign bus.rdy                 = s_cpuif_rd_ack | s_cpuif_wr_ack;
 
+  logic  csr_rst;  // the PeakRDL CSR resets on high
+  assign csr_rst         = ~bus.arst_n;
+  logic  cpuif_req_is_wr;  // a write: any byte strobe
+  assign cpuif_req_is_wr = |bus.we;
+
   csr csr_inst (
       .clk (bus.clk),
-      .rst (~bus.arst_n),
+      .rst (csr_rst),
 
       .s_cpuif_req (bus.vld),
-      .s_cpuif_req_is_wr (|bus.we),
+      .s_cpuif_req_is_wr (cpuif_req_is_wr),
       .s_cpuif_addr ({bus.addr[CSR_MIN_ADDR_WIDTH-1:2], 2'b00}),
       .s_cpuif_wr_data (bus.wdat),
       .s_cpuif_wr_biten (s_cpuif_wr_biten),

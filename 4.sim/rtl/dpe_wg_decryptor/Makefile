@@ -4,13 +4,12 @@
 
 # dpe_wg_decryptor loopback bench (encryptor -> decryptor): make [SIM=verilator|icarus|janushdl], see ../sim.mk
 
-# MODDUP: the two PipelineC netlists share helper modules (same hashed name, same body)
 # LOOPBACK=0: wg_mix.pcap instead of the encryptor: RFC 8439 frames, then a keepalive,
 # an authentic packet whose IPv4 length is over its plaintext, one too long for
 # the core (all three dropped) and one more good frame. Remake it with
 #   python3 ../wg_check.py wgx wg_mix.pcap ../dpe_wg_encryptor/plaintext_mix.pcap
 LOOPBACK ?= 1
-VFLAGS = -GLOOPBACK=$(LOOPBACK) -Wno-MODDUP -Wno-PINCONNECTEMPTY -Wno-UNUSEDPARAM -Wno-UNUSEDSIGNAL -Wno-GENUNNAMED -Wno-DECLFILENAME -Wno-UNOPTFLAT
+VFLAGS = -GLOOPBACK=$(LOOPBACK) -Wno-PINCONNECTEMPTY -Wno-UNUSEDPARAM -Wno-UNUSEDSIGNAL -Wno-GENUNNAMED -Wno-DECLFILENAME -Wno-UNOPTFLAT
 SRC_F  = tb.filelist
 SRC    = tb.sv
 

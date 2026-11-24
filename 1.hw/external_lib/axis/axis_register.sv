@@ -4,16 +4,11 @@
 // wireguard-fpga (https://github.com/chili-chips/wireguard-fpga).
 // The original header follows.
 
-// verilator lint_off GENUNNAMED
-
 // Copyright (c) 2014-2018 Alex Forencich
 //
 // SPDX-License-Identifier: MIT
 
 // Language: Verilog 2001 (ports: SystemVerilog dpe_if, by Chili.CHIPS)
-
-`resetall
-`default_nettype none
 
 /*
  * AXI4-Stream register
@@ -22,17 +17,17 @@ module axis_register
   import dpe_pkg::*;
 #(
     // Propagate tkeep signal
-    parameter KEEP_ENABLE = 1,
+    parameter bit KEEP_ENABLE = 1,
     // Propagate tlast signal
-    parameter LAST_ENABLE = 1,
+    parameter bit LAST_ENABLE = 1,
     // Propagate tid signal
     // (Chili.CHIPS: on by default, dpe_if carries the peer index in tid)
-    parameter ID_ENABLE   = 1,
+    parameter bit ID_ENABLE   = 1,
     // Propagate tuser signal
-    parameter USER_ENABLE = 1,
+    parameter bit USER_ENABLE = 1,
     // Register type
     // 0 to bypass, 1 for simple buffer, 2 for skid buffer
-    parameter REG_TYPE    = 2
+    parameter int REG_TYPE    = 2
 ) (
     dpe_if.s_axis s_axis,
     dpe_if.m_axis m_axis
@@ -40,12 +35,10 @@ module axis_register
 
   // Chili.CHIPS: the widths are dpe_if's, from dpe_pkg; the body below keeps
   // its original port names, bound here to the interface ports
-  localparam DATA_WIDTH  = DPE_DATA_W;
-  localparam KEEP_WIDTH  = DPE_KEEP_W;
-  localparam ID_WIDTH    = DPE_ID_W;
-  localparam DEST_ENABLE = 0;           // dpe_if carries no tdest
-  localparam DEST_WIDTH  = 1;
-  localparam USER_WIDTH  = DPE_USER_W;
+  localparam int DATA_WIDTH = DPE_DATA_W;
+  localparam int KEEP_WIDTH = DPE_KEEP_W;
+  localparam int ID_WIDTH   = DPE_ID_W;
+  localparam int USER_WIDTH = DPE_USER_W;
 
   logic  clk;
   assign clk = s_axis.clk;
@@ -63,8 +56,6 @@ module axis_register
   assign                 s_axis_tlast  = s_axis.tlast;
   logic [ID_WIDTH-1:0]   s_axis_tid;
   assign                 s_axis_tid    = s_axis.tid;
-  logic [DEST_WIDTH-1:0] s_axis_tdest;
-  assign                 s_axis_tdest  = '0;
   logic [USER_WIDTH-1:0] s_axis_tuser;
   assign                 s_axis_tuser  = s_axis.tuser;
   assign                 s_axis.tready = s_axis_tready;
@@ -76,9 +67,6 @@ module axis_register
   assign                 m_axis_tready = m_axis.tready;
   logic                  m_axis_tlast;
   logic [ ID_WIDTH-1:0]  m_axis_tid;
-  // verilator lint_off UNUSEDSIGNAL
-  logic [DEST_WIDTH-1:0] m_axis_tdest;  // DEST_ENABLE is 0
-  // verilator lint_on UNUSEDSIGNAL
   logic [USER_WIDTH-1:0] m_axis_tuser;
   assign                 m_axis.tdata  = m_axis_tdata;
   assign                 m_axis.tkeep  = m_axis_tkeep;
@@ -89,27 +77,25 @@ module axis_register
 
   generate
 
-    if (REG_TYPE > 1) begin
+    if (REG_TYPE > 1) begin : g_skid
       // skid buffer, no bubble cycles
 
       // datapath registers
-      logic                  s_axis_tready_reg = 1'b0;
+      logic                  s_axis_tready_reg;
 
-      logic [DATA_WIDTH-1:0] m_axis_tdata_reg = {DATA_WIDTH{1'b0}};
-      logic [KEEP_WIDTH-1:0] m_axis_tkeep_reg = {KEEP_WIDTH{1'b0}};
-      logic m_axis_tvalid_reg = 1'b0, m_axis_tvalid_next;
-      logic                  m_axis_tlast_reg = 1'b0;
-      logic [  ID_WIDTH-1:0] m_axis_tid_reg = {ID_WIDTH{1'b0}};
-      logic [DEST_WIDTH-1:0] m_axis_tdest_reg = {DEST_WIDTH{1'b0}};
-      logic [USER_WIDTH-1:0] m_axis_tuser_reg = {USER_WIDTH{1'b0}};
+      logic [DATA_WIDTH-1:0] m_axis_tdata_reg;
+      logic [KEEP_WIDTH-1:0] m_axis_tkeep_reg;
+      logic m_axis_tvalid_reg, m_axis_tvalid_next;
+      logic                  m_axis_tlast_reg;
+      logic [  ID_WIDTH-1:0] m_axis_tid_reg;
+      logic [USER_WIDTH-1:0] m_axis_tuser_reg;
 
-      logic [DATA_WIDTH-1:0] temp_m_axis_tdata_reg = {DATA_WIDTH{1'b0}};
-      logic [KEEP_WIDTH-1:0] temp_m_axis_tkeep_reg = {KEEP_WIDTH{1'b0}};
-      logic temp_m_axis_tvalid_reg = 1'b0, temp_m_axis_tvalid_next;
-      logic                  temp_m_axis_tlast_reg = 1'b0;
-      logic [  ID_WIDTH-1:0] temp_m_axis_tid_reg = {ID_WIDTH{1'b0}};
-      logic [DEST_WIDTH-1:0] temp_m_axis_tdest_reg = {DEST_WIDTH{1'b0}};
-      logic [USER_WIDTH-1:0] temp_m_axis_tuser_reg = {USER_WIDTH{1'b0}};
+      logic [DATA_WIDTH-1:0] temp_m_axis_tdata_reg;
+      logic [KEEP_WIDTH-1:0] temp_m_axis_tkeep_reg;
+      logic temp_m_axis_tvalid_reg, temp_m_axis_tvalid_next;
+      logic                  temp_m_axis_tlast_reg;
+      logic [  ID_WIDTH-1:0] temp_m_axis_tid_reg;
+      logic [USER_WIDTH-1:0] temp_m_axis_tuser_reg;
 
       // datapath control
       logic                  store_axis_input_to_output;
@@ -123,7 +109,6 @@ module axis_register
       assign m_axis_tvalid = m_axis_tvalid_reg;
       assign m_axis_tlast  = LAST_ENABLE ? m_axis_tlast_reg : 1'b1;
       assign m_axis_tid    = ID_ENABLE   ? m_axis_tid_reg   : {ID_WIDTH{1'b0}};
-      assign m_axis_tdest  = DEST_ENABLE ? m_axis_tdest_reg : {DEST_WIDTH{1'b0}};
       assign m_axis_tuser  = USER_ENABLE ? m_axis_tuser_reg : {USER_WIDTH{1'b0}};
 
       // enable ready input next cycle if output is ready or the temp reg will
@@ -173,7 +158,6 @@ module axis_register
           m_axis_tkeep_reg <= s_axis_tkeep;
           m_axis_tlast_reg <= s_axis_tlast;
           m_axis_tid_reg   <= s_axis_tid;
-          m_axis_tdest_reg <= s_axis_tdest;
           m_axis_tuser_reg <= s_axis_tuser;
         end
         else if (store_axis_temp_to_output) begin
@@ -181,7 +165,6 @@ module axis_register
           m_axis_tkeep_reg <= temp_m_axis_tkeep_reg;
           m_axis_tlast_reg <= temp_m_axis_tlast_reg;
           m_axis_tid_reg   <= temp_m_axis_tid_reg;
-          m_axis_tdest_reg <= temp_m_axis_tdest_reg;
           m_axis_tuser_reg <= temp_m_axis_tuser_reg;
         end
 
@@ -190,7 +173,6 @@ module axis_register
           temp_m_axis_tkeep_reg <= s_axis_tkeep;
           temp_m_axis_tlast_reg <= s_axis_tlast;
           temp_m_axis_tid_reg   <= s_axis_tid;
-          temp_m_axis_tdest_reg <= s_axis_tdest;
           temp_m_axis_tuser_reg <= s_axis_tuser;
         end
 
@@ -198,23 +180,30 @@ module axis_register
           s_axis_tready_reg      <= 1'b0;
           m_axis_tvalid_reg      <= 1'b0;
           temp_m_axis_tvalid_reg <= 1'b0;
+          m_axis_tid_reg         <= '0;
+          m_axis_tkeep_reg       <= '0;
+          m_axis_tlast_reg       <= '0;
+          m_axis_tuser_reg       <= '0;
+          temp_m_axis_tid_reg    <= '0;
+          temp_m_axis_tkeep_reg  <= '0;
+          temp_m_axis_tlast_reg  <= '0;
+          temp_m_axis_tuser_reg  <= '0;
         end
       end
 
     end
-    else if (REG_TYPE == 1) begin
+    else if (REG_TYPE == 1) begin : g_simple
       // simple register, inserts bubble cycles
 
       // datapath registers
-      logic                  s_axis_tready_reg = 1'b0;
+      logic                  s_axis_tready_reg;
 
-      logic [DATA_WIDTH-1:0] m_axis_tdata_reg = {DATA_WIDTH{1'b0}};
-      logic [KEEP_WIDTH-1:0] m_axis_tkeep_reg = {KEEP_WIDTH{1'b0}};
-      logic m_axis_tvalid_reg = 1'b0, m_axis_tvalid_next;
-      logic                  m_axis_tlast_reg = 1'b0;
-      logic [  ID_WIDTH-1:0] m_axis_tid_reg = {ID_WIDTH{1'b0}};
-      logic [DEST_WIDTH-1:0] m_axis_tdest_reg = {DEST_WIDTH{1'b0}};
-      logic [USER_WIDTH-1:0] m_axis_tuser_reg = {USER_WIDTH{1'b0}};
+      logic [DATA_WIDTH-1:0] m_axis_tdata_reg;
+      logic [KEEP_WIDTH-1:0] m_axis_tkeep_reg;
+      logic m_axis_tvalid_reg, m_axis_tvalid_next;
+      logic                  m_axis_tlast_reg;
+      logic [  ID_WIDTH-1:0] m_axis_tid_reg;
+      logic [USER_WIDTH-1:0] m_axis_tuser_reg;
 
       // datapath control
       logic                  store_axis_input_to_output;
@@ -226,7 +215,6 @@ module axis_register
       assign m_axis_tvalid = m_axis_tvalid_reg;
       assign m_axis_tlast  = LAST_ENABLE ? m_axis_tlast_reg : 1'b1;
       assign m_axis_tid    = ID_ENABLE   ? m_axis_tid_reg   : {ID_WIDTH{1'b0}};
-      assign m_axis_tdest  = DEST_ENABLE ? m_axis_tdest_reg : {DEST_WIDTH{1'b0}};
       assign m_axis_tuser  = USER_ENABLE ? m_axis_tuser_reg : {USER_WIDTH{1'b0}};
 
       // enable ready input next cycle if output buffer will be empty
@@ -258,18 +246,21 @@ module axis_register
           m_axis_tkeep_reg <= s_axis_tkeep;
           m_axis_tlast_reg <= s_axis_tlast;
           m_axis_tid_reg   <= s_axis_tid;
-          m_axis_tdest_reg <= s_axis_tdest;
           m_axis_tuser_reg <= s_axis_tuser;
         end
 
         if (rst) begin
           s_axis_tready_reg <= 1'b0;
           m_axis_tvalid_reg <= 1'b0;
+          m_axis_tid_reg    <= '0;
+          m_axis_tkeep_reg  <= '0;
+          m_axis_tlast_reg  <= '0;
+          m_axis_tuser_reg  <= '0;
         end
       end
 
     end
-    else begin
+    else begin : g_bypass
       // bypass
 
       assign m_axis_tdata  = s_axis_tdata;
@@ -277,7 +268,6 @@ module axis_register
       assign m_axis_tvalid = s_axis_tvalid;
       assign m_axis_tlast  = LAST_ENABLE ? s_axis_tlast : 1'b1;
       assign m_axis_tid    = ID_ENABLE   ? s_axis_tid   : {ID_WIDTH{1'b0}};
-      assign m_axis_tdest  = DEST_ENABLE ? s_axis_tdest : {DEST_WIDTH{1'b0}};
       assign m_axis_tuser  = USER_ENABLE ? s_axis_tuser : {USER_WIDTH{1'b0}};
 
       assign s_axis_tready = m_axis_tready;
@@ -288,5 +278,3 @@ module axis_register
 
 endmodule
 
-`resetall
-// verilator lint_on GENUNNAMED

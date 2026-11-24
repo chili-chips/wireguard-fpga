@@ -10,21 +10,11 @@
 
 // Language: Verilog 2001
 
-`resetall
-`default_nettype none
-
 /*
- * Generic source synchronous SDR output
+ * Source synchronous SDR output (Xilinx 7-series ODDR: the forwarded clock)
  */
 module ssio_sdr_out #(
-    // target ("SIM", "GENERIC", "XILINX", "ALTERA")
-    parameter TARGET      = "GENERIC",
-    // IODDR style ("IODDR", "IODDR2")
-    // Use IODDR for Virtex-4, Virtex-5, Virtex-6, 7 Series, Ultrascale
-    // Use IODDR2 for Spartan-6
-    parameter IODDR_STYLE = "IODDR2",
-    // Width of register in bits
-    parameter WIDTH       = 1
+    parameter int WIDTH = 1  // width of register in bits
 ) (
     input  logic             clk,
 
@@ -34,19 +24,22 @@ module ssio_sdr_out #(
     output logic [WIDTH-1:0] output_q
 );
 
-  oddr #(
-      .TARGET      (TARGET),
-      .IODDR_STYLE (IODDR_STYLE),
-      .WIDTH       (1)
+  // the clock to the PHY: 0 on the rising edge, 1 on the falling edge
+  ODDR #(
+      .DDR_CLK_EDGE ("SAME_EDGE"),
+      .SRTYPE       ("ASYNC")
   ) clk_oddr_inst (
-      .clk (clk),
-      .d1  (1'b0),
-      .d2  (1'b1),
-      .q   (output_clk)
+      .Q  (output_clk),
+      .C  (clk),
+      .CE (1'b1),
+      .D1 (1'b0),
+      .D2 (1'b1),
+      .R  (1'b0),
+      .S  (1'b0)
   );
 
   (* IOB = "TRUE" *)
-  logic [WIDTH-1:0] output_q_reg = {WIDTH{1'b0}};
+  logic [WIDTH-1:0] output_q_reg;
 
   assign output_q = output_q_reg;
 
@@ -56,4 +49,3 @@ module ssio_sdr_out #(
 
 endmodule
 
-`resetall

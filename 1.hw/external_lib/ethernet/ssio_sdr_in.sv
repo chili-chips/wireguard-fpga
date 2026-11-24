@@ -4,30 +4,17 @@
 // wireguard-fpga (https://github.com/chili-chips/wireguard-fpga).
 // The original header follows.
 
-// verilator lint_off GENUNNAMED
-
 // Copyright (c) 2016-2018 Alex Forencich
 //
 // SPDX-License-Identifier: MIT
 
 // Language: Verilog 2001
 
-`resetall
-`default_nettype none
-
 /*
- * Generic source synchronous SDR input
+ * Source synchronous SDR input (Xilinx 7-series: the clock on a BUFG)
  */
 module ssio_sdr_in #(
-    // target ("SIM", "GENERIC", "XILINX", "ALTERA")
-    parameter TARGET            = "GENERIC",
-    // Clock input style ("BUFG", "BUFR", "BUFIO", "BUFIO2")
-    // Use BUFR for Virtex-5, Virtex-6, 7-series
-    // Use BUFG for Ultrascale
-    // Use BUFIO2 for Spartan-6
-    parameter CLOCK_INPUT_STYLE = "BUFIO2",
-    // Width of register in bits
-    parameter WIDTH             = 1
+    parameter int WIDTH = 1  // width of register in bits
 ) (
     input  logic             input_clk,
 
@@ -38,113 +25,20 @@ module ssio_sdr_in #(
     output logic [WIDTH-1:0] output_q
 );
 
-  logic clk_int;
-  logic clk_io;
-
-  generate
-
-    if (TARGET == "XILINX") begin
-
-      // use Xilinx clocking primitives
-
-      if (CLOCK_INPUT_STYLE == "BUFG") begin
-
-        // buffer RX clock
-        BUFG clk_bufg (
-            .I (input_clk),
-            .O (clk_int)
-        );
-
-        // pass through RX clock to logic and input buffers
-        assign clk_io     = clk_int;
-        assign output_clk = clk_int;
-
-      end
-      else if (CLOCK_INPUT_STYLE == "BUFR") begin
-
-        assign clk_int = input_clk;
-
-        // pass through RX clock to input buffers
-        BUFIO clk_bufio (
-            .I (clk_int),
-            .O (clk_io)
-        );
-
-        // pass through RX clock to logic
-        BUFR #(
-            .BUFR_DIVIDE ("BYPASS")
-        ) clk_bufr (
-            .I   (clk_int),
-            .O   (output_clk),
-            .CE  (1'b1),
-            .CLR (1'b0)
-        );
-
-      end
-      else if (CLOCK_INPUT_STYLE == "BUFIO") begin
-
-        assign clk_int = input_clk;
-
-        // pass through RX clock to input buffers
-        BUFIO clk_bufio (
-            .I (clk_int),
-            .O (clk_io)
-        );
-
-        // pass through RX clock to MAC
-        BUFG clk_bufg (
-            .I (clk_int),
-            .O (output_clk)
-        );
-
-      end
-      else if (CLOCK_INPUT_STYLE == "BUFIO2") begin
-
-        // pass through RX clock to input buffers
-        BUFIO2 #(
-            .DIVIDE        (1),
-            .DIVIDE_BYPASS ("TRUE"),
-            .I_INVERT      ("FALSE"),
-            .USE_DOUBLER   ("FALSE")
-        ) clk_bufio (
-            .I            (input_clk),
-            .DIVCLK       (clk_int),
-            .IOCLK        (clk_io),
-            .SERDESSTROBE ()
-        );
-
-        // pass through RX clock to MAC
-        BUFG clk_bufg (
-            .I (clk_int),
-            .O (output_clk)
-        );
-
-      end
-
-    end
-    else begin
-
-      // pass through RX clock to input buffers
-      assign clk_io     = input_clk;
-
-      // pass through RX clock to logic
-      assign clk_int    = input_clk;
-      assign output_clk = clk_int;
-
-    end
-
-  endgenerate
+  // the RX clock on a BUFG, to the input registers and to the logic
+  BUFG clk_bufg (
+      .I (input_clk),
+      .O (output_clk)
+  );
 
   (* IOB = "TRUE" *)
-  logic [WIDTH-1:0] output_q_reg = {WIDTH{1'b0}};
+  logic [WIDTH-1:0] output_q_reg;
 
   assign output_q = output_q_reg;
 
-  always_ff @(posedge clk_io) begin
+  always_ff @(posedge output_clk) begin
     output_q_reg <= input_d;
   end
 
 endmodule
 
-`resetall
-// verilator lint_on GENUNNAMED

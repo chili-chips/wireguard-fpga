@@ -93,38 +93,30 @@ module cpu_fifo
       };
   assign csr_rx.tid = '0;  // ID_ENABLE is 0
 
+  // FIFOs of 8 KB: 512 words of 16 bytes, all the depth of the RAMB18s their
+  // width takes (4 Kb would leave half of each empty). A frame needs under
+  // 2 KB, so we don't need it now, but it costs nothing and rides out longer
+  // pauses (tready low) without dropping frames
   axis_fifo #(
-      .DEPTH          (4096),
+      .DEPTH          (8192),
       .FRAME_FIFO     (1),
       .DROP_WHEN_FULL (1),
+      .KEEP_AS_COUNT  (1),     // frames: tkeep contiguous (firmware: 0xFFFF >> empty)
       .ID_ENABLE      (0)      // the CSR has no tid
   ) tx_fifo (
-      .s_axis              (to_cpu),
-      .m_axis              (csr_tx),
-      .pause_req           (1'b0),
-      .pause_ack           (  /*LINT:OK*/),  // PAUSE_ENABLE is 0
-      .status_depth        (  /*LINT:OK*/),  // FIFO status not monitored
-      .status_depth_commit (  /*LINT:OK*/),  // FIFO status not monitored
-      .status_overflow     (  /*LINT:OK*/),  // FIFO status not monitored
-      .status_bad_frame    (  /*LINT:OK*/),  // FIFO status not monitored
-      .status_good_frame   (  /*LINT:OK*/)   // FIFO status not monitored
+      .s_axis (to_cpu),
+      .m_axis (csr_tx)
   );
 
   axis_fifo #(
-      .DEPTH          (4096),
+      .DEPTH          (8192),
       .FRAME_FIFO     (1),
       .DROP_WHEN_FULL (1),
+      .KEEP_AS_COUNT  (1),     // frames: tkeep contiguous (firmware: 0xFFFF >> empty)
       .ID_ENABLE      (0)      // the CSR has no tid
   ) rx_fifo (
-      .s_axis              (csr_rx),
-      .m_axis              (from_cpu),
-      .pause_req           (1'b0),
-      .pause_ack           (  /*LINT:OK*/),  // PAUSE_ENABLE is 0
-      .status_depth        (  /*LINT:OK*/),  // FIFO status not monitored
-      .status_depth_commit (  /*LINT:OK*/),  // FIFO status not monitored
-      .status_overflow     (  /*LINT:OK*/),  // FIFO status not monitored
-      .status_bad_frame    (  /*LINT:OK*/),  // FIFO status not monitored
-      .status_good_frame   (  /*LINT:OK*/)   // FIFO status not monitored
+      .s_axis (csr_rx),
+      .m_axis (from_cpu)
   );
 endmodule
 

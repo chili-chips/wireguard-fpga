@@ -136,54 +136,68 @@ module dpe_switch
   // Routing table: written and read back by the CPU only
   logic [31:0] rt_rd_data;
   logic        rt_rd_ack;
+  logic        rt_we;
+  assign       rt_we = rt_cfg.req & rt_cfg.req_is_wr;
 
   tdp_ram #(
       .ADDR_WIDTH (8)
   ) u_routing_table (
       .clk    (inp.clk),
-      .we_a   (rt_cfg.req & rt_cfg.req_is_wr),
+      .we_a   (rt_we),
       .addr_a (rt_cfg.addr[9:2]),
       .din_a  (rt_cfg.wr_data),
       .dout_a (rt_rd_data),
       .we_b   (1'b0),
       .addr_b ('0),
       .din_b  ('0),
-      .dout_b (  /*LINT:OK*/)                   // port B: the crossbar does not read the table
+      .dout_b (  /*LINT:OK*/)      // port B: the crossbar does not read the table
   );
   always_ff @(posedge inp.clk) begin
-    rt_rd_ack <= rt_cfg.req & ~rt_cfg.req_is_wr;
+    if (inp.rst) begin
+      rt_rd_ack <= 1'b0;
+    end
+    else begin
+      rt_rd_ack <= rt_cfg.req & ~rt_cfg.req_is_wr;
+    end
   end
   always_comb begin
     rt_sta.rd_data = rt_rd_data;
     rt_sta.rd_ack  = rt_rd_ack;
-    rt_sta.wr_ack  = rt_cfg.req & rt_cfg.req_is_wr;
+    rt_sta.wr_ack  = rt_we;
   end
 
 
   // Cryptokey table: written and read back by the CPU only
   logic [31:0] ck_rd_data;
   logic        ck_rd_ack;
+  logic        ck_we;
+  assign       ck_we = ck_cfg.req & ck_cfg.req_is_wr;
 
   tdp_ram #(
       .ADDR_WIDTH (11)
   ) u_cryptokey_table (
       .clk    (inp.clk),
-      .we_a   (ck_cfg.req & ck_cfg.req_is_wr),
+      .we_a   (ck_we),
       .addr_a (ck_cfg.addr[12:2]),
       .din_a  (ck_cfg.wr_data),
       .dout_a (ck_rd_data),
       .we_b   (1'b0),
       .addr_b ('0),
       .din_b  ('0),
-      .dout_b (  /*LINT:OK*/)                   // port B: the crossbar does not read the table
+      .dout_b (  /*LINT:OK*/)       // port B: the crossbar does not read the table
   );
   always_ff @(posedge inp.clk) begin
-    ck_rd_ack <= ck_cfg.req & ~ck_cfg.req_is_wr;
+    if (inp.rst) begin
+      ck_rd_ack <= 1'b0;
+    end
+    else begin
+      ck_rd_ack <= ck_cfg.req & ~ck_cfg.req_is_wr;
+    end
   end
   always_comb begin
     ck_sta.rd_data = ck_rd_data;
     ck_sta.rd_ack  = ck_rd_ack;
-    ck_sta.wr_ack  = ck_cfg.req & ck_cfg.req_is_wr;
+    ck_sta.wr_ack  = ck_we;
   end
 
   assign idle = 1'b1;
