@@ -187,9 +187,13 @@ The details of software architecture can be found in the [README.md](./2.sw/READ
 **How it is addressed**, in two layers:
 
 1. **Wipe where the secret is made.** Each crypto function clears its secrets before it returns: the ChaCha20 state and keystream, the Poly1305 key and the expected tag, the X25519 scalar and ladder state, the BLAKE2s context and work words, the HMAC and KDF buffers. The stores cannot be optimized away (`volatile`, or `memset` in a freestanding build).
-2. **Scrub the stack.** After start-up, each packet and each command, `stack_scrub()` (`2.sw/app/main.cpp`) zeroes the stack below the stack pointer, where nothing is live (eduBOS5 takes no interrupts). It catches what layer 1 leaves, such as the X25519 multiply scratch, which is too hot to wipe on each of its ~3000 calls.
+2. **Scrub the stack.** After start-up, each packet and each command, `stack_scrub()` (`2.sw/app/main.cpp`) zeroes the stack below the stack pointer, where nothing is live (eduBOS5 takes no interrupts). It catches what layer 1 leaves, such as the X25519 multiply scratch, which is too hot to wipe on each of its ~2600 calls.
 
-Still open: on RV32I a multiply is a libgcc loop whose time depends on the operands, so X25519 and Poly1305 timing depends on the key ([#4](https://github.com/chili-chips/wireguard-fpga/issues/4)). A constant-time hardware multiplier for eduBOS5 is in progress.
+### Multiply time does not depend on the key
+
+**The problem** ([#4](https://github.com/chili-chips/wireguard-fpga/issues/4)). RV32I has no multiply instruction, so the firmware multiplied in libgcc's `__mulsi3`, a loop whose time depends on the operand values. In X25519 and Poly1305 those values come from the keys. So the response time varied with the key: an attacker who measures it over many handshakes or packets could reverse-engineer the key (a timing side-channel attack).
+
+**How it is addressed.** eduBOS5 now multiplies in hardware (RV32M, `USE_HW_MUL=1`) in a fixed number of cycles, and the firmware is built for `rv32im`. On the RTL core, `poly1305_mac` on a 64-byte message takes 5222 cycles for every key tried; built for `rv32i`, it took 36790 to 73334 cycles, depending on the key. Details: [Multiply timing](./2.sw/README.md#multiply-timing).
 
 ## HW/SW Working Together as a Coherent System
 To illustrate the operation of the system as a whole, we have prepared a step-by-step analysis of packets processing based on the capture of real WireGuard traffic. The experimental topology consists of four nodes:

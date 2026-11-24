@@ -27,13 +27,9 @@ This component provides a minimal Curve25519 (X25519) implementation used for
 Elliptic Curve Diffie–Hellman (ECDH) key exchange within the Noise protocol
 as used by WireGuard.
 
-The implementation is based on the public-domain TweetNaCl reference code
-(https://tweetnacl.cr.yp.to/software.html). Only the Curve25519 (X25519)
-scalar multiplication functionality was extracted and integrated; no other
-TweetNaCl primitives are included.
+`x25519.c` follows [RFC 7748](https://www.rfc-editor.org/rfc/rfc7748) (the function, the Montgomery ladder) and the field arithmetic of ref10 ([SUPERCOP](https://bench.cr.yp.to/supercop.html), public domain). `curve25519.c` wraps it for public key generation and shared secret computation.
 
-A small wrapper API is provided to expose a clean and simple interface for
-public key generation and shared secret computation.
+It replaced TweetNaCl's X25519, which is written to be short, not fast: 81.3 M cycles per call on the RTL eduBOS5 even with the hardware multiplier (1.02 s at 80 MHz), so a handshake side (about 5 calls) would take about 5 s, WireGuard's `REKEY_TIMEOUT`.
 
 ### Provided Functionality
 - X25519 scalar multiplication
@@ -41,13 +37,11 @@ public key generation and shared secret computation.
 - Shared secret computation for ECDH
 
 ### Implementation Notes
-- Based on the TweetNaCl public-domain X25519 implementation.
-- Uses Montgomery curves and the Montgomery ladder.
-- Constant-time scalar multiplication with respect to the secret scalar.
-- Implemented using explicit integer arithmetic.
-- No dynamic memory allocation.
-- Suitable for bare-metal environments.
-- Only the Curve25519 code was imported; all other TweetNaCl components were excluded.
+- Field elements: 10 signed 32-bit limbs, 26 and 25 bits wide in turn (radix 2^25.5). A limb product is one `mul` + `mulh`: 100 per field multiply, 55 per square, unrolled. TweetNaCl took 256 64x64 multiplies for either.
+- Inversion: ref10's addition chain, 254 squares and 11 multiplies (TweetNaCl: 254 + 252).
+- Constant time: no branch or memory index depends on a secret; the ladder swaps with a mask, and eduBOS5's `mul`/`mulh` take a fixed cycle count.
+- The limb bounds keep every 32-bit factor below 2^31 and every 64-bit sum below 2^62 (comment in `x25519.c`).
+- No dynamic memory allocation, no libgcc calls.
 
 ### API Overview
 - `curve25519_generate_public_key(uint8_t public_key[32], const uint8_t private_key[32])`  
@@ -59,8 +53,7 @@ public key generation and shared secret computation.
 ### Testing and Validation
 - The implementation was [**successfully tested**](https://github.com/chili-chips/wireguard-fpga/tree/main/99.warmup/7.curve25519) using known-good key pairs and
   shared secret comparisons.
-- The code builds and runs correctly on the target hardware platform.
-- Correctness relies on the well-established TweetNaCl reference implementation.
+- `x25519.c` passes the RFC 7748 vectors (5.2, including the 1000-iteration one, and 6.1), and matches TweetNaCl on 20,000 random and 500 edge-case inputs (u = 0, 1, p-1, p, p+1, 2^255-1, an order-8 point), on the host, under UBSan and ASan.
 
 ## ChaCha20-Poly1305 lib
 This component implements the ChaCha20–Poly1305 authenticated encryption
@@ -92,7 +85,7 @@ accelerations.
 - One-time message authentication code
 - 128-bit authentication tag
 - Key derived from ChaCha20 keystream as per RFC 8439
-- Five 26-bit limbs: 32x32->64 multiplies only, so RV32I without the M extension works
+- Five 26-bit limbs: 32x32->64 multiplies only (hardware `mul`/`mulhu` on eduBOS5's RV32M; it also builds for RV32I)
 - Incremental API (`poly1305_init`/`update`/`finish`), any length and alignment
 - Constant-time tag compare (`poly1305_verify`)
 
@@ -222,6 +215,14 @@ adapted to use the local BLAKE2s component.
 - The underlying BLAKE2s implementation has been **successfully tested on real hardware**.
 - Since HMAC and KDF logic is taken directly from WireGuard, and BLAKE2s is verified,
   the implementation is assumed to be functionally correct for current use.
+
+## Multiply timing
+**The leak ([#4](https://github.com/chili-chips/wireguard-fpga/issues/4)).** RV32I has no multiply instruction, so gcc calls libgcc's `__mulsi3`, which loops over one operand's bits up to its highest 1 bit and adds only for the 1 bits. Its time depends on the operand values. In X25519 and Poly1305 those values come from the private key, the session key and the Poly1305 key. So the response time varied with the key: an attacker who measures it over many handshakes or packets could reverse-engineer the key (a timing side-channel attack).
+
+**The fix.** The firmware is now built for `rv32im`, so X25519 and Poly1305 multiply in eduBOS5's hardware (`USE_HW_MUL=1`), in a fixed number of cycles. Measured on the RTL core (`CPU=rtl`, `csr.cycle`):
+- `mul`, `mulh`, `mulhsu`, `mulhu`: 8 cycles; `div`, `divu`, `rem`, `remu`: 36 cycles. The same for every operand pair tried, including 0, all ones, divide by zero and `0x80000000 / -1`.
+- `poly1305_mac`, 64-byte message: 5222 cycles, the same for all 4 keys tried. Built for `rv32i` (libgcc `__muldi3`), the same call takes 36790 to 73334 cycles, depending on the key.
+- The image has no libgcc multiply or divide call. `div`/`rem` appear only outside the crypto code (`main`, `uart_send_dec`).
 
 # Software Control Flow
 ## Sending and receiving packets

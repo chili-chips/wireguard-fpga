@@ -37,11 +37,11 @@
 //              https://opensource.org/license/bsd-3-clause
 //--------------------------------------------------------------------------
 // Description:
-//   Curve25519 library (uses TweetNaCl X25519 implementation)
+//   Curve25519 library (uses x25519.c: RFC 7748, ref10 field arithmetic)
 //==========================================================================
 
 #include "curve25519.h"
-#include "tweetnacl_x25519.h"
+#include "x25519.h"
 
 int curve25519_generate_public_key(uint8_t public_key[32], const uint8_t private_key[32])
 {

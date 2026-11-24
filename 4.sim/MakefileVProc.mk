@@ -125,7 +125,7 @@ else
   # sources and defines as 3.build/MakefileSW.
   USER_C        := VUserMain0.cpp $(USER_C)
   FW_C           = uart ethernet network string_bare chacha20 poly1305 chacha20poly1305 \
-                   curve25519 tweetnacl_x25519 blake2s hkdf random timer
+                   curve25519 x25519 blake2s hkdf random timer
   FW_CPP         = main
 endif
 

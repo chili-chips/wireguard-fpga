@@ -67,7 +67,7 @@ $(SW_APP)/chacha20.h             $(SW_APP)/chacha20.c \
 $(SW_APP)/poly1305.h             $(SW_APP)/poly1305.c \
 $(SW_APP)/chacha20poly1305.h     $(SW_APP)/chacha20poly1305.c \
 $(SW_APP)/curve25519.h           $(SW_APP)/curve25519.c \
-$(SW_APP)/tweetnacl_x25519.h     $(SW_APP)/tweetnacl_x25519.c \
+$(SW_APP)/x25519.h               $(SW_APP)/x25519.c \
 $(SW_APP)/blake2s.h              $(SW_APP)/blake2s.c \
 $(SW_APP)/hkdf.h                 $(SW_APP)/hkdf.c \
 $(SW_APP)/random.h               $(SW_APP)/random.c \
@@ -97,7 +97,7 @@ $(SW_MAIN)/main.cpp
    $(SW_APP)/poly1305.c \
    $(SW_APP)/chacha20poly1305.c \
    $(SW_APP)/curve25519.c \
-   $(SW_APP)/tweetnacl_x25519.c \
+   $(SW_APP)/x25519.c \
    $(SW_APP)/blake2s.c \
    $(SW_APP)/hkdf.c \
    $(SW_APP)/random.c \

@@ -1,9 +1,9 @@
-// SPDX-FileCopyrightText: 2026 TweetNaCl
+// SPDX-FileCopyrightText: 2026 Chili.CHIPS
 //
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: BSD-3-Clause
 
-#ifndef TWEETNACL_X25519_H
-#define TWEETNACL_X25519_H
+#ifndef X25519_H
+#define X25519_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -38,4 +38,4 @@ int x25519_scalarmult(uint8_t *q, const uint8_t *n, const uint8_t *p);
 }
 #endif
 
-#endif /* TWEETNACL_X25519_H */
+#endif /* X25519_H */
