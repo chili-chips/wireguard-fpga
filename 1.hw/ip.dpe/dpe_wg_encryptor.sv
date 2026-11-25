@@ -50,7 +50,7 @@
 //     (the Ethernet header is 14 bytes). Bytes past the IPv4 total length
 //     go in as zero; frame beats past the last block are dropped. A frame
 //     whose IPv4 total length is under 20, or too long for the core once
-//     padded (AEAD_MAX_PT_BYTES or more), is dropped whole, nothing out.
+//     padded (over AEAD_MAX_PT_BYTES), is dropped whole, nothing out.
 //   - emit: 3 header beats (from when the IPv4 length is in), then the
 //     header tail (10 bytes) with the ciphertext's first 6 bytes, then the
 //     ciphertext and tag shifted by 6.
@@ -140,7 +140,26 @@ module dpe_wg_encryptor
 
   // The headers of the outgoing frame. The routing table holds MAC, IP and
   // UDP port in bus byte order (wire byte 0 in [7:0]): bswap*() gives their
-  // natural values
+  // natural values. Receivers check the IPv4 header checksum, so it is
+  // filled in; the UDP checksum may be 0 (none)
+  ipv4_hdr_t ip_hdr;
+  always_comb begin
+    ip_hdr = '{
+        version: IPV4_VERSION,
+        ihl: IPV4_IHL,
+        dscp_ecn: '0,
+        total_len: wg_padded_len(r.ip_len) + WG_IPV4_OVERHEAD,
+        id: '0,
+        flags_frag: '0,
+        ttl: IPV4_TTL,
+        proto: IP_PROTO_UDP,
+        checksum: '0,
+        src: bswap32(r.peer_cfg.local_ip),
+        dst: bswap32(r.peer_cfg.remote_ip)
+    };
+    ip_hdr.checksum = ipv4_checksum(ip_hdr);
+  end
+
   wg_frame_bytes_t hdr;
   assign hdr = wg_frame_bytes(
       '{
@@ -149,19 +168,7 @@ module dpe_wg_encryptor
               src: bswap48(r.peer_cfg.local_mac),
               ethertype: ETHERTYPE_IPV4
           },
-          ipv4: '{
-              version: IPV4_VERSION,
-              ihl: IPV4_IHL,
-              dscp_ecn: '0,
-              total_len: wg_padded_len(r.ip_len) + WG_IPV4_OVERHEAD,
-              id: '0,
-              flags_frag: '0,
-              ttl: IPV4_TTL,
-              proto: IP_PROTO_UDP,
-              checksum: '0,
-              src: bswap32(r.peer_cfg.local_ip),
-              dst: bswap32(r.peer_cfg.remote_ip)
-          },
+          ipv4: ip_hdr,
           udp: '{
               src_port: bswap16(r.peer_cfg.local_port),
               dst_port: bswap16(r.peer_cfg.remote_port),
@@ -327,7 +334,7 @@ module dpe_wg_encryptor
 
           FEED_DATA: begin
             if (~r.have_len & (r.in_done | piped.tvalid) &
-                ((ip_len_now < len16_t'(IPV4_HDR_LEN)) | (ip_len_now >= AEAD_MAX_PT_BYTES))) begin
+                ((ip_len_now < len16_t'(IPV4_HDR_LEN)) | (ip_len_now > AEAD_MAX_PT_BYTES))) begin
               // implausible, or more than the core takes: drop it, nothing out
               // (emit has sent nothing yet: it waits for the length)
               r_next.emit = EMIT_DONE;

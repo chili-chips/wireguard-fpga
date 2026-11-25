@@ -262,16 +262,11 @@ too: pull before you edit `1.hw/` or `4.sim/`.
   `4.sim/rtl/dpe_switch/wave.{encrypt,decrypt}.wavecrux` (regenerate with
   `wavecrux_sessions.py`; set `data_width` 128, the default 32 gives false tag
   mismatches). Snapshots in the top-level README. Use it on your own benches.
-- **Open for you ([#58](https://github.com/chili-chips/wireguard-fpga/issues/58),
-  2026-11-18):** `dpe_wg_encryptor` sends the outer IPv4 header checksum as
-  0 (a real peer drops it), and `wg_padded_len()` adds a 16-byte block when
-  the length already is a multiple of 16. `wg_check.py` mirrors both, so fix
-  the reference with the RTL.
 - **Failed authentication: handled.** The decryptor drops a packet whose
   plaintext comes with `is_verified_out` low; the loopback bench flips one
   ciphertext bit and checks the packet is dropped.
-- **Benches that will check this core:** `4.sim/rtl/dpe_wg_encryptor` (10
-  frames, 30 to 1492 IPv4 bytes, stalls on both sides) and
+- **Benches that will check this core:** `4.sim/rtl/dpe_wg_encryptor` (12
+  frames, 30 to 2032 IPv4 bytes, stalls on both sides) and
   `4.sim/rtl/dpe_wg_decryptor` (encryptor to decryptor loopback).
   `4.sim/rtl/wg_check.py` rebuilds every frame in Python, tag included
   (RFC 8439, checked against `cryptography`).

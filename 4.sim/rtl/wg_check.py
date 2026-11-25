@@ -7,14 +7,15 @@ independent of the RTL.
 
   wg_check.py enc PLAIN.pcap OUT.pcap   encryptor output: headers,
       ciphertext and tag (RFC 8439 ChaCha20-Poly1305), byte for byte, of the
-      plausible frames of PLAIN (IPv4 length 20 to 2031; the others dropped)
+      plausible frames of PLAIN (IPv4 length 20 to 2032; the others dropped)
   wg_check.py dec PLAIN.pcap OUT.pcap [N...]   decryptor output: the outer
       Ethernet header, then the IPv4 packet; frames N (counted from 0, among
       the plausible ones) must be missing: the bench corrupts them, so their
       tag must fail
   wg_check.py decx ...   as dec, for the wgx input: then frame 0 once more
   wg_check.py mix OUT.pcap IN.pcap...   one pcap of all their frames, plus a
-      60-byte frame whose IPv4 packet is shorter (junk in the padding), three
+      60-byte frame whose IPv4 packet is shorter (junk in the padding), one
+      of IPv4 length 2032 (the most the core takes, a multiple of 16), three
       the encryptor must drop (IPv4 length 9000, 10, 0xfff5) and frame 0 again
   wg_check.py wg OUT.pcap PLAIN.pcap   the WireGuard frames of PLAIN, as
       the encryptor must make them: the decryptor bench's input without the
@@ -103,12 +104,19 @@ def ip_packet(frame):
     return frame[14:14 + int.from_bytes(frame[16:18], 'big')]
 
 
+def ipv4_checksum(hdr):  # RFC 1071, over a header whose checksum field is 0
+    s = sum(int.from_bytes(hdr[i:i + 2], 'big') for i in range(0, len(hdr), 2))
+    while s >> 16:
+        s = (s & 0xffff) + (s >> 16)
+    return ~s & 0xffff
+
+
 def padded_len(n):  # net_pkg wg_padded_len()
-    return (n | 15) + 1
+    return (n + 15) & ~15
 
 
-def plausible(frame):  # the encryptor drops the others: IPv4 length 20 to 2031
-    return 20 <= int.from_bytes(frame[16:18], 'big') < 2032  # net_pkg AEAD_MAX_PT_BYTES
+def plausible(frame):  # the encryptor drops the others: IPv4 length 20 to 2032
+    return 20 <= int.from_bytes(frame[16:18], 'big') <= 2032  # net_pkg AEAD_MAX_PT_BYTES
 
 
 def wg_frame(frame, p=PEER):
@@ -122,6 +130,7 @@ def wg_from_pt(pt, p=PEER):  # a WireGuard data frame around a padded plaintext
     ct = chacha20(p['key'], nonce, pt)
     ipv4 = (bytes([0x45, 0]) + (plen + 60).to_bytes(2, 'big') + bytes(4) +
             bytes([64, 17, 0, 0]) + p['local_ip'] + p['remote_ip'])
+    ipv4 = ipv4[:10] + ipv4_checksum(ipv4).to_bytes(2, 'big') + ipv4[12:]
     udp = p['local_port'] + p['remote_port'] + (plen + 40).to_bytes(2, 'big') + bytes(2)
     wg = (struct.pack('<II', 4, p['remote_id']) + p['send_cnt'].to_bytes(8, 'little'))
     eth = p['remote_mac'] + p['local_mac'] + b'\x08\x00'
@@ -154,13 +163,15 @@ def main(mode, *paths):
         short = bytearray(frames[0][:60])  # 60 bytes on the wire, IPv4 30
         short[16:18] = (30).to_bytes(2, 'big')
         short[44:] = b'\xee' * 16
+        longest = bytearray(frames[0][:34] + bytes(range(256)) * 8)[:14 + 2032]  # IPv4 2032
+        longest[16:18] = (2032).to_bytes(2, 'big')
         hostile = []  # IPv4 lengths the encryptor must drop: too long, too short, wrapping
         for n in (9000, 10, 0xfff5):
             h = bytearray(frames[0][:64])
             h[16:18] = n.to_bytes(2, 'big')
             hostile.append(bytes(h))
         # then one good frame: the encryptor goes on after a drop
-        write_pcap(paths[0], frames + [bytes(short)] + hostile + [frames[0]])
+        write_pcap(paths[0], frames + [bytes(short), bytes(longest)] + hostile + [frames[0]])
         return 0
     if mode == 'wg':
         write_pcap(paths[0], [wg_frame(f) for f in packets(paths[1])])

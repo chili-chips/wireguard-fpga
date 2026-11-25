@@ -210,11 +210,25 @@ package net_pkg;
 
   localparam int WG_PAD_BLOCK = 16;
 
-  // WireGuard pads the plaintext to a multiple of 16 bytes. This gives the
-  // next multiple ABOVE len: one block too many when len already is one
-  // (the DPE's behaviour so far; to be fixed on its own)
+  // WireGuard pads the plaintext to a multiple of 16 bytes: len rounded up
+  // (a multiple of 16 stays as it is)
   function automatic len16_t wg_padded_len(len16_t len);
-    return (len | len16_t'(WG_PAD_BLOCK - 1)) + len16_t'(1);
+    return (len + len16_t'(WG_PAD_BLOCK - 1)) & ~len16_t'(WG_PAD_BLOCK - 1);
+  endfunction
+
+  // The IPv4 header checksum (RFC 791, RFC 1071): the one's complement of
+  // the one's-complement sum of the header's 16-bit words, its checksum
+  // field taken as 0
+  function automatic logic [15:0] ipv4_checksum(ipv4_hdr_t h);
+    logic [19:0] sum;  // 10 words of at most 0xffff: no carry lost
+    h.checksum = '0;
+    sum        = '0;
+    for (int i = 0; i < IPV4_HDR_LEN / 2; i++) begin
+      sum = sum + 20'(h[16*i+:16]);
+    end
+    sum = 20'(sum[15:0]) + 20'(sum[19:16]);  // fold the carries in
+    sum = 20'(sum[15:0]) + 20'(sum[19:16]);  // and the carry of that fold
+    return ~sum[15:0];
   endfunction
 
   //------------------------------------------------------------------
