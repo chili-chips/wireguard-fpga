@@ -245,6 +245,11 @@ too: pull before you edit `1.hw/` or `4.sim/`.
   `{counter, 32'd0}` (4 zero bytes, then the little-endian counter); no AAD.
   Key and nonce stay put while a packet is in the core: one packet at a time
   for now, so the core's throughput is not yet the limit.
+- **Open for you: 80 MHz timing in the SoC**
+  ([#67](https://github.com/chili-chips/wireguard-fpga/issues/67), 2026-11-24).
+  The shared `--soc` core passes PipelineC's confirmation run at 12.18 ns, but
+  the routed SoC (Vivado 2026.2) measures 20.65 ns on the Poly1305
+  `feedback_mul_add_mod` / `uint260_mod_prime` path: about 48 MHz.
 - **Open for you: latch key, nonce, AAD and `aad_len` per packet in the core**
   ([#32](https://github.com/chili-chips/wireguard-fpga/issues/32), 2026-11-23).
   Take them at each packet's first beat (`tvalid && tready`) and carry them
