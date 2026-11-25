@@ -126,7 +126,7 @@ check-env:
 	@$(if $(filter slang,$(FRONTEND)),$(YOSYS) -p help 2>/dev/null | grep -q read_slang || { echo "ERROR: this yosys has no read_slang"; exit 1; })
 	@echo "OK -- TOOLCHAIN=$(TOOLCHAIN), FRONTEND=$(FRONTEND), prjxray-db $(DB_DIR)"
 
-check-sources:
+check-sources: $(PURE_V_FILES)
 	@missing=0; \
 	for f in $(SV_ORDERED) $(PURE_V_FILES) $(XDC_FILE) $(IMEM_INIT); do \
 	    [ -f "$$f" ] || { echo "MISSING: $$f"; missing=$$((missing + 1)); }; \

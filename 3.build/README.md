@@ -112,7 +112,7 @@ make                             # -> build_artifacts.slang/top.bit
 - nextpnr reads only the port constraints of `1.hw/constraints/top.xdc` (#6), plus `top.openxc7.xdc` with the `clk_n` pin (#7). A Yosys techmap, `bufgmux_map.v`, builds each `BUFGMUX` from a `BUFGCTRL` (#5); openXC7 `main` maps `BUFGMUX` itself (nextpnr#132), so the techmap goes with the next release.
 - Place and route uses `--tmg-ripup --placer-heap-timingweight 30` (`NEXTPNR_OPTS`). With nextpnr's defaults the Ethernet RX clocks land at 102-128 MHz, depending on the seed.
 
-**Result (2026-11-23, eduBOS5, `SEED=2`, the Makefile default):** about 8 minutes, 3 GB RAM; every clock meets its constraint. Seed sweep ([#3](https://github.com/chili-chips/wireguard-fpga/issues/3)), max frequency in MHz:
+**Result (2026-11-23, eduBOS5, `SEED=2`, the Makefile default, DUMMY switch; the real switch does not route yet, [#68](https://github.com/chili-chips/wireguard-fpga/issues/68)):** about 8 minutes, 3 GB RAM; every clock meets its constraint. Seed sweep ([#3](https://github.com/chili-chips/wireguard-fpga/issues/3)), max frequency in MHz:
 
 | Seed | `sys_clk` (80) | RX 1-4 (125) | TX 1-4 (125) | `eth_gtx_clk` (125) | Result |
 |---|---|---|---|---|---|

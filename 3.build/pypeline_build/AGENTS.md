@@ -299,7 +299,8 @@ too: pull before you edit `1.hw/` or `4.sim/`.
   `./build.py --shared --soc --verilog` core for both directions
   (`soc/chacha20poly1305_encrypt_decrypt_shared.v.gz`), which also avoids
   the name clash ([#27](https://github.com/chili-chips/wireguard-fpga/issues/27)).
-  The build (87 min, cold cache, `pipelinec.ref` `4e7a7ced`) meets 80 MHz:
+  The build (87 min, cold cache, `pipelinec.ref` `4e7a7ced`) meets 80 MHz in
+  PipelineC's own synthesis check (the routed SoC does not, #67):
   WNS +0.277 ns, 57.1k LUT, 47.2k FF, 183 DSP48, 18.5 BRAM (synthesis only).
   `top.filelist` now selects the real switch; the standalone netlists stay
   for the encryptor and decryptor block benches.

@@ -10,13 +10,20 @@ BITFILE     := $(HW_BLD)/wireguard.runs/impl_1/top.bit
 BUILD_TCL   := $(HW_BLD)/build_bitstream.tcl
 PROGRAM_TCL := $(HW_BLD)/program_fpga.tcl
 
+# The generated ChaCha20-Poly1305 core, kept gzip'd (pypeline_build/soc): the
+# xpr lists the .v
+CORE_V      := $(BLD_DIR)/pypeline_build/soc/chacha20poly1305_encrypt_decrypt_shared.v
+
 .PHONY: all bit program clean
 
 all: bit
 
 bit: $(BITFILE)
 
-$(BITFILE): $(PROJECT) $(BUILD_TCL)
+$(CORE_V): $(CORE_V).gz
+	gunzip -c $< > $@
+
+$(BITFILE): $(PROJECT) $(BUILD_TCL) $(CORE_V)
 	cd $(HW_BLD) && \
 	$(VIVADO) \
 		-mode batch \
