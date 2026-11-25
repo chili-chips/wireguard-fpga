@@ -149,14 +149,23 @@ module bfm_uart (
       bus_write (ROUTING_TABLE + 32'(16*e) + 32'hC, {29'b0, dst});
    endtask: route
 
+   // "Routes done" for the UDP senders: a word in the shared mem_model memory
+   // (VUserMainUdp.cpp: ROUTES_DONE_ADDR, polled), past the MDIO buffers
+   // (tb.sv: MDIO_BUFF_ADDR)
+   import "DPI-C" function void MemModelWrite (input int address, input int data, input int be);
+   localparam int ROUTES_DONE_ADDR = 32'h5000_1000;
+
+   initial MemModelWrite (ROUTES_DONE_ADDR, 0, 4'hF);
+
    // The routes of the UDP test (usercode/VUserMainUdp.cpp: node N on eth N),
-   // in plain text, by UART bus writes; the table has no reset. Done at about
-   // 1.5 ms at UART_SIM_TICK_CLKS=7: the senders wait for them (VUserMainUdp.cpp)
+   // in plain text, by UART bus writes; the table has no reset. Then the
+   // senders go (ROUTES_DONE_ADDR), whatever the UART speed
    task automatic program_routes ();
       route (0, 32'hC0A8_9801, '1, 0, 1'b0, 3'd2);  // 192.168.152.1, Node2: eth2
       route (1, 32'hC0A8_0104, '1, 0, 1'b0, 3'd4);  // 192.168.1.4, Node4: eth4
       route (2, '0, '0, 0, 1'b0, 3'd0);              // the rest: the CPU
       $display("%t UART: routing table set (3 routes)", $time);
+      MemModelWrite (ROUTES_DONE_ADDR, 1, 4'hF);
    endtask: program_routes
 
 `ifdef UART_BUS_STRESS
@@ -164,6 +173,7 @@ module bfm_uart (
 // #61: UART bus writes while the firmware runs (and stores); chk_uart_bus
 // checks the bus, this checks the data landed in DMEM
    int stress_errors = 0;
+   int stress_collisions = 0;  // clocks of a CPU store while these writes had the bus
 
    // The bus writes go to a DMEM window store_stress keeps clear
    // (2.sw/tests/store_stress: its stores start at DMEM_BASE + 0x9000); each
@@ -173,10 +183,14 @@ module bfm_uart (
 
    task automatic bus_stress (input int n);
       logic [31:0] addr, data;
+      int c0;
       // Start inside the firmware's store loop, whatever the UART speed
-      // (UART_SIM_TICK_CLKS): wait for the CPU's 64th store
+      // (UART_SIM_TICK_CLKS): wait for the CPU's 64th store. Before any other
+      // UART bus write (the routes come after), so these are the ones that
+      // meet the stores
       repeat (64) @(posedge tb.dut.u_fabric.cpu.clk
                     iff (tb.dut.u_fabric.cpu.vld && tb.dut.u_fabric.cpu.we != '0));
+      c0 = tb.chk_uart_bus.collisions;
       for (int k=0; k<n; k++) begin
          addr = BUSW_BASE + 32'(4*k);
          data = BUSW_TAG | 32'(k);
@@ -187,7 +201,9 @@ module bfm_uart (
                      tb.dut.u_dmem.mem[(addr - soc_pkg::DMEM_BASE) >> 2], data);
          end
       end
-      $display("%t UART_BUS_STRESS: %0d bus writes, %0d data errors", $time, n, stress_errors);
+      stress_collisions = tb.chk_uart_bus.collisions - c0;
+      $display("%t UART_BUS_STRESS: %0d bus writes, %0d data errors, %0d collisions with CPU stores",
+               $time, n, stress_errors, stress_collisions);
    endtask: bus_stress
 `endif
 
@@ -205,13 +221,13 @@ module bfm_uart (
 
      //__for UART test
      send_string ("FPGA raja\r\n");
-     program_routes ();
 `ifdef UART_BUS_STRESS
 `ifndef UART_BUS_STRESS_N
  `define UART_BUS_STRESS_N 16
 `endif
-     bus_stress (`UART_BUS_STRESS_N);
+     bus_stress (`UART_BUS_STRESS_N);  // #61 first: it needs no routes
 `endif
+     program_routes ();
      //send_string ("Mi nismo mehke koze\n");
 
      //__for Command parsing and dispatch test
