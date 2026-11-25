@@ -138,6 +138,27 @@ module bfm_uart (
       send_char (.char(8'h14)); // EOP
    endtask: bus_write
 
+   // routing_table entry e (csr.rdl: @ 0x400, 16 bytes each): first match wins
+   localparam logic [31:0] ROUTING_TABLE = soc_pkg::CSR_BASE + 32'h400;
+
+   task automatic route (input int e, input logic [31:0] prefix, input logic [31:0] mask,
+                         input logic [5:0] peer, input logic encrypt, input logic [2:0] dst);
+      bus_write (ROUTING_TABLE + 32'(16*e) + 32'h0, prefix);
+      bus_write (ROUTING_TABLE + 32'(16*e) + 32'h4, mask);
+      bus_write (ROUTING_TABLE + 32'(16*e) + 32'h8, {23'b0, encrypt, 2'b0, peer});
+      bus_write (ROUTING_TABLE + 32'(16*e) + 32'hC, {29'b0, dst});
+   endtask: route
+
+   // The routes of the UDP test (usercode/VUserMainUdp.cpp: node N on eth N),
+   // in plain text, by UART bus writes; the table has no reset. Done at about
+   // 1.5 ms at UART_SIM_TICK_CLKS=7: the senders wait for them (VUserMainUdp.cpp)
+   task automatic program_routes ();
+      route (0, 32'hC0A8_9801, '1, 0, 1'b0, 3'd2);  // 192.168.152.1, Node2: eth2
+      route (1, 32'hC0A8_0104, '1, 0, 1'b0, 3'd4);  // 192.168.1.4, Node4: eth4
+      route (2, '0, '0, 0, 1'b0, 3'd0);              // the rest: the CPU
+      $display("%t UART: routing table set (3 routes)", $time);
+   endtask: program_routes
+
 `ifdef UART_BUS_STRESS
 //- - - - - - - - - - - - - - - - - - -
 // #61: UART bus writes while the firmware runs (and stores); chk_uart_bus
@@ -184,6 +205,7 @@ module bfm_uart (
 
      //__for UART test
      send_string ("FPGA raja\r\n");
+     program_routes ();
 `ifdef UART_BUS_STRESS
 `ifndef UART_BUS_STRESS_N
  `define UART_BUS_STRESS_N 16

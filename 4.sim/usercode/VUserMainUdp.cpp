@@ -84,8 +84,9 @@ extern "C" void VUserMain1(void) {
     VPrint("Node1: initializing packet generator\n");
     udpIpPg pUdp(1, NODE1_IPV4_ADDR, NODE1_MAC_ADDR, NODE1_UDP_PORT);
 
-    VPrint("Node1: delaying 1ms for init...\n");
-    for (int i = 0; i < 125000; ++i) pUdp.UdpVpSendIdle(1);
+    // 2 ms: the boot, and the routes the UART model writes (models/bfm_uart.sv)
+    VPrint("Node1: delaying 2ms for init and routes...\n");
+    for (int i = 0; i < 250000; ++i) pUdp.UdpVpSendIdle(1);
 
     for (uint32_t i = 0; i < PAYLOAD_LEN; ++i) payload[i] = uint8_t(i);
 
@@ -119,8 +120,8 @@ extern "C" void VUserMain3(void) {
     VPrint("Node3: initializing packet generator\n");
     udpIpPg pUdp(3, NODE3_IPV4_ADDR, NODE3_MAC_ADDR, NODE3_UDP_PORT);
 
-    VPrint("Node3: delaying 1ms for init...\n");
-    for (int i = 0; i < 250000; ++i) pUdp.UdpVpSendIdle(1);
+    VPrint("Node3: delaying 2ms for init and routes...\n");
+    for (int i = 0; i < 500000; ++i) pUdp.UdpVpSendIdle(1);
 
     for (uint32_t i = 0; i < PAYLOAD_LEN; ++i) payload[i] = uint8_t(i);
 
