@@ -62,7 +62,7 @@ PYTHON=${PYTHON:-python3}
 PYPELINEC=${PYPELINEC:-pypelinec}
 PYP_TOP=chacha20poly1305_encrypt_decrypt_shared
 PRIMS="PLLE2_BASE BUFG IBUFGDS BUFGMUX ODDR DSP48E1"
-CORES="chacha20poly1305_encrypt chacha20poly1305_decrypt"
+CORES="chacha20poly1305_encrypt_decrypt_shared"
 
 # LintCrux starts an engine by path: resolve each tool to an absolute one
 abs() {
@@ -82,7 +82,7 @@ GHDL=$(abs "$GHDL" GHDL)
 # top.filelist and the block tops (sources.sh, as for run-lint.sh), or a new
 # file would go unlinted
 . "$REPO/3.build/hw_build.openXC7/sources.sh"
-want=$(cd "$REPO" && { design_rtl 1.hw 3.build
+want=$(cd "$REPO" && { design_rtl 1.hw 3.build | grep -v /pypeline_build/soc/
   for t in $BLOCK_TOPS; do block_rtl $t 1.hw 3.build | tr ' ' '\n'; done; } | grep . | sort -u)
 have=$("$PYTHON" -c 'import json, sys
 for f in json.load(open(sys.argv[1]))["sourceFiles"]:

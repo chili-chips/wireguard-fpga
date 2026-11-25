@@ -85,8 +85,11 @@ reset 'u_eth_[1-4]\.eth\.eth_mac_1g_gmii_inst\.eth_mac_1g_inst\.axis_gmii_rx_ins
 #   ssio_sdr_in: the IOB register that samples a pin every clock (no feedback;
 #   a reset would keep the register out of the IOB)
 reset 'u_eth_[1-4]\.eth\.eth_mac_1g_gmii_inst\.gmii_phy_if_inst\.rx_ssio_sdr_inst\.output_q_reg'
-#   DPE input pipeline: tdata (header fields)
-reset 'u_dpe_if_pipeline_input\.pipeline\.g_pipe_reg\[0\]\.reg_inst\.g_skid\.m_axis_tdata_reg'
+#   DPE input pipeline: tdata (header fields), as a block top and in the
+#   switch; and the DPE input skid buffer's tdata the disassembler parses.
+#   Each is read only with its tvalid, which is reset
+reset '(u_dpe\.u_dpe_switch\.u_(en|de)cryptor\.)?u_dpe_if_pipeline_input\.pipeline\.g_pipe_reg\[0\]\.reg_inst\.g_skid\.m_axis_tdata_reg'
+reset 'u_dpe\.u_dpe_mux\.u_dpe_if_skid_buffer_to_dpe\.sbuff\.g_skid\.m_axis_tdata_reg'
 
 # external_lib: a reset synchronizer's output resets the async FIFO reset
 # synchronizers (async) and the logic of its clock domain (sync), by design

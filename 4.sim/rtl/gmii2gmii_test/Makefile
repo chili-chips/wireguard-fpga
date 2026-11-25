@@ -5,7 +5,7 @@
 # gmii2gmii_test block-level bench: make [SIM=verilator|icarus|janushdl], see ../sim.mk
 
 VFLAGS = -Wall -Wno-SPECIFYIGN -Wno-PINCONNECTEMPTY -Wno-UNUSEDPARAM -Wno-GENUNNAMED
-SRC_F  = ${HW_SRC}/top.filelist
+SRC_F  = $(TOP_DUMMY_F)  # the fixed crossbar: no ChaCha20-Poly1305 core
 # the Xilinx primitives the MAC instantiates, and glbl
 SRC    = $(addprefix ${SIM_SRC}/models/no-change/,BUFG.v BUFGMUX.v ODDR.v glbl.v) tb.sv
 

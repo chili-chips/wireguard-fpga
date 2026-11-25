@@ -88,6 +88,12 @@ module tb;
       .outp(to_pcap)
    );
 
+   // the core: standalone encrypt (in the SoC, dpe_switch's shared one)
+   dpe_if to_core   (.clk(clk), .rst(rst));
+   dpe_if from_core (.clk(clk), .rst(rst));
+   logic [255:0] core_key;
+   logic [ 95:0] core_nonce;
+
    dpe_wg_encryptor encryptor (
       .inp(to_encryptor),
       .outp(from_encryptor),
@@ -95,7 +101,30 @@ module tb;
       .idle(idle),
 
       .peer_req(),
-      .peer_rsp(PEER)
+      .peer_rsp(PEER),
+
+      .core_key(core_key),
+      .core_nonce(core_nonce),
+      .to_encrypt(to_core),
+      .from_encrypt(from_core)
+   );
+
+   chacha20poly1305_encrypt u_core (
+      .clk_80p0              (clk),
+      .encrypt_key           (core_key),
+      .encrypt_nonce         (core_nonce),
+      .encrypt_aad           (256'd0),
+      .encrypt_aad_len       (8'd0),
+      .encrypt_s_axis_tdata  (to_core.tdata),
+      .encrypt_s_axis_tkeep  (to_core.tkeep),
+      .encrypt_s_axis_tlast  (to_core.tlast),
+      .encrypt_s_axis_tvalid (to_core.tvalid),
+      .encrypt_s_axis_tready (to_core.tready),
+      .encrypt_m_axis_tdata  (from_core.tdata),
+      .encrypt_m_axis_tkeep  (from_core.tkeep),
+      .encrypt_m_axis_tlast  (from_core.tlast),
+      .encrypt_m_axis_tvalid (from_core.tvalid),
+      .encrypt_m_axis_tready (from_core.tready)
    );
 
    dpe_pcapwriter #(

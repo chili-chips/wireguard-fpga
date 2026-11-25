@@ -20,7 +20,7 @@
 #                                 out there) go in
 #   block_rtl <top> <1.hw>        what a block top adds to the design's files
 #
-# BLOCK_TOPS: the DPE blocks top does not instantiate yet, each a top of its
+# BLOCK_TOPS: the DPE blocks inside dpe_switch, each also a top of its
 # own, interface ports and all (read_slang --allow-toplevel-iface-ports), so
 # that run-leq.sh proves them and run-lint.sh lints them
 
@@ -31,10 +31,10 @@ design_rtl() {
 }
 
 own_rtl() {
-  { design_rtl "$1" "$2" | grep -v -e '/csr_build/'
+  { design_rtl "$1" "$2" | grep -v -e '/csr_build/' -e '/pypeline_build/'
     ls "$1"/ip.cpu/soc_cpu.*.sv "$1"/ip.cpu/cpu.EDUBOS5/*.sv "$1"/ip.cpu/cpu.PICORV32/*.sv
     ls "$1"/external_lib/*/*.sv
-    # the DPE blocks top does not instantiate yet (run-leq.sh proves them too)
+    # the DPE blocks, also with the DUMMY switch (run-leq.sh proves them too)
     ls "$1"/ip.dpe/dpe_wg_encryptor.sv "$1"/ip.dpe/dpe_wg_decryptor.sv "$1"/ip.dpe/dpe_wg_disassembler.sv
     ls "$1"/ip.lkup/lkup_pkg.sv "$1"/ip.lkup/lkup_egress.sv "$1"/ip.lkup/lkup_route_mem.sv
     ls "$1"/ip.lkup/lkup_peer_table.sv

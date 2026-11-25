@@ -53,7 +53,7 @@
     "1.hw/ip.dpe/dpe.sv",
     "1.hw/ip.dpe/dpe_mux.sv",
     "1.hw/ip.dpe/dpe_demux.sv",
-    "1.hw/ip.dpe/dpe_switch.DUMMY.sv",
+    "1.hw/ip.dpe/dpe_switch.sv",
     "1.hw/top.sv",
     "1.hw/ip.dpe/dpe_if_pipeline.sv",
     "1.hw/ip.lkup/lkup_route_mem.sv",

@@ -97,7 +97,8 @@ def main():
                         help="Simulate instead of building the hardware; a pipelined native run "
                              "simulates the hardware already built for this profile")
     parser.add_argument("--verilog", action="store_true",
-                        help="Also convert the built hardware top to Verilog (GHDL + Yosys)")
+                        help="Also convert the built hardware top to Verilog (GHDL + Yosys), "
+                             "with its FIFOs as memories (Yosys memory -nomap)")
     parser.add_argument("--comb", action="store_true", help="Simulate without automatic slicing")
     parser.add_argument("--syn_tb", action="store_true", help="Use the fixed-vector synthesizable testbench")
     parser.add_argument("--native", action="store_true", help="Use native simulation instead of cocotb/GHDL")
@@ -276,6 +277,40 @@ def main():
             print("Build rejected: encrypt and decrypt instantiate identical hardware, but the "
                   "build gave them different latencies:\n  " + "\n  ".join(mismatches))
             return 1
+    if args.verilog:
+        return reexport_verilog_nomap(out_dir, f"chacha20poly1305_{design_name}")
+    return 0
+
+
+def reexport_verilog_nomap(out_dir, top):
+    """Convert the top to Verilog again with Yosys "memory -nomap".
+
+    pypelinec --verilog runs Yosys "memory", which maps every FIFO to flops: in
+    Vivado the shared SoC core then takes 129k LUT and 302k FF instead of
+    53.5k LUT and 46.6k FF (2026-11-24). With -nomap the FIFOs stay memories,
+    which synthesis maps to block RAM. Same GHDL/Yosys commands otherwise.
+    """
+    script = os.path.join(out_dir, top, "convert_to_verilog.sh")
+    try:
+        with open(script) as f:
+            text = f.read()
+    except OSError as exc:
+        print(f"Verilog re-export failed: {exc}")
+        return 1
+    nomap = text.replace("; memory;", "; memory -nomap;")
+    if "; memory -nomap;" not in nomap:
+        print(f"Verilog re-export failed: no Yosys \"memory\" step found in {script}")
+        return 1
+    if nomap != text:
+        with open(script, "w") as f:
+            f.write(nomap)
+    print(f"--> Converting {top} to Verilog again with Yosys \"memory -nomap\" (FIFOs stay memories)")
+    try:
+        subprocess.run(["bash", script], cwd=os.path.dirname(script), check=True)
+    except subprocess.CalledProcessError as exc:
+        print(f"Verilog re-export failed with exit code {exc.returncode}")
+        return exc.returncode
+    print(f"Top level Verilog file: {os.path.join(os.path.dirname(script), top + '.v')}")
     return 0
 
 

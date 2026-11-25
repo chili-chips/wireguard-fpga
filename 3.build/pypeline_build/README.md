@@ -262,7 +262,7 @@ clock, and both latency caps. The default hardware directory ends in
 | `--wave FILE` | With `--sim`, write the simulation's [waveform](#waveforms): `.vcd` or `.fst` natively (FST needs GTKWave's `vcd2fst`), or `.vcd`, `.fst` or `.ghw` from GHDL. |
 | `--wave-signals PATTERN` | With `--wave` and `--native`, also record the global Wires whose waveform path matches the glob (`pypelinec --wave_signals`), e.g. `'encrypt_dataflow/*'`; repeatable. |
 | `--perf` | Set `PERF=1` on the native testbench; implies `--sim --native` and requires the combined design. Prefer `measure.py` for reports. |
-| `--verilog` | Export the hardware top to Verilog; cannot combine with simulation. |
+| `--verilog` | Export the hardware top to Verilog, FIFOs as memories (`memory -nomap`); cannot combine with simulation. |
 | `-j N`, `--jobs N` | Limit concurrent synthesis jobs; positive integer, available in both scripts. |
 | `--continue` | Preserve the build output directory; required to reuse a nonempty custom directory. |
 | `--rebuild` | Force a hardware build; available in both scripts. |
@@ -589,7 +589,10 @@ For final Verilog export, first run the fixed-vector generated-HDL check:
 ```
 
 Run the export only after the check succeeds. The Verilog conversion uses
-GHDL and Yosys and retains the hardware top name.
+GHDL and Yosys and retains the hardware top name. `build.py` runs it a second
+time with Yosys `memory -nomap`: pypelinec's own conversion maps every FIFO to
+flops, which more than doubles the core's LUTs and multiplies its flops by six
+in Vivado.
 
 The standalone cores (`--enc`, `--dec`) start every module name of their
 Verilog with `enc_` or `dec_`, except the top (`chacha20poly1305_encrypt`,

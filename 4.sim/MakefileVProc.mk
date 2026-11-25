@@ -387,6 +387,12 @@ endif
 $(TOPFILELIST): $(HW_SRC)/$(TOPFILELIST) $(BUILD_STAMP)
 	@sed -e "/$(SOCCPUMATCH)/d" $< > $@
 
+# The generated ChaCha20-Poly1305 core, kept gzip'd (3.build/pypeline_build/soc)
+CORE_V = $(BLD_DIR)/pypeline_build/soc/chacha20poly1305_encrypt_decrypt_shared.v
+compile: $(CORE_V)
+$(CORE_V): $(CORE_V).gz
+	@gunzip -c $< > $@
+
 # Clone the VIP models (VProc, mem_model) only
 .PHONY: vip
 vip: $(VPROCDIR) $(MEMMODELDIR)

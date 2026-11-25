@@ -6,10 +6,10 @@
 # Formal equivalence check of the whole design (top: Ethernet MACs and PHY
 # interfaces, DPE, SOC, CPU, CSR) between two versions of the RTL, with Yosys
 # (read_slang), chip view (SYNTHESIS defined). Use it to prove that a cleanup
-# does not change behaviour. The DPE blocks top does not instantiate yet are
+# does not change behaviour. The DPE blocks inside dpe_switch are also
 # tops of their own, interface ports and all: dpe_wg_encryptor, dpe_wg_decryptor,
-# lkup_egress, dpe_wg_disassembler; the encryptor's and the decryptor's
-# generated ChaCha20-Poly1305 cores are black boxes (gen_core_bb.py).
+# lkup_egress, dpe_wg_disassembler; dpe_switch's shared generated
+# ChaCha20-Poly1305 core is a black box (gen_core_bb.py).
 # LEQ_TOPS="top dpe_wg_encryptor ..." picks the tops (default: all).
 #
 # usage:  bash run-leq.sh <gold 1.hw> <gate 1.hw> [sed script]
@@ -67,11 +67,11 @@ YOSYS_CONFIG=${YOSYS_CONFIG:-yosys-config}
 YOSYS_ARGS=${YOSYS_ARGS:-}
 PYTHON=${PYTHON:-python3}
 PRIMS="PLLE2_BASE BUFG IBUFGDS BUFGMUX ODDR DSP48E1"
-# The generated ChaCha20-Poly1305 cores are black boxes too (the same files
-# on both sides; their proof against the Python source is PipelineC#398)
-GEN=$BLD/pypeline_build/soc  # the cores the DPE uses, gzip'd
-CORES="chacha20poly1305_encrypt chacha20poly1305_decrypt"
-# The tops: the design, and the DPE blocks it does not instantiate yet, whose
+# The generated ChaCha20-Poly1305 core is a black box too (the same file on
+# both sides; its proof against the Python source is PipelineC#398)
+GEN=$BLD/pypeline_build/soc  # the core the DPE uses, gzip'd
+CORES="chacha20poly1305_encrypt_decrypt_shared"
+# The tops: the design, and the DPE blocks inside dpe_switch, whose
 # dpe_if ports read_slang turns into top ports (--allow-toplevel-iface-ports).
 # Each interface brings its own clock input (inp.clk, outp.clk): the proof
 # does not see a flop moved from one to the other (one clock in the DPE)
@@ -85,7 +85,7 @@ PRIMS="$PRIMS $CORES"
 files() {  # $1 = 1.hw dir, $2 = gold|gate; the design, and what $TOP adds to it
   local x=""
   [ "$TOP" = top ] || x="$(block_rtl "$TOP" "$1")"
-  echo bb.sv $(design_rtl "$1" "$BLD" | tr '\n' ' ') $x
+  echo bb.sv $(design_rtl "$1" "$BLD" | grep -v /pypeline_build/soc/ | tr '\n' ' ') $x
 }
 BB=$(for p in $PRIMS; do printf 't:%s ' $p; done)
 

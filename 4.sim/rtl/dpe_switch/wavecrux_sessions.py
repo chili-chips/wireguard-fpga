@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: BSD-3-Clause
 
-"""WaveCrux sessions for the dpe_switch bench, one per ChaCha20-Poly1305 core:
+"""WaveCrux sessions for the dpe_switch bench, one per side of the shared
+ChaCha20-Poly1305 core (u_aead):
 its key, nonce, aad_len and stream handshakes, with WaveCrux Pro 1.2's
 ChaCha20-Poly1305 decoder (the plaintext in, every tag checked) and the
 AXI-Stream decoder (VALID/READY rules) on its ports.
@@ -23,11 +24,11 @@ import sys
 sys.dont_write_bytecode = True
 HERE = os.path.dirname(os.path.abspath(__file__))
 FST = 'output/wave.fst'  # as the session names it: relative to the session
-CLK = 'TOP.tb.dut.u_{inst}.u_chacha20poly1305_{s}.clk_80p0'  # the core's own clock input
+CLK = 'TOP.tb.dut.u_aead.clk_80p0'  # the core's own clock input
 WHITE = 0xFFE0E0E0
-CORES = (  # instance, port prefix, colour (TX orange, RX light blue), first view
-    ('encryptor', 'encrypt', 0xFFFF9100, (9300, 9.0)),
-    ('decryptor', 'decrypt', 0xFF40C4FF, (9300, 13.0)),
+CORES = (  # port prefix, colour (TX orange, RX light blue), first view
+    ('encrypt', 0xFFFF9100, (9300, 9.0)),
+    ('decrypt', 0xFF40C4FF, (9300, 13.0)),
 )
 
 
@@ -51,18 +52,18 @@ def fst_ids(fst):
     return ids
 
 
-def session(ids, inst, s, colour, view):
+def session(ids, s, colour, view):
     def ref(path):  # fst2vcd identifier -> WaveCrux ref: the 0-based FST handle (bijective base 94)
         return str(sum((ord(c) - 33 + (k > 0)) * 94 ** k for k, c in enumerate(ids[path])))
 
-    p = f'TOP.tb.dut.u_{inst}.u_chacha20poly1305_{s}.{s}_'
+    p = f'TOP.tb.dut.u_aead.{s}_'
     sigs = []
 
     def sig(path, col, name):
         sigs.append({'kind': 'signal', 'id': f'wg-{s}-{len(sigs)}', 'ref': ref(path), 'path': path,
                      'name': name, 'color': col, 'format': 'hexadecimal', 'height': 24.0})
 
-    clk = CLK.format(inst=inst, s=s)
+    clk = CLK
     sig(clk, WHITE, 'clk_80p0')
     for x in ('key', 'nonce', 'aad_len', 's_axis_tvalid', 's_axis_tready', 's_axis_tlast',
               'm_axis_tvalid', 'm_axis_tready', 'm_axis_tlast') + (('m_verified',) if s == 'decrypt' else ()):
@@ -99,10 +100,10 @@ def session(ids, inst, s, colour, view):
 
 def main():
     ids = fst_ids(os.path.join(HERE, FST))
-    for inst, s, colour, view in CORES:
+    for s, colour, view in CORES:
         out = os.path.join(HERE, f'wave.{s}.wavecrux')
         with open(out, 'w', newline='\n') as f:
-            json.dump(session(ids, inst, s, colour, view), f, indent=2)
+            json.dump(session(ids, s, colour, view), f, indent=2)
             f.write('\n')
         print(out)
 

@@ -17,8 +17,7 @@ ${HW_SRC}/ip.lkup/lkup_pkg.sv
 ${HW_SRC}/ip.dpe/dpe_if.sv
 ${HW_SRC}/ip.dpe/dpe_if_skid_buffer.sv
 ${HW_SRC}/ip.dpe/dpe_if_pipeline.sv
-${BLD_DIR}/pypeline_build/soc/chacha20poly1305_encrypt.v
-${BLD_DIR}/pypeline_build/soc/chacha20poly1305_decrypt.v
+${BLD_DIR}/pypeline_build/soc/chacha20poly1305_encrypt_decrypt_shared.v
 ${HW_SRC}/ip.lkup/lkup_route_mem.sv
 ${HW_SRC}/ip.lkup/lkup_egress.sv
 ${HW_SRC}/ip.lkup/lkup_peer_table.sv

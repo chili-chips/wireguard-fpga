@@ -294,10 +294,27 @@ too: pull before you edit `1.hw/` or `4.sim/`.
   its last observation, not its best, and stops at "more states cannot help".
   `latency_hints/` still holds the 2026.1 profiles: the new ones would start
   the next build from 65.6 MHz.
-- **Next on our side: the shared core.** The two standalone cores do not fit
-  beside the SoC (about 134%, #40), so `dpe_switch.sv` moves to one
-  `--shared --soc` core for both directions, which also avoids the name clash
-  ([#27](https://github.com/chili-chips/wireguard-fpga/issues/27)).
+- **The shared core (2026-11-24).** The two standalone cores do not fit
+  beside the SoC (about 134%, #40), so `dpe_switch.sv` uses one
+  `./build.py --shared --soc --verilog` core for both directions
+  (`soc/chacha20poly1305_encrypt_decrypt_shared.v.gz`), which also avoids
+  the name clash ([#27](https://github.com/chili-chips/wireguard-fpga/issues/27)).
+  The build (87 min, cold cache, `pipelinec.ref` `4e7a7ced`) meets 80 MHz:
+  WNS +0.277 ns, 57.1k LUT, 47.2k FF, 183 DSP48, 18.5 BRAM (synthesis only).
+  `top.filelist` now selects the real switch; the standalone netlists stay
+  for the encryptor and decryptor block benches.
+- **Export the Verilog with `memory -nomap`.** PipelineC's `--verilog`
+  conversion (`src/OPEN_TOOLS.py`, `RENDER_FINAL_TOP_VERILOG`) runs Yosys
+  `memory`, which maps every FIFO to flops: in Vivado the shared core then
+  takes 129k LUT and 302k FF, and `top` 111% LUT / 118% FF. Re-exported
+  with `memory -nomap` (the same GHDL/Yosys commands otherwise), the FIFOs
+  stay memories: `top` with the real switch takes 74.2k LUT (55%), 62.5k FF
+  (23%), 73 BRAM, 184 DSP48 (Vivado 2026.2 out of context, 2026-11-24); the
+  core 53.5k LUT, 46.6k FF. The 2026-11-22 numbers of the two standalone
+  cores above came from the flop-mapped export too. `build.py --verilog`
+  now runs the conversion again with `memory -nomap` after pypelinec
+  (`reexport_verilog_nomap`, about 14 min for the shared core); the tracked
+  `soc/chacha20poly1305_encrypt_decrypt_shared.v.gz` is that export.
 - **`pipelinec.ref`** is `4e7a7ced` (includes the #394, #395 and #392 fixes,
   imports without distutils, so CI's Python 3.12 needs no setuptools, and has
   `--module_prefix`, which `build.py --enc` and `--dec` pass). PipelineC

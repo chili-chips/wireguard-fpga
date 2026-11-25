@@ -4,7 +4,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 #
 # Lint of the RTL of top (1.hw/top.filelist, via sources.sh) and of the DPE
-# blocks top does not instantiate yet (BLOCK_TOPS in sources.sh, each a top of
+# blocks inside dpe_switch (BLOCK_TOPS in sources.sh, each also a top of
 # its own, interface ports and all): syntax and limited semantic
 # checks with a set of opensource tools, run in this order:
 #
@@ -78,7 +78,7 @@ HERE=$(cd "$(dirname "$0")" && pwd)
 REPO=$HERE/../..
 . "$HERE/sources.sh"
 TOPS=${LINT_TOPS:-top $BLOCK_TOPS}
-CORES="chacha20poly1305_encrypt chacha20poly1305_decrypt"
+CORES="chacha20poly1305_encrypt_decrypt_shared"
 VERILATOR=${VERILATOR:-verilator}
 YOSYS=${YOSYS:-yosys}
 YOSYS_CONFIG=${YOSYS_CONFIG:-yosys-config}
@@ -112,14 +112,14 @@ cp "$REPO"/3.build/csr_build/generated-files/{csr_pkg,csr}.sv "$W/bld/csr_build/
 cp "$REPO/3.build/sw_build/imem.INIT.vh" "$W/bld/sw_build/"
 [ -n "${CPU:-}" ] && { cpu_select "$W/1.hw/top.filelist" "$CPU" || exit 1; }
 cd "$W"
-SV=$(design_rtl 1.hw bld | tr '\n' ' ')
+SV=$(design_rtl 1.hw bld | grep -v /pypeline_build/soc/ | tr '\n' ' ')
 # the files of one top: the design, and for a block top its own files
 top_sv() {
   if [ "$1" = top ]; then echo "$SV"; else echo "$SV $(block_rtl "$1" 1.hw)"; fi
 }
 # every file one of the tops reads, once
 ALL=$(for t in $TOPS; do top_sv $t; done | tr ' ' '\n' | awk 'NF && !seen[$0]++' | tr '\n' ' ')
-OWN=$(own_rtl 1.hw bld | tr '\n' ' ')
+OWN=$(own_rtl 1.hw bld | grep -v /pypeline_build/soc/ | tr '\n' ' ')
 INC="bld/sw_build"
 PRIMS="PLLE2_BASE BUFG IBUFGDS BUFGMUX ODDR DSP48E1"
 

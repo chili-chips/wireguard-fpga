@@ -86,9 +86,11 @@ EXTRACT_TIMESTAMP = $(EXTRACTED_DIR)/.extraction_timestamp
 
 DESIGN_RTL := $(shell bash -c '. ./sources.sh && design_rtl $(HW_DIR) $(BUILD_DIR_ROOT)')
 
-# Pure Verilog: read by Yosys as is, no conversion needed (none left: the
-# external_lib files are SystemVerilog now)
+# Pure Verilog: read by Yosys as is, no conversion needed. Only the
+# generated ChaCha20-Poly1305 core, kept gzip'd (pypeline_build/soc/*.v.gz)
 PURE_V_FILES = $(filter %.v,$(DESIGN_RTL))
+%.v: %.v.gz
+	gunzip -c $< > $@
 
 # SystemVerilog, in top.filelist order
 SV_ORDERED = $(filter %.sv,$(DESIGN_RTL))

@@ -67,20 +67,32 @@
 //   2nd clock after peer_req.idx. The receiver does not advance the send
 //   counter; peer_req.new_send_cnt and update_send_cnt stay 0.
 //   TODO: the replay window on the counter (#4).
+//
+//   The ChaCha20-Poly1305 core is outside, on the core_* ports: dpe_switch
+//   connects one core shared by both directions (decrypt_* side), the
+//   block bench (4.sim/rtl/dpe_wg_decryptor) a standalone decrypt core.
 //==========================================================================
 
 module dpe_wg_decryptor
   import dpe_pkg::*;
   import net_pkg::*;
 (
-    dpe_if.s_axis        inp,
-    dpe_if.m_axis        outp,
+    dpe_if.s_axis inp,
+    dpe_if.m_axis outp,
 
-    output logic         idle,
+    output logic idle,
 
     // the peer table: the packet's peer, from the 2nd clock after the request
     output peer_req_t    peer_req,
-    input  wg_peer_cfg_t peer_rsp
+    input  wg_peer_cfg_t peer_rsp,
+
+    // the core (decrypt_*): key and nonce stay put while a packet is in it;
+    // the nonce is 4 zero bytes, then the counter (little-endian; byte 0 in [7:0])
+    output logic [255:0] core_key,
+    output logic [95:0] core_nonce,
+    dpe_if.m_axis to_decrypt,  // ciphertext, then the tag (decrypt_s_axis)
+    dpe_if.s_axis from_decrypt,  // plaintext (decrypt_m_axis)
+    input logic core_verified  // decrypt_m_verified: from_decrypt's tag checked out
 );
 
   typedef enum logic [2:0] {
@@ -152,14 +164,6 @@ module dpe_wg_decryptor
       };
 
   // Internal signals
-  dpe_if to_decrypt (
-      .clk (inp.clk),
-      .rst (inp.rst)
-  );
-  dpe_if from_decrypt (
-      .clk (inp.clk),
-      .rst (inp.rst)
-  );
   dpe_if piped (
       .clk (inp.clk),
       .rst (inp.rst)
@@ -168,7 +172,8 @@ module dpe_wg_decryptor
       .clk (inp.clk),
       .rst (inp.rst)
   );
-  logic verified;  // the core's plaintext beats are of a packet whose tag checked out
+  logic  verified;  // the core's plaintext beats are of a packet whose tag checked out
+  assign verified = core_verified;
 
   logic  piped_hs, dec_in_hs, dec_out_hs, muxed_hs;
   assign piped_hs   = piped.tvalid & piped.tready;
@@ -440,30 +445,13 @@ module dpe_wg_decryptor
     endcase
   end
 
-  assign idle     = (r.state == IDLE) & ~piped.tvalid & ~outp.tvalid;
+  assign idle       = (r.state == IDLE) & ~piped.tvalid & ~outp.tvalid;
   // the receiver does not advance the send counter
-  assign peer_req = '{idx: r.peer_idx, new_send_cnt: '0, update_send_cnt: 1'b0};
+  assign peer_req   = '{idx: r.peer_idx, new_send_cnt: '0, update_send_cnt: 1'b0};
 
-  // Decryptor core. The nonce: 4 zero bytes, then the counter
-  // (little-endian; byte 0 in [7:0])
-  chacha20poly1305_decrypt u_chacha20poly1305_decrypt (
-      .clk_80p0              (inp.clk),
-      .decrypt_key           (r.peer_cfg.key),
-      .decrypt_nonce         ({r.counter, 32'd0}),
-      .decrypt_aad           (256'd0),
-      .decrypt_aad_len       (8'd0),
-      .decrypt_s_axis_tdata  (to_decrypt.tdata),
-      .decrypt_s_axis_tkeep  (to_decrypt.tkeep),
-      .decrypt_s_axis_tlast  (to_decrypt.tlast),
-      .decrypt_s_axis_tvalid (to_decrypt.tvalid),
-      .decrypt_m_axis_tready (from_decrypt.tready),
-      .decrypt_s_axis_tready (to_decrypt.tready),
-      .decrypt_m_axis_tdata  (from_decrypt.tdata),
-      .decrypt_m_axis_tkeep  (from_decrypt.tkeep),
-      .decrypt_m_axis_tlast  (from_decrypt.tlast),
-      .decrypt_m_axis_tvalid (from_decrypt.tvalid),
-      .decrypt_m_verified    (verified)
-  );
+  // the core's key and nonce (the core: outside, on to_decrypt/from_decrypt)
+  assign core_key   = r.peer_cfg.key;
+  assign core_nonce = {r.counter, 32'd0};
 
   // Input pipeline
   dpe_if_pipeline #(

@@ -59,20 +59,31 @@
 //
 //   The peer table answers a synchronous read: peer_rsp is valid from the
 //   2nd clock after peer_req.idx.
+//
+//   The ChaCha20-Poly1305 core is outside, on the core_* ports: dpe_switch
+//   connects one core shared by both directions (encrypt_* side), the
+//   block bench (4.sim/rtl/dpe_wg_encryptor) a standalone encrypt core.
 //==========================================================================
 
 module dpe_wg_encryptor
   import dpe_pkg::*;
   import net_pkg::*;
 (
-    dpe_if.s_axis        inp,
-    dpe_if.m_axis        outp,
+    dpe_if.s_axis                inp,
+    dpe_if.m_axis                outp,
 
-    output logic         idle,
+    output logic                 idle,
 
     // the peer table: the packet's peer, from the 2nd clock after the request
-    output peer_req_t    peer_req,
-    input  wg_peer_cfg_t peer_rsp
+    output peer_req_t            peer_req,
+    input  wg_peer_cfg_t         peer_rsp,
+
+    // the core (encrypt_*): key and nonce stay put while a packet is in it;
+    // the nonce is 4 zero bytes, then the counter (little-endian; byte 0 in [7:0])
+    output logic         [255:0] core_key,
+    output logic         [ 95:0] core_nonce,
+    dpe_if.m_axis                to_encrypt,   // plaintext blocks (encrypt_s_axis)
+    dpe_if.s_axis                from_encrypt  // ciphertext, then the tag (encrypt_m_axis)
 );
 
   typedef enum logic [2:0] {
@@ -180,14 +191,6 @@ module dpe_wg_encryptor
       };
 
   // Internal signals
-  dpe_if to_encrypt (
-      .clk (inp.clk),
-      .rst (inp.rst)
-  );
-  dpe_if from_encrypt (
-      .clk (inp.clk),
-      .rst (inp.rst)
-  );
   dpe_if piped (
       .clk (inp.clk),
       .rst (inp.rst)
@@ -433,25 +436,9 @@ module dpe_wg_encryptor
           update_send_cnt: r.update_send_cnt
       };
 
-  // Encryptor core. The nonce: 4 zero bytes, then the counter
-  // (little-endian; byte 0 in [7:0])
-  chacha20poly1305_encrypt u_chacha20poly1305_encrypt (
-      .clk_80p0              (inp.clk),
-      .encrypt_key           (r.peer_cfg.key),
-      .encrypt_nonce         ({r.peer_cfg.send_cnt, 32'd0}),
-      .encrypt_aad           (256'd0),
-      .encrypt_aad_len       (8'd0),
-      .encrypt_s_axis_tdata  (to_encrypt.tdata),
-      .encrypt_s_axis_tkeep  (to_encrypt.tkeep),
-      .encrypt_s_axis_tlast  (to_encrypt.tlast),
-      .encrypt_s_axis_tvalid (to_encrypt.tvalid),
-      .encrypt_m_axis_tready (from_encrypt.tready),
-      .encrypt_s_axis_tready (to_encrypt.tready),
-      .encrypt_m_axis_tdata  (from_encrypt.tdata),
-      .encrypt_m_axis_tkeep  (from_encrypt.tkeep),
-      .encrypt_m_axis_tlast  (from_encrypt.tlast),
-      .encrypt_m_axis_tvalid (from_encrypt.tvalid)
-  );
+  // the core's key and nonce (the core: outside, on to_encrypt/from_encrypt)
+  assign core_key = r.peer_cfg.key;
+  assign core_nonce = {r.peer_cfg.send_cnt, 32'd0};
 
   // Input pipeline
   dpe_if_pipeline #(

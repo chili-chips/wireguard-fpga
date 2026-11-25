@@ -28,6 +28,7 @@ export BLD_DIR HW_SRC SIM_SRC TB_NAME
 EXPAND   = sed -e 's|$${HW_SRC}|$(HW_SRC)|g' -e 's|$${BLD_DIR}|$(BLD_DIR)|g' \
                -e 's|$${SIM_SRC}|$(SIM_SRC)|g'
 SRC_ABS  = $(abspath $(SRC))
+TOP_DUMMY_F = output/top.DUMMY.filelist  # see its rule below
 
 # A bench with a scoreboard prints RESULT: PASS or RESULT: FAIL; FAIL fails
 # the make. A bench without one passes when its simulator ends without error.
@@ -43,9 +44,17 @@ output/files.f: $(SRC_F)
 	@mkdir -p output
 	@for f in $(SRC_F); do $(EXPAND) $$f; done > $@
 
+# top.filelist with the DUMMY switch (the fixed crossbar) in place of the
+# WireGuard data path, for a bench that sets SRC_F = $(TOP_DUMMY_F)
+$(TOP_DUMMY_F): $(HW_SRC)/top.filelist
+	@mkdir -p output
+	@sed -e 's|^#\(.*/dpe_switch\.DUMMY\.sv\)$$|\1|' \
+	     -e '/pypeline_build\/soc\/\|\/lkup_route_mem\.sv\|\/lkup_egress\.sv\|\/lkup_peer_table\.sv\|\/dpe_if_pipeline\.sv\|\/dpe_wg_[a-z]*\.sv\|\/dpe_switch\.sv/s|^|#|' \
+	     $< > $@
+
 # A generated core is kept gzip'd (3.build/pypeline_build/soc/*.v.gz): unpack each
 # .v the file lists name that has a newer .v.gz next to it
-unpack:
+unpack: $(SRC_F)
 	@for f in $$(for l in $(SRC_F); do $(EXPAND) $$l; done | grep -E '\.v$$'); do \
 	  if [ -f "$$f.gz" ] && [ ! "$$f" -nt "$$f.gz" ]; then gunzip -c "$$f.gz" > "$$f"; fi; \
 	done

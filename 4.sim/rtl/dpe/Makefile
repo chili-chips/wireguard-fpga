@@ -5,7 +5,7 @@
 # dpe block-level bench: make [SIM=verilator|icarus|janushdl], see ../sim.mk
 
 VFLAGS = -Wall -Wno-PINCONNECTEMPTY -Wno-UNUSEDPARAM -Wno-GENUNNAMED
-SRC_F  = ${HW_SRC}/top.filelist
+SRC_F  = $(TOP_DUMMY_F)  # the fixed crossbar: no ChaCha20-Poly1305 core
 SRC    = ../dpe_tb_pkg.sv ../dpe_tb_src.sv ../dpe_tb_sink.sv tb.sv
 
 include ../sim.mk

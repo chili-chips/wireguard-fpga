@@ -57,6 +57,12 @@
 //     flag, as bypass_stage clear for the encryptor);
 //   - the encryptor encrypts those for their peer (encrypt_key, send_cnt).
 //   idle: no stage holds a packet (the pause/drain handshake, fcr.idle)
+//
+//   The decryptor and the encryptor share one ChaCha20-Poly1305 core
+//   (chacha20poly1305_encrypt_decrypt_shared, 3.build/pypeline_build
+//   build.py --shared --soc): one ChaCha20 and one Poly1305 serve both
+//   directions, so the design fits the xc7a200t (two standalone cores: about
+//   134%, #40). Both directions run at once; they share the core's throughput.
 //==========================================================================
 
 module dpe_switch
@@ -90,6 +96,27 @@ module dpe_switch
       .rst (inp.rst)
   );
 
+  // the shared core's two sides
+  dpe_if to_decrypt (
+      .clk (inp.clk),
+      .rst (inp.rst)
+  );
+  dpe_if from_decrypt (
+      .clk (inp.clk),
+      .rst (inp.rst)
+  );
+  dpe_if to_encrypt (
+      .clk (inp.clk),
+      .rst (inp.rst)
+  );
+  dpe_if from_encrypt (
+      .clk (inp.clk),
+      .rst (inp.rst)
+  );
+  logic [255:0] dec_key, enc_key;
+  logic [95:0] dec_nonce, enc_nonce;
+  logic         dec_verified;
+
   wg_receiver_t wg_rcv;
   rcv_rsp_t     rcv_rsp;
   peer_req_t dec_req, enc_req;
@@ -107,11 +134,16 @@ module dpe_switch
   );
 
   dpe_wg_decryptor u_decryptor (
-      .inp      (disassembled),
-      .outp     (decrypted),
-      .idle     (dec_idle),
-      .peer_req (dec_req),
-      .peer_rsp (dec_peer)
+      .inp           (disassembled),
+      .outp          (decrypted),
+      .idle          (dec_idle),
+      .peer_req      (dec_req),
+      .peer_rsp      (dec_peer),
+      .core_key      (dec_key),
+      .core_nonce    (dec_nonce),
+      .to_decrypt    (to_decrypt),
+      .from_decrypt  (from_decrypt),
+      .core_verified (dec_verified)
   );
 
   lkup_egress #(
@@ -125,11 +157,49 @@ module dpe_switch
   );
 
   dpe_wg_encryptor u_encryptor (
-      .inp      (routed),
-      .outp     (outp),
-      .idle     (enc_idle),
-      .peer_req (enc_req),
-      .peer_rsp (enc_peer)
+      .inp          (routed),
+      .outp         (outp),
+      .idle         (enc_idle),
+      .peer_req     (enc_req),
+      .peer_rsp     (enc_peer),
+      .core_key     (enc_key),
+      .core_nonce   (enc_nonce),
+      .to_encrypt   (to_encrypt),
+      .from_encrypt (from_encrypt)
+  );
+
+  // the shared ChaCha20-Poly1305 core (AAD: none, today)
+  chacha20poly1305_encrypt_decrypt_shared u_aead (
+      .clk_80p0              (inp.clk),
+      .encrypt_key           (enc_key),
+      .encrypt_nonce         (enc_nonce),
+      .encrypt_aad           (256'd0),
+      .encrypt_aad_len       (8'd0),
+      .encrypt_s_axis_tdata  (to_encrypt.tdata),
+      .encrypt_s_axis_tkeep  (to_encrypt.tkeep),
+      .encrypt_s_axis_tlast  (to_encrypt.tlast),
+      .encrypt_s_axis_tvalid (to_encrypt.tvalid),
+      .encrypt_s_axis_tready (to_encrypt.tready),
+      .encrypt_m_axis_tdata  (from_encrypt.tdata),
+      .encrypt_m_axis_tkeep  (from_encrypt.tkeep),
+      .encrypt_m_axis_tlast  (from_encrypt.tlast),
+      .encrypt_m_axis_tvalid (from_encrypt.tvalid),
+      .encrypt_m_axis_tready (from_encrypt.tready),
+      .decrypt_key           (dec_key),
+      .decrypt_nonce         (dec_nonce),
+      .decrypt_aad           (256'd0),
+      .decrypt_aad_len       (8'd0),
+      .decrypt_s_axis_tdata  (to_decrypt.tdata),
+      .decrypt_s_axis_tkeep  (to_decrypt.tkeep),
+      .decrypt_s_axis_tlast  (to_decrypt.tlast),
+      .decrypt_s_axis_tvalid (to_decrypt.tvalid),
+      .decrypt_s_axis_tready (to_decrypt.tready),
+      .decrypt_m_axis_tdata  (from_decrypt.tdata),
+      .decrypt_m_axis_tkeep  (from_decrypt.tkeep),
+      .decrypt_m_axis_tlast  (from_decrypt.tlast),
+      .decrypt_m_axis_tvalid (from_decrypt.tvalid),
+      .decrypt_m_axis_tready (from_decrypt.tready),
+      .decrypt_m_verified    (dec_verified)
   );
 
   lkup_peer_table u_peers (

@@ -6,7 +6,7 @@
       "kind": "signal",
       "id": "wg-encrypt-0",
       "ref": "34",
-      "path": "TOP.tb.dut.u_encryptor.u_chacha20poly1305_encrypt.clk_80p0",
+      "path": "TOP.tb.dut.u_aead.clk_80p0",
       "name": "clk_80p0",
       "color": 4292927712,
       "format": "hexadecimal",
@@ -15,8 +15,8 @@
     {
       "kind": "signal",
       "id": "wg-encrypt-1",
-      "ref": "19038",
-      "path": "TOP.tb.dut.u_encryptor.u_chacha20poly1305_encrypt.encrypt_key",
+      "ref": "67",
+      "path": "TOP.tb.dut.u_aead.encrypt_key",
       "name": "encrypt_key",
       "color": 4294938880,
       "format": "hexadecimal",
@@ -25,8 +25,8 @@
     {
       "kind": "signal",
       "id": "wg-encrypt-2",
-      "ref": "19039",
-      "path": "TOP.tb.dut.u_encryptor.u_chacha20poly1305_encrypt.encrypt_nonce",
+      "ref": "69",
+      "path": "TOP.tb.dut.u_aead.encrypt_nonce",
       "name": "encrypt_nonce",
       "color": 4294938880,
       "format": "hexadecimal",
@@ -36,7 +36,7 @@
       "kind": "signal",
       "id": "wg-encrypt-3",
       "ref": "7",
-      "path": "TOP.tb.dut.u_encryptor.u_chacha20poly1305_encrypt.encrypt_aad_len",
+      "path": "TOP.tb.dut.u_aead.encrypt_aad_len",
       "name": "encrypt_aad_len",
       "color": 4294938880,
       "format": "hexadecimal",
@@ -45,8 +45,8 @@
     {
       "kind": "signal",
       "id": "wg-encrypt-4",
-      "ref": "19035",
-      "path": "TOP.tb.dut.u_encryptor.u_chacha20poly1305_encrypt.encrypt_s_axis_tvalid",
+      "ref": "174",
+      "path": "TOP.tb.dut.u_aead.encrypt_s_axis_tvalid",
       "name": "encrypt_s_axis_tvalid",
       "color": 4294938880,
       "format": "hexadecimal",
@@ -55,8 +55,8 @@
     {
       "kind": "signal",
       "id": "wg-encrypt-5",
-      "ref": "19034",
-      "path": "TOP.tb.dut.u_encryptor.u_chacha20poly1305_encrypt.encrypt_s_axis_tready",
+      "ref": "173",
+      "path": "TOP.tb.dut.u_aead.encrypt_s_axis_tready",
       "name": "encrypt_s_axis_tready",
       "color": 4294938880,
       "format": "hexadecimal",
@@ -65,8 +65,8 @@
     {
       "kind": "signal",
       "id": "wg-encrypt-6",
-      "ref": "19037",
-      "path": "TOP.tb.dut.u_encryptor.u_chacha20poly1305_encrypt.encrypt_s_axis_tlast",
+      "ref": "176",
+      "path": "TOP.tb.dut.u_aead.encrypt_s_axis_tlast",
       "name": "encrypt_s_axis_tlast",
       "color": 4294938880,
       "format": "hexadecimal",
@@ -75,8 +75,8 @@
     {
       "kind": "signal",
       "id": "wg-encrypt-7",
-      "ref": "19005",
-      "path": "TOP.tb.dut.u_encryptor.u_chacha20poly1305_encrypt.encrypt_m_axis_tvalid",
+      "ref": "132",
+      "path": "TOP.tb.dut.u_aead.encrypt_m_axis_tvalid",
       "name": "encrypt_m_axis_tvalid",
       "color": 4294938880,
       "format": "hexadecimal",
@@ -85,8 +85,8 @@
     {
       "kind": "signal",
       "id": "wg-encrypt-8",
-      "ref": "19004",
-      "path": "TOP.tb.dut.u_encryptor.u_chacha20poly1305_encrypt.encrypt_m_axis_tready",
+      "ref": "131",
+      "path": "TOP.tb.dut.u_aead.encrypt_m_axis_tready",
       "name": "encrypt_m_axis_tready",
       "color": 4294938880,
       "format": "hexadecimal",
@@ -95,8 +95,8 @@
     {
       "kind": "signal",
       "id": "wg-encrypt-9",
-      "ref": "19007",
-      "path": "TOP.tb.dut.u_encryptor.u_chacha20poly1305_encrypt.encrypt_m_axis_tlast",
+      "ref": "134",
+      "path": "TOP.tb.dut.u_aead.encrypt_m_axis_tlast",
       "name": "encrypt_m_axis_tlast",
       "color": 4294938880,
       "format": "hexadecimal",
@@ -140,27 +140,27 @@
       "config": {
         "bindings": {
           "aclk": "34",
-          "tvalid": "19035",
-          "tready": "19034",
-          "tdata": "19040",
-          "tlast": "19037",
-          "tkeep": "246",
-          "key": "19038",
-          "nonce": "19039",
-          "aad": "244",
+          "tvalid": "174",
+          "tready": "173",
+          "tdata": "178",
+          "tlast": "176",
+          "tkeep": "179",
+          "key": "67",
+          "nonce": "69",
+          "aad": "177",
           "aad_len": "7"
         },
         "bindingPaths": {
-          "aclk": "TOP.tb.dut.u_encryptor.u_chacha20poly1305_encrypt.clk_80p0",
-          "tvalid": "TOP.tb.dut.u_encryptor.u_chacha20poly1305_encrypt.encrypt_s_axis_tvalid",
-          "tready": "TOP.tb.dut.u_encryptor.u_chacha20poly1305_encrypt.encrypt_s_axis_tready",
-          "tdata": "TOP.tb.dut.u_encryptor.u_chacha20poly1305_encrypt.encrypt_s_axis_tdata",
-          "tlast": "TOP.tb.dut.u_encryptor.u_chacha20poly1305_encrypt.encrypt_s_axis_tlast",
-          "tkeep": "TOP.tb.dut.u_encryptor.u_chacha20poly1305_encrypt.encrypt_s_axis_tkeep",
-          "key": "TOP.tb.dut.u_encryptor.u_chacha20poly1305_encrypt.encrypt_key",
-          "nonce": "TOP.tb.dut.u_encryptor.u_chacha20poly1305_encrypt.encrypt_nonce",
-          "aad": "TOP.tb.dut.u_encryptor.u_chacha20poly1305_encrypt.encrypt_aad",
-          "aad_len": "TOP.tb.dut.u_encryptor.u_chacha20poly1305_encrypt.encrypt_aad_len"
+          "aclk": "TOP.tb.dut.u_aead.clk_80p0",
+          "tvalid": "TOP.tb.dut.u_aead.encrypt_s_axis_tvalid",
+          "tready": "TOP.tb.dut.u_aead.encrypt_s_axis_tready",
+          "tdata": "TOP.tb.dut.u_aead.encrypt_s_axis_tdata",
+          "tlast": "TOP.tb.dut.u_aead.encrypt_s_axis_tlast",
+          "tkeep": "TOP.tb.dut.u_aead.encrypt_s_axis_tkeep",
+          "key": "TOP.tb.dut.u_aead.encrypt_key",
+          "nonce": "TOP.tb.dut.u_aead.encrypt_nonce",
+          "aad": "TOP.tb.dut.u_aead.encrypt_aad",
+          "aad_len": "TOP.tb.dut.u_aead.encrypt_aad_len"
         },
         "parameters": {
           "mode": "plaintext",
@@ -174,27 +174,27 @@
       "config": {
         "bindings": {
           "aclk": "34",
-          "tvalid": "19005",
-          "tready": "19004",
-          "tdata": "19041",
-          "tlast": "19007",
-          "tkeep": "19008",
-          "key": "19038",
-          "nonce": "19039",
-          "aad": "244",
+          "tvalid": "132",
+          "tready": "131",
+          "tdata": "133",
+          "tlast": "134",
+          "tkeep": "135",
+          "key": "67",
+          "nonce": "69",
+          "aad": "177",
           "aad_len": "7"
         },
         "bindingPaths": {
-          "aclk": "TOP.tb.dut.u_encryptor.u_chacha20poly1305_encrypt.clk_80p0",
-          "tvalid": "TOP.tb.dut.u_encryptor.u_chacha20poly1305_encrypt.encrypt_m_axis_tvalid",
-          "tready": "TOP.tb.dut.u_encryptor.u_chacha20poly1305_encrypt.encrypt_m_axis_tready",
-          "tdata": "TOP.tb.dut.u_encryptor.u_chacha20poly1305_encrypt.encrypt_m_axis_tdata",
-          "tlast": "TOP.tb.dut.u_encryptor.u_chacha20poly1305_encrypt.encrypt_m_axis_tlast",
-          "tkeep": "TOP.tb.dut.u_encryptor.u_chacha20poly1305_encrypt.encrypt_m_axis_tkeep",
-          "key": "TOP.tb.dut.u_encryptor.u_chacha20poly1305_encrypt.encrypt_key",
-          "nonce": "TOP.tb.dut.u_encryptor.u_chacha20poly1305_encrypt.encrypt_nonce",
-          "aad": "TOP.tb.dut.u_encryptor.u_chacha20poly1305_encrypt.encrypt_aad",
-          "aad_len": "TOP.tb.dut.u_encryptor.u_chacha20poly1305_encrypt.encrypt_aad_len"
+          "aclk": "TOP.tb.dut.u_aead.clk_80p0",
+          "tvalid": "TOP.tb.dut.u_aead.encrypt_m_axis_tvalid",
+          "tready": "TOP.tb.dut.u_aead.encrypt_m_axis_tready",
+          "tdata": "TOP.tb.dut.u_aead.encrypt_m_axis_tdata",
+          "tlast": "TOP.tb.dut.u_aead.encrypt_m_axis_tlast",
+          "tkeep": "TOP.tb.dut.u_aead.encrypt_m_axis_tkeep",
+          "key": "TOP.tb.dut.u_aead.encrypt_key",
+          "nonce": "TOP.tb.dut.u_aead.encrypt_nonce",
+          "aad": "TOP.tb.dut.u_aead.encrypt_aad",
+          "aad_len": "TOP.tb.dut.u_aead.encrypt_aad_len"
         },
         "parameters": {
           "mode": "encrypt_output",
@@ -208,19 +208,19 @@
       "config": {
         "bindings": {
           "aclk": "34",
-          "tvalid": "19035",
-          "tready": "19034",
-          "tdata": "19040",
-          "tlast": "19037",
-          "tkeep": "246"
+          "tvalid": "174",
+          "tready": "173",
+          "tdata": "178",
+          "tlast": "176",
+          "tkeep": "179"
         },
         "bindingPaths": {
-          "aclk": "TOP.tb.dut.u_encryptor.u_chacha20poly1305_encrypt.clk_80p0",
-          "tvalid": "TOP.tb.dut.u_encryptor.u_chacha20poly1305_encrypt.encrypt_s_axis_tvalid",
-          "tready": "TOP.tb.dut.u_encryptor.u_chacha20poly1305_encrypt.encrypt_s_axis_tready",
-          "tdata": "TOP.tb.dut.u_encryptor.u_chacha20poly1305_encrypt.encrypt_s_axis_tdata",
-          "tlast": "TOP.tb.dut.u_encryptor.u_chacha20poly1305_encrypt.encrypt_s_axis_tlast",
-          "tkeep": "TOP.tb.dut.u_encryptor.u_chacha20poly1305_encrypt.encrypt_s_axis_tkeep"
+          "aclk": "TOP.tb.dut.u_aead.clk_80p0",
+          "tvalid": "TOP.tb.dut.u_aead.encrypt_s_axis_tvalid",
+          "tready": "TOP.tb.dut.u_aead.encrypt_s_axis_tready",
+          "tdata": "TOP.tb.dut.u_aead.encrypt_s_axis_tdata",
+          "tlast": "TOP.tb.dut.u_aead.encrypt_s_axis_tlast",
+          "tkeep": "TOP.tb.dut.u_aead.encrypt_s_axis_tkeep"
         },
         "parameters": {
           "data_width": 128,
@@ -234,19 +234,19 @@
       "config": {
         "bindings": {
           "aclk": "34",
-          "tvalid": "19005",
-          "tready": "19004",
-          "tdata": "19041",
-          "tlast": "19007",
-          "tkeep": "19008"
+          "tvalid": "132",
+          "tready": "131",
+          "tdata": "133",
+          "tlast": "134",
+          "tkeep": "135"
         },
         "bindingPaths": {
-          "aclk": "TOP.tb.dut.u_encryptor.u_chacha20poly1305_encrypt.clk_80p0",
-          "tvalid": "TOP.tb.dut.u_encryptor.u_chacha20poly1305_encrypt.encrypt_m_axis_tvalid",
-          "tready": "TOP.tb.dut.u_encryptor.u_chacha20poly1305_encrypt.encrypt_m_axis_tready",
-          "tdata": "TOP.tb.dut.u_encryptor.u_chacha20poly1305_encrypt.encrypt_m_axis_tdata",
-          "tlast": "TOP.tb.dut.u_encryptor.u_chacha20poly1305_encrypt.encrypt_m_axis_tlast",
-          "tkeep": "TOP.tb.dut.u_encryptor.u_chacha20poly1305_encrypt.encrypt_m_axis_tkeep"
+          "aclk": "TOP.tb.dut.u_aead.clk_80p0",
+          "tvalid": "TOP.tb.dut.u_aead.encrypt_m_axis_tvalid",
+          "tready": "TOP.tb.dut.u_aead.encrypt_m_axis_tready",
+          "tdata": "TOP.tb.dut.u_aead.encrypt_m_axis_tdata",
+          "tlast": "TOP.tb.dut.u_aead.encrypt_m_axis_tlast",
+          "tkeep": "TOP.tb.dut.u_aead.encrypt_m_axis_tkeep"
         },
         "parameters": {
           "data_width": 128,
