@@ -72,6 +72,8 @@ $(SW_APP)/blake2s.h              $(SW_APP)/blake2s.c \
 $(SW_APP)/hkdf.h                 $(SW_APP)/hkdf.c \
 $(SW_APP)/random.h               $(SW_APP)/random.c \
 $(SW_APP)/timer.h                $(SW_APP)/timer.c \
+$(SW_APP)/siphash.h              $(SW_APP)/siphash.c \
+$(SW_APP)/peer_map.h             $(SW_APP)/peer_map.c \
 $(SW_MAIN)/main.cpp
 	$(CROSS)g++ \
    $(CFLAGS) \
@@ -102,6 +104,8 @@ $(SW_MAIN)/main.cpp
    $(SW_APP)/hkdf.c \
    $(SW_APP)/random.c \
    $(SW_APP)/timer.c \
+   $(SW_APP)/siphash.c \
+   $(SW_APP)/peer_map.c \
    $(SW_MAIN)/main.cpp \
    -lgcc
 

@@ -53,6 +53,8 @@
 #include "hkdf.h"
 #include "random.h"
 #include "timer.h"
+#include "siphash.h"
+#include "peer_map.h"
 
 //--------------------------------------------------------------------------
 // Stack scrub: crypto code leaves keys and intermediate values in its stack
@@ -271,6 +273,54 @@ static int test_rng(void)
    }
 
    return 0;
+}
+
+// SipHash-2-4 against the reference vectors (key 00..0f, input 00..n-1),
+// then the peer map: 64 peers in, found, one more refused, half removed
+static int test_siphash(void) {
+   static const struct { uint8_t len; uint64_t want; } vec[] = {
+      {0, 0x726fdb47dd0e0e31ULL}, {8, 0x93f5f5799a932462ULL}, {15, 0xa129ca6149be45e5ULL},
+   };
+   uint8_t key[SIPHASH_KEY_SIZE], msg[16], pub[PEER_KEY_SIZE];
+   int pass = 1, ok = 1;
+
+   for (int i = 0; i < SIPHASH_KEY_SIZE; i++) key[i] = (uint8_t)i;
+   for (int i = 0; i < 16; i++) msg[i] = (uint8_t)i;
+   for (unsigned v = 0; v < sizeof(vec) / sizeof(vec[0]); v++) {
+      if (siphash24(key, msg, vec[v].len) != vec[v].want) ok = 0;
+   }
+   test_result("SipHash-2-4 reference vectors", ok, &pass);
+
+   // peer p's key: bytes p, p+1, ... (all 64 differ)
+   ok = 1;
+   peer_map_init();
+   for (int p = 0; p < PEER_MAP_PEERS; p++) {
+      for (int i = 0; i < PEER_KEY_SIZE; i++) pub[i] = (uint8_t)(p + i);
+      if (peer_map_set(pub, (uint8_t)p) != 0) ok = 0;
+   }
+   for (int p = 0; p < PEER_MAP_PEERS; p++) {
+      for (int i = 0; i < PEER_KEY_SIZE; i++) pub[i] = (uint8_t)(p + i);
+      if (peer_map_find(pub) != p) ok = 0;
+   }
+   for (int i = 0; i < PEER_KEY_SIZE; i++) pub[i] = (uint8_t)(200 + i);
+   if (peer_map_find(pub) != -1 || peer_map_set(pub, 0) != -1) ok = 0;
+   test_result("Peer map: 64 peers found, a 65th refused", ok, &pass);
+
+   ok = 1;
+   for (int p = 0; p < PEER_MAP_PEERS; p += 2) {
+      for (int i = 0; i < PEER_KEY_SIZE; i++) pub[i] = (uint8_t)(p + i);
+      peer_map_remove(pub);
+   }
+   for (int p = 0; p < PEER_MAP_PEERS; p++) {
+      for (int i = 0; i < PEER_KEY_SIZE; i++) pub[i] = (uint8_t)(p + i);
+      if (peer_map_find(pub) != ((p & 1) ? p : -1)) ok = 0;
+   }
+   if (peer_map_count() != PEER_MAP_PEERS / 2) ok = 0;
+   test_result("Peer map: even peers removed, odd ones still found", ok, &pass);
+
+   peer_map_init();  // leave it empty, under a new key
+   uart_send(pass ? "SipHash test passed!\r\n" : "SipHash test failed!\r\n");
+   return pass ? 0 : -1;
 }
 
 static int test_timer(void)
@@ -908,6 +958,7 @@ int main(void) {
    // Boot sequence
    uart_send("Booting up...\r\n");
    init_network(&net_config);
+   peer_map_init();
    show_network(&net_config);
 
    // CLI prompt
@@ -993,6 +1044,8 @@ int main(void) {
             test_curve25519();
          } else if (bare_strcmp(uart_rx_data, "test rng\n") == 0) {
             test_rng();
+         } else if (bare_strcmp(uart_rx_data, "test siphash\n") == 0) {
+            test_siphash();
          } else if (bare_strcmp(uart_rx_data, "test timer\n") == 0) {
             test_timer();
          } else if (bare_strcmp(uart_rx_data, "show network\n") == 0) {
@@ -1023,6 +1076,7 @@ int main(void) {
             uart_send("  test blake2s           - Test BLAKE2s hash function\r\n");
             uart_send("  test curve25519        - Test Curve25519 key exchange\r\n");
             uart_send("  test rng               - Test random number generator\r\n");
+            uart_send("  test siphash           - Test SipHash and the peer map\r\n");
             uart_send("  test timer             - Test timer functionality\r\n");
             uart_send("  show network           - Show network configuration\r\n");
             uart_send("  config network         - Configure network settings\r\n");

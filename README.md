@@ -172,7 +172,7 @@ The conceptual class diagram provides an overview of the components in the softw
 - Timer - cycle-counter timer; rekey, retry, and keepalive timers are planned
 - [HKDF](https://eprint.iacr.org/2010/264) - an implementation of the algorithm for expanding the ECDH result
 - RTC (planned) - a real-time clock used to generate the TAI64N timestamp
-- [SipHash](https://en.wikipedia.org/wiki/SipHash) (planned) - a simple non-cryptographic function used for implementing a hashtable for fast lookup of decrypted static public keys of remote peers
+- [SipHash](https://en.wikipedia.org/wiki/SipHash) - a keyed hash (SipHash-2-4) behind the hash table that finds a peer by its decrypted static public key; its secret key keeps an attacker from flooding the table
 - Routing DB Updater - a subsystem for maintaining the cryptokey routing table content and deploying it to the data plane via the HAL/CSR interface
 - ICMP - implementing basic ICMP protocol functions (echo request/reply, TTL exceeded, etc.)
 - CLI - a USB/UART-based command-line interface for configuring the WireGuard node (setting the local IP address, remote peer IP addresses, network addresses, keys, etc.)

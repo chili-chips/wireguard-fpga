@@ -16,7 +16,7 @@ The conceptual class diagram provides an overview of the components in the softw
 - Timer - cycle-counter timer; rekey, retry, and keepalive timers are planned
 - [HKDF](https://eprint.iacr.org/2010/264) - an implementation of the algorithm for expanding the ECDH result
 - RTC (planned) - a real-time clock used to generate the TAI64N timestamp
-- [SipHash](https://en.wikipedia.org/wiki/SipHash) (planned) - a simple non-cryptographic function used for implementing a hashtable for fast lookup of decrypted static public keys of remote peers
+- [SipHash](https://en.wikipedia.org/wiki/SipHash) - a keyed hash (SipHash-2-4) behind the hash table that finds a peer by its decrypted static public key; its secret key keeps an attacker from flooding the table
 - Routing DB Updater - a subsystem for maintaining the cryptokey routing table content and deploying it to the data plane via the HAL/CSR interface
 - ICMP - implementing basic ICMP protocol functions (echo request/reply, TTL exceeded, etc.)
 - CLI - a USB/UART-based command-line interface for configuring the WireGuard node (setting the local IP address, remote peer IP addresses, network addresses, keys, etc.)
@@ -215,6 +215,20 @@ adapted to use the local BLAKE2s component.
 - The underlying BLAKE2s implementation has been **successfully tested on real hardware**.
 - Since HMAC and KDF logic is taken directly from WireGuard, and BLAKE2s is verified,
   the implementation is assumed to be functionally correct for current use.
+
+## SipHash and the peer map
+The handshake responder decrypts the initiator's static public key and must find that peer. `peer_map.c` maps a 32-byte public key to its peer-table index (0 to 63), through a hash table keyed with SipHash-2-4 (`siphash.c`).
+
+**Why SipHash.** With 64 peers at most, a plain search would be fast enough: it is here as an example and for its security property. A hash table with a public hash function can be flooded: an attacker sends keys that all land in one slot, and every lookup turns into a long search. SipHash takes a 128-bit secret key, drawn at boot (`random_32bytes`), so its outputs cannot be predicted and colliding keys cannot be picked. Linux WireGuard uses it for the same lookup. The key is only as unpredictable as the RNG, which is not crypto-grade yet ([#2](https://github.com/chili-chips/wireguard-fpga/issues/2)).
+
+**Implementation**
+- 128 slots for 64 peers (at most half full), open addressing, linear probing.
+- Removal shifts the rest of a run back instead of leaving markers, so lookups stay short after many changes.
+- Keys are compared in constant time, so the time does not show how many bytes of a guess match.
+- About 4.3 KB of data memory, no dynamic allocation.
+- Not yet called: the handshake ([#28](https://github.com/chili-chips/wireguard-fpga/issues/28)) will fill and use it.
+
+**Testing.** `test siphash` on the CLI checks the reference vectors (empty, 8 and 15 bytes) and the map: 64 peers set and found, a 65th refused, half removed, the rest still found. On the host, the map matched a reference model over 1 million random set/find/remove operations (ASan, UBSan).
 
 ## Multiply timing
 **The leak ([#4](https://github.com/chili-chips/wireguard-fpga/issues/4)).** RV32I has no multiply instruction, so gcc calls libgcc's `__mulsi3`, which loops over one operand's bits up to its highest 1 bit and adds only for the 1 bits. Its time depends on the operand values. In X25519 and Poly1305 those values come from the private key, the session key and the Poly1305 key. So the response time varied with the key: an attacker who measures it over many handshakes or packets could reverse-engineer the key (a timing side-channel attack).
