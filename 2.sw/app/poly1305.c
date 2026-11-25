@@ -255,7 +255,7 @@ void poly1305_finish(poly1305_ctx *ctx, uint8_t *auth_tag)
    store32_le(auth_tag + 12, h3);
 
    // the one-time key must not outlive the tag
-   memset(ctx, 0, sizeof(*ctx));
+   bare_wipe(ctx, sizeof(*ctx));
 }
 
 void poly1305_mac(uint8_t *auth_tag, const uint8_t *key, const uint8_t *message, size_t message_length)

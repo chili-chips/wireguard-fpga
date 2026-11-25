@@ -119,20 +119,34 @@ module eth_mac_1g_gmii_fifo
 
   logic [1:0] speed_int;
 
+  // Chili.CHIPS: ASYNC_REG; the bits are synchronized one by one, so a change
+  // of both (gigabit <-> 100M) can read as 00 or 11 for one clock. speed_reg
+  // takes a value only when two consecutive synchronized samples agree: the
+  // speed holds for many clocks, so it goes from the old value to the new one
+  (* ASYNC_REG = "TRUE", SHREG_EXTRACT = "NO" *)
   logic [1:0] speed_sync_reg_1;
+  (* ASYNC_REG = "TRUE", SHREG_EXTRACT = "NO" *)
   logic [1:0] speed_sync_reg_2;
+  logic [1:0] speed_sync_reg_3;
+  logic [1:0] speed_reg;
 
-  assign speed = speed_sync_reg_2;
+  assign speed = speed_reg;
 
   // the link speed, synchronized: a select, reset to gigabit (as the MAC)
   always_ff @(posedge logic_clk) begin
     if (logic_rst) begin
       speed_sync_reg_1 <= 2'b10;
       speed_sync_reg_2 <= 2'b10;
+      speed_sync_reg_3 <= 2'b10;
+      speed_reg        <= 2'b10;
     end
     else begin
       speed_sync_reg_1 <= speed_int;
       speed_sync_reg_2 <= speed_sync_reg_1;
+      speed_sync_reg_3 <= speed_sync_reg_2;
+      if (speed_sync_reg_2 == speed_sync_reg_3) begin
+        speed_reg <= speed_sync_reg_3;
+      end
     end
   end
 

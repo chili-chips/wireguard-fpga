@@ -76,7 +76,8 @@ module gmii_phy_if (
       .O  (mac_gmii_tx_clk)
   );
 
-  // reset sync
+  // reset sync (Chili.CHIPS: ASYNC_REG, as Alex's gmii_phy_if.tcl sets it)
+  (* ASYNC_REG = "TRUE" *)
   logic [3:0] tx_rst_reg;
   assign      mac_gmii_tx_rst = tx_rst_reg[0];
 
@@ -89,6 +90,7 @@ module gmii_phy_if (
     end
   end
 
+  (* ASYNC_REG = "TRUE" *)
   logic [3:0] rx_rst_reg;
   assign      mac_gmii_rx_rst = rx_rst_reg[0];
 

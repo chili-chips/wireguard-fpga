@@ -80,6 +80,9 @@ verible ^1\.hw/ip\.cpu/cpu\.PICORV32/picorv32_pcpi_[a-z_]+\.sv:[0-9]+:[0-9-]+: .
 #   signs, the RV32M divider's data path; IMEM: the instruction word
 reset 'u_cpu\.u_cpu\.(rs1_reg|rs2_reg|ls_offset_reg|dmem_addr|g_md\.(div_res|dvs|r_sh)|u_alu\.(alu_minus_reg|aluin_[12]_31_reg))'
 reset 'u_cpu\.u_imem\.rdat'
+# eduBOS5 checked alone (USE_HW_MUL=1, EN_COUNTERS=1), as on openPCIE
+reset '(rs1_reg|rs2_reg|ls_offset_reg|dmem_addr|g_md\.(div_res|dvs|r_sh))'
+reset 'u_alu\.(alu_minus_reg|aluin_[12]_31_reg)'
 #   MAC: the GMII receive byte pipeline (preamble, SFD compares)
 reset 'u_eth_[1-4]\.eth\.eth_mac_1g_gmii_inst\.eth_mac_1g_inst\.axis_gmii_rx_inst\.gmii_rxd_d[0-4]'
 #   ssio_sdr_in: the IOB register that samples a pin every clock (no feedback;
@@ -90,6 +93,9 @@ reset 'u_eth_[1-4]\.eth\.eth_mac_1g_gmii_inst\.gmii_phy_if_inst\.rx_ssio_sdr_ins
 #   Each is read only with its tvalid, which is reset
 reset '(u_dpe\.u_dpe_switch\.u_(en|de)cryptor\.)?u_dpe_if_pipeline_input\.pipeline\.g_pipe_reg\[0\]\.reg_inst\.g_skid\.m_axis_tdata_reg'
 reset 'u_dpe\.u_dpe_mux\.u_dpe_if_skid_buffer_to_dpe\.sbuff\.g_skid\.m_axis_tdata_reg'
+#   The register slice on the shared core's decrypt output: tdata (the
+#   plaintext's first beat, its IPv4 length), read only with its tvalid
+reset 'u_dpe\.u_dpe_switch\.u_dec_out_reg\.g_skid\.m_axis_tdata_reg'
 
 # external_lib: a reset synchronizer's output resets the async FIFO reset
 # synchronizers (async) and the logic of its clock domain (sync), by design
@@ -105,3 +111,14 @@ reset 'bus_dmem\.rdat'
 reset 'u_dpe\.u_dpe_switch\.u_(cryptokey|routing)_table\.dout_a'
 # CPU=picorv32 with RV32M: the multiplier's and divider's operands
 reset 'u_cpu\.u_cpu\.(g_enable_mul\.pcpi_mul\.rs1|g_enable_div\.pcpi_div\.(dividend|divisor))'
+
+# cdc, external_lib axis_async_fifo (frame FIFO): the committed write pointer
+# crosses as a bus held stable by the wr_ptr_update toggle and its ack
+# (sampled on the synchronized toggle edge, written again only after the ack);
+# a CE-controlled crossing is that handshake, not a missing synchronizer.
+# set_bus_skew in top.xdc bounds the bus against the toggle
+cdc CDC-15 .* u_eth_[1-4]/eth/(rx|tx)_fifo/fifo_inst/wr_ptr_sync_commit_reg_reg\[[0-9]+\]/C +u_eth_[1-4]/eth/(rx|tx)_fifo/fifo_inst/wr_ptr_commit_sync_reg_reg\[[0-9]+\]/D$
+# cdc, external_lib axis_async_fifo: the read pointer crosses gray-coded (one
+# bit changes per clock) into a 2-stage ASYNC_REG synchronizer; Vivado cannot
+# see the gray code. set_bus_skew in top.xdc keeps the skew under one period
+cdc CDC-6 .* u_eth_[1-4]/eth/(rx|tx)_fifo/fifo_inst/rd_ptr_gray_reg_reg\[[0-9:]+\]/C +u_eth_[1-4]/eth/(rx|tx)_fifo/fifo_inst/rd_ptr_gray_sync1_reg_reg\[[0-9:]+\]/D$

@@ -77,7 +77,7 @@ module eth_mac_1g_gmii #(
   logic [1:0] speed_reg;
   logic       mii_select_reg;
 
-  (* srl_style = "register" *)
+  (* ASYNC_REG = "TRUE", srl_style = "register" *)
   logic [1:0] tx_mii_select_sync;
 
   always_ff @(posedge tx_clk) begin
@@ -89,7 +89,7 @@ module eth_mac_1g_gmii #(
     end
   end
 
-  (* srl_style = "register" *)
+  (* ASYNC_REG = "TRUE", srl_style = "register" *)
   logic [1:0] rx_mii_select_sync;
 
   always_ff @(posedge rx_clk) begin
@@ -113,7 +113,7 @@ module eth_mac_1g_gmii #(
     end
   end
 
-  (* srl_style = "register" *)
+  (* ASYNC_REG = "TRUE", srl_style = "register" *)
   logic [2:0] rx_prescale_sync;
 
   always_ff @(posedge gtx_clk) begin

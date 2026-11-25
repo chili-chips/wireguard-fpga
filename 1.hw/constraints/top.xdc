@@ -404,6 +404,31 @@ set_false_path -from [get_clocks e4_rx_clk] -to [get_clocks sys_pll_out]
 set_false_path -from [get_clocks sys_pll_out] -to [get_clocks eth_pll_out]
 set_false_path -from [get_clocks eth_pll_out] -to [get_clocks sys_pll_out]
 
+### Synchronizers (as Alex Forencich's axis_async_fifo, eth_mac_1g_gmii and gmii_phy_if .tcl) ###
+# the input of a synchronizer is not a timing path; ASYNC_REG is in the RTL
+set_false_path -to [get_pins -hier -filter {NAME =~ */gmii_phy_if_inst/*_rst_reg_reg[*]/PRE}]
+set_false_path -to [get_pins -hier -filter {NAME =~ */eth_mac_1g_gmii_inst/*_mii_select_sync_reg[0]/D}]
+set_false_path -to [get_pins -hier -filter {NAME =~ */eth_mac_1g_gmii_inst/rx_prescale_sync_reg[0]/D}]
+# async FIFOs: the gray read pointer, and the frame commit pointer with its
+# update toggle, must cross within one 8 ns period; set_bus_skew holds under
+# the clock false paths above
+set_bus_skew -from [get_cells {u_eth_1/eth/rx_fifo/fifo_inst/rd_ptr_reg_reg[*] u_eth_1/eth/rx_fifo/fifo_inst/rd_ptr_gray_reg_reg[*]}] -to [get_cells u_eth_1/eth/rx_fifo/fifo_inst/rd_ptr_gray_sync1_reg_reg[*]] 8.000
+set_bus_skew -from [get_cells {u_eth_1/eth/rx_fifo/fifo_inst/wr_ptr_sync_commit_reg_reg[*] u_eth_1/eth/rx_fifo/fifo_inst/wr_ptr_update_reg_reg}] -to [get_cells {u_eth_1/eth/rx_fifo/fifo_inst/wr_ptr_commit_sync_reg_reg[*] u_eth_1/eth/rx_fifo/fifo_inst/wr_ptr_update_sync1_reg_reg}] 8.000
+set_bus_skew -from [get_cells {u_eth_1/eth/tx_fifo/fifo_inst/rd_ptr_reg_reg[*] u_eth_1/eth/tx_fifo/fifo_inst/rd_ptr_gray_reg_reg[*]}] -to [get_cells u_eth_1/eth/tx_fifo/fifo_inst/rd_ptr_gray_sync1_reg_reg[*]] 8.000
+set_bus_skew -from [get_cells {u_eth_1/eth/tx_fifo/fifo_inst/wr_ptr_sync_commit_reg_reg[*] u_eth_1/eth/tx_fifo/fifo_inst/wr_ptr_update_reg_reg}] -to [get_cells {u_eth_1/eth/tx_fifo/fifo_inst/wr_ptr_commit_sync_reg_reg[*] u_eth_1/eth/tx_fifo/fifo_inst/wr_ptr_update_sync1_reg_reg}] 8.000
+set_bus_skew -from [get_cells {u_eth_2/eth/rx_fifo/fifo_inst/rd_ptr_reg_reg[*] u_eth_2/eth/rx_fifo/fifo_inst/rd_ptr_gray_reg_reg[*]}] -to [get_cells u_eth_2/eth/rx_fifo/fifo_inst/rd_ptr_gray_sync1_reg_reg[*]] 8.000
+set_bus_skew -from [get_cells {u_eth_2/eth/rx_fifo/fifo_inst/wr_ptr_sync_commit_reg_reg[*] u_eth_2/eth/rx_fifo/fifo_inst/wr_ptr_update_reg_reg}] -to [get_cells {u_eth_2/eth/rx_fifo/fifo_inst/wr_ptr_commit_sync_reg_reg[*] u_eth_2/eth/rx_fifo/fifo_inst/wr_ptr_update_sync1_reg_reg}] 8.000
+set_bus_skew -from [get_cells {u_eth_2/eth/tx_fifo/fifo_inst/rd_ptr_reg_reg[*] u_eth_2/eth/tx_fifo/fifo_inst/rd_ptr_gray_reg_reg[*]}] -to [get_cells u_eth_2/eth/tx_fifo/fifo_inst/rd_ptr_gray_sync1_reg_reg[*]] 8.000
+set_bus_skew -from [get_cells {u_eth_2/eth/tx_fifo/fifo_inst/wr_ptr_sync_commit_reg_reg[*] u_eth_2/eth/tx_fifo/fifo_inst/wr_ptr_update_reg_reg}] -to [get_cells {u_eth_2/eth/tx_fifo/fifo_inst/wr_ptr_commit_sync_reg_reg[*] u_eth_2/eth/tx_fifo/fifo_inst/wr_ptr_update_sync1_reg_reg}] 8.000
+set_bus_skew -from [get_cells {u_eth_3/eth/rx_fifo/fifo_inst/rd_ptr_reg_reg[*] u_eth_3/eth/rx_fifo/fifo_inst/rd_ptr_gray_reg_reg[*]}] -to [get_cells u_eth_3/eth/rx_fifo/fifo_inst/rd_ptr_gray_sync1_reg_reg[*]] 8.000
+set_bus_skew -from [get_cells {u_eth_3/eth/rx_fifo/fifo_inst/wr_ptr_sync_commit_reg_reg[*] u_eth_3/eth/rx_fifo/fifo_inst/wr_ptr_update_reg_reg}] -to [get_cells {u_eth_3/eth/rx_fifo/fifo_inst/wr_ptr_commit_sync_reg_reg[*] u_eth_3/eth/rx_fifo/fifo_inst/wr_ptr_update_sync1_reg_reg}] 8.000
+set_bus_skew -from [get_cells {u_eth_3/eth/tx_fifo/fifo_inst/rd_ptr_reg_reg[*] u_eth_3/eth/tx_fifo/fifo_inst/rd_ptr_gray_reg_reg[*]}] -to [get_cells u_eth_3/eth/tx_fifo/fifo_inst/rd_ptr_gray_sync1_reg_reg[*]] 8.000
+set_bus_skew -from [get_cells {u_eth_3/eth/tx_fifo/fifo_inst/wr_ptr_sync_commit_reg_reg[*] u_eth_3/eth/tx_fifo/fifo_inst/wr_ptr_update_reg_reg}] -to [get_cells {u_eth_3/eth/tx_fifo/fifo_inst/wr_ptr_commit_sync_reg_reg[*] u_eth_3/eth/tx_fifo/fifo_inst/wr_ptr_update_sync1_reg_reg}] 8.000
+set_bus_skew -from [get_cells {u_eth_4/eth/rx_fifo/fifo_inst/rd_ptr_reg_reg[*] u_eth_4/eth/rx_fifo/fifo_inst/rd_ptr_gray_reg_reg[*]}] -to [get_cells u_eth_4/eth/rx_fifo/fifo_inst/rd_ptr_gray_sync1_reg_reg[*]] 8.000
+set_bus_skew -from [get_cells {u_eth_4/eth/rx_fifo/fifo_inst/wr_ptr_sync_commit_reg_reg[*] u_eth_4/eth/rx_fifo/fifo_inst/wr_ptr_update_reg_reg}] -to [get_cells {u_eth_4/eth/rx_fifo/fifo_inst/wr_ptr_commit_sync_reg_reg[*] u_eth_4/eth/rx_fifo/fifo_inst/wr_ptr_update_sync1_reg_reg}] 8.000
+set_bus_skew -from [get_cells {u_eth_4/eth/tx_fifo/fifo_inst/rd_ptr_reg_reg[*] u_eth_4/eth/tx_fifo/fifo_inst/rd_ptr_gray_reg_reg[*]}] -to [get_cells u_eth_4/eth/tx_fifo/fifo_inst/rd_ptr_gray_sync1_reg_reg[*]] 8.000
+set_bus_skew -from [get_cells {u_eth_4/eth/tx_fifo/fifo_inst/wr_ptr_sync_commit_reg_reg[*] u_eth_4/eth/tx_fifo/fifo_inst/wr_ptr_update_reg_reg}] -to [get_cells {u_eth_4/eth/tx_fifo/fifo_inst/wr_ptr_commit_sync_reg_reg[*] u_eth_4/eth/tx_fifo/fifo_inst/wr_ptr_update_sync1_reg_reg}] 8.000
+
 ### Input/Output Delay ###
 #set_input_delay -clock e1_rx_clk -max 2.5 [get_ports e1_rxdv]
 #set_input_delay -clock e1_rx_clk -min 0.5 [get_ports e1_rxdv]

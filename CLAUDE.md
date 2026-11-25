@@ -75,8 +75,9 @@ make -f MakefileVProc.mk clean
 **Lint, format, LEQ** (`3.build/hw_build.openXC7/`, as on openPCIE; sources from `1.hw/top.filelist`, plus the DPE blocks top does not instantiate yet (`BLOCK_TOPS` in `sources.sh`, each a top of its own: `read_slang --allow-toplevel-iface-ports`); CI: `.github/workflows/lint.yml`, `verible.yml` run the same scripts):
 ```bash
 S=3.build/hw_build.openXC7
-bash $S/run-lint.sh                       # tags, verilator, yosys, reset, slang, verible, ghdl, ghdl-verilator; waivers in run-lint-waivers.txt
+bash $S/run-lint.sh                       # tags, verilator, yosys, reset, slang, verible, ghdl, ghdl-verilator, cdc; waivers in run-lint-waivers.txt
 PYPELINEC=<PipelineC>/src/pypelinec bash $S/run-lint.sh ghdl ghdl-verilator  # Pypeline core VHDL (pypelinec --no_synth, no Vivado)
+VIVADO=~/Xilinx/2026.2/Vivado/bin/vivado bash $S/run-lint.sh cdc  # Vivado report_cdc on top (~3 min; core a black box); skipped without Vivado, so not in CI
 VIEW=sim bash $S/run-lint.sh              # simulation view (SIM_ONLY)
 CPU=picorv32 bash $S/run-lint.sh          # the other CPU (default: the one top.filelist lists)
 bash $S/run-format.sh --check             # Verible format of our own RTL

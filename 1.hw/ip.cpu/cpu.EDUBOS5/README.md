@@ -10,7 +10,7 @@ SPDX-License-Identifier: BSD-3-Clause
   <a href="https://github.com/tarik-ibrahimovic/eduBOS5"><img alt="eduBOS5 logo" width="25%" src="../../../0.doc/artwork/eduBOS5.logo.png"></a>
 </div>
 
-[eduBOS5](https://github.com/tarik-ibrahimovic/eduBOS5) is Chili.CHIPS' compact RV32I RISC-V core (RV32IM as built here), open source under BSD-3-Clause. The master is on [openPCIE](https://github.com/chili-chips/openPCIE/tree/main/2.rtl/0.common.opensource/src/CPU.eduBOS5), with its validation (riscv-formal, the multicycle proof, timing). The RTL here is a copy of openPCIE `ab4acbf` (2026-11-23), lint-clean and Verible-formatted.
+[eduBOS5](https://github.com/tarik-ibrahimovic/eduBOS5) is Chili.CHIPS' compact RV32I RISC-V core (RV32IM as built here), open source under BSD-3-Clause. The master is on [openPCIE](https://github.com/chili-chips/openPCIE/tree/main/2.rtl/0.common.opensource/src/CPU.eduBOS5), with its validation (riscv-formal, the multicycle proof, timing). The RTL here is a copy of openPCIE `e3c0e85` (2026-11-24, fused MUL/MULH), with `edubos5.sv` and `edubos5_rf.sv` from openPCIE of 2026-11-24 (`RF_SYNC_READ`, off here: Xilinx has LUT RAM), lint-clean and Verible-formatted.
 
 Before major work here, check the master for a newer eduBOS5: copy the four files below and note the date or commit. Fixes go to openPCIE first.
 
@@ -18,7 +18,7 @@ Before major work here, check the master for a newer eduBOS5: copy the four file
 |---|---|
 | `edubos5.sv` | the core: control FSM, decode, load/store |
 | `edubos5_alu.sv` | ALU, registered output |
-| `edubos5_rf.sv` | register file: 2 asynchronous read ports, 1 synchronous write port |
+| `edubos5_rf.sv` | register file: 2 read ports, asynchronous (LUT RAM) or registered (block RAM, `RF_SYNC_READ`), 1 synchronous write port |
 | `edubos5_pkg.sv` | common types and opcodes |
 
 ## In this SOC

@@ -88,8 +88,8 @@ static void blake2s_compress(blake2s_ctx *ctx, int last)
         ctx->h[i] ^= v[i] ^ v[i + 8];
 
     // the work state and message words are key-derived: do not leave them
-    memset(v, 0, sizeof(v));
-    memset(m, 0, sizeof(m));
+    bare_wipe(v, sizeof(v));
+    bare_wipe(m, sizeof(m));
 }
 
 // Initialize the hashing context "ctx" with optional key "key".
@@ -164,7 +164,7 @@ void blake2s_final(blake2s_ctx *ctx, void *out)
     }
 
     // the context holds the key and data block and the chained state
-    memset(ctx, 0, sizeof(*ctx));
+    bare_wipe(ctx, sizeof(*ctx));
 }
 
 // Convenience function for all-in-one computation.
@@ -216,8 +216,8 @@ int hmac(uint8_t *out, const uint8_t *in, const uint8_t *key,
     blake2s_update(&ctx, i_hash, BLAKE2S_HASH_SIZE);
     blake2s_final(&ctx, out);
 
-    memset(x_key, 0, BLAKE2S_BLOCK_SIZE);
-    memset(i_hash, 0, BLAKE2S_HASH_SIZE);
+    bare_wipe(x_key, BLAKE2S_BLOCK_SIZE);
+    bare_wipe(i_hash, BLAKE2S_HASH_SIZE);
 
     return 0;
 }

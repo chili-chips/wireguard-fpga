@@ -171,6 +171,7 @@ The conceptual class diagram provides an overview of the components in the softw
 - RNG - a random number generator used to initialize the DH key generator and generate peer identifiers
 - Timer - cycle-counter timer; rekey, retry, and keepalive timers are planned
 - [HKDF](https://eprint.iacr.org/2010/264) - an implementation of the algorithm for expanding the ECDH result
+- [Noise handshake](2.sw/README.md#noise-handshake) - WireGuard's Noise_IKpsk2 initiation and response, and the transport keys; tested against Linux WireGuard
 - RTC (planned) - a real-time clock used to generate the TAI64N timestamp
 - [SipHash](https://en.wikipedia.org/wiki/SipHash) - a keyed hash (SipHash-2-4) behind the hash table that finds a peer by its decrypted static public key; its secret key keeps an attacker from flooding the table
 - Routing DB Updater - a subsystem for maintaining the cryptokey routing table content and deploying it to the data plane via the HAL/CSR interface

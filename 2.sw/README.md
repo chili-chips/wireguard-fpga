@@ -15,6 +15,7 @@ The conceptual class diagram provides an overview of the components in the softw
 - RNG - a random number generator used to initialize the DH key generator and generate peer identifiers
 - Timer - cycle-counter timer; rekey, retry, and keepalive timers are planned
 - [HKDF](https://eprint.iacr.org/2010/264) - an implementation of the algorithm for expanding the ECDH result
+- [Noise handshake](#noise-handshake) - WireGuard's Noise_IKpsk2 initiation and response, and the transport keys; tested against Linux WireGuard
 - RTC (planned) - a real-time clock used to generate the TAI64N timestamp
 - [SipHash](https://en.wikipedia.org/wiki/SipHash) - a keyed hash (SipHash-2-4) behind the hash table that finds a peer by its decrypted static public key; its secret key keeps an attacker from flooding the table
 - Routing DB Updater - a subsystem for maintaining the cryptokey routing table content and deploying it to the data plane via the HAL/CSR interface
@@ -211,10 +212,44 @@ adapted to use the local BLAKE2s component.
 ### Testing and Validation
 - This component has [**not been tested in isolation**](https://github.com/chili-chips/wireguard-fpga/tree/main/99.warmup/11.hkdf) using dedicated HKDF test vectors.
 - No official Noise KDF test vectors were available at the time of implementation.
-- The firmware has no Noise handshake yet, so it is not validated end-to-end either.
+- Validated end to end since 2026-11-24: the Noise handshake built on it (`noise.c`) interoperates with Linux WireGuard (see [Noise handshake](#noise-handshake)).
 - The underlying BLAKE2s implementation has been **successfully tested on real hardware**.
 - Since HMAC and KDF logic is taken directly from WireGuard, and BLAKE2s is verified,
   the implementation is assumed to be functionally correct for current use.
+
+## Noise handshake
+`noise.c` is WireGuard's handshake, Noise_IKpsk2_25519_ChaChaPoly_BLAKE2s, as in the WireGuard paper, section 5.4 [[SW1]](#sw-references): the initiation (message 1, 148 bytes), the response (message 2, 92 bytes) and the transport keys both sides derive. It builds on the libraries above: BLAKE2s for HASH and MAC, HKDF for the KDFs, X25519, ChaCha20-Poly1305.
+
+- No I/O, no RNG: the caller passes the ephemeral key, finds the peer from the decrypted static key (the peer map) and checks the TAI64N timestamp.
+- An all-zero X25519 result (a low-order public key) is refused, mac1 is compared in constant time, and the secrets are wiped.
+- A bad response leaves the initiation usable: the initiator works on copies.
+- Not done yet: cookies (mac2 is sent as zeros, [#29](https://github.com/chili-chips/wireguard-fpga/issues/29)), the timestamp clock ([#30](https://github.com/chili-chips/wireguard-fpga/issues/30)), and the wiring to UDP and the cryptokey table ([#28](https://github.com/chili-chips/wireguard-fpga/issues/28)).
+
+### Testing with Linux wireguard-tools
+[`tests/noise`](tests/noise) runs on the host (Linux or WSL), with ASan and UBSan:
+
+```
+cd 2.sw/tests/noise
+make test       # noise.c against noise_ref.py, byte for byte
+make interop    # noise.c against the Linux kernel's WireGuard
+```
+
+**`make test`** builds both messages and the transport keys from fixed keys, and compares them byte for byte with [`noise_ref.py`](tests/noise/noise_ref.py). That is a second implementation, written separately from the paper on Python's `hashlib` and pyca/cryptography [[SW3]](#sw-references). It also flips each bit position of both messages, and tries a wrong preshared key and a wrong responder: all are refused. With a valid mac1 it tries a bad AEAD, all-zero (low-order) keys, a replayed response and calls out of order: all are refused, and a rejected initiation leaves the handshake state and its outputs untouched. It prints `PASS <n> checks`.
+
+**`make interop`** checks the handshake against the Linux kernel's WireGuard [[SW2]](#sw-references). A shared misreading of the spec would pass `make test`, but not this. It needs `wireguard-tools` and the `wireguard` module loaded, once:
+
+```
+sudo apt install wireguard-tools && sudo modprobe wireguard
+```
+
+After that, no root is needed: [`run_interop.sh`](tests/noise/run_interop.sh) runs in its own user and network namespace (`unshare -rn`). There it sets up `wg0` (10.0.0.1, UDP 51820) with a fresh key and our public key and preshared key as its peer. [`wg_interop.c`](tests/noise/wg_interop.c) is the other end, 10.0.0.2 on UDP 40000:
+
+| Part | Who starts | What is checked |
+|---|---|---|
+| A | the kernel, by `ping 10.0.0.2` | our responder accepts the kernel's initiation and answers; the kernel's ping then decrypts with our receive key |
+| B | us | the kernel accepts our initiation and answers; our ping through the tunnel gets the kernel's echo reply, which decrypts with our receive key |
+
+Both parts pass (2026-11-24, kernel 6.18 in WSL2, wireguard-tools 1.0.20210914).
 
 ## SipHash and the peer map
 The handshake responder decrypts the initiator's static public key and must find that peer. `peer_map.c` maps a 32-byte public key to its peer-table index (0 to 63), through a hash table keyed with SipHash-2-4 (`siphash.c`).
@@ -285,3 +320,8 @@ The atomic CSR update mechanism works as follows:
 8. As packets start arriving, all components within the DPE gradually transition back to their active states.
 
 ![ExampleToplogy](../0.doc/Wireguard/wireguard-fpga-muxed-CSR-Flow-Control-Animated.gif)
+
+# SW references
+- **[SW1]** J. A. Donenfeld, [WireGuard: Next Generation Kernel Network Tunnel](https://www.wireguard.com/papers/wireguard.pdf), section 5.4 (the handshake); [Protocol & Cryptography](https://www.wireguard.com/protocol/); T. Perrin, [The Noise Protocol Framework](https://noiseprotocol.org/noise.html) (rev. 34)
+- **[SW2]** Linux kernel [WireGuard](https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/net/wireguard) and [wireguard-tools](https://git.zx2c4.com/wireguard-tools/) (`wg`): the other end of `make interop`
+- **[SW3]** Python [`hashlib`](https://docs.python.org/3/library/hashlib.html) (BLAKE2s, HMAC) and [pyca/cryptography](https://cryptography.io) 50.0 (X25519, ChaCha20-Poly1305): the primitives under [`noise_ref.py`](tests/noise/noise_ref.py)

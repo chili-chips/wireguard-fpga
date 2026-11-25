@@ -167,41 +167,43 @@ module axis_async_fifo #(
   logic [ADDR_WIDTH:0] rd_ptr_inc;
   assign               rd_ptr_inc = rd_ptr_reg + 1;
 
-  (* SHREG_EXTRACT = "NO" *)
-  logic [  ADDR_WIDTH:0] wr_ptr_gray_sync1_reg;
-  (* SHREG_EXTRACT = "NO" *)
+  // Chili.CHIPS: ASYNC_REG on each synchronizer stage in the receiving domain (as
+  // Alex's axis_async_fifo.tcl sets it); wr_ptr_commit_sync_reg samples a bus held
+  // stable by the update/ack handshake, and the *_rst_sync1 flops launch in the
+  // other domain, so neither is a synchronizer stage
+  (* ASYNC_REG = "TRUE", SHREG_EXTRACT = "NO" *)
   logic [  ADDR_WIDTH:0] wr_ptr_gray_sync2_reg;
   (* SHREG_EXTRACT = "NO" *)
   logic [  ADDR_WIDTH:0] wr_ptr_commit_sync_reg;
-  (* SHREG_EXTRACT = "NO" *)
+  (* ASYNC_REG = "TRUE", SHREG_EXTRACT = "NO" *)
   logic [  ADDR_WIDTH:0] rd_ptr_gray_sync1_reg;
-  (* SHREG_EXTRACT = "NO" *)
+  (* ASYNC_REG = "TRUE", SHREG_EXTRACT = "NO" *)
   logic [  ADDR_WIDTH:0] rd_ptr_gray_sync2_reg;
 
   logic                  wr_ptr_update_valid_reg;
   logic                  wr_ptr_update_reg;
-  (* SHREG_EXTRACT = "NO" *)
+  (* ASYNC_REG = "TRUE", SHREG_EXTRACT = "NO" *)
   logic                  wr_ptr_update_sync1_reg;
-  (* SHREG_EXTRACT = "NO" *)
+  (* ASYNC_REG = "TRUE", SHREG_EXTRACT = "NO" *)
   logic                  wr_ptr_update_sync2_reg;
-  (* SHREG_EXTRACT = "NO" *)
+  (* ASYNC_REG = "TRUE", SHREG_EXTRACT = "NO" *)
   logic                  wr_ptr_update_sync3_reg;
-  (* SHREG_EXTRACT = "NO" *)
+  (* ASYNC_REG = "TRUE", SHREG_EXTRACT = "NO" *)
   logic                  wr_ptr_update_ack_sync1_reg;
-  (* SHREG_EXTRACT = "NO" *)
+  (* ASYNC_REG = "TRUE", SHREG_EXTRACT = "NO" *)
   logic                  wr_ptr_update_ack_sync2_reg;
 
   (* SHREG_EXTRACT = "NO" *)
   logic                  s_rst_sync1_reg;
-  (* SHREG_EXTRACT = "NO" *)
+  (* ASYNC_REG = "TRUE", SHREG_EXTRACT = "NO" *)
   logic                  s_rst_sync2_reg;
-  (* SHREG_EXTRACT = "NO" *)
+  (* ASYNC_REG = "TRUE", SHREG_EXTRACT = "NO" *)
   logic                  s_rst_sync3_reg;
   (* SHREG_EXTRACT = "NO" *)
   logic                  m_rst_sync1_reg;
-  (* SHREG_EXTRACT = "NO" *)
+  (* ASYNC_REG = "TRUE", SHREG_EXTRACT = "NO" *)
   logic                  m_rst_sync2_reg;
-  (* SHREG_EXTRACT = "NO" *)
+  (* ASYNC_REG = "TRUE", SHREG_EXTRACT = "NO" *)
   logic                  m_rst_sync3_reg;
 
   (* ramstyle = "no_rw_check" *)
@@ -218,8 +220,8 @@ module axis_async_fifo #(
   // empty when pointers match exactly
   logic  empty;
   assign empty = FRAME_FIFO
-             ? (rd_ptr_reg == wr_ptr_commit_sync_reg)
-             : (rd_ptr_gray_reg == wr_ptr_gray_sync2_reg);
+               ? (rd_ptr_reg == wr_ptr_commit_sync_reg)
+               : (rd_ptr_gray_reg == wr_ptr_gray_sync2_reg);
   // overflow within packet
   logic  full_wr;
   assign full_wr = wr_ptr_reg == (wr_ptr_commit_reg ^ {1'b1, {ADDR_WIDTH{1'b0}}});
@@ -494,9 +496,30 @@ module axis_async_fifo #(
     end
   end
 
+  // Chili.CHIPS: a frame FIFO reads the committed pointer, never the gray one, so
+  // only a plain FIFO synchronizes it (ASYNC_REG would keep the dead flops)
+  generate
+    if (FRAME_FIFO) begin : g_wr_gray_none
+      assign wr_ptr_gray_sync2_reg = {ADDR_WIDTH + 1{1'b0}};
+    end
+    else begin : g_wr_gray_sync
+      (* ASYNC_REG = "TRUE", SHREG_EXTRACT = "NO" *)
+      logic [ADDR_WIDTH:0] wr_ptr_gray_sync1_reg;
+
+      always_ff @(posedge m_clk) begin
+        if (m_rst) begin
+          wr_ptr_gray_sync1_reg <= {ADDR_WIDTH + 1{1'b0}};
+          wr_ptr_gray_sync2_reg <= {ADDR_WIDTH + 1{1'b0}};
+        end
+        else begin
+          wr_ptr_gray_sync1_reg <= wr_ptr_gray_reg;
+          wr_ptr_gray_sync2_reg <= wr_ptr_gray_sync1_reg;
+        end
+      end
+    end
+  endgenerate
+
   always_ff @(posedge m_clk) begin
-    wr_ptr_gray_sync1_reg <= wr_ptr_gray_reg;
-    wr_ptr_gray_sync2_reg <= wr_ptr_gray_sync1_reg;
     if (FRAME_FIFO && wr_ptr_update_sync2_reg ^ wr_ptr_update_sync3_reg) begin
       wr_ptr_commit_sync_reg <= wr_ptr_sync_commit_reg;
     end
@@ -504,13 +527,7 @@ module axis_async_fifo #(
     wr_ptr_update_sync2_reg <= wr_ptr_update_sync1_reg;
     wr_ptr_update_sync3_reg <= wr_ptr_update_sync2_reg;
 
-    if (FRAME_FIFO && m_rst_sync3_reg) begin
-      wr_ptr_gray_sync1_reg <= {ADDR_WIDTH + 1{1'b0}};
-    end
-
     if (m_rst) begin
-      wr_ptr_gray_sync1_reg   <= {ADDR_WIDTH + 1{1'b0}};
-      wr_ptr_gray_sync2_reg   <= {ADDR_WIDTH + 1{1'b0}};
       wr_ptr_commit_sync_reg  <= {ADDR_WIDTH + 1{1'b0}};
       wr_ptr_update_sync1_reg <= 1'b0;
       wr_ptr_update_sync2_reg <= 1'b0;

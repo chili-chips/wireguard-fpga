@@ -60,6 +60,17 @@ int memcmp(const void *s1, const void *s2, size_t len);
 // co-simulation, so the co-simulation runs the code the CPU runs (not libc's)
 
 /**
+ * @brief Zero memory that holds a secret
+ *
+ * Volatile stores, so the compiler keeps them even when it sees the memory
+ * die (a plain memset before a return may be dropped, under LTO too)
+ *
+ * @param p Pointer to the memory
+ * @param n Number of bytes
+ */
+void bare_wipe(void *p, size_t n);
+
+/**
  * @brief Calculate the length of a string
  *
  * @param str Pointer to the null-terminated string

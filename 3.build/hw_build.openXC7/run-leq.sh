@@ -54,8 +54,13 @@
 #   auto  flat; when that ends on a memory ("No SAT model ... $mem"), which
 #         happens for any change upstream of a FIFO, hier decides
 #
-# Needs Yosys with read_slang: built into the openXC7 Yosys; with the OSS CAD
-# Suite, YOSYS_ARGS="-m slang". YOSYS, YOSYS_CONFIG and PYTHON override the
+# GOLD_SOURCES=<sources.sh> lists the gold tree with an older sources.sh, for a
+# change that moves or renames files (default: this one, for both), e.g.
+#   git show HEAD:3.build/hw_build.openXC7/sources.sh > /tmp/gold-sources.sh
+#
+# Needs Yosys with read_slang: built into the openXC7 Yosys, a plugin in the
+# OSS CAD Suite. When YOSYS_ARGS is not set, it is "" if the Yosys has
+# read_slang, else "-m slang". YOSYS, YOSYS_CONFIG and PYTHON override the
 # commands.
 set -e
 HERE=$(cd "$(dirname "$0")" && pwd)
@@ -64,7 +69,13 @@ GOLD=$(cd "$1" && pwd); GATE=$(cd "$2" && pwd); MAP=${3:-}
 BLD=$(cd "$HERE/.." && pwd)
 YOSYS=${YOSYS:-yosys}
 YOSYS_CONFIG=${YOSYS_CONFIG:-yosys-config}
-YOSYS_ARGS=${YOSYS_ARGS:-}
+if [ -z "${YOSYS_ARGS+set}" ]; then  # as run-lint.sh
+  if "$YOSYS" -p 'help read_slang' 2>/dev/null | grep -q 'read_slang \['; then
+    YOSYS_ARGS=""
+  else
+    YOSYS_ARGS="-m slang"
+  fi
+fi
 PYTHON=${PYTHON:-python3}
 PRIMS="PLLE2_BASE BUFG IBUFGDS BUFGMUX ODDR DSP48E1"
 # The generated ChaCha20-Poly1305 core is a black box too (the same file on
@@ -83,9 +94,12 @@ for c in $CORES; do "$PYTHON" "$HERE/gen_core_bb.py" "$GEN/$c.v.gz" $c >> bb.sv;
 PRIMS="$PRIMS $CORES"
 
 files() {  # $1 = 1.hw dir, $2 = gold|gate; the design, and what $TOP adds to it
-  local x=""
-  [ "$TOP" = top ] || x="$(block_rtl "$TOP" "$1")"
-  echo bb.sv $(design_rtl "$1" "$BLD" | grep -v /pypeline_build/soc/ | tr '\n' ' ') $x
+  local s=$HERE/sources.sh
+  [ "$2" = gold ] && s=${GOLD_SOURCES:-$s}
+  ( . "$s"
+    x=""
+    [ "$TOP" = top ] || x="$(block_rtl "$TOP" "$1")"
+    echo bb.sv $(design_rtl "$1" "$BLD" | grep -v /pypeline_build/soc/ | tr '\n' ' ') $x )
 }
 BB=$(for p in $PRIMS; do printf 't:%s ' $p; done)
 

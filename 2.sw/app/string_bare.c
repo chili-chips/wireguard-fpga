@@ -84,6 +84,12 @@ int memcmp(const void *s1, const void *s2, size_t len) {
 
 #endif  // VPROC
 
+void bare_wipe(void *p, size_t n) {
+   volatile uint8_t *v = (volatile uint8_t *)p;
+   while (n--)
+      *v++ = 0;
+}
+
 size_t bare_strlen(const char *str) {
    size_t len = 0;
 

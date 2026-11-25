@@ -81,9 +81,9 @@ void kdf(
     memcpy(third_dst, output, third_len);
 
 out:
-    /* Wipe stack using your bare-metal memset */
-    memset(secret, 0, BLAKE2S_HASH_SIZE);
-    memset(output, 0, BLAKE2S_HASH_SIZE + 1);
+    // wipe the key-derived values on the stack
+    bare_wipe(secret, BLAKE2S_HASH_SIZE);
+    bare_wipe(output, BLAKE2S_HASH_SIZE + 1);
 }
 
 // -----------------------------------------------------------------------------

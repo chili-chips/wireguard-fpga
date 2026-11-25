@@ -63,6 +63,11 @@
 //   build.py --shared --soc): one ChaCha20 and one Poly1305 serve both
 //   directions, so the design fits the xc7a200t (two standalone cores: about
 //   134%, #40). Both directions run at once; they share the core's throughput.
+//   A register slice (axis_register, skid) sits on each of the core's four
+//   streams, so no path runs from the block FSMs into the core's logic or
+//   back (#67): one cycle more each way. Key and nonce need none: each block
+//   holds them until its packet has left the core. The decrypt output's
+//   decrypt_m_verified (valid with every beat) rides its slice in tuser.
 //==========================================================================
 
 module dpe_switch
@@ -113,9 +118,26 @@ module dpe_switch
       .clk (inp.clk),
       .rst (inp.rst)
   );
+  // the same four streams at the core's ports, behind the register slices
+  dpe_if core_dec_in (
+      .clk (inp.clk),
+      .rst (inp.rst)
+  );
+  dpe_if core_dec_out (
+      .clk (inp.clk),
+      .rst (inp.rst)
+  );
+  dpe_if core_enc_in (
+      .clk (inp.clk),
+      .rst (inp.rst)
+  );
+  dpe_if core_enc_out (
+      .clk (inp.clk),
+      .rst (inp.rst)
+  );
   logic [255:0] dec_key, enc_key;
   logic [95:0] dec_nonce, enc_nonce;
-  logic         dec_verified;
+  logic dec_verified, core_verified;
 
   wg_receiver_t wg_rcv;
   rcv_rsp_t     rcv_rsp;
@@ -168,6 +190,48 @@ module dpe_switch
       .from_encrypt (from_encrypt)
   );
 
+  // register slices on the core's streams; tuser and tid carry nothing,
+  // but the decrypt output's tuser.bypass_stage: the tag did not check out
+  axis_register #(
+      .ID_ENABLE   (0),
+      .USER_ENABLE (0)
+  ) u_enc_in_reg (
+      .s_axis (to_encrypt),
+      .m_axis (core_enc_in)
+  );
+  axis_register #(
+      .ID_ENABLE   (0),
+      .USER_ENABLE (0)
+  ) u_enc_out_reg (
+      .s_axis (core_enc_out),
+      .m_axis (from_encrypt)
+  );
+  axis_register #(
+      .ID_ENABLE   (0),
+      .USER_ENABLE (0)
+  ) u_dec_in_reg (
+      .s_axis (to_decrypt),
+      .m_axis (core_dec_in)
+  );
+  axis_register #(
+      .ID_ENABLE   (0),
+      .USER_ENABLE (1)
+  ) u_dec_out_reg (
+      .s_axis (core_dec_out),
+      .m_axis (from_decrypt)
+  );
+
+  assign core_enc_out.tuser = '0;
+  assign core_enc_out.tid = '0;
+  assign core_dec_out.tuser = '{
+          bypass_all: 1'b0,
+          bypass_stage: ~core_verified,
+          src: DPE_ADDR_CPU,
+          dst: DPE_ADDR_CPU
+      };
+  assign core_dec_out.tid = '0;
+  assign dec_verified = ~from_decrypt.tuser.bypass_stage;
+
   // the shared ChaCha20-Poly1305 core (AAD: none, today)
   chacha20poly1305_encrypt_decrypt_shared u_aead (
       .clk_80p0              (inp.clk),
@@ -175,31 +239,31 @@ module dpe_switch
       .encrypt_nonce         (enc_nonce),
       .encrypt_aad           (256'd0),
       .encrypt_aad_len       (8'd0),
-      .encrypt_s_axis_tdata  (to_encrypt.tdata),
-      .encrypt_s_axis_tkeep  (to_encrypt.tkeep),
-      .encrypt_s_axis_tlast  (to_encrypt.tlast),
-      .encrypt_s_axis_tvalid (to_encrypt.tvalid),
-      .encrypt_s_axis_tready (to_encrypt.tready),
-      .encrypt_m_axis_tdata  (from_encrypt.tdata),
-      .encrypt_m_axis_tkeep  (from_encrypt.tkeep),
-      .encrypt_m_axis_tlast  (from_encrypt.tlast),
-      .encrypt_m_axis_tvalid (from_encrypt.tvalid),
-      .encrypt_m_axis_tready (from_encrypt.tready),
+      .encrypt_s_axis_tdata  (core_enc_in.tdata),
+      .encrypt_s_axis_tkeep  (core_enc_in.tkeep),
+      .encrypt_s_axis_tlast  (core_enc_in.tlast),
+      .encrypt_s_axis_tvalid (core_enc_in.tvalid),
+      .encrypt_s_axis_tready (core_enc_in.tready),
+      .encrypt_m_axis_tdata  (core_enc_out.tdata),
+      .encrypt_m_axis_tkeep  (core_enc_out.tkeep),
+      .encrypt_m_axis_tlast  (core_enc_out.tlast),
+      .encrypt_m_axis_tvalid (core_enc_out.tvalid),
+      .encrypt_m_axis_tready (core_enc_out.tready),
       .decrypt_key           (dec_key),
       .decrypt_nonce         (dec_nonce),
       .decrypt_aad           (256'd0),
       .decrypt_aad_len       (8'd0),
-      .decrypt_s_axis_tdata  (to_decrypt.tdata),
-      .decrypt_s_axis_tkeep  (to_decrypt.tkeep),
-      .decrypt_s_axis_tlast  (to_decrypt.tlast),
-      .decrypt_s_axis_tvalid (to_decrypt.tvalid),
-      .decrypt_s_axis_tready (to_decrypt.tready),
-      .decrypt_m_axis_tdata  (from_decrypt.tdata),
-      .decrypt_m_axis_tkeep  (from_decrypt.tkeep),
-      .decrypt_m_axis_tlast  (from_decrypt.tlast),
-      .decrypt_m_axis_tvalid (from_decrypt.tvalid),
-      .decrypt_m_axis_tready (from_decrypt.tready),
-      .decrypt_m_verified    (dec_verified)
+      .decrypt_s_axis_tdata  (core_dec_in.tdata),
+      .decrypt_s_axis_tkeep  (core_dec_in.tkeep),
+      .decrypt_s_axis_tlast  (core_dec_in.tlast),
+      .decrypt_s_axis_tvalid (core_dec_in.tvalid),
+      .decrypt_s_axis_tready (core_dec_in.tready),
+      .decrypt_m_axis_tdata  (core_dec_out.tdata),
+      .decrypt_m_axis_tkeep  (core_dec_out.tkeep),
+      .decrypt_m_axis_tlast  (core_dec_out.tlast),
+      .decrypt_m_axis_tvalid (core_dec_out.tvalid),
+      .decrypt_m_axis_tready (core_dec_out.tready),
+      .decrypt_m_verified    (core_verified)
   );
 
   lkup_peer_table u_peers (

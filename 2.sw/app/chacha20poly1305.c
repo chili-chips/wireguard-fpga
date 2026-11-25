@@ -65,7 +65,7 @@ static void poly1305_key_gen(uint8_t *poly1305_key, const uint8_t *key, const ui
 
    // First 32 bytes of the block become the Poly1305 key
    memcpy(poly1305_key, block, POLY1305_KEY_SIZE);
-   memset(block, 0, sizeof(block));
+   bare_wipe(block, sizeof(block));
 }
 
 // Poly1305 tag over AAD and ciphertext, as the RFC lays them out
@@ -86,7 +86,7 @@ static void aead_tag(
 
    poly1305_key_gen(poly1305_key, key, nonce);
    poly1305_init(&ctx, poly1305_key);
-   memset(poly1305_key, 0, sizeof(poly1305_key));
+   bare_wipe(poly1305_key, sizeof(poly1305_key));
 
    poly1305_update(&ctx, aad, aad_len);
    poly1305_update(&ctx, zeros, (POLY1305_BLOCK_SIZE - (aad_len % POLY1305_BLOCK_SIZE)) % POLY1305_BLOCK_SIZE);
@@ -143,7 +143,7 @@ int chacha20poly1305_decrypt(
    int tag_ok = poly1305_verify(auth_tag, calculated_tag);
    // the expected tag must not stay in memory: on a rejected packet it is the
    // valid tag for the attacker's ciphertext
-   memset(calculated_tag, 0, sizeof(calculated_tag));
+   bare_wipe(calculated_tag, sizeof(calculated_tag));
    if (!tag_ok)
       return -1; // Authentication failed: plaintext is not written
 

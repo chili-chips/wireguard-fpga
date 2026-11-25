@@ -5,7 +5,8 @@
 # RTL lint gate: 3.build/hw_build.openXC7/run-lint.sh on top and the DPE block
 # tops (BLOCK_TOPS in sources.sh), chip and simulation
 # views with eduBOS5 (the default CPU), chip view with PicoRV32; phases tags,
-# verilator, yosys and slang. The verible phase is gated in verible.yml. Job
+# verilator, yosys, reset (chip view only) and slang. The cdc phase needs
+# Vivado; the verible phase is gated in verible.yml. Job
 # pypeline-lint runs phases ghdl and ghdl-verilator on the Pypeline core.
 # Tools come from the OSS CAD Suite (Yosys with the yosys-slang plugin,
 # Verilator).
@@ -36,7 +37,7 @@ jobs:
         env:
           YOSYS_ARGS: -m slang
           LINT_WORK: ${{ runner.temp }}/lint/chip
-        run: bash 3.build/hw_build.openXC7/run-lint.sh tags verilator yosys slang
+        run: bash 3.build/hw_build.openXC7/run-lint.sh tags verilator yosys reset slang
 
       - name: run-lint (simulation view)
         if: always()
@@ -52,7 +53,7 @@ jobs:
           YOSYS_ARGS: -m slang
           LINT_WORK: ${{ runner.temp }}/lint/picorv32
           CPU: picorv32
-        run: bash 3.build/hw_build.openXC7/run-lint.sh tags verilator yosys slang
+        run: bash 3.build/hw_build.openXC7/run-lint.sh tags verilator yosys reset slang
 
       - name: Keep the lint reports
         if: always()

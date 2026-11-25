@@ -23,7 +23,7 @@ module sync_reset #(
     output logic out
 );
 
-  (* srl_style = "register" *)
+  (* ASYNC_REG = "TRUE", srl_style = "register" *)
   logic [N-1:0] sync_reg;
 
   assign out = sync_reg[N-1];

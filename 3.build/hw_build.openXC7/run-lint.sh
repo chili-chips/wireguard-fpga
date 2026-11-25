@@ -15,7 +15,8 @@
 #   yosys      Yosys check on the read_slang netlist: combinational loops,
 #              conflicting drivers, used-but-undriven wires, latches
 #   reset      Yosys netlist and run-lint-reset.py: a control flop or flag with
-#              no reset (data and address flops need none: waived by name)
+#              no reset (data and address flops need none: waived by name);
+#              the tops, then eduBOS5 alone with RV32M and the counters
 #   slang      read_slang -Wextra: strict IEEE parse, second opinion
 #   verible    Verible style rules (run-lint.verible) on our own RTL: our case
 #              rule -- signals and ports lower case, constants UPPER case --
@@ -28,8 +29,9 @@
 #              Verilator --lint-only with its default warnings (widths, drivers,
 #              latches); -Wall's style and unused-signal warnings say nothing
 #              about a GHDL netlist
-#
-# There is no opensource CDC checker mature enough for a cdc phase.
+#   cdc        Vivado report_cdc on top: clock-domain crossings and their
+#              synchronizers (there is no mature opensource CDC checker; the
+#              generated core is a black box)
 #
 # usage:  bash run-lint.sh [phase ...]    default: all phases
 #         VIEW=sim bash run-lint.sh        lint the simulation view (SIM_ONLY
@@ -46,11 +48,12 @@
 #
 # A phase whose tool is not found is skipped. The tool commands can be
 # overridden: VERILATOR, YOSYS (+ YOSYS_ARGS), YOSYS_CONFIG, PYTHON, VERIBLE,
-# GHDL, GHDL_YOSYS (+ GHDL_YOSYS_ARGS, default "-m ghdl"; default YOSYS) and
+# VIVADO, GHDL, GHDL_YOSYS (+ GHDL_YOSYS_ARGS, default "-m ghdl"; default YOSYS) and
 # PYPELINEC (PipelineC's src/pypelinec, as for pypeline_build/build.py).
 # PYPELINE_TOP selects the Pypeline top (default: the shared encrypt/decrypt one).
-# read_slang is built into the openXC7 Yosys; with the OSS CAD Suite it is a
-# plugin: YOSYS_ARGS="-m slang". The Xilinx primitives come from the Yosys
+# read_slang is built into the openXC7 Yosys, a plugin in the OSS CAD Suite:
+# when YOSYS_ARGS is not set, it is "" if the Yosys has read_slang, else
+# "-m slang". The Xilinx primitives come from the Yosys
 # library (yosys-config --datdir), as blackboxes (gen_xilinx_bb.py).
 #
 # external_lib (our fork of Alex Forencich's verilog-ethernet and
@@ -83,8 +86,16 @@ VERILATOR=${VERILATOR:-verilator}
 YOSYS=${YOSYS:-yosys}
 YOSYS_CONFIG=${YOSYS_CONFIG:-yosys-config}
 PYTHON=${PYTHON:-python3}
-YOSYS_ARGS=${YOSYS_ARGS:-}
+if [ -z "${YOSYS_ARGS+set}" ]; then
+  if "$YOSYS" -p 'help read_slang' 2>/dev/null | grep -q 'read_slang \['; then
+    YOSYS_ARGS=""
+  else
+    YOSYS_ARGS="-m slang"
+  fi
+fi
 VERIBLE=${VERIBLE:-verible-verilog-lint}
+VIVADO=${VIVADO:-vivado}
+PART=xc7a200tfbg484-2
 GHDL=${GHDL:-ghdl}
 GHDL_YOSYS=${GHDL_YOSYS:-$YOSYS}
 GHDL_YOSYS_ARGS=${GHDL_YOSYS_ARGS:--m ghdl}
@@ -99,14 +110,16 @@ case $VIEW in
 esac
 
 WAIVERS=${LINT_WAIVERS:-$HERE/run-lint-waivers.txt}
-PHASES=${*:-tags verilator yosys reset slang verible ghdl ghdl-verilator}
+PHASES=${*:-tags verilator yosys reset slang verible ghdl ghdl-verilator cdc}
 W=${LINT_WORK:-$(mktemp -d)}
 mkdir -p "$W"
 W=$(cd "$W" && pwd)
 
 # ---- work copy ----------------------------------------------------------------
+# a reused LINT_WORK keeps no stale sources, stubs or generated VHDL
+rm -rf "$W/1.hw" "$W/bld" "$W/bb.sv" "$W/pypeline" "$W/pypeline.failed" "$W/ghdl.work"
 (cd "$REPO" && cp -r --parents 1.hw/top.filelist 1.hw/top.sv 1.hw/fpgatech_lib 1.hw/external_lib \
-   1.hw/ip.* "$W/")
+   1.hw/ip.* 1.hw/constraints "$W/")
 mkdir -p "$W/bld/csr_build/generated-files" "$W/bld/sw_build"
 cp "$REPO"/3.build/csr_build/generated-files/{csr_pkg,csr}.sv "$W/bld/csr_build/generated-files/"
 cp "$REPO/3.build/sw_build/imem.INIT.vh" "$W/bld/sw_build/"
@@ -127,8 +140,11 @@ have() { command -v "$1" >/dev/null 2>&1; }
 declare -A RESULT
 skip() { RESULT[$1]="skipped ($2)"; echo "-- $1: skipped, $2"; }
 
-# waiver regexes of one phase: the lines "<phase> <regex>" of the waivers file
+# waiver regexes of one phase: the lines "<phase> <regex>" of the waivers file;
+# a regex that never matches keeps grep -v -f from dropping every line when
+# the phase has no waiver
 waivers() {
+  echo '^$'
   [ -f "$WAIVERS" ] || return 0
   awk -v ph="$1" '{ sub(/\r$/, "") } $1 == ph { sub(/^[ \t]*[^ \t]+[ \t]+/, ""); print }' "$WAIVERS"
 }
@@ -325,6 +341,17 @@ run_reset() {
     rc=$?
     [ $rc -eq 0 ] || { failed reset "top $t: netlist check exit $rc"; return; }
   done
+  # eduBOS5 alone with the options no SoC build sets: the counters (RV32M is
+  # on in the SoC too)
+  local E=1.hw/ip.cpu/cpu.EDUBOS5
+  "$YOSYS" $YOSYS_ARGS -q -l reset.cpu.log -p "read_slang --top edubos5 -G USE_HW_MUL=1 -G EN_COUNTERS=1 \
+      $E/edubos5_pkg.sv $E/edubos5_rf.sv $E/edubos5_alu.sv $E/edubos5.sv; hierarchy -check -top edubos5; \
+      proc; flatten; opt_expr; opt_clean; opt_dff; opt_clean; write_json reset.cpu.json" >/dev/null 2>&1
+  rc=$?
+  cat reset.cpu.log >> reset.log
+  [ $rc -eq 0 ] && [ -s reset.cpu.json ] || { failed reset "eduBOS5 alone: exit $rc, no netlist"; return; }
+  "$PYTHON" "$HERE/run-lint-reset.py" reset.cpu.json >> reset.out 2>> reset.log ||
+    { failed reset "eduBOS5 alone: netlist check failed"; return; }
   # paths relative to the work directory, as in the slang phase
   found reset < <(sed -E 's#^(\.\./)+[^ ]*/(1\.hw|bld)/#\2/#' reset.out | sort -u)
 }
@@ -402,10 +429,37 @@ run_ghdl_verilator() {
   exit_check $ph $rc
 }
 
+# Vivado has its own primitives, so no stubs here; the generated core is a
+# black box (Vivado's attribute)
+run_cdc() {
+  have "$VIVADO" || { skip cdc "$VIVADO not found"; return; }
+  [ $VIEW = sim ] && { skip cdc "chip view only"; return; }
+  local c
+  : > core_bb.tmp
+  for c in $CORES; do
+    "$PYTHON" "$HERE/gen_core_bb.py" "$REPO/3.build/pypeline_build/soc/$c.v.gz" $c >> core_bb.tmp ||
+      { failed cdc "core black box"; return; }
+  done
+  sed 's/(\* blackbox \*)/(* black_box *)/' core_bb.tmp > core_bb.sv
+  cat > cdc.tcl <<EOF
+read_verilog -sv {core_bb.sv $SV}
+read_xdc 1.hw/constraints/top.xdc
+synth_design -top top -part $PART -flatten_hierarchy rebuilt -include_dirs $INC
+report_cdc -details -file cdc.rpt
+report_clock_interaction -file clock_interaction.rpt
+EOF
+  rm -f cdc.rpt
+  "$VIVADO" -mode batch -nojournal -log cdc.log -source cdc.tcl >/dev/null 2>&1
+  local rc=$?
+  if [ $rc -ne 0 ] || [ ! -s cdc.rpt ]; then failed cdc "exit $rc, no cdc.rpt"; return; fi
+  # detail rows: <row> CDC-<n> <severity> <description> ... <from> <to>
+  found cdc < <(grep -E '^ +[0-9]+ +CDC-[0-9]+ +(Critical|Warning) ' cdc.rpt)
+}
+
 for ph in $PHASES; do
   case $ph in
-    tags|verilator|yosys|reset|slang|verible|ghdl|ghdl-verilator) echo "== $ph"; run_${ph//-/_} ;;
-    *) echo "unknown phase: $ph (tags verilator yosys reset slang verible ghdl ghdl-verilator)"; exit 2 ;;
+    tags|verilator|yosys|reset|slang|verible|ghdl|ghdl-verilator|cdc) echo "== $ph"; run_${ph//-/_} ;;
+    *) echo "unknown phase: $ph (tags verilator yosys reset slang verible ghdl ghdl-verilator cdc)"; exit 2 ;;
   esac
 done
 
