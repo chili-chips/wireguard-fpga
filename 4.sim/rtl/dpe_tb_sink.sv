@@ -29,7 +29,7 @@ module dpe_tb_sink
   int               errors;
 
   test_pkt_t        cur;
-  logic      [8*MAX_BYTES-1:0] cur_bytes;  // cur.data as one vector (JanusHDL 0.17)
+  logic      [8*MAX_BYTES-1:0] cur_bytes;  // cur.data as one vector (Icarus 14, #66)
   logic      [ 2:0] cur_src;
   int               n_byte;
 

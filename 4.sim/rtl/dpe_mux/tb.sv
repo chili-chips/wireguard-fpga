@@ -63,8 +63,7 @@ module tb;
        test_pkt_t eth_4;
     } packet_data_t;
 
-    packet_data_t packet_data;  // set below: JanusHDL 0.17 has no const variables
-    initial packet_data = '{
+    const packet_data_t packet_data = '{
         cpu:   '{dst: DPE_ADDR_ETH_1, len: 6, data: '{8'h01, 8'h02, 8'h03, 8'h04, 8'h05, 8'h06}},
         eth_1: '{dst: DPE_ADDR_CPU,   len: 4, data: '{8'h0B, 8'h0C, 8'h0D, 8'h0E, 8'h00, 8'h00}},
         eth_2: '{dst: DPE_ADDR_ETH_3, len: 5, data: '{8'h15, 8'h16, 8'h17, 8'h18, 8'h19, 8'h00}},

@@ -30,8 +30,8 @@ module dpe_tb_src
   end
 
   task automatic send(input test_pkt_t p);
-    // The bytes as one vector, byte i at [8*(MAX_BYTES-1-i) +: 8]: JanusHDL 0.17
-    // cannot index p.data[i] at run time
+    // The bytes as one vector, byte i at [8*(MAX_BYTES-1-i) +: 8]: Icarus 14
+    // cannot index p.data[i] with a variable (a struct member, #66)
     logic [8*MAX_BYTES-1:0] bytes;
     bytes          = p.data;
     outp.tvalid    = 1'b1;
