@@ -17,6 +17,7 @@ The tables and addresses are tb.sv's. Two peers; each case a frame in:
   dec    WireGuard from a peer, inner source its own: the outer Ethernet
          header, then the inner IPv4 packet, routed by the inner destination
   hairpin  from peer 1 to peer 2's network: decrypted, then encrypted again
+  hairmax  the same with a 2032-byte IPv4 packet, the most the core takes
   spoof  from peer 2, inner source peer 1's: dropped
   index  a receiver index whose upper bits do not match: dropped
   tag    a corrupted tag: dropped
@@ -36,6 +37,7 @@ wg = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(wg)
 
 ETH_1, ETH_2, ETH_3, ETH_4, CPU = 1, 2, 3, 4, 0
+MAX_PT = 2032  # net_pkg AEAD_MAX_PT_BYTES: the longest IPv4 packet the core takes
 
 
 def ip(a, b, c, d):
@@ -106,11 +108,19 @@ def scenario(plain_path):
     # back to back to one peer (enc1 enc1, hairpin enc2): the next packet
     # must read the count the last one wrote back. The plaintext's 1506-byte
     # frame (round robin, every 11th) lands on dec1 and on enc1
+    # Then the largest hairpin (hairmax: IPv4 2032, AEAD_MAX_PT_BYTES), twice,
+    # while tb.sv holds outp long: decryption waits on the encryptor, both
+    # on the one core
     for kind in ('enc1', 'dec1', 'enc1', 'enc1', 'plain', 'hs', 'spoof', 'enc2', 'dec1',
                  'hairpin', 'enc2', 'index', 'transit', 'tag', 'arp', 'port', 'enc1', 'dec2',
-                 'enc2', 'enc1', 'enc1'):
+                 'enc2', 'enc1', 'enc1', 'hairmax', 'enc1', 'hairmax', 'dec2', 'enc2'):
         f = pick()
-        if kind in ('enc1', 'enc2'):
+        if kind == 'hairmax':
+            big = bytearray(plain[0][:34] + bytes(range(256)) * 8)[:14 + MAX_PT]
+            big[16:18] = MAX_PT.to_bytes(2, 'big')
+            inner = readdr(bytes(big), NET[1], NET[2])
+            cases.append((wg_in(inner, from_peer(1)), enc(2, inner), ETH_4, 0))
+        elif kind in ('enc1', 'enc2'):
             n = int(kind[-1])
             fi = readdr(f, LAN, NET[n])
             cases.append((fi, enc(n, fi), ETH_1 if n == 1 else ETH_4, 0))

@@ -10,18 +10,33 @@ SPDX-License-Identifier: BSD-3-Clause
 The conceptual class diagram provides an overview of the components in the software part of the system without delving into implementation details. The focus is on the WireGuard Agent, which implements the protocol's handshake procedures, along with the following supplementary components:
 - [Curve25519](http://cr.yp.to/ecdh.html) - an ECDH algorithm implementation for establishing a shared secret using a public-private key pair between two remote parties connected via an insecure channel, such as the Internet
 - ChaCha20-Poly1305 - an AEAD algorithm implementation for encryption and authentication of static keys and nonce values to prevent replay attacks
-- XChaCha20-Poly1305 (planned) - a XAEAD algorithm implementation for encrypting and authenticating nonce values in Cookie Replay messages to mitigate potential DoS attacks
+- XChaCha20-Poly1305 - the XAEAD that encrypts and authenticates the cookie in cookie reply messages, against DoS (see [Cookies](#cookies))
 - [BLAKE2s](https://www.blake2.net) - an implementation of the BLAKE2s hash function for MAC authentication and keyed hashing, per [RFC7693](https://datatracker.ietf.org/doc/html/rfc7693)
-- RNG - a random number generator used to initialize the DH key generator and generate peer identifiers
+- [RNG](#random-number-generator-lib) - a ChaCha20 DRBG, seeded from the ring-oscillator TRNG; it supplies the ephemeral keys, receiver indices and secrets
 - Timer - cycle-counter timer; rekey, retry, and keepalive timers are planned
 - [HKDF](https://eprint.iacr.org/2010/264) - an implementation of the algorithm for expanding the ECDH result
 - [Noise handshake](#noise-handshake) - WireGuard's Noise_IKpsk2 initiation and response, and the transport keys; tested against Linux WireGuard
-- RTC (planned) - a real-time clock used to generate the TAI64N timestamp
+- [RTC](#timestamps-across-a-reboot) - a real-time clock for the TAI64N timestamp, kept increasing across a reboot by a mark in flash
 - [SipHash](https://en.wikipedia.org/wiki/SipHash) - a keyed hash (SipHash-2-4) behind the hash table that finds a peer by its decrypted static public key; its secret key keeps an attacker from flooding the table
 - Routing DB Updater - a subsystem for maintaining the cryptokey routing table content and deploying it to the data plane via the HAL/CSR interface
 - ICMP - implementing basic ICMP protocol functions (echo request/reply, TTL exceeded, etc.)
 - CLI - a USB/UART-based command-line interface for configuring the WireGuard node (setting the local IP address, remote peer IP addresses, network addresses, keys, etc.)
 - HAL/CSR Driver - a CSR-based abstraction for DPE components with an interface for reading/writing the corresponding registers
+
+### Status (2026-11)
+The firmware now runs WireGuard's handshake end to end, and talks to Linux WireGuard:
+
+| Area | What is new | Tested |
+|---|---|---|
+| [Sessions](#sessions-from-a-handshake-to-the-data-plane) ([#28](https://github.com/chili-chips/wireguard-fpga/issues/28)) | `wg_session.c`: handshake over UDP, replay check, keys written to the cryptokey table under pause/drain, CLI `wg ...` | 53 checks; Linux kernel interop |
+| [Cookies](#cookies) ([#29](https://github.com/chili-chips/wireguard-fpga/issues/29)) | `cookie.c`, `xchacha20poly1305.c`: mac2 and cookie replies (message 3) | 271 checks; kernel interop under load |
+| [Timestamps](#timestamps-across-a-reboot) ([#30](https://github.com/chili-chips/wireguard-fpga/issues/30)) | `rtc.c`, `flash.c`: RTC plus a high-water mark in SPI flash; CLI `clock`, `flash id` | RTL bench with a flash model |
+| [Random numbers](#random-number-generator-lib) ([#2](https://github.com/chili-chips/wireguard-fpga/issues/2)) | `random.c`: BLAKE2s seed from `csr.trng`, ChaCha20 DRBG; refuses on a failed health test | Python reference; RTL bench of the TRNG |
+| [Noise](#noise-handshake) | Explicit handshake states; a rejected message leaves the state untouched; secrets wiped with `bare_wipe` (volatile stores, which the compiler cannot drop) | 236 checks |
+
+Still open: the TRNG's entropy, measured on hardware; rekey timers; ARP; detecting load ([#4](https://github.com/chili-chips/wireguard-fpga/issues/4)).
+
+Image: `-march=rv32im`, the unwind tables (`.eh_frame`) dropped in `link_map.lds`. IMEM 52,124 of 64 KiB (80%), DMEM 40,488 of 64 KiB with the 4 KiB stack (62%).
 
 ## curve25519 (x25519) lib
 This component provides a minimal Curve25519 (X25519) implementation used for
@@ -133,34 +148,20 @@ implementation for WireGuard, including hashing, key derivation, and HMAC constr
 - [**Successfully tested on real hardware.**](https://github.com/chili-chips/wireguard-fpga/tree/main/99.warmup/8.BLAKE2s)
 
 ## Random number generator lib
-This component implements a lightweight random number generator suitable for bare-metal
-RISC-V systems without access to a hardware RNG.
-
-Entropy is gathered from the `csr.cycle` counter and execution timing jitter,
-and the collected data is mixed using BLAKE2s to produce uniformly distributed output.
-Additional bit manipulation and arithmetic mixing are applied to the raw cycle counter
-values to further decorrelate consecutive samples.  
-While not cryptographically secure on its own, this generator provides sufficient entropy
-for embedded use and as an input source for higher-level cryptographic constructions
-within the Noise protocol used by WireGuard.
+`random.c` turns raw hardware entropy into random numbers ([#2](https://github.com/chili-chips/wireguard-fpga/issues/2)). Hardware, entropy claim and health tests: [`1.hw/ip.infra/trng`](../1.hw/ip.infra/trng/README.md).
 
 ### Provided Functions
-- `random_32bytes(uint8_t *out)`  
-  Generates 32 pseudo-random bytes by collecting multiple cycle counter samples, applying
-  bitwise mixing operations, and hashing the result using BLAKE2s.
-
-- `random_range(uint32_t min, uint32_t max)`  
-  Returns a random 32-bit integer in the inclusive range `[min, max]`.
-  Uses arithmetic reduction to limit modulo bias.
+- `random_bytes(uint8_t *out, size_t n)`: up to 1024 bytes; 0, or an error (`RANDOM_ERR_*`) with `out` zeroed.
+- `random_32bytes(uint8_t *out)`: 32 bytes; on an error it halts with a message.
+- `random_range(uint32_t min, uint32_t max)`: uniform in `[min, max]` by rejection sampling: draws below 2^32 mod span are drawn again, so there is no modulo bias. Halts on an error.
 
 ### Implementation Notes
-- Uses the `csr.cycle` counter (`cycles()` in `timer.c`) as a primary entropy source.
-- Applies bit manipulation (shifts, XORs) and arithmetic scrambling to raw samples.
-- Introduces small execution delays to increase timing variability.
-- Mixes entropy using the BLAKE2s hash function.
-- Designed for bare-metal, single-core RISC-V environments.
-- Blocking implementation.
-- [**Successfully tested on real hardware.**](https://github.com/chili-chips/wireguard-fpga/tree/main/99.warmup/9.rng)
+- **Source:** `csr.trng`, two ring-oscillator banks with the SP 800-90B Repetition Count and Adaptive Proportion tests in hardware. Claim: 0.5 bit of min-entropy per raw sample, to be measured on hardware.
+- **Seed:** the source runs only while a seed is taken: enable, startup test, 64 words, 6 more words, status, disable. Seed = BLAKE2s-256("wireguard-fpga random v1" || old key || 64 words): 1024 samples of each bank, 512 claimed bits from either bank alone, 2x the 256-bit seed. BLAKE2s is not an SP 800-90B vetted conditioner; the 2x margin stands in for that.
+- **DRBG:** ChaCha20 with fast key erasure: per request, ChaCha20 under the key (nonce 0); the first 32 bytes are the next key, the rest the output. A new seed every 256 requests.
+- **Refusal:** no source, a failed health test (during or right after a seed) or no data in time: no seed, the key is wiped, no output. The next request tries a new seed, so a lasting fault refuses every time.
+- **Simulation:** `csr.trng` with `SIM_ONLY` is a seeded PRNG (`status.impl` = 2): `random.c` says so on the UART and uses it, not random. A `csr.h` without `csr.trng` (`CSR__TRNG__STATUS__READY_bm`) gets no source on hardware (it halts at the first random number) and a fixed stand-in in the VProc co-simulation.
+- **Tests** (`2.sw/tests/rng`, `make test` in WSL): known answers against an independent Python reference (hashlib BLAKE2s, pyca ChaCha20) on a fixed word stream, the refusals, and `random_range` uniformity (chi-square on [0, 5]; 1/3, not 1/2, below 2^30 on a span of 3 x 2^30).
 
 ## Timer lib
 This component provides simple delay utilities based on the `csr.cycle` counter.  
@@ -183,6 +184,23 @@ during cryptographic operations and protocol handling.
 - Designed for bare-metal environments without an operating system.
 - Blocking implementation (busy-wait).
 - [**Successfully tested on the hardware.**](https://github.com/chili-chips/wireguard-fpga/tree/main/99.warmup/10.timer)
+
+## Timestamps across a reboot
+A handshake initiation carries a TAI64N timestamp. The responder drops one that is not newer than the last it took from us. So our timestamps must only grow, also across a reboot, and the board has no battery-backed clock ([#30](https://github.com/chili-chips/wireguard-fpga/issues/30)).
+
+- **Clock:** `csr.rtc` ([`rtc.sv`](../1.hw/ip.infra/rtc.sv)), 64-bit seconds and nanoseconds on the 80 MHz system clock. `rtc.c` reads it atomically (`nsec` first latches the seconds).
+- **Flash:** the configuration flash (N25Q128, 16 MiB) over `csr.flash` ([`flash_spi.sv`](../1.hw/ip.infra/flash_spi.sv), x1 SPI, CCLK through STARTUPE2), driver `flash.c`.
+- **Where:** the top two 4 KiB sectors, `0xFFE000` and `0xFFF000`. The xc7a200t bitstream is 9,730,652 bytes uncompressed (UG470), so it ends at `0x947A5C`: 6.7 MiB below.
+- **What:** 32-byte records (magic, sequence number, boot count, high-water mark, FNV-1a check), appended. A full sector continues in the other one, erased first. The valid record with the highest sequence number wins.
+- **Boot (`rtc_boot`):** start the clock at the stored mark `M`. Every earlier timestamp was below `M`. Before the clock runs, write a record with the boot count + 1 and the mark `M` + 1 hour.
+- **Run (`rtc_poll`, also inside `rtc_now_tai64n`):** when the clock comes within 60 s of the mark, write a new mark 1 hour ahead. While the flash works, a timestamp is never at or above the stored mark.
+- **Setting the time (`rtc_set_time`):** only forward, the new mark written first.
+- **Wear:** one record per boot and per hour of uptime; an erase every 128 records, alternating between the two sectors. At 100,000 erase cycles a sector, that is centuries.
+- **Without a flash** (no JEDEC ID): the clock starts at 2026-01-01 on every boot. Timestamps then grow only within one boot.
+
+The clock runs fast or slow with the board oscillator, and after a reboot it jumps up to an hour ahead. That is harmless: the peer only compares our timestamps with each other.
+
+`main.cpp` calls `rtc_boot()` once at boot, before the first timestamp, and `rtc_poll()` in its main loop; `wg_session.c` takes its timestamps (`rtc_now_tai64n`) and cookie ages (`rtc_now_seconds`) from it. CLI: `clock` (time, mark, boots, flash ID, last record written), `clock set <unix>` (only forward), `flash id` (reads the JEDEC ID again). The VProc co-simulation has the flash model (`4.sim/models/spi_flash_model.sv`, the two record sectors).
 
 ## HKDF (Noise KDF) lib
 This component implements the HKDF-style key derivation function used by the
@@ -223,7 +241,35 @@ adapted to use the local BLAKE2s component.
 - No I/O, no RNG: the caller passes the ephemeral key, finds the peer from the decrypted static key (the peer map) and checks the TAI64N timestamp.
 - An all-zero X25519 result (a low-order public key) is refused, mac1 is compared in constant time, and the secrets are wiped.
 - A bad response leaves the initiation usable: the initiator works on copies.
-- Not done yet: cookies (mac2 is sent as zeros, [#29](https://github.com/chili-chips/wireguard-fpga/issues/29)), the timestamp clock ([#30](https://github.com/chili-chips/wireguard-fpga/issues/30)), and the wiring to UDP and the cryptokey table ([#28](https://github.com/chili-chips/wireguard-fpga/issues/28)).
+- mac2 and cookie replies are `cookie.c`'s ([Cookies](#cookies)); `wg_session.c` calls both. The timestamps grow also across a reboot ([Timestamps across a reboot](#timestamps-across-a-reboot)).
+
+### Sessions: from a handshake to the data plane
+`wg_session.c` runs the handshake for the firmware: the peers, the replay check, and the hand-over of the keys to the data plane. `main.cpp` gives it the UDP frames and the hardware (`wg_hw_*`: RNG, cryptokey table); the clock is `rtc.c`'s.
+
+- **Receive.** A UDP frame to our IP and WireGuard port is a handshake message (the data plane keeps the data messages). Message 1 is checked on a scratch state, the peer is found from its static key (the peer map), and its TAI64N must be newer than the last one accepted from it. Only then does the peer's state change: we answer with message 2 to the source address. Message 2 must answer our pending initiation (its receiver index). Anything else is dropped and counted.
+- **Hand-over.** A finished handshake writes peer n's cryptokey table entry n, with the DPE paused (pause/drain): encrypt key = send key, decrypt key = receive key (one little-endian 256-bit number, as `csr.rdl`), `local_id` = our index, `remote_id` = the peer's, counters 0, and the remote MAC, IP and port the handshake came from (roaming). The handshake's secrets are then wiped. If the DPE does not drain, nothing is written and nothing answered: the initiator retries.
+- **Indices.** Random upper bits and the entry in the low 6 bits, as the disassembler expects; never one the peer still uses.
+- **Clock.** The timestamp is `rtc_now_tai64n()` ([#30](https://github.com/chili-chips/wireguard-fpga/issues/30)): strictly increasing, also across a reboot while the flash works. `wg_set_time()` (`clock set`) only moves it forward.
+- **Cookies.** Every message 1/2 is checked by `wg_cookie_validate()` before any DH work: mac1 always; under load, mac2 too, and without a valid one the sender gets a cookie reply (message 3) instead. A cookie reply to our message 1/2 is kept for our next one to that peer, not answered at once. Every message 1/2 we send gets `wg_cookie_add_mac2()`. Detecting load is [#4](https://github.com/chili-chips/wireguard-fpga/issues/4): until then `wg load` turns it on by hand. `wg_now_seconds()` (the cookie ages) is the clock's seconds; it never goes back, so a cookie cannot look newer than it is.
+- **Not done yet.** No retransmit timer: after a cookie reply, `wg initiate` sends the next message 1. One session per peer: a new handshake replaces the keys, with no previous session kept for packets in flight. No rekey timers. The endpoint MAC is entered by hand (no ARP lookup yet).
+
+CLI:
+
+| Command | What |
+|---|---|
+| `wg key` | set our private key (base64), or make one; prints the public key |
+| `wg peer add` | a peer: public key, preshared key (optional), endpoint IP, port, MAC and Ethernet port (optional: else learnt from its first handshake) |
+| `wg peer remove` | a peer and its cryptokey table entry |
+| `wg initiate` | send message 1 to a peer |
+| `clock` | the time, the mark, the boot count, the flash ID and the last record written |
+| `clock set <unix>` | the handshake clock, Unix seconds, only forward ([Timestamps across a reboot](#timestamps-across-a-reboot)) |
+| `flash id` | read the flash's JEDEC ID again |
+| `wg show` | our public key, the peers, the handshake, cookie and drop counters |
+| `wg load` | toggle under load (mac2 required), until [#4](https://github.com/chili-chips/wireguard-fpga/issues/4) detects it |
+
+**Testing.** [`tests/wg_session`](tests/wg_session), on the host:
+- `make test` drives a peer with `noise.c` against `wg_session.c`: answers, replays and older timestamps, unknown peers, a busy data plane, our initiation, a replayed or misdirected message 2, cookie replies both ways (under load, mac2 from the right and the wrong port), and the table entry written (keys, indices, addresses), the clock only set forward (`rtc_host.c` stands in for `rtc.c`). 53 checks.
+- `make interop` runs both parts of the kernel test above, through `wg_session.c`: the keys it writes to the table decrypt the kernel's data packets, and encrypt ours. Both pass (2026-11-25).
 
 ### Testing with Linux wireguard-tools
 [`tests/noise`](tests/noise) runs on the host (Linux or WSL), with ASan and UBSan:
@@ -251,17 +297,29 @@ After that, no root is needed: [`run_interop.sh`](tests/noise/run_interop.sh) ru
 
 Both parts pass (2026-11-24, kernel 6.18 in WSL2, wireguard-tools 1.0.20210914).
 
+## Cookies
+`cookie.c` is WireGuard's DoS defence for the handshake (WireGuard paper, section 5.4.7 [[SW1]](#sw-references)). A responder under load does no DH work for a message 1 or 2 without a valid mac2. It sends a cookie reply (message 3, 64 bytes) instead. The cookie is `MAC(secret, ip || port)`, so only a sender that receives at that address can use it. The secret is redrawn every 2 minutes.
+
+- **Responder** (one `wg_cookie_checker_t`): `wg_cookie_validate()` checks mac1, then mac2 when under load (the caller's bool, [#4](https://github.com/chili-chips/wireguard-fpga/issues/4)). On `WG_COOKIE_SEND_REPLY`, `wg_cookie_create_reply()` builds message 3: the cookie encrypted with XChaCha20-Poly1305 under `HASH("cookie--" || our public key)`, a random 24-byte nonce, AAD = the message's mac1.
+- **Initiator** (one `wg_cookie_t` per peer): `wg_cookie_add_mac2()` on every message 1/2 sent, after mac1. `wg_cookie_consume_reply()` takes a cookie that answers the last mac1 sent, once. The cookie is used for 115 s: 120 s less 5 s for latency, as in Linux.
+- `xchacha20poly1305.c`: HChaCha20 plus the ChaCha20-Poly1305 lib, per draft-irtf-cfrg-xchacha [[SW4]](#sw-references).
+- Time comes from `wg_now_seconds()`, in `wg_session.c` (the real-time clock's seconds, `rtc_now_seconds()`, [#30](https://github.com/chili-chips/wireguard-fpga/issues/30)). Random bytes come from `random_32bytes()`, one call site ([#2](https://github.com/chili-chips/wireguard-fpga/issues/2)). Compares are constant-time, and the secrets are wiped.
+
+**Testing.** [`tests/cookie`](tests/cookie), on the host, with ASan and UBSan:
+- `make test` checks the draft's HChaCha20 and AEAD vectors, and compares XAEAD outputs, a cookie reply and mac2 on messages 1 and 2 byte for byte with [`cookie_ref.py`](tests/cookie/cookie_ref.py) (from the specs, on `hashlib` and pyca/cryptography). It also covers tampered replies, a reply to an older mac1, the wrong IP or port, the time limits on both sides (120 s secret, 115 s cookie) and a clock wrap. 271 checks.
+- `make interop` runs against the Linux kernel's WireGuard, as in `tests/noise`. Part C floods the kernel with initiations (one sender per CPU) until it is under load. Our initiator opens the kernel's cookie reply, and our next initiation with mac2 gets a response while the kernel is still under load. In part D we play the responder under load: the kernel takes our cookie reply, and its retransmit 5 s later has a valid mac2. Both pass (2026-11-25, kernel 6.18 in WSL2).
+
 ## SipHash and the peer map
 The handshake responder decrypts the initiator's static public key and must find that peer. `peer_map.c` maps a 32-byte public key to its peer-table index (0 to 63), through a hash table keyed with SipHash-2-4 (`siphash.c`).
 
-**Why SipHash.** With 64 peers at most, a plain search would be fast enough: it is here as an example and for its security property. A hash table with a public hash function can be flooded: an attacker sends keys that all land in one slot, and every lookup turns into a long search. SipHash takes a 128-bit secret key, drawn at boot (`random_32bytes`), so its outputs cannot be predicted and colliding keys cannot be picked. Linux WireGuard uses it for the same lookup. The key is only as unpredictable as the RNG, which is not crypto-grade yet ([#2](https://github.com/chili-chips/wireguard-fpga/issues/2)).
+**Why SipHash.** With 64 peers at most, a plain search would be fast enough: it is here as an example and for its security property. A hash table with a public hash function can be flooded: an attacker sends keys that all land in one slot, and every lookup turns into a long search. SipHash takes a 128-bit secret key, drawn at boot (`random_32bytes`), so its outputs cannot be predicted and colliding keys cannot be picked. Linux WireGuard uses it for the same lookup. The key is only as unpredictable as the RNG (`csr.trng`, [#2](https://github.com/chili-chips/wireguard-fpga/issues/2)).
 
 **Implementation**
 - 128 slots for 64 peers (at most half full), open addressing, linear probing.
 - Removal shifts the rest of a run back instead of leaving markers, so lookups stay short after many changes.
 - Keys are compared in constant time, so the time does not show how many bytes of a guess match.
 - About 4.3 KB of data memory, no dynamic allocation.
-- Not yet called: the handshake ([#28](https://github.com/chili-chips/wireguard-fpga/issues/28)) will fill and use it.
+- Filled by `wg peer add`, used by the handshake responder (`wg_session.c`). `test siphash` rebuilds it from the peers afterwards.
 
 **Testing.** `test siphash` on the CLI checks the reference vectors (empty, 8 and 15 bytes) and the map: 64 peers set and found, a 65th refused, half removed, the rest still found. On the host, the map matched a reference model over 1 million random set/find/remove operations (ASan, UBSan).
 
@@ -325,3 +383,4 @@ The atomic CSR update mechanism works as follows:
 - **[SW1]** J. A. Donenfeld, [WireGuard: Next Generation Kernel Network Tunnel](https://www.wireguard.com/papers/wireguard.pdf), section 5.4 (the handshake); [Protocol & Cryptography](https://www.wireguard.com/protocol/); T. Perrin, [The Noise Protocol Framework](https://noiseprotocol.org/noise.html) (rev. 34)
 - **[SW2]** Linux kernel [WireGuard](https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/net/wireguard) and [wireguard-tools](https://git.zx2c4.com/wireguard-tools/) (`wg`): the other end of `make interop`
 - **[SW3]** Python [`hashlib`](https://docs.python.org/3/library/hashlib.html) (BLAKE2s, HMAC) and [pyca/cryptography](https://cryptography.io) 50.0 (X25519, ChaCha20-Poly1305): the primitives under [`noise_ref.py`](tests/noise/noise_ref.py)
+- **[SW4]** S. Arciszewski, [XChaCha: eXtended-nonce ChaCha and AEAD_XChaCha20_Poly1305](https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-xchacha-03), draft-irtf-cfrg-xchacha-03 (test vectors: section 2.2.1, appendix A.3.1)

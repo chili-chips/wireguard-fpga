@@ -207,8 +207,9 @@ module uart
   end
 
   //--------------------------------------
-  // uart_rx synchronizer
+  // uart_rx synchronizer (ASYNC_REG: Vivado CDC-2)
   //--------------------------------------
+  (* ASYNC_REG = "TRUE" *)
   logic [1:0] uart_rx_ff;
   logic       uart_rx_sync;
   always_ff @(negedge arst_n or posedge clk) begin

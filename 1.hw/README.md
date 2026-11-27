@@ -199,7 +199,7 @@ Every WireGuard data message names its session by a 32-bit _receiver index_: the
 
 The firmware and the hardware split the work:
 
-- **Firmware (handshake):** for a new session it picks a free entry `e` (0 to 63) of the cryptokey table, and its own index as random upper 26 bits with `e` in the low 6 bits: `local_id = (random() & ~0x3F) | e`. It writes the session (keys, `local_id`, the peer's index, addresses) to entry `e` over the CSR, and sends `local_id` in its handshake message. The handshake firmware is still to come: today the CLI (`config cryptokeys`) writes the entry, and its user must follow the same rule, as the [lab setup](../5.test/README.md) does (entry 1, Local ID `CCBACA01` and `CCBACA41`).
+- **Firmware (handshake):** for a new session it picks a free entry `e` (1 to 63; entry 0 is not used) of the cryptokey table, and its own index as random upper 26 bits with `e` in the low 6 bits: `local_id = (random() & ~0x3F) | e`. It writes the session (keys, `local_id`, the peer's index, addresses) to entry `e` over the CSR, and sends `local_id` in its handshake message. The handshake firmware (`2.sw/app/wg_session.c`) does this. Entries written by hand over the CLI (`config cryptokeys`) must follow the same rule, as the [lab setup](../5.test/README.md) does (entry 1, Local ID `CCBACA01` and `CCBACA41`).
 - **Hardware (every data packet):** the disassembler takes the entry from the low 6 bits of the packet's receiver index, reads it, and compares all 32 bits with the entry's `local_id`. A match gives the peer to the decryptor; a mismatch (a stale session, an unknown or forged index) drops the packet. WireGuard packets are IPv4 UDP to the device's address and listen port (`csr.dpe.wg_ip`, `csr.dpe.wg_port`, default 51820). Handshake messages (types 1 to 3) go to the CPU untouched.
 - **Hardware (after decryption):** the IP lookup routes the plaintext packet by its destination, and also looks up its source. The source route must be encrypted and lead to the same peer the packet was decrypted for, else the packet is dropped (WireGuard's AllowedIPs, step 52).
 
@@ -221,9 +221,42 @@ Each entry has a key per direction: the encryptor uses `encrypt_key` and `send_c
 
 LUTRAM was selected. Each word is stored once, in a 64-entry RAM beside the block that reads it: the addresses, `encrypt_key` and `send_cnt` at the encryptor; `decrypt_key` at the decryptor; `local_id` at the disassembler. The CSR writes reach every RAM, a byte at a time, and reads back through a second read port. No data-plane block ever waits and no arbitration is needed (a CPU write to a counter in the clock of its write-back is posted to the next clock). Yosys maps the table to about 1.9k LUTs as RAM and 0.7k as logic: about 2% of the XC7A200T's LUTs.
 
+### Random Numbers: Ring Oscillators
+
+WireGuard needs secret random numbers: ephemeral keys, receiver indices, the cookie secret, the SipHash key. They come from [`ip.infra/trng`](ip.infra/trng/README.md) ([#2](https://github.com/chili-chips/wireguard-fpga/issues/2)), a true random number generator built from fabric logic, with no special primitive.
+
+- **Source:** two banks, A and B, of 8 free-running ring oscillators each: a LUT2 NAND (enable) plus a chain of LUT1 inverters. Each ring length is a different odd prime (3 to 59), so no two rings lock to each other.
+- **Sampling:** each ring is sampled by its own flop on the 80 MHz system clock, and the 8 samples of a bank are XORed. The entropy is the rings' phase jitter, gathered over 200 ns between samples: 5 Msample/s per bank.
+- **Why not the Ethernet RX clocks:** they are recovered from the link partner's signal, so an attacker on the wire sets their phase.
+- **Health tests in hardware**, per bank, on every sample (SP 800-90B 4.4): the Repetition Count Test (fails at 81 equal samples) and the Adaptive Proportion Test (824 of a 1024-sample window). A startup test of one full window comes first. A failure latches until `enable` goes to 0.
+- **Claim:** 0.5 bit of min-entropy per sample per bank. It is a design assumption, still to be measured on hardware (raw mode, NIST `ea_non_iid`).
+- **Hardware does no conditioning.** The firmware ([`random.c`](../2.sw/app/random.c)) hashes 1024 samples per bank into a seed with BLAKE2s, and runs a ChaCha20 DRBG from it.
+- **CSR:** `csr.trng` (0x094 to 0x0A7): `ctrl`, `status`, `data` (16 samples of each bank, interleaved), and `rct_max` and `apt_max` for the margin.
+- **Cost:** about 505 LUTs (438 in the rings) and 221 flops.
+- **Tools:** Vivado needs no XDC: the `allow_combinatorial_loops` attribute makes DRC report the rings as warnings (LUTLP-2). nextpnr needs `--ignore-loops`.
+- **Simulation:** under `SIM_ONLY`, each bank is a seeded xorshift32, or with `+trng_rings=1` the rings themselves, each stage a `#` delay with jitter (about 130× slower, for the unit bench). `status.impl` reads 2, so the firmware knows the numbers are not random. Bench: [`4.sim/rtl/trng`](../4.sim/rtl/trng).
+
+### Flash and Real-Time Clock
+
+WireGuard's handshake timestamps must only grow, also across a reboot, and the board has no battery-backed clock ([#30](https://github.com/chili-chips/wireguard-fpga/issues/30)). The firmware keeps a high-water mark in the configuration flash ([`2.sw/README.md`](../2.sw/README.md#timestamps-across-a-reboot)). The hardware:
+
+- **[`ip.infra/rtc.sv`](ip.infra/rtc.sv), `csr.rtc` (0x100):** 64-bit seconds and nanoseconds on the 80 MHz system clock, 12.5 ns a clock. 0 at reset; `ctrl.load` sets it. Reading `nsec` latches the seconds, so a read is atomic.
+- **[`ip.infra/flash_spi.sv`](ip.infra/flash_spi.sv), `csr.flash` (0x140):** x1 SPI at 10 MHz, mode 0. The CPU drives chip select and sends a byte at a time; the firmware speaks the flash commands ([`flash.c`](../2.sw/app/flash.c)).
+- **[`fpgatech_lib/XILINX/fpga_startup.sv`](fpgatech_lib/XILINX/fpga_startup.sv):** the flash clock is the dedicated CCLK pin, which only STARTUPE2 reaches. STARTUPE2 drops the first three clocks after configuration, so the controller sends 8 with the flash deselected, then sets `ready`.
+- **Pins:** `qspi_cs` T19, `qspi_d0` P22 (MOSI), `qspi_d1` R22 (MISO), `qspi_d2` P21 and `qspi_d3` R21 held high (W#, HOLD#).
+- **Bench:** [`4.sim/rtl/flash_spi`](../4.sim/rtl/flash_spi), with a flash model ([`4.sim/models/spi_flash_model.sv`](../4.sim/models/spi_flash_model.sv)), also in the co-simulation.
+
+### On-Chip Debug: fpgacapZero
+
+We use [fpgacapZero](https://github.com/lcapossio/fpgacapZero) (fcapz, Apache-2.0) instead of Vivado's closed-source ChipScope ILA: an embedded logic analyzer in plain Verilog, read out over JTAG (BSCANE2), so it builds with both Vivado and openXC7. The old ILA block (`MARK_DEBUG`, `u_ila_0`) is gone from `top.xdc`.
+
+- **openXC7 check (2026-11-26, Yosys and nextpnr main):** an 8-bit, 1024-sample ELA (`fcapz_ela_xilinx7`) takes one BSCANE2 and one RAMB18E1, routes, meets 100 MHz on its sample clock (134 MHz) and assembles to a bitstream. Not yet tried on the board.
+- **Host:** OpenOCD or Vivado's hw_server; captures export to VCD, which opens in WaveCrux or Surfer.
+- **Use:** instantiate `fcapz_ela_xilinx7` on the signals of interest, with a `create_clock` on its JTAG clock; it is not in `top.sv` by default.
+
 ### RTL coding rules
 
-IEEE 1800-2009 SystemVerilog, the same rules as on [openPCIE](https://github.com/chili-chips/openPCIE/blob/main/2.rtl/README.md#rtl-coding-rules). For our RTL in `1.hw` (the files [`top.filelist`](top.filelist) builds) and the models that stand in for it. Known exceptions: `` `timescale `` and plain `always` (the PLL models' clocks) inside `SIM_ONLY` blocks; the unbuilt `dpe_*` stages (untyped parameters, `` `timescale ``). Alex Forencich's verilog-ethernet and verilog-axis (`external_lib`) are trimmed to what this design uses on Xilinx 7-series and follow these rules too; PicoRV32 and the PeakRDL-generated CSR keep their own style. [`run-lint`](../3.build/hw_build.openXC7/run-lint.sh), [`run-format`](../3.build/hw_build.openXC7/run-format.sh) and [`run-leq`](../3.build/hw_build.openXC7/run-leq.sh) are in `3.build/hw_build.openXC7`.
+IEEE 1800-2009 SystemVerilog, the same rules as on [openPCIE](https://github.com/chili-chips/openPCIE/blob/main/2.rtl/README.md#rtl-coding-rules). For our RTL in `1.hw` (the files [`top.filelist`](top.filelist) builds) and the models that stand in for it. No `` `timescale ``, `timeunit` or `timeprecision`, also not under `SIM_ONLY`: the simulator command line gives the timescale (`run-lint` tags phase). One exception: plain `always` with `#` delays inside `SIM_ONLY` blocks (the PLL models' clocks, the TRNG ring model). Alex Forencich's verilog-ethernet and verilog-axis (`external_lib`) are trimmed to what this design uses on Xilinx 7-series and follow these rules too; PicoRV32 and the PeakRDL-generated CSR keep their own style. [`run-lint`](../3.build/hw_build.openXC7/run-lint.sh), [`run-format`](../3.build/hw_build.openXC7/run-format.sh) and [`run-leq`](../3.build/hw_build.openXC7/run-leq.sh) are in `3.build/hw_build.openXC7`.
 
 - **Declare and size once:** widths, constants and types live in a `_pkg` (`soc_pkg.sv`, `dpe_pkg.sv`, the generated `csr_pkg.sv`); no module redeclares them. Every parameter has a type (`int`, `logic [N:0]`).
 - **Fewer, richer ports:** interfaces (`soc_if`, `dpe_if`, `gmii_if`) and struct-typed ports, not many scalars. Each CSR client drives only its own sub-struct of `csr__in_t`, never the whole struct.
@@ -241,8 +274,9 @@ IEEE 1800-2009 SystemVerilog, the same rules as on [openPCIE](https://github.com
 
 - **`logic`, not `wire`:** every signal and port is `logic`, every `input`/`output` typed (`input logic ...`). Declare a signal before its first use.
 - **`initial` blocks:** not in RTL, except the IMEM program load (`imem.INIT.vh`). Models and test benches may use them freely.
-- **No `` `timescale `` in RTL:** the test bench sets it. RTL has no `#` delays; only the `SIM_ONLY` PLL models (`fpgatech_lib`) have them.
+- **No `` `timescale `` in RTL:** the test bench sets it. RTL has no `#` delays; only the `SIM_ONLY` models have them: the PLLs (`fpgatech_lib`) and the TRNG rings.
 - **No initial values on registers:** a register gets its value from the reset branch of its `always_ff`.
+- **A flop at every data pin (IOB flop):** an input pin drives a flop's D directly, with no logic before it; an output pin comes straight from a flop's Q, and that flop drives nothing else. Then Vivado (and later nextpnr, [openXC7/nextpnr#243](https://github.com/openXC7/nextpnr/issues/243)) can put the flop in the I/O tile, and the pin's timing no longer depends on place and route. Clock pins and pins on I/O primitives (ODDR, IBUFDS, STARTUPE2) are exempt. The `iob` lint phase checks it; open rework: [#78](https://github.com/chili-chips/wireguard-fpga/issues/78).
 - **Arrays, not flat buses:** arrays of lanes or structs, no index arithmetic on flat buses.
 - **Open outputs:** an unused output pin of a primitive or third-party core is written `.PIN (  /*LINT:OK*/),  // why it is open`, the reason always given. Never on an input (`run-lint.sh` flags it); unused inputs are tied off.
 - **No-connects:** unused bits of a bus output go to `NC_` signals: `.PIN ({NC_x, used})`. `NC_` signals are never read.

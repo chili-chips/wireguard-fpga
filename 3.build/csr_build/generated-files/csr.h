@@ -522,6 +522,292 @@ typedef union {
     uint32_t w;
 } csr__cycle_t;
 
+// reg - csr::trng::ctrl
+#define CSR__TRNG__CTRL__ENABLE_bm 0x1
+#define CSR__TRNG__CTRL__ENABLE_bp 0
+#define CSR__TRNG__CTRL__ENABLE_bw 1
+#define CSR__TRNG__CTRL__ENABLE_reset 0x0
+#define CSR__TRNG__CTRL__RAW_bm 0x2
+#define CSR__TRNG__CTRL__RAW_bp 1
+#define CSR__TRNG__CTRL__RAW_bw 1
+#define CSR__TRNG__CTRL__RAW_reset 0x0
+#define CSR__TRNG__CTRL__RATE_bm 0xf0
+#define CSR__TRNG__CTRL__RATE_bp 4
+#define CSR__TRNG__CTRL__RATE_bw 4
+#define CSR__TRNG__CTRL__RATE_reset 0x0
+typedef union {
+    struct __attribute__ ((__packed__)) {
+        uint32_t enable :1;
+        uint32_t raw :1;
+        uint32_t :2;
+        uint32_t rate :4;
+        uint32_t :24;
+    } f;
+    uint32_t w;
+} csr__trng__ctrl_t;
+
+// reg - csr::trng::status
+#define CSR__TRNG__STATUS__READY_bm 0x1
+#define CSR__TRNG__STATUS__READY_bp 0
+#define CSR__TRNG__STATUS__READY_bw 1
+#define CSR__TRNG__STATUS__READY_reset 0x0
+#define CSR__TRNG__STATUS__VALID_bm 0x2
+#define CSR__TRNG__STATUS__VALID_bp 1
+#define CSR__TRNG__STATUS__VALID_bw 1
+#define CSR__TRNG__STATUS__VALID_reset 0x0
+#define CSR__TRNG__STATUS__RCT_FAIL_A_bm 0x100
+#define CSR__TRNG__STATUS__RCT_FAIL_A_bp 8
+#define CSR__TRNG__STATUS__RCT_FAIL_A_bw 1
+#define CSR__TRNG__STATUS__RCT_FAIL_A_reset 0x0
+#define CSR__TRNG__STATUS__APT_FAIL_A_bm 0x200
+#define CSR__TRNG__STATUS__APT_FAIL_A_bp 9
+#define CSR__TRNG__STATUS__APT_FAIL_A_bw 1
+#define CSR__TRNG__STATUS__APT_FAIL_A_reset 0x0
+#define CSR__TRNG__STATUS__RCT_FAIL_B_bm 0x400
+#define CSR__TRNG__STATUS__RCT_FAIL_B_bp 10
+#define CSR__TRNG__STATUS__RCT_FAIL_B_bw 1
+#define CSR__TRNG__STATUS__RCT_FAIL_B_reset 0x0
+#define CSR__TRNG__STATUS__APT_FAIL_B_bm 0x800
+#define CSR__TRNG__STATUS__APT_FAIL_B_bp 11
+#define CSR__TRNG__STATUS__APT_FAIL_B_bw 1
+#define CSR__TRNG__STATUS__APT_FAIL_B_reset 0x0
+#define CSR__TRNG__STATUS__OVF_bm 0x1000
+#define CSR__TRNG__STATUS__OVF_bp 12
+#define CSR__TRNG__STATUS__OVF_bw 1
+#define CSR__TRNG__STATUS__OVF_reset 0x0
+#define CSR__TRNG__STATUS__IMPL_bm 0xf0000000
+#define CSR__TRNG__STATUS__IMPL_bp 28
+#define CSR__TRNG__STATUS__IMPL_bw 4
+#define CSR__TRNG__STATUS__IMPL_reset 0x0
+typedef union {
+    struct __attribute__ ((__packed__)) {
+        uint32_t ready :1;
+        uint32_t valid :1;
+        uint32_t :6;
+        uint32_t rct_fail_a :1;
+        uint32_t apt_fail_a :1;
+        uint32_t rct_fail_b :1;
+        uint32_t apt_fail_b :1;
+        uint32_t ovf :1;
+        uint32_t :15;
+        uint32_t impl :4;
+    } f;
+    uint32_t w;
+} csr__trng__status_t;
+
+// reg - csr::trng::data
+#define CSR__TRNG__DATA__DATA_bm 0xffffffff
+#define CSR__TRNG__DATA__DATA_bp 0
+#define CSR__TRNG__DATA__DATA_bw 32
+#define CSR__TRNG__DATA__DATA_reset 0x0
+typedef union {
+    struct __attribute__ ((__packed__)) {
+        uint32_t data :32;
+    } f;
+    uint32_t w;
+} csr__trng__data_t;
+
+// reg - csr::trng::rct_max
+#define CSR__TRNG__RCT_MAX__A_bm 0xff
+#define CSR__TRNG__RCT_MAX__A_bp 0
+#define CSR__TRNG__RCT_MAX__A_bw 8
+#define CSR__TRNG__RCT_MAX__A_reset 0x0
+#define CSR__TRNG__RCT_MAX__B_bm 0xff0000
+#define CSR__TRNG__RCT_MAX__B_bp 16
+#define CSR__TRNG__RCT_MAX__B_bw 8
+#define CSR__TRNG__RCT_MAX__B_reset 0x0
+typedef union {
+    struct __attribute__ ((__packed__)) {
+        uint32_t a :8;
+        uint32_t :8;
+        uint32_t b :8;
+        uint32_t :8;
+    } f;
+    uint32_t w;
+} csr__trng__rct_max_t;
+
+// reg - csr::trng::apt_max
+#define CSR__TRNG__APT_MAX__A_bm 0x7ff
+#define CSR__TRNG__APT_MAX__A_bp 0
+#define CSR__TRNG__APT_MAX__A_bw 11
+#define CSR__TRNG__APT_MAX__A_reset 0x0
+#define CSR__TRNG__APT_MAX__B_bm 0x7ff0000
+#define CSR__TRNG__APT_MAX__B_bp 16
+#define CSR__TRNG__APT_MAX__B_bw 11
+#define CSR__TRNG__APT_MAX__B_reset 0x0
+typedef union {
+    struct __attribute__ ((__packed__)) {
+        uint32_t a :11;
+        uint32_t :5;
+        uint32_t b :11;
+        uint32_t :5;
+    } f;
+    uint32_t w;
+} csr__trng__apt_max_t;
+
+// regfile - csr::trng
+typedef struct __attribute__ ((__packed__)) {
+    csr__trng__ctrl_t ctrl;
+    csr__trng__status_t status;
+    csr__trng__data_t data;
+    csr__trng__rct_max_t rct_max;
+    csr__trng__apt_max_t apt_max;
+} csr__trng_t;
+
+// reg - csr::rtc::nsec
+#define CSR__RTC__NSEC__NSEC_bm 0x3fffffff
+#define CSR__RTC__NSEC__NSEC_bp 0
+#define CSR__RTC__NSEC__NSEC_bw 30
+#define CSR__RTC__NSEC__NSEC_reset 0x0
+typedef union {
+    struct __attribute__ ((__packed__)) {
+        uint32_t nsec :30;
+        uint32_t :2;
+    } f;
+    uint32_t w;
+} csr__rtc__nsec_t;
+
+// reg - csr::rtc::sec_lo
+#define CSR__RTC__SEC_LO__SEC_bm 0xffffffff
+#define CSR__RTC__SEC_LO__SEC_bp 0
+#define CSR__RTC__SEC_LO__SEC_bw 32
+#define CSR__RTC__SEC_LO__SEC_reset 0x0
+typedef union {
+    struct __attribute__ ((__packed__)) {
+        uint32_t sec :32;
+    } f;
+    uint32_t w;
+} csr__rtc__sec_lo_t;
+
+// reg - csr::rtc::sec_hi
+#define CSR__RTC__SEC_HI__SEC_bm 0xffffffff
+#define CSR__RTC__SEC_HI__SEC_bp 0
+#define CSR__RTC__SEC_HI__SEC_bw 32
+#define CSR__RTC__SEC_HI__SEC_reset 0x0
+typedef union {
+    struct __attribute__ ((__packed__)) {
+        uint32_t sec :32;
+    } f;
+    uint32_t w;
+} csr__rtc__sec_hi_t;
+
+// reg - csr::rtc::set_nsec
+#define CSR__RTC__SET_NSEC__NSEC_bm 0x3fffffff
+#define CSR__RTC__SET_NSEC__NSEC_bp 0
+#define CSR__RTC__SET_NSEC__NSEC_bw 30
+#define CSR__RTC__SET_NSEC__NSEC_reset 0x0
+typedef union {
+    struct __attribute__ ((__packed__)) {
+        uint32_t nsec :30;
+        uint32_t :2;
+    } f;
+    uint32_t w;
+} csr__rtc__set_nsec_t;
+
+// reg - csr::rtc::set_sec_lo
+#define CSR__RTC__SET_SEC_LO__SEC_bm 0xffffffff
+#define CSR__RTC__SET_SEC_LO__SEC_bp 0
+#define CSR__RTC__SET_SEC_LO__SEC_bw 32
+#define CSR__RTC__SET_SEC_LO__SEC_reset 0x0
+typedef union {
+    struct __attribute__ ((__packed__)) {
+        uint32_t sec :32;
+    } f;
+    uint32_t w;
+} csr__rtc__set_sec_lo_t;
+
+// reg - csr::rtc::set_sec_hi
+#define CSR__RTC__SET_SEC_HI__SEC_bm 0xffffffff
+#define CSR__RTC__SET_SEC_HI__SEC_bp 0
+#define CSR__RTC__SET_SEC_HI__SEC_bw 32
+#define CSR__RTC__SET_SEC_HI__SEC_reset 0x0
+typedef union {
+    struct __attribute__ ((__packed__)) {
+        uint32_t sec :32;
+    } f;
+    uint32_t w;
+} csr__rtc__set_sec_hi_t;
+
+// reg - csr::rtc::ctrl
+#define CSR__RTC__CTRL__LOAD_bm 0x1
+#define CSR__RTC__CTRL__LOAD_bp 0
+#define CSR__RTC__CTRL__LOAD_bw 1
+#define CSR__RTC__CTRL__LOAD_reset 0x0
+typedef union {
+    struct __attribute__ ((__packed__)) {
+        uint32_t load :1;
+        uint32_t :31;
+    } f;
+    uint32_t w;
+} csr__rtc__ctrl_t;
+
+// regfile - csr::rtc
+typedef struct __attribute__ ((__packed__)) {
+    csr__rtc__nsec_t nsec;
+    csr__rtc__sec_lo_t sec_lo;
+    csr__rtc__sec_hi_t sec_hi;
+    csr__rtc__set_nsec_t set_nsec;
+    csr__rtc__set_sec_lo_t set_sec_lo;
+    csr__rtc__set_sec_hi_t set_sec_hi;
+    csr__rtc__ctrl_t ctrl;
+} csr__rtc_t;
+
+// reg - csr::flash::ctrl
+#define CSR__FLASH__CTRL__CS_bm 0x1
+#define CSR__FLASH__CTRL__CS_bp 0
+#define CSR__FLASH__CTRL__CS_bw 1
+#define CSR__FLASH__CTRL__CS_reset 0x0
+typedef union {
+    struct __attribute__ ((__packed__)) {
+        uint32_t cs :1;
+        uint32_t :31;
+    } f;
+    uint32_t w;
+} csr__flash__ctrl_t;
+
+// reg - csr::flash::tx
+#define CSR__FLASH__TX__DATA_bm 0xff
+#define CSR__FLASH__TX__DATA_bp 0
+#define CSR__FLASH__TX__DATA_bw 8
+#define CSR__FLASH__TX__DATA_reset 0x0
+typedef union {
+    struct __attribute__ ((__packed__)) {
+        uint32_t data :8;
+        uint32_t :24;
+    } f;
+    uint32_t w;
+} csr__flash__tx_t;
+
+// reg - csr::flash::status
+#define CSR__FLASH__STATUS__DATA_bm 0xff
+#define CSR__FLASH__STATUS__DATA_bp 0
+#define CSR__FLASH__STATUS__DATA_bw 8
+#define CSR__FLASH__STATUS__DATA_reset 0x0
+#define CSR__FLASH__STATUS__BUSY_bm 0x40000000
+#define CSR__FLASH__STATUS__BUSY_bp 30
+#define CSR__FLASH__STATUS__BUSY_bw 1
+#define CSR__FLASH__STATUS__BUSY_reset 0x0
+#define CSR__FLASH__STATUS__READY_bm 0x80000000
+#define CSR__FLASH__STATUS__READY_bp 31
+#define CSR__FLASH__STATUS__READY_bw 1
+#define CSR__FLASH__STATUS__READY_reset 0x0
+typedef union {
+    struct __attribute__ ((__packed__)) {
+        uint32_t data :8;
+        uint32_t :22;
+        uint32_t busy :1;
+        uint32_t ready :1;
+    } f;
+    uint32_t w;
+} csr__flash__status_t;
+
+// regfile - csr::flash
+typedef struct __attribute__ ((__packed__)) {
+    csr__flash__ctrl_t ctrl;
+    csr__flash__tx_t tx;
+    csr__flash__status_t status;
+} csr__flash_t;
+
 // reg - csr::routing_table::entry::ip
 #define CSR__ROUTING_TABLE__ENTRY__IP__IP_bm 0xffffffff
 #define CSR__ROUTING_TABLE__ENTRY__IP__IP_bp 0
@@ -975,7 +1261,12 @@ typedef struct __attribute__ ((__packed__)) {
     csr__hw_version_t hw_version;
     csr__dpe_t dpe;
     csr__cycle_t cycle;
-    uint8_t RESERVED_94_3ff[0x36c];
+    csr__trng_t trng;
+    uint8_t RESERVED_a8_ff[0x58];
+    csr__rtc_t rtc;
+    uint8_t RESERVED_11c_13f[0x24];
+    csr__flash_t flash;
+    uint8_t RESERVED_14c_3ff[0x2b4];
     csr__routing_table_t routing_table;
     uint8_t RESERVED_800_1fff[0x1800];
     csr__cryptokey_table_t cryptokey_table;

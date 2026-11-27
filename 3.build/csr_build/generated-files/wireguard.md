@@ -60,6 +60,9 @@ No supported members.
 |0x0080|   hw_version  |   csr.hw_version  |
 |0x0084|      dpe      |      csr.dpe      |
 |0x0090|     cycle     |     csr.cycle     |
+|0x0094|      trng     |      csr.trng     |
+|0x0100|      rtc      |      csr.rtc      |
+|0x0140|     flash     |     csr.flash     |
 |0x0400| routing_table | csr.routing_table |
 |0x2000|cryptokey_table|csr.cryptokey_table|
 
@@ -900,6 +903,347 @@ No supported members.
 #### count field
 
 <p>System clock cycles since reset</p>
+
+## trng register file
+
+- Absolute Address: 0x20000094
+- Base Offset: 0x94
+- Size: 0x14
+
+<p>True random number generator (1.hw/ip.infra/trng): two ring-oscillator banks, A and B, with the SP 800-90B continuous health tests (RCT, APT) on each</p>
+
+|Offset|Identifier|      Name      |
+|------|----------|----------------|
+| 0x00 |   ctrl   |  csr.trng.ctrl |
+| 0x04 |  status  | csr.trng.status|
+| 0x08 |   data   |  csr.trng.data |
+| 0x0C |  rct_max |csr.trng.rct_max|
+| 0x10 |  apt_max |csr.trng.apt_max|
+
+### ctrl register
+
+- Absolute Address: 0x20000094
+- Base Offset: 0x0
+- Size: 0x4
+
+<p>TRNG Control Register</p>
+
+|Bits|Identifier|Access|Reset|          Name         |
+|----|----------|------|-----|-----------------------|
+|  0 |  enable  |  rw  | 0x0 |  csr.trng.ctrl.enable |
+|  1 |    raw   |  rw  | 0x0 |   csr.trng.ctrl.raw   |
+| 7:4|   rate   |  rw  | 0x0 |csr.trng.ctrl.rate[3:0]|
+
+#### enable field
+
+<p>1: the ring oscillators run and are tested. 0: stopped; clears the health flags, the counters, ready, valid and ovf</p>
+
+#### raw field
+
+<p>1: raw mode, for offline entropy assessment: data words from enable on, also during the startup test and after a health-test failure. Never for key material</p>
+
+#### rate field
+
+<p>Sample period: TRNG_SAMPLE_CLKS &lt;&lt; rate system clocks. 0 is the rate the entropy claim and the health-test cutoffs are for; a slower rate only adds jitter (raw dumps over the UART)</p>
+
+### status register
+
+- Absolute Address: 0x20000098
+- Base Offset: 0x4
+- Size: 0x4
+
+<p>TRNG Status Register</p>
+
+| Bits|Identifier|Access|Reset|           Name           |
+|-----|----------|------|-----|--------------------------|
+|  0  |   ready  |   r  | 0x0 |   csr.trng.status.ready  |
+|  1  |   valid  |   r  | 0x0 |   csr.trng.status.valid  |
+|  8  |rct_fail_a|   r  | 0x0 |csr.trng.status.rct_fail_a|
+|  9  |apt_fail_a|   r  | 0x0 |csr.trng.status.apt_fail_a|
+|  10 |rct_fail_b|   r  | 0x0 |csr.trng.status.rct_fail_b|
+|  11 |apt_fail_b|   r  | 0x0 |csr.trng.status.apt_fail_b|
+|  12 |    ovf   |   r  | 0x0 |    csr.trng.status.ovf   |
+|31:28|   impl   |   r  | 0x0 | csr.trng.status.impl[3:0]|
+
+#### ready field
+
+<p>The startup test passed (TRNG_STARTUP samples of each bank, no failure) and no health test has failed since</p>
+
+#### valid field
+
+<p>data holds a word not read yet</p>
+
+#### rct_fail_a field
+
+<p>Bank A failed the Repetition Count Test; latched until enable = 0</p>
+
+#### apt_fail_a field
+
+<p>Bank A failed the Adaptive Proportion Test; latched until enable = 0</p>
+
+#### rct_fail_b field
+
+<p>Bank B failed the Repetition Count Test; latched until enable = 0</p>
+
+#### apt_fail_b field
+
+<p>Bank B failed the Adaptive Proportion Test; latched until enable = 0</p>
+
+#### ovf field
+
+<p>Sticky: a data word was lost (not read in time); a raw dump with ovf = 1 is not contiguous</p>
+
+#### impl field
+
+<p>Entropy source: 0 none, 1 ring oscillators, 2 the SIM_ONLY model (a seeded PRNG, not random)</p>
+
+### data register
+
+- Absolute Address: 0x2000009C
+- Base Offset: 0x8
+- Size: 0x4
+
+<p>TRNG Data Register: 16 raw samples of each bank, bit 2i from bank A and 2i+1 from bank B, sample i before sample i+1. Reading it takes the word (valid goes to 0)</p>
+
+|Bits|Identifier|Access|Reset|          Name          |
+|----|----------|------|-----|------------------------|
+|31:0|   data   |   r  | 0x0 |csr.trng.data.data[31:0]|
+
+#### data field
+
+<p>Raw samples</p>
+
+### rct_max register
+
+- Absolute Address: 0x200000A0
+- Base Offset: 0xC
+- Size: 0x4
+
+<p>Longest run of equal samples since enable (saturates at 255); the RCT fails at TRNG_RCT_CUTOFF</p>
+
+| Bits|Identifier|Access|Reset|          Name         |
+|-----|----------|------|-----|-----------------------|
+| 7:0 |     a    |   r  | 0x0 |csr.trng.rct_max.a[7:0]|
+|23:16|     b    |   r  | 0x0 |csr.trng.rct_max.b[7:0]|
+
+#### a field
+
+<p>Bank A</p>
+
+#### b field
+
+<p>Bank B</p>
+
+### apt_max register
+
+- Absolute Address: 0x200000A4
+- Base Offset: 0x10
+- Size: 0x4
+
+<p>Highest APT count (samples equal to the window's first one) of any window since enable; the APT fails at TRNG_APT_CUTOFF</p>
+
+| Bits|Identifier|Access|Reset|          Name          |
+|-----|----------|------|-----|------------------------|
+| 10:0|     a    |   r  | 0x0 |csr.trng.apt_max.a[10:0]|
+|26:16|     b    |   r  | 0x0 |csr.trng.apt_max.b[10:0]|
+
+#### a field
+
+<p>Bank A</p>
+
+#### b field
+
+<p>Bank B</p>
+
+## rtc register file
+
+- Absolute Address: 0x20000100
+- Base Offset: 0x100
+- Size: 0x1C
+
+<p>Real-time clock (#30): seconds and nanoseconds, counting on the system clock from 0 at reset until the firmware sets it. Read nsec first: that read latches the seconds of the same instant into sec_lo and sec_hi</p>
+
+|Offset|Identifier|       Name       |
+|------|----------|------------------|
+| 0x00 |   nsec   |   csr.rtc.nsec   |
+| 0x04 |  sec_lo  |  csr.rtc.sec_lo  |
+| 0x08 |  sec_hi  |  csr.rtc.sec_hi  |
+| 0x0C | set_nsec | csr.rtc.set_nsec |
+| 0x10 |set_sec_lo|csr.rtc.set_sec_lo|
+| 0x14 |set_sec_hi|csr.rtc.set_sec_hi|
+| 0x18 |   ctrl   |   csr.rtc.ctrl   |
+
+### nsec register
+
+- Absolute Address: 0x20000100
+- Base Offset: 0x0
+- Size: 0x4
+
+<p>Nanoseconds, 0 to 999999999. Reading it latches the seconds into sec_lo and sec_hi</p>
+
+|Bits|Identifier|Access|Reset|          Name         |
+|----|----------|------|-----|-----------------------|
+|29:0|   nsec   |   r  | 0x0 |csr.rtc.nsec.nsec[29:0]|
+
+#### nsec field
+
+<p>Nanoseconds of the current second</p>
+
+### sec_lo register
+
+- Absolute Address: 0x20000104
+- Base Offset: 0x4
+- Size: 0x4
+
+<p>Seconds [31:0], as latched by the last read of nsec</p>
+
+|Bits|Identifier|Access|Reset|          Name          |
+|----|----------|------|-----|------------------------|
+|31:0|    sec   |   r  | 0x0 |csr.rtc.sec_lo.sec[31:0]|
+
+#### sec field
+
+<p>Seconds, low word</p>
+
+### sec_hi register
+
+- Absolute Address: 0x20000108
+- Base Offset: 0x8
+- Size: 0x4
+
+<p>Seconds [63:32], as latched by the last read of nsec</p>
+
+|Bits|Identifier|Access|Reset|          Name          |
+|----|----------|------|-----|------------------------|
+|31:0|    sec   |   r  | 0x0 |csr.rtc.sec_hi.sec[31:0]|
+
+#### sec field
+
+<p>Seconds, high word</p>
+
+### set_nsec register
+
+- Absolute Address: 0x2000010C
+- Base Offset: 0xC
+- Size: 0x4
+
+<p>Nanoseconds that ctrl.load sets (below 1000000000)</p>
+
+|Bits|Identifier|Access|Reset|            Name           |
+|----|----------|------|-----|---------------------------|
+|29:0|   nsec   |  rw  | 0x0 |csr.rtc.set_nsec.nsec[29:0]|
+
+### set_sec_lo register
+
+- Absolute Address: 0x20000110
+- Base Offset: 0x10
+- Size: 0x4
+
+<p>Seconds [31:0] that ctrl.load sets</p>
+
+|Bits|Identifier|Access|Reset|            Name            |
+|----|----------|------|-----|----------------------------|
+|31:0|    sec   |  rw  | 0x0 |csr.rtc.set_sec_lo.sec[31:0]|
+
+### set_sec_hi register
+
+- Absolute Address: 0x20000114
+- Base Offset: 0x14
+- Size: 0x4
+
+<p>Seconds [63:32] that ctrl.load sets</p>
+
+|Bits|Identifier|Access|Reset|            Name            |
+|----|----------|------|-----|----------------------------|
+|31:0|    sec   |  rw  | 0x0 |csr.rtc.set_sec_hi.sec[31:0]|
+
+### ctrl register
+
+- Absolute Address: 0x20000118
+- Base Offset: 0x18
+- Size: 0x4
+
+<p>RTC Control Register</p>
+
+|Bits|Identifier|Access|Reset|       Name      |
+|----|----------|------|-----|-----------------|
+|  0 |   load   |  rw  | 0x0 |csr.rtc.ctrl.load|
+
+#### load field
+
+<p>Write 1: the clock takes set_sec_hi, set_sec_lo and set_nsec (single pulse)</p>
+
+## flash register file
+
+- Absolute Address: 0x20000140
+- Base Offset: 0x140
+- Size: 0xC
+
+<p>SPI (x1) access to the configuration flash (#30), through STARTUPE2 for its clock: the firmware drives chip select and sends one byte at a time, each transfer returning the byte read back</p>
+
+|Offset|Identifier|      Name      |
+|------|----------|----------------|
+|  0x0 |   ctrl   | csr.flash.ctrl |
+|  0x4 |    tx    |  csr.flash.tx  |
+|  0x8 |  status  |csr.flash.status|
+
+### ctrl register
+
+- Absolute Address: 0x20000140
+- Base Offset: 0x0
+- Size: 0x4
+
+<p>Flash Control Register</p>
+
+|Bits|Identifier|Access|Reset|       Name      |
+|----|----------|------|-----|-----------------|
+|  0 |    cs    |  rw  | 0x0 |csr.flash.ctrl.cs|
+
+#### cs field
+
+<p>1: chip select active (FCS_B low). Ignored until status.ready</p>
+
+### tx register
+
+- Absolute Address: 0x20000144
+- Base Offset: 0x4
+- Size: 0x4
+
+<p>Flash Transmit Register</p>
+
+|Bits|Identifier|Access|Reset|         Name         |
+|----|----------|------|-----|----------------------|
+| 7:0|   data   |  rw  | 0x0 |csr.flash.tx.data[7:0]|
+
+#### data field
+
+<p>A write sends this byte, MSB first (SPI mode 0), and reads one byte back into status.data. Write only while status.busy is 0</p>
+
+### status register
+
+- Absolute Address: 0x20000148
+- Base Offset: 0x8
+- Size: 0x4
+
+<p>Flash Status Register</p>
+
+|Bits|Identifier|Access|Reset|           Name           |
+|----|----------|------|-----|--------------------------|
+| 7:0|   data   |   r  | 0x0 |csr.flash.status.data[7:0]|
+| 30 |   busy   |   r  | 0x0 |   csr.flash.status.busy  |
+| 31 |   ready  |   r  | 0x0 |  csr.flash.status.ready  |
+
+#### data field
+
+<p>The byte the last transfer read, valid when busy is 0</p>
+
+#### busy field
+
+<p>A byte transfer is under way</p>
+
+#### ready field
+
+<p>The controller has given CCLK its start-up clocks: the flash can be used</p>
 
 ## routing_table register file
 

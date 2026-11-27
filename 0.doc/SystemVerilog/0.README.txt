@@ -11,7 +11,7 @@ https://github.com/dalance/svlint
 
 ---------CDC Lint
 https://github.com/BerkeleyLab/Bedrock/blob/master/build-tools/cdc_snitch.md
-https://github.com/chili-chips-ba/openCologne/issues/26
+https://github.com/chili-chips/openCologne/issues/26
 https://github.com/verilator/verilator/issues/5288
 https://github.com/MikePopoloski/slang/issues/1063
 

@@ -5,7 +5,7 @@
 #==========================================================================
 # wireguard-fpga openXC7 build, as on openPCIE (4.build/hw_build.openXC7)
 #
-#   TOOLCHAIN=new (default): openXC7 v1.0.0 -- Yosys 0.70 + nextpnr-himbaechel
+#   TOOLCHAIN=new (default): openXC7 main -- Yosys + nextpnr-himbaechel at main
 #     (through the nextpnr-xilinx shim), chipdb from xilinx_gen.py, bitstream
 #     with fpga-as. FRONTEND=slang (default) reads the SystemVerilog with
 #     read_slang; FRONTEND=sv2v converts it with sv2v first.
@@ -27,7 +27,7 @@ TOOLCHAIN ?= new
 FRONTEND  ?= $(if $(filter old,$(TOOLCHAIN)),sv2v,slang)
 
 ifeq ($(TOOLCHAIN),new)
-    # openXC7 v1.0.0 prefix: NEXTPNR_XILINX_DIR (set-env), else where yosys is
+    # openXC7 prefix: NEXTPNR_XILINX_DIR (set-env), else where yosys is
     OPENXC7_ROOT   ?= $(or $(NEXTPNR_XILINX_DIR),$(abspath $(dir $(shell command -v yosys))..))
     PRJXRAY_DB_DIR ?= $(OPENXC7_ROOT)/share/nextpnr/prjxray-db
     XILINX_GEN      = $(OPENXC7_ROOT)/share/nextpnr/himbaechel/uarch/xilinx/gen/xilinx_gen.py
@@ -96,7 +96,7 @@ PURE_V_FILES = $(filter %.v,$(DESIGN_RTL))
 SV_ORDERED = $(filter %.sv,$(DESIGN_RTL))
 
 # Xilinx primitives the RTL instantiates (stubs for read_slang)
-XILINX_PRIMS = PLLE2_BASE BUFG IBUFGDS BUFGMUX ODDR DSP48E1
+XILINX_PRIMS = PLLE2_BASE BUFG IBUFGDS BUFGMUX ODDR DSP48E1 STARTUPE2 LUT1 LUT2
 
 .PHONY: all convert check-env check-sources clean clean-converted clean-all help info
 .DEFAULT_GOAL := all
@@ -159,12 +159,11 @@ $(EXTRACT_TIMESTAMP): $(CONV_TIMESTAMP)
 # =============================================================================
 # SYNTHESIS (Yosys)
 # =============================================================================
-# TOOLCHAIN=new: nextpnr-himbaechel has no BEL for BUFGMUX; bufgmux_map.v
-# builds it from a BUFGCTRL after synthesis
-BUFGMUX_MAP = $(if $(filter new,$(TOOLCHAIN)),techmap -map bufgmux_map.v;)
+# BUFGMUX: nextpnr main maps it onto a BUFGCTRL itself, as Vivado does (CE1 =
+# S, CE0 = ~S, S0 = S1 = 1; nextpnr#132), so the netlist keeps the BUFGMUX
 
 ifeq ($(FRONTEND),slang)
-$(BUILD_ARTIFACTS)/top.json: $(SV_ORDERED) $(PURE_V_FILES) $(IMEM_INIT) gen_xilinx_bb.py bufgmux_map.v
+$(BUILD_ARTIFACTS)/top.json: $(SV_ORDERED) $(PURE_V_FILES) $(IMEM_INIT) gen_xilinx_bb.py
 	@mkdir -p $(BUILD_ARTIFACTS)
 	$(OPENXC7_PYTHON) gen_xilinx_bb.py "$$($(YOSYS_CONFIG) --datdir)/xilinx" \
 	    $(BUILD_ARTIFACTS)/xilinx_bb.sv $(XILINX_PRIMS)
@@ -173,20 +172,18 @@ $(BUILD_ARTIFACTS)/top.json: $(SV_ORDERED) $(PURE_V_FILES) $(IMEM_INIT) gen_xili
 	                   $(BUILD_ARTIFACTS)/xilinx_bb.sv $(SV_ORDERED) $(PURE_V_FILES); \
 	        proc; opt; clean; delete t:\$$scopeinfo; \
 	        synth_xilinx -flatten -abc9 -arch xc7 -top $(TOP); \
-	        $(BUFGMUX_MAP) \
 	        write_json $@"
-	@# no large memory in LUTs: it belongs in block RAM (check-lutram.py)
+	@# a deep, big memory in LUTs belongs in block RAM; shallow ones stay (check-lutram.py)
 	python3 check-lutram.py $@
 else
-$(BUILD_ARTIFACTS)/top.json: $(EXTRACT_TIMESTAMP) $(PURE_V_FILES) $(IMEM_INIT) bufgmux_map.v
+$(BUILD_ARTIFACTS)/top.json: $(EXTRACT_TIMESTAMP) $(PURE_V_FILES) $(IMEM_INIT)
 	@mkdir -p $(BUILD_ARTIFACTS)
 	$(YOSYS) -q -l $(BUILD_ARTIFACTS)/yosys.log \
 	    -p "read_verilog $(wildcard $(EXTRACTED_DIR)/*.v) $(PURE_V_FILES); \
 	        proc; opt; clean; delete t:\$$scopeinfo; \
 	        synth_xilinx -flatten $(if $(filter new,$(TOOLCHAIN)),-abc9) -arch xc7 -top $(TOP); \
-	        $(BUFGMUX_MAP) \
 	        write_json $@"
-	@# no large memory in LUTs: it belongs in block RAM (check-lutram.py)
+	@# a deep, big memory in LUTs belongs in block RAM; shallow ones stay (check-lutram.py)
 	python3 check-lutram.py $@
 endif
 
@@ -220,19 +217,19 @@ SEED ?= 2
 # TOOLCHAIN=new: timing-driven ripup and a heavier placer timing weight. The
 # Ethernet RX clocks (verilog-ethernet's axis_async_fifo write-pointer logic)
 # sit near 125 MHz: with the defaults, seeds 1-4 each missed 1-3 RX clocks
-# (102-128 MHz, 2026-10).
-NEXTPNR_OPTS ?= $(if $(filter new,$(TOOLCHAIN)),--tmg-ripup --placer-heap-timingweight 30)
+# (102-128 MHz, 2026-10). --ignore-loops: the TRNG's ring oscillators (#2)
+# are combinational loops by design; without it the timing analysis fails.
+NEXTPNR_OPTS ?= $(if $(filter new,$(TOOLCHAIN)),--tmg-ripup --placer-heap-timingweight 30 --ignore-loops)
 
 # nextpnr reads XDC constraints on ports only (get_ports). top.xdc is shared
-# with Vivado and also holds its ILA debug core, MARK_DEBUG, false paths
-# between clocks, CLOCK_DEDICATED_ROUTE and [current_design] bitstream
-# options; nextpnr gets the port lines: pins, I/O standards, clocks.
+# with Vivado and also holds generated clocks and false paths (get_pins,
+# get_clocks), I/O delays and [current_design] bitstream options; nextpnr gets the port lines: pins, I/O standards, clocks.
 # top.openxc7.xdc adds what nextpnr needs and Vivado infers (clk_n's pin).
 NEXTPNR_XDC = $(BUILD_ARTIFACTS)/top.nextpnr.xdc
 
 $(NEXTPNR_XDC): $(XDC_FILE) top.openxc7.xdc
 	@mkdir -p $(BUILD_ARTIFACTS)
-	grep -E 'get_ports' $< | grep -v -E '^\s*#|get_(nets|clocks|pins|cells|debug)' > $@
+	grep -E 'get_ports' $< | grep -v -E '^\s*#|get_(nets|clocks|pins|cells|debug)|set_(input|output)_delay|set_false_path' > $@
 	grep -v -E '^\s*#|^\s*$$' top.openxc7.xdc >> $@
 	@echo "OK -> $@ ($$(wc -l < $@) port constraints)"
 

@@ -637,6 +637,8 @@ The patch and the `VUserMain0.cpp` changes come from [openPCIE](https://github.c
 
 Two other fixes: `vusermain.cfg` halted the ISS at `0x6c`, the `jal main` in `2.sw/boot_crt.s`, so `main()` never ran (now `0x70`, `loop_forever`). And the file was CRLF, so `parseArgs()` (`vuserutils.cpp`) kept a CR on the last option and could not open `main.bin`. The file is LF now, and `parseArgs()` strips both.
 
+A hidden bug in `usercode/VUserMainUdp.cpp`: both UDP senders shared one frame buffer, hidden while they started at fixed times (2 and 4 ms). Now both start when `models/bfm_uart.sv` flags the routes done (`0x5000_1000` in the shared `mem_model`), in the same clock: each has its own buffer, and each receiver counts once, on its own node and UDP port.
+
 ### Timescale, delays and the UART
 
 As in our BFMs: no `` `timescale`` in our HDL (third-party and AMD files keep theirs), every `#` delay carries its unit, and the simulator command line gives the timescale: `--timescale 1ns/1ns`. Nothing here needs less than 1 ns (no SerDes), so every delay is a whole number of ns:

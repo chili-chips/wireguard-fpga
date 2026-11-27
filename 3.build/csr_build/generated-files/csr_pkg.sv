@@ -183,6 +183,142 @@ package csr_pkg;
     } csr__cycle__in_t;
 
     typedef struct {
+        logic next;
+    } csr__trng__status__ready__in_t;
+
+    typedef struct {
+        logic next;
+    } csr__trng__status__valid__in_t;
+
+    typedef struct {
+        logic next;
+    } csr__trng__status__rct_fail_a__in_t;
+
+    typedef struct {
+        logic next;
+    } csr__trng__status__apt_fail_a__in_t;
+
+    typedef struct {
+        logic next;
+    } csr__trng__status__rct_fail_b__in_t;
+
+    typedef struct {
+        logic next;
+    } csr__trng__status__apt_fail_b__in_t;
+
+    typedef struct {
+        logic next;
+    } csr__trng__status__ovf__in_t;
+
+    typedef struct {
+        logic [3:0] next;
+    } csr__trng__status__impl__in_t;
+
+    typedef struct {
+        csr__trng__status__ready__in_t ready;
+        csr__trng__status__valid__in_t valid;
+        csr__trng__status__rct_fail_a__in_t rct_fail_a;
+        csr__trng__status__apt_fail_a__in_t apt_fail_a;
+        csr__trng__status__rct_fail_b__in_t rct_fail_b;
+        csr__trng__status__apt_fail_b__in_t apt_fail_b;
+        csr__trng__status__ovf__in_t ovf;
+        csr__trng__status__impl__in_t impl;
+    } csr__trng__status__in_t;
+
+    typedef struct {
+        logic [31:0] next;
+    } csr__trng__data__data__in_t;
+
+    typedef struct {
+        csr__trng__data__data__in_t data;
+    } csr__trng__data__in_t;
+
+    typedef struct {
+        logic [7:0] next;
+    } csr__trng__rct_max__a__in_t;
+
+    typedef struct {
+        logic [7:0] next;
+    } csr__trng__rct_max__b__in_t;
+
+    typedef struct {
+        csr__trng__rct_max__a__in_t a;
+        csr__trng__rct_max__b__in_t b;
+    } csr__trng__rct_max__in_t;
+
+    typedef struct {
+        logic [10:0] next;
+    } csr__trng__apt_max__a__in_t;
+
+    typedef struct {
+        logic [10:0] next;
+    } csr__trng__apt_max__b__in_t;
+
+    typedef struct {
+        csr__trng__apt_max__a__in_t a;
+        csr__trng__apt_max__b__in_t b;
+    } csr__trng__apt_max__in_t;
+
+    typedef struct {
+        csr__trng__status__in_t status;
+        csr__trng__data__in_t data;
+        csr__trng__rct_max__in_t rct_max;
+        csr__trng__apt_max__in_t apt_max;
+    } csr__trng__in_t;
+
+    typedef struct {
+        logic [29:0] next;
+    } csr__rtc__nsec__nsec__in_t;
+
+    typedef struct {
+        csr__rtc__nsec__nsec__in_t nsec;
+    } csr__rtc__nsec__in_t;
+
+    typedef struct {
+        logic [31:0] next;
+    } csr__rtc__sec_lo__sec__in_t;
+
+    typedef struct {
+        csr__rtc__sec_lo__sec__in_t sec;
+    } csr__rtc__sec_lo__in_t;
+
+    typedef struct {
+        logic [31:0] next;
+    } csr__rtc__sec_hi__sec__in_t;
+
+    typedef struct {
+        csr__rtc__sec_hi__sec__in_t sec;
+    } csr__rtc__sec_hi__in_t;
+
+    typedef struct {
+        csr__rtc__nsec__in_t nsec;
+        csr__rtc__sec_lo__in_t sec_lo;
+        csr__rtc__sec_hi__in_t sec_hi;
+    } csr__rtc__in_t;
+
+    typedef struct {
+        logic [7:0] next;
+    } csr__flash__status__data__in_t;
+
+    typedef struct {
+        logic next;
+    } csr__flash__status__busy__in_t;
+
+    typedef struct {
+        logic next;
+    } csr__flash__status__ready__in_t;
+
+    typedef struct {
+        csr__flash__status__data__in_t data;
+        csr__flash__status__busy__in_t busy;
+        csr__flash__status__ready__in_t ready;
+    } csr__flash__status__in_t;
+
+    typedef struct {
+        csr__flash__status__in_t status;
+    } csr__flash__in_t;
+
+    typedef struct {
         logic rd_ack;
         logic [31:0] rd_data;
         logic wr_ack;
@@ -201,6 +337,9 @@ package csr_pkg;
         csr__ethernet__in_t ethernet[4];
         csr__dpe__in_t dpe;
         csr__cycle__in_t cycle;
+        csr__trng__in_t trng;
+        csr__rtc__in_t rtc;
+        csr__flash__in_t flash;
         csr__routing_table__external__in_t routing_table;
         csr__cryptokey_table__external__in_t cryptokey_table;
     } csr__in_t;
@@ -440,6 +579,107 @@ package csr_pkg;
     } csr__dpe__out_t;
 
     typedef struct {
+        logic value;
+    } csr__trng__ctrl__enable__out_t;
+
+    typedef struct {
+        logic value;
+    } csr__trng__ctrl__raw__out_t;
+
+    typedef struct {
+        logic [3:0] value;
+    } csr__trng__ctrl__rate__out_t;
+
+    typedef struct {
+        csr__trng__ctrl__enable__out_t enable;
+        csr__trng__ctrl__raw__out_t raw;
+        csr__trng__ctrl__rate__out_t rate;
+    } csr__trng__ctrl__out_t;
+
+    typedef struct {
+        logic swacc;
+    } csr__trng__data__data__out_t;
+
+    typedef struct {
+        csr__trng__data__data__out_t data;
+    } csr__trng__data__out_t;
+
+    typedef struct {
+        csr__trng__ctrl__out_t ctrl;
+        csr__trng__data__out_t data;
+    } csr__trng__out_t;
+
+    typedef struct {
+        logic swacc;
+    } csr__rtc__nsec__nsec__out_t;
+
+    typedef struct {
+        csr__rtc__nsec__nsec__out_t nsec;
+    } csr__rtc__nsec__out_t;
+
+    typedef struct {
+        logic [29:0] value;
+    } csr__rtc__set_nsec__nsec__out_t;
+
+    typedef struct {
+        csr__rtc__set_nsec__nsec__out_t nsec;
+    } csr__rtc__set_nsec__out_t;
+
+    typedef struct {
+        logic [31:0] value;
+    } csr__rtc__set_sec_lo__sec__out_t;
+
+    typedef struct {
+        csr__rtc__set_sec_lo__sec__out_t sec;
+    } csr__rtc__set_sec_lo__out_t;
+
+    typedef struct {
+        logic [31:0] value;
+    } csr__rtc__set_sec_hi__sec__out_t;
+
+    typedef struct {
+        csr__rtc__set_sec_hi__sec__out_t sec;
+    } csr__rtc__set_sec_hi__out_t;
+
+    typedef struct {
+        logic value;
+    } csr__rtc__ctrl__load__out_t;
+
+    typedef struct {
+        csr__rtc__ctrl__load__out_t load;
+    } csr__rtc__ctrl__out_t;
+
+    typedef struct {
+        csr__rtc__nsec__out_t nsec;
+        csr__rtc__set_nsec__out_t set_nsec;
+        csr__rtc__set_sec_lo__out_t set_sec_lo;
+        csr__rtc__set_sec_hi__out_t set_sec_hi;
+        csr__rtc__ctrl__out_t ctrl;
+    } csr__rtc__out_t;
+
+    typedef struct {
+        logic value;
+    } csr__flash__ctrl__cs__out_t;
+
+    typedef struct {
+        csr__flash__ctrl__cs__out_t cs;
+    } csr__flash__ctrl__out_t;
+
+    typedef struct {
+        logic [7:0] value;
+        logic swmod;
+    } csr__flash__tx__data__out_t;
+
+    typedef struct {
+        csr__flash__tx__data__out_t data;
+    } csr__flash__tx__out_t;
+
+    typedef struct {
+        csr__flash__ctrl__out_t ctrl;
+        csr__flash__tx__out_t tx;
+    } csr__flash__out_t;
+
+    typedef struct {
         logic req;
         logic [9:0] addr;
         logic req_is_wr;
@@ -463,6 +703,9 @@ package csr_pkg;
         csr__hw_id__out_t hw_id;
         csr__hw_version__out_t hw_version;
         csr__dpe__out_t dpe;
+        csr__trng__out_t trng;
+        csr__rtc__out_t rtc;
+        csr__flash__out_t flash;
         csr__routing_table__external__out_t routing_table;
         csr__cryptokey_table__external__out_t cryptokey_table;
     } csr__out_t;

@@ -140,8 +140,18 @@ module soc_cpu
   // RISC-V convention for the StackPointer is to point to the last word in
   // use, i.e. free memory is at the addresses below the current SP value.
   //--------------------------------------------------------
-  logic  cpu_arst_n;  // the bus reset, or the IMEM loader holding the CPU
-  assign cpu_arst_n = bus.arst_n & imem_cpu_rst_n;
+  // the bus reset, or the IMEM loader holding the CPU. A flop, not an AND:
+  // logic on an async clear can glitch (Vivado LUTAR-1, #73). Asserts at
+  // once with the bus reset, a clock after the loader; releases on the clock
+  logic cpu_arst_n;
+  always_ff @(negedge bus.arst_n or posedge bus.clk) begin
+    if (bus.arst_n == 1'b0) begin
+      cpu_arst_n <= 1'b0;
+    end
+    else begin
+      cpu_arst_n <= imem_cpu_rst_n;
+    end
+  end
 
   picorv32 #(
       .PROGADDR_RESET (ADDR_RESET),

@@ -77,7 +77,7 @@ if [ -z "${YOSYS_ARGS+set}" ]; then  # as run-lint.sh
   fi
 fi
 PYTHON=${PYTHON:-python3}
-PRIMS="PLLE2_BASE BUFG IBUFGDS BUFGMUX ODDR DSP48E1"
+PRIMS="PLLE2_BASE BUFG IBUFGDS BUFGMUX ODDR DSP48E1 STARTUPE2 LUT1 LUT2"
 # The generated ChaCha20-Poly1305 core is a black box too (the same file on
 # both sides; its proof against the Python source is PipelineC#398)
 GEN=$BLD/pypeline_build/soc  # the core the DPE uses, gzip'd

@@ -43,7 +43,8 @@
 //      as the firmware writes them; wg_ip:wg_port as csr.dpe gives them.
 //   2. Frames from output/sys_in.pcap (sys_check.py gen): plaintext to the
 //      peers, WireGuard from them, and frames it must drop or pass on. The
-//      links stall on both sides (dpe_tb_throttle).
+//      links stall on both sides (dpe_tb_throttle), and outp for long
+//      during the 2032-byte hairpins.
 //   The output goes to output/sys_out.pcap, the tuser of each frame to
 //   output/sys_meta.txt; sys_check.py checks both (see the Makefile).
 //==========================================================================
@@ -94,7 +95,48 @@ module tb
       .ck_sta (ck_sta)
   );
 
-  dpe_tb_throttle #(.PASS_PCT(60), .SEED(16'h1D2C)) stall_out (.inp(from_dut), .outp(to_pcap));
+  dpe_if throttled (.clk(clk), .rst(rst));
+  dpe_tb_throttle #(.PASS_PCT(60), .SEED(16'h1D2C)) stall_out (.inp(from_dut), .outp(throttled));
+
+  // A long outp stall for the largest frames: from the second beat in of a
+  // frame whose outer IPv4 is longer than AEAD_MAX_PT_BYTES (only the
+  // hairpin of a 2032-byte packet, sys_check.py: hairmax), outp stops for
+  // HOLD_CLKS. The stall backs up into the shared core: its decrypt side
+  // must wait, then finish, nothing lost and no deadlock
+  localparam int HOLD_CLKS = 4000;
+  int in_beat, hold_cnt, holds, dec_held;
+  logic hold;
+
+  always @(posedge clk) begin
+    if (rst) begin
+      in_beat  <= 0;
+      hold_cnt <= 0;
+      holds    <= 0;
+      dec_held <= 0;
+    end else begin
+      if (to_dut.tvalid && to_dut.tready) in_beat <= to_dut.tlast ? 0 : in_beat + 1;
+      if (to_dut.tvalid && to_dut.tready && in_beat == 1 &&
+          {to_dut.tdata[7:0], to_dut.tdata[15:8]} > AEAD_MAX_PT_BYTES) begin
+        hold_cnt <= HOLD_CLKS;
+        holds    <= holds + 1;
+        $display("%t outp held for %0d clocks: a %0d-byte outer IPv4 coming in", $time,
+                 HOLD_CLKS, {to_dut.tdata[7:0], to_dut.tdata[15:8]});
+      end else if (hold_cnt != 0) begin
+        hold_cnt <= hold_cnt - 1;
+      end
+      // the core's decrypt output waiting, while outp is held
+      if (hold && dut.core_dec_out.tvalid && !dut.core_dec_out.tready) dec_held <= dec_held + 1;
+    end
+  end
+  assign hold = hold_cnt != 0;
+
+  assign to_pcap.tvalid  = throttled.tvalid & ~hold;
+  assign throttled.tready = to_pcap.tready & ~hold;
+  assign to_pcap.tdata   = throttled.tdata;
+  assign to_pcap.tkeep   = throttled.tkeep;
+  assign to_pcap.tlast   = throttled.tlast;
+  assign to_pcap.tuser   = throttled.tuser;
+  assign to_pcap.tid     = throttled.tid;
 
   dpe_pcapwriter #(
       .PCAP_FILENAME("sys_out.pcap")  // in output/
@@ -228,6 +270,11 @@ module tb
     end while (!idle || to_dut.tvalid || from_dut.tvalid || to_pcap.tvalid);
     repeat (2) @(negedge clk);
     $fclose(meta_fd);
+    $display("outp holds: %0d; the core's decrypt output waited %0d clocks in them", holds,
+             dec_held);
+    if (holds == 0 || dec_held == 0) begin
+      $display("RESULT: FAIL (the outp hold did not reach the decrypt side)");
+    end
     if (errors != 0) $display("RESULT: FAIL (%0d CSR errors)", errors);
     $finish;
   end

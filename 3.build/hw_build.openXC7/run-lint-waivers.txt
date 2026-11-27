@@ -5,7 +5,8 @@
 # Accepted lint findings, read by run-lint.sh.
 #
 # One waiver per line:  <phase> <regex>
-#   <phase>  tags | verilator | yosys | reset | slang | verible | ghdl | ghdl-verilator
+#   <phase>  tags | verilator | yosys | reset | iob | slang | verible | ghdl | ghdl-verilator |
+#            cdc | check-timing | methodology
 #   <regex>  extended regex (grep -E), matched against one finding line as it
 #            appears in <phase>.all of a run-lint.sh work directory
 # A finding that matches is waived. Put the reason on a comment line above it.
@@ -105,10 +106,13 @@ verilator ^%Warning-UNUSEDSIGNAL: 1\.hw/external_lib/axis/axis_fifo\.sv:[0-9]+:[
 # external_lib: the receive tuser (bad frame) of the MAC FIFO is not used
 verilator ^%Warning-UNUSEDSIGNAL: 1\.hw/external_lib/ethernet/eth_mac_1g_gmii_fifo\.sv:[0-9]+:[0-9]+: Signal is not used: 'rx_axis_tuser'$
 # CPU=picorv32: read data (PicoRV32's mem_rdata_q, the data bus, the
-# routing and cryptokey table RAMs) reaches the instruction decode, a select
+# routing and cryptokey table RAMs) reaches the instruction decode, a select.
+# The tables: dpe_switch.DUMMY's u_(cryptokey|routing)_table; the real
+# dpe_switch's egress route memory (lkup_route_mem rdata, read back over CSR)
 reset 'u_cpu\.u_cpu\.mem_rdata_q'
 reset 'bus_dmem\.rdat'
 reset 'u_dpe\.u_dpe_switch\.u_(cryptokey|routing)_table\.dout_a'
+reset 'u_dpe\.u_dpe_switch\.u_egress\.u_mem\.rdata'
 # CPU=picorv32 with RV32M: the multiplier's and divider's operands
 reset 'u_cpu\.u_cpu\.(g_enable_mul\.pcpi_mul\.rs1|g_enable_div\.pcpi_div\.(dividend|divisor))'
 
@@ -122,3 +126,47 @@ cdc CDC-15 .* u_eth_[1-4]/eth/(rx|tx)_fifo/fifo_inst/wr_ptr_sync_commit_reg_reg\
 # bit changes per clock) into a 2-stage ASYNC_REG synchronizer; Vivado cannot
 # see the gray code. set_bus_skew in top.xdc keeps the skew under one period
 cdc CDC-6 .* u_eth_[1-4]/eth/(rx|tx)_fifo/fifo_inst/rd_ptr_gray_reg_reg\[[0-9:]+\]/C +u_eth_[1-4]/eth/(rx|tx)_fifo/fifo_inst/rd_ptr_gray_sync1_reg_reg\[[0-9:]+\]/D$
+# cdc, external_lib eth_mac_1g_gmii_fifo: the 2-bit link speed (a status, it
+# holds for many clocks) crosses into a 2-stage ASYNC_REG synchronizer, and
+# speed_reg takes it only when two consecutive synchronized samples agree, so
+# a skewed capture never reaches the output; Vivado cannot see that stage
+cdc CDC-6 .* u_eth_[1-4]/eth/eth_mac_1g_gmii_inst/speed_reg_reg\[1:0\]/C +u_eth_[1-4]/eth/speed_sync_reg_1_reg\[1:0\]/D$
+# cdc, external_lib eth_mac_1g_gmii: mii_select (a status: it changes only with
+# the link speed) drives gmii_phy_if's BUFGMUX select. BUFGMUX switches
+# glitch-free (CLK_SEL_TYPE SYNC: it waits for each clock's own low phase), so
+# an asynchronous select is its intended use (UG472)
+cdc CDC-13 .* u_eth_[1-4]/eth/eth_mac_1g_gmii_inst/mii_select_reg_reg/C +u_eth_[1-4]/eth/eth_mac_1g_gmii_inst/gmii_phy_if_inst/gmii_bufgmux_inst/CE[01]$
+# slang, VIEW=sim: the TRNG ring model (SIM_ONLY, never synthesized) has
+# delayed assignments in an always with a sensitivity list. always_comb takes
+# no delay, and always @* with a delay makes Verilator's scheduler grow
+# without bound (43 GB in 2 minutes)
+slang ^1\.hw/ip\.infra/trng/trng_bank\.sv:[0-9]+:[0-9]+: warning: non-edge sensitivity on a signal will be synthesized as @\* sensitivity$
+
+# check-timing and methodology (Vivado check_timing, report_methodology)
+# The TRNG ring oscillators (1.hw/ip.infra/trng/trng_bank.sv) are
+# combinational loops by design: 16 rings, each closed through its NAND
+check-timing ^loops: There are 16 combinational loops in the design\. \(HIGH\)$
+methodology ^TIMING-23 Warning: .* between u_trng/u_core/g_bank\[[0-9]+\]\.u_bank/g_ro\[[0-9]+\]\.u_nand/I[0-9] and u_trng/u_core/g_bank\[[0-9]+\]\.u_bank/g_ro\[[0-9]+\]\.u_nand/O 
+
+# Both PLLs run from the same 200 MHz input, so Vivado calls their clocks
+# synchronous; 80 and 125 MHz leave 0.5 ns between edges at worst, so these
+# paths cannot be timed. Every crossing is synchronized (report_cdc: 0)
+methodology ^TIMING-47 Warning: A False Path timing constraint is set between synchronous clocks (sys_pll_out and (eth_pll_out|e[1-4]_tx_gtx)|(eth_pll_out|e[1-4]_tx_gtx) and sys_pll_out) 
+
+# IMEM and DMEM read in one clock by design (eduBOS5 fetch ignores imem_rdy,
+# soc_ram answers the next cycle): no output register in the block RAM, and
+# DMEM's byte writes as Vivado builds them (user, 2026-11-26)
+methodology ^SYNTH-6 Warning: The timing for the instance (u_cpu/u_imem/mem_reg_[0-9]+|u_dmem/mem_reg_[0-9]+_[0-9]+), implemented as a RAM block
+methodology ^SYNTH-15 Warning: Byte wide write enable \(BWWE\) is not inferred for Block RAM u_dmem/mem_reg_[0-9]+_[0-9]+ 
+
+# check-timing: the slow pins with a false path (uart_rx, key_in[1:0];
+# uart_tx, led[1:0]; top.xdc); the counts catch a new pin
+check-timing ^no_input_delay: There are 3 input ports with no input delay but user has a false path constraint\. \(MEDIUM\)$
+check-timing ^no_output_delay: There are 3 ports with no output delay but user has a false path constraint \(MEDIUM\)$
+# methodology: the QSPI pins are timed against sys_clk with no external delay
+# on purpose (top.xdc: a one-clock pin budget inside a 50 ns half SCK period)
+methodology ^XDCH-2 Warning: The same (input|output) delay of 0\.000 ns has been defined on port 'qspi_(cs|d0|d1)' relative to clock sys_pll_out for both max and min\.
+
+# iob: the board reset goes through an inverter into the PLL reset; a reset,
+# not data, so no I/O flop
+iob ^1\.hw/fpgatech_lib/XILINX/fpga_pll_80M\.sv:[0-9]+: 'rst_n' input: 

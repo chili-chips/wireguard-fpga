@@ -5,6 +5,8 @@
 // Block-level benches: no warnings from vendor models and generated code
 // (run-lint.sh checks the generated code with its own waivers)
 `verilator_config
+// trng_bank SIM_ONLY ring model: its stage delays are >= 330 ps at runtime, never #0
+lint_off -rule ZERODLY -file "*/ip.infra/trng/trng_bank.sv"
 lint_off -file "*/models/no-change/*"
 lint_off -file "*/pipelinec_build/*"
 // external_lib is linted in full; the same waivers as run-lint-waivers.txt:

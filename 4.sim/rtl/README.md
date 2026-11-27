@@ -15,7 +15,7 @@ make SIM=janushdl     # JanusHDL 0.21 or later
 make wave             # GTKWave on output/wave.fst
 ```
 
-The rules are in [`sim.mk`](sim.mk): timescale `1ns/1ns`, `output/sim.log` and `output/wave.fst` with every simulator.
+The rules are in [`sim.mk`](sim.mk): `output/sim.log` and `output/wave.fst` with every simulator, timescale `1ns/1ns` unless a bench sets `TIMESCALE` (the TRNG bench: `1ns/1ps`), and `PLUSARGS` for the simulation (`make PLUSARGS=+trng_rings=1`).
 
 ## Self-checking DPE benches
 
@@ -33,6 +33,7 @@ The rules are in [`sim.mk`](sim.mk): timescale `1ns/1ns`, `output/sim.log` and `
 - plaintext to two peers comes out as WireGuard frames, and the send counters count up, also from one packet to the next back to back;
 - WireGuard frames from the peers come out decrypted;
 - a decrypted packet addressed to the other peer's network is encrypted again for that peer;
+- the same with a 2032-byte packet (`AEAD_MAX_PT_BYTES`), twice, while `outp` stops for 4000 clocks: the shared core's decrypt side waits on its encrypt side, nothing lost;
 - a spoofed inner source, a stale receiver index and a corrupted tag are dropped;
 - a handshake goes to the CPU; transit WireGuard and WireGuard to this device on another port are routed unchanged; a WireGuard frame to us with EtherType ARP goes to the CPU.
 
@@ -53,6 +54,8 @@ JanusHDL: 0.21.0, run 2026-11-23 without `+define+SYNTHESIS`. "—": not tried. 
 | `dpe_wg_decryptor` | PASS (56 s) | — | no result: no frame out in 20 min (it takes the two cores' duplicate modules with a warning, [#59](https://github.com/chili-chips/wireguard-fpga/issues/59)) |
 | `lkup_egress` | PASS (26 s) | no: `csr_pkg.sv` ([#45](https://github.com/chili-chips/wireguard-fpga/issues/45)); then the `'1` default ([#57](https://github.com/chili-chips/wireguard-fpga/issues/57)) | PASS (5 s) |
 | `lkup_peer_table` | PASS (16 s) | no: `csr_pkg.sv` ([#45](https://github.com/chili-chips/wireguard-fpga/issues/45)); then the `'1` default ([#57](https://github.com/chili-chips/wireguard-fpga/issues/57)) | PASS (15 s) |
+| `flash_spi` (and `rtc`, #30) | PASS (40 s) | no: `csr_pkg.sv` | PASS (35 s) |
+| `trng` (#2) | PASS (51 s; `+trng_rings=1` 2,103 s) | PASS (7 s) | PASS (28 s) |
 | `pcap_reader_writer` | PASS (10 s) | runs | PASS (5 s) |
 | `gmii2gmii_test` | runs (25 s) | no: compiles all of `top.filelist` (`csr_pkg.sv`) | runs (6 s) |
 | `chacha20poly1305_encrypt` | runs (113 s) | no: nested unpacked array pattern (`tb.sv:62`) | runs (61 s) |

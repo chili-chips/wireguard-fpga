@@ -61,7 +61,7 @@ YOSYS_CONFIG=${YOSYS_CONFIG:-yosys-config}
 PYTHON=${PYTHON:-python3}
 PYPELINEC=${PYPELINEC:-pypelinec}
 PYP_TOP=chacha20poly1305_encrypt_decrypt_shared
-PRIMS="PLLE2_BASE BUFG IBUFGDS BUFGMUX ODDR DSP48E1"
+PRIMS="PLLE2_BASE BUFG IBUFGDS BUFGMUX ODDR DSP48E1 STARTUPE2 LUT1 LUT2"
 CORES="chacha20poly1305_encrypt_decrypt_shared"
 
 # LintCrux starts an engine by path: resolve each tool to an absolute one

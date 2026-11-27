@@ -75,6 +75,11 @@ $(SW_APP)/timer.h                $(SW_APP)/timer.c \
 $(SW_APP)/siphash.h              $(SW_APP)/siphash.c \
 $(SW_APP)/peer_map.h             $(SW_APP)/peer_map.c \
 $(SW_APP)/noise.h                $(SW_APP)/noise.c \
+$(SW_APP)/xchacha20poly1305.h    $(SW_APP)/xchacha20poly1305.c \
+$(SW_APP)/cookie.h               $(SW_APP)/cookie.c \
+$(SW_APP)/wg_session.h           $(SW_APP)/wg_session.c \
+$(SW_APP)/flash.h                $(SW_APP)/flash.c \
+$(SW_APP)/rtc.h                  $(SW_APP)/rtc.c \
 $(SW_MAIN)/main.cpp
 	$(CROSS)g++ \
    $(CFLAGS) \
@@ -108,6 +113,11 @@ $(SW_MAIN)/main.cpp
    $(SW_APP)/siphash.c \
    $(SW_APP)/peer_map.c \
    $(SW_APP)/noise.c \
+   $(SW_APP)/xchacha20poly1305.c \
+   $(SW_APP)/cookie.c \
+   $(SW_APP)/wg_session.c \
+   $(SW_APP)/flash.c \
+   $(SW_APP)/rtc.c \
    $(SW_MAIN)/main.cpp \
    -lgcc
 

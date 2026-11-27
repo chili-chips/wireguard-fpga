@@ -249,6 +249,16 @@ SECTIONS {
 
 
 //--------------------------------------------------------------------
+// Unwind tables: no exceptions, no unwinder. The build already has
+// -fno-asynchronous-unwind-tables, but libgcc's own objects (e.g.
+// __udivdi3 for a 64-bit divide) carry .eh_frame; left in, it lands at
+// ORIGIN(DMEM) as a loadable section and main.bin grows to 256 MB
+//--------------------------------------------------------------------
+   /DISCARD/ : {
+      *(.eh_frame .eh_frame.* .eh_frame_hdr .gcc_except_table .gcc_except_table.*)
+   }
+
+//--------------------------------------------------------------------
 // I/O section: Not Used
 //--------------------------------------------------------------------
   /*

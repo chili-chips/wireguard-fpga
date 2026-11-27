@@ -188,7 +188,9 @@ module tb #(
    logic        uart_rx, uart_tx;
 // verilator lint_off UNUSEDSIGNAL
    logic [3:2]  led;
-// verilator lint_off UNUSEDSIGNAL
+   logic        qspi_d2, qspi_d3;  // W#, HOLD#: kept off by the design
+// verilator lint_on UNUSEDSIGNAL
+   logic        qspi_cs, qspi_d0, qspi_d1;
 
    top dut (
       .clk_p   (clk_p),
@@ -259,7 +261,29 @@ module tb #(
       .key_in  (key),
 
       // LEDs
-      .led     (led)
+      .led     (led),
+
+      // SPI configuration flash
+      .qspi_cs (qspi_cs),
+      .qspi_d0 (qspi_d0),
+      .qspi_d1 (qspi_d1),
+      .qspi_d2 (qspi_d2),
+      .qspi_d3 (qspi_d3)
+   );
+
+//--------------------------------------------------------------
+// The configuration flash (#30): rtc.c keeps its records in the top
+// 8 KiB (0xFFE000, 0xFFF000). ADDR_BITS = 13 holds just those two
+// sectors: the model wraps the address, so they land at 0x0000, 0x1000
+//--------------------------------------------------------------
+
+   spi_flash_model #(
+      .ADDR_BITS (13)
+   ) u_flash_mem (
+      .sck  (dut.u_flash.u_startup.cclk),  // the CCLK pin
+      .cs_n (qspi_cs),
+      .mosi (qspi_d0),
+      .miso (qspi_d1)
    );
 
 

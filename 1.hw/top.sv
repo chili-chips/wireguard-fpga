@@ -113,7 +113,14 @@ module top
     input  [1:0] key_in,
 
     // LEDs
-    output [1:0] led
+    output [1:0] led,
+
+    // SPI configuration flash, after configuration (its clock: STARTUPE2)
+    output       qspi_cs,   //FCS_B, low active
+    output       qspi_d0,   //D00: MOSI
+    input        qspi_d1,   //D01: MISO
+    output       qspi_d2,   //D02: W#, kept off
+    output       qspi_d3    //D03: HOLD#/RESET#, kept off
 );
 
   //==========================================================================
@@ -252,13 +259,55 @@ module top
       .out    (key)         //o
   );
 
-  assign led[1]                  = ~from_csr.gpio.led2.value;
-  assign led[0]                  = ~from_csr.gpio.led1.value;
+  // the LEDs, active low: a flop at the pin (IOB flop, #78); off in reset
+  logic [1:0] led_q;
+  always_ff @(negedge sys_rst_n or posedge sys_clk) begin
+    if (sys_rst_n == 1'b0) begin
+      led_q <= 2'b11;
+    end
+    else begin
+      led_q <= ~{from_csr.gpio.led2.value, from_csr.gpio.led1.value};
+    end
+  end
+  assign led                     = led_q;
+
   assign to_csr.gpio.key2.next   = ~key[1];
   assign to_csr.gpio.key1.next   = ~key[0];
 
   // free-running cycle counter (csr.cycle): the firmware's time base
   assign to_csr.cycle.count.incr = 1'b1;
+
+  // true random number generator (csr.trng, #2): ring oscillators, health tests
+  trng u_trng (
+      .arst_n   (sys_rst_n),   //i
+      .clk      (sys_clk),     //i
+      .from_csr (from_csr),    //i
+      .to_csr   (to_csr.trng)  //o
+  );
+
+  //==========================================================================
+  // Real-time clock and the configuration flash (#30)
+  //==========================================================================
+  rtc u_rtc (
+      .arst_n   (sys_rst_n),  //i
+      .clk      (sys_clk),    //i
+      .from_csr (from_csr),   //i
+      .to_csr   (to_csr.rtc)  //o
+  );
+
+  flash_spi u_flash (
+      .arst_n   (sys_rst_n),     //i
+      .clk      (sys_clk),       //i
+      .from_csr (from_csr),      //i
+      .to_csr   (to_csr.flash),  //o
+      .cs_n     (qspi_cs),       //o
+      .mosi     (qspi_d0),       //o
+      .miso     (qspi_d1)        //i
+  );
+
+  // x1 SPI: D02 and D03 are W# and HOLD#/RESET#, both kept off
+  assign qspi_d2 = 1'b1;
+  assign qspi_d3 = 1'b1;
 
   //==========================================================================
   // DPE

@@ -4,6 +4,8 @@
 
 `verilator_config
 
+// trng_bank SIM_ONLY ring model: its stage delays are >= 330 ps at runtime, never #0
+lint_off -rule ZERODLY -file "*/ip.infra/trng/trng_bank.sv"
 lint_off -rule PINCONNECTEMPTY
 lint_off -rule PINMISSING
 lint_off -rule DECLFILENAME
@@ -31,6 +33,9 @@ lint_off -rule SPECIFYIGN -file "*/models/no-change/*"
 // and they write one variable from several plain always blocks (ODDR: both
 // clock edges and the async set/reset): legal, and simulates as written
 lint_off -rule MULTIDRIVENPROC -file "*/models/no-change/*"
+// The flash model (behavioural, blocking): chip select and SCK edges each
+// reset or shift the same bit state, from their own always blocks
+lint_off -rule MULTIDRIVENPROC -file "*/models/spi_flash_model.sv"
 // The generated CSR (PeakRDL-regblock): the cryptokey table ends at the top of
 // the 14-bit address space (0x2000 + 0x1fff), so its "addr <= end" compare
 // is always true (PeakRDL-regblock#225, tracked in #52: drop once fixed)

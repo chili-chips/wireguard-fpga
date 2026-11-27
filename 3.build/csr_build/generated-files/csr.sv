@@ -108,6 +108,27 @@ module csr (
             logic wg_ip;
         } dpe;
         logic cycle;
+        struct {
+            logic ctrl;
+            logic status;
+            logic data;
+            logic rct_max;
+            logic apt_max;
+        } trng;
+        struct {
+            logic nsec;
+            logic sec_lo;
+            logic sec_hi;
+            logic set_nsec;
+            logic set_sec_lo;
+            logic set_sec_hi;
+            logic ctrl;
+        } rtc;
+        struct {
+            logic ctrl;
+            logic tx;
+            logic status;
+        } flash;
         logic routing_table;
         logic cryptokey_table;
     } decoded_reg_strb_t;
@@ -158,6 +179,21 @@ module csr (
         decoded_reg_strb.dpe.wg_port = cpuif_req_masked & (cpuif_addr == 14'h88);
         decoded_reg_strb.dpe.wg_ip = cpuif_req_masked & (cpuif_addr == 14'h8c);
         decoded_reg_strb.cycle = cpuif_req_masked & (cpuif_addr == 14'h90) & !cpuif_req_is_wr;
+        decoded_reg_strb.trng.ctrl = cpuif_req_masked & (cpuif_addr == 14'h94);
+        decoded_reg_strb.trng.status = cpuif_req_masked & (cpuif_addr == 14'h98) & !cpuif_req_is_wr;
+        decoded_reg_strb.trng.data = cpuif_req_masked & (cpuif_addr == 14'h9c) & !cpuif_req_is_wr;
+        decoded_reg_strb.trng.rct_max = cpuif_req_masked & (cpuif_addr == 14'ha0) & !cpuif_req_is_wr;
+        decoded_reg_strb.trng.apt_max = cpuif_req_masked & (cpuif_addr == 14'ha4) & !cpuif_req_is_wr;
+        decoded_reg_strb.rtc.nsec = cpuif_req_masked & (cpuif_addr == 14'h100) & !cpuif_req_is_wr;
+        decoded_reg_strb.rtc.sec_lo = cpuif_req_masked & (cpuif_addr == 14'h104) & !cpuif_req_is_wr;
+        decoded_reg_strb.rtc.sec_hi = cpuif_req_masked & (cpuif_addr == 14'h108) & !cpuif_req_is_wr;
+        decoded_reg_strb.rtc.set_nsec = cpuif_req_masked & (cpuif_addr == 14'h10c);
+        decoded_reg_strb.rtc.set_sec_lo = cpuif_req_masked & (cpuif_addr == 14'h110);
+        decoded_reg_strb.rtc.set_sec_hi = cpuif_req_masked & (cpuif_addr == 14'h114);
+        decoded_reg_strb.rtc.ctrl = cpuif_req_masked & (cpuif_addr == 14'h118);
+        decoded_reg_strb.flash.ctrl = cpuif_req_masked & (cpuif_addr == 14'h140);
+        decoded_reg_strb.flash.tx = cpuif_req_masked & (cpuif_addr == 14'h144);
+        decoded_reg_strb.flash.status = cpuif_req_masked & (cpuif_addr == 14'h148) & !cpuif_req_is_wr;
         decoded_reg_strb.routing_table = cpuif_req_masked & (cpuif_addr >= 14'h400) & (cpuif_addr <= 14'h400 + 14'h3ff);
         is_external |= cpuif_req_masked & (cpuif_addr >= 14'h400) & (cpuif_addr <= 14'h400 + 14'h3ff);
         is_valid_rw |= cpuif_req_masked & (cpuif_addr >= 14'h400) & (cpuif_addr <= 14'h400 + 14'h3ff);
@@ -335,6 +371,62 @@ module csr (
                 logic overflow;
             } count;
         } cycle;
+        struct {
+            struct {
+                struct {
+                    logic next;
+                    logic load_next;
+                } enable;
+                struct {
+                    logic next;
+                    logic load_next;
+                } raw;
+                struct {
+                    logic [3:0] next;
+                    logic load_next;
+                } rate;
+            } ctrl;
+        } trng;
+        struct {
+            struct {
+                struct {
+                    logic [29:0] next;
+                    logic load_next;
+                } nsec;
+            } set_nsec;
+            struct {
+                struct {
+                    logic [31:0] next;
+                    logic load_next;
+                } sec;
+            } set_sec_lo;
+            struct {
+                struct {
+                    logic [31:0] next;
+                    logic load_next;
+                } sec;
+            } set_sec_hi;
+            struct {
+                struct {
+                    logic next;
+                    logic load_next;
+                } load;
+            } ctrl;
+        } rtc;
+        struct {
+            struct {
+                struct {
+                    logic next;
+                    logic load_next;
+                } cs;
+            } ctrl;
+            struct {
+                struct {
+                    logic [7:0] next;
+                    logic load_next;
+                } data;
+            } tx;
+        } flash;
     } field_combo_t;
     field_combo_t field_combo;
 
@@ -454,6 +546,53 @@ module csr (
                 logic [31:0] value;
             } count;
         } cycle;
+        struct {
+            struct {
+                struct {
+                    logic value;
+                } enable;
+                struct {
+                    logic value;
+                } raw;
+                struct {
+                    logic [3:0] value;
+                } rate;
+            } ctrl;
+        } trng;
+        struct {
+            struct {
+                struct {
+                    logic [29:0] value;
+                } nsec;
+            } set_nsec;
+            struct {
+                struct {
+                    logic [31:0] value;
+                } sec;
+            } set_sec_lo;
+            struct {
+                struct {
+                    logic [31:0] value;
+                } sec;
+            } set_sec_hi;
+            struct {
+                struct {
+                    logic value;
+                } load;
+            } ctrl;
+        } rtc;
+        struct {
+            struct {
+                struct {
+                    logic value;
+                } cs;
+            } ctrl;
+            struct {
+                struct {
+                    logic [7:0] value;
+                } data;
+            } tx;
+        } flash;
     } field_storage_t;
     field_storage_t field_storage;
 
@@ -1011,6 +1150,219 @@ module csr (
             end
         end
     end
+    // Field: csr.trng.ctrl.enable
+    always_comb begin
+        automatic logic [0:0] next_c;
+        automatic logic load_next_c;
+        next_c = field_storage.trng.ctrl.enable.value;
+        load_next_c = '0;
+        if(decoded_reg_strb.trng.ctrl && decoded_req_is_wr) begin // SW write
+            next_c = (field_storage.trng.ctrl.enable.value & ~decoded_wr_biten[0:0]) | (decoded_wr_data[0:0] & decoded_wr_biten[0:0]);
+            load_next_c = '1;
+        end
+        field_combo.trng.ctrl.enable.next = next_c;
+        field_combo.trng.ctrl.enable.load_next = load_next_c;
+    end
+    always_ff @(posedge clk) begin
+        if(rst) begin
+            field_storage.trng.ctrl.enable.value <= 1'h0;
+        end else begin
+            if(field_combo.trng.ctrl.enable.load_next) begin
+                field_storage.trng.ctrl.enable.value <= field_combo.trng.ctrl.enable.next;
+            end
+        end
+    end
+    assign hwif_out.trng.ctrl.enable.value = field_storage.trng.ctrl.enable.value;
+    // Field: csr.trng.ctrl.raw
+    always_comb begin
+        automatic logic [0:0] next_c;
+        automatic logic load_next_c;
+        next_c = field_storage.trng.ctrl.raw.value;
+        load_next_c = '0;
+        if(decoded_reg_strb.trng.ctrl && decoded_req_is_wr) begin // SW write
+            next_c = (field_storage.trng.ctrl.raw.value & ~decoded_wr_biten[1:1]) | (decoded_wr_data[1:1] & decoded_wr_biten[1:1]);
+            load_next_c = '1;
+        end
+        field_combo.trng.ctrl.raw.next = next_c;
+        field_combo.trng.ctrl.raw.load_next = load_next_c;
+    end
+    always_ff @(posedge clk) begin
+        if(rst) begin
+            field_storage.trng.ctrl.raw.value <= 1'h0;
+        end else begin
+            if(field_combo.trng.ctrl.raw.load_next) begin
+                field_storage.trng.ctrl.raw.value <= field_combo.trng.ctrl.raw.next;
+            end
+        end
+    end
+    assign hwif_out.trng.ctrl.raw.value = field_storage.trng.ctrl.raw.value;
+    // Field: csr.trng.ctrl.rate
+    always_comb begin
+        automatic logic [3:0] next_c;
+        automatic logic load_next_c;
+        next_c = field_storage.trng.ctrl.rate.value;
+        load_next_c = '0;
+        if(decoded_reg_strb.trng.ctrl && decoded_req_is_wr) begin // SW write
+            next_c = (field_storage.trng.ctrl.rate.value & ~decoded_wr_biten[7:4]) | (decoded_wr_data[7:4] & decoded_wr_biten[7:4]);
+            load_next_c = '1;
+        end
+        field_combo.trng.ctrl.rate.next = next_c;
+        field_combo.trng.ctrl.rate.load_next = load_next_c;
+    end
+    always_ff @(posedge clk) begin
+        if(rst) begin
+            field_storage.trng.ctrl.rate.value <= 4'h0;
+        end else begin
+            if(field_combo.trng.ctrl.rate.load_next) begin
+                field_storage.trng.ctrl.rate.value <= field_combo.trng.ctrl.rate.next;
+            end
+        end
+    end
+    assign hwif_out.trng.ctrl.rate.value = field_storage.trng.ctrl.rate.value;
+    assign hwif_out.trng.data.data.swacc = decoded_reg_strb.trng.data;
+    assign hwif_out.rtc.nsec.nsec.swacc = decoded_reg_strb.rtc.nsec;
+    // Field: csr.rtc.set_nsec.nsec
+    always_comb begin
+        automatic logic [29:0] next_c;
+        automatic logic load_next_c;
+        next_c = field_storage.rtc.set_nsec.nsec.value;
+        load_next_c = '0;
+        if(decoded_reg_strb.rtc.set_nsec && decoded_req_is_wr) begin // SW write
+            next_c = (field_storage.rtc.set_nsec.nsec.value & ~decoded_wr_biten[29:0]) | (decoded_wr_data[29:0] & decoded_wr_biten[29:0]);
+            load_next_c = '1;
+        end
+        field_combo.rtc.set_nsec.nsec.next = next_c;
+        field_combo.rtc.set_nsec.nsec.load_next = load_next_c;
+    end
+    always_ff @(posedge clk) begin
+        if(rst) begin
+            field_storage.rtc.set_nsec.nsec.value <= 30'h0;
+        end else begin
+            if(field_combo.rtc.set_nsec.nsec.load_next) begin
+                field_storage.rtc.set_nsec.nsec.value <= field_combo.rtc.set_nsec.nsec.next;
+            end
+        end
+    end
+    assign hwif_out.rtc.set_nsec.nsec.value = field_storage.rtc.set_nsec.nsec.value;
+    // Field: csr.rtc.set_sec_lo.sec
+    always_comb begin
+        automatic logic [31:0] next_c;
+        automatic logic load_next_c;
+        next_c = field_storage.rtc.set_sec_lo.sec.value;
+        load_next_c = '0;
+        if(decoded_reg_strb.rtc.set_sec_lo && decoded_req_is_wr) begin // SW write
+            next_c = (field_storage.rtc.set_sec_lo.sec.value & ~decoded_wr_biten[31:0]) | (decoded_wr_data[31:0] & decoded_wr_biten[31:0]);
+            load_next_c = '1;
+        end
+        field_combo.rtc.set_sec_lo.sec.next = next_c;
+        field_combo.rtc.set_sec_lo.sec.load_next = load_next_c;
+    end
+    always_ff @(posedge clk) begin
+        if(rst) begin
+            field_storage.rtc.set_sec_lo.sec.value <= 32'h0;
+        end else begin
+            if(field_combo.rtc.set_sec_lo.sec.load_next) begin
+                field_storage.rtc.set_sec_lo.sec.value <= field_combo.rtc.set_sec_lo.sec.next;
+            end
+        end
+    end
+    assign hwif_out.rtc.set_sec_lo.sec.value = field_storage.rtc.set_sec_lo.sec.value;
+    // Field: csr.rtc.set_sec_hi.sec
+    always_comb begin
+        automatic logic [31:0] next_c;
+        automatic logic load_next_c;
+        next_c = field_storage.rtc.set_sec_hi.sec.value;
+        load_next_c = '0;
+        if(decoded_reg_strb.rtc.set_sec_hi && decoded_req_is_wr) begin // SW write
+            next_c = (field_storage.rtc.set_sec_hi.sec.value & ~decoded_wr_biten[31:0]) | (decoded_wr_data[31:0] & decoded_wr_biten[31:0]);
+            load_next_c = '1;
+        end
+        field_combo.rtc.set_sec_hi.sec.next = next_c;
+        field_combo.rtc.set_sec_hi.sec.load_next = load_next_c;
+    end
+    always_ff @(posedge clk) begin
+        if(rst) begin
+            field_storage.rtc.set_sec_hi.sec.value <= 32'h0;
+        end else begin
+            if(field_combo.rtc.set_sec_hi.sec.load_next) begin
+                field_storage.rtc.set_sec_hi.sec.value <= field_combo.rtc.set_sec_hi.sec.next;
+            end
+        end
+    end
+    assign hwif_out.rtc.set_sec_hi.sec.value = field_storage.rtc.set_sec_hi.sec.value;
+    // Field: csr.rtc.ctrl.load
+    always_comb begin
+        automatic logic [0:0] next_c;
+        automatic logic load_next_c;
+        next_c = field_storage.rtc.ctrl.load.value;
+        load_next_c = '0;
+        if(decoded_reg_strb.rtc.ctrl && decoded_req_is_wr) begin // SW write
+            next_c = (field_storage.rtc.ctrl.load.value & ~decoded_wr_biten[0:0]) | (decoded_wr_data[0:0] & decoded_wr_biten[0:0]);
+            load_next_c = '1;
+        end else begin // singlepulse clears back to 0
+            next_c = '0;
+            load_next_c = '1;
+        end
+        field_combo.rtc.ctrl.load.next = next_c;
+        field_combo.rtc.ctrl.load.load_next = load_next_c;
+    end
+    always_ff @(posedge clk) begin
+        if(rst) begin
+            field_storage.rtc.ctrl.load.value <= 1'h0;
+        end else begin
+            if(field_combo.rtc.ctrl.load.load_next) begin
+                field_storage.rtc.ctrl.load.value <= field_combo.rtc.ctrl.load.next;
+            end
+        end
+    end
+    assign hwif_out.rtc.ctrl.load.value = field_storage.rtc.ctrl.load.value;
+    // Field: csr.flash.ctrl.cs
+    always_comb begin
+        automatic logic [0:0] next_c;
+        automatic logic load_next_c;
+        next_c = field_storage.flash.ctrl.cs.value;
+        load_next_c = '0;
+        if(decoded_reg_strb.flash.ctrl && decoded_req_is_wr) begin // SW write
+            next_c = (field_storage.flash.ctrl.cs.value & ~decoded_wr_biten[0:0]) | (decoded_wr_data[0:0] & decoded_wr_biten[0:0]);
+            load_next_c = '1;
+        end
+        field_combo.flash.ctrl.cs.next = next_c;
+        field_combo.flash.ctrl.cs.load_next = load_next_c;
+    end
+    always_ff @(posedge clk) begin
+        if(rst) begin
+            field_storage.flash.ctrl.cs.value <= 1'h0;
+        end else begin
+            if(field_combo.flash.ctrl.cs.load_next) begin
+                field_storage.flash.ctrl.cs.value <= field_combo.flash.ctrl.cs.next;
+            end
+        end
+    end
+    assign hwif_out.flash.ctrl.cs.value = field_storage.flash.ctrl.cs.value;
+    // Field: csr.flash.tx.data
+    always_comb begin
+        automatic logic [7:0] next_c;
+        automatic logic load_next_c;
+        next_c = field_storage.flash.tx.data.value;
+        load_next_c = '0;
+        if(decoded_reg_strb.flash.tx && decoded_req_is_wr) begin // SW write
+            next_c = (field_storage.flash.tx.data.value & ~decoded_wr_biten[7:0]) | (decoded_wr_data[7:0] & decoded_wr_biten[7:0]);
+            load_next_c = '1;
+        end
+        field_combo.flash.tx.data.next = next_c;
+        field_combo.flash.tx.data.load_next = load_next_c;
+    end
+    always_ff @(posedge clk) begin
+        if(rst) begin
+            field_storage.flash.tx.data.value <= 8'h0;
+        end else begin
+            if(field_combo.flash.tx.data.load_next) begin
+                field_storage.flash.tx.data.value <= field_combo.flash.tx.data.next;
+            end
+        end
+    end
+    assign hwif_out.flash.tx.data.value = field_storage.flash.tx.data.value;
+    assign hwif_out.flash.tx.data.swmod = decoded_reg_strb.flash.tx && decoded_req_is_wr && |(decoded_wr_biten[7:0]);
     // External region: csr.routing_table
     assign hwif_out.routing_table.req = decoded_reg_strb.routing_table;
     assign hwif_out.routing_table.addr = decoded_addr[9:0];
@@ -1177,6 +1529,64 @@ module csr (
         end
         if(rd_mux_addr == 14'h90) begin
             readback_data_var[31:0] = field_storage.cycle.count.value;
+        end
+        if(rd_mux_addr == 14'h94) begin
+            readback_data_var[0] = field_storage.trng.ctrl.enable.value;
+            readback_data_var[1] = field_storage.trng.ctrl.raw.value;
+            readback_data_var[7:4] = field_storage.trng.ctrl.rate.value;
+        end
+        if(rd_mux_addr == 14'h98) begin
+            readback_data_var[0] = hwif_in.trng.status.ready.next;
+            readback_data_var[1] = hwif_in.trng.status.valid.next;
+            readback_data_var[8] = hwif_in.trng.status.rct_fail_a.next;
+            readback_data_var[9] = hwif_in.trng.status.apt_fail_a.next;
+            readback_data_var[10] = hwif_in.trng.status.rct_fail_b.next;
+            readback_data_var[11] = hwif_in.trng.status.apt_fail_b.next;
+            readback_data_var[12] = hwif_in.trng.status.ovf.next;
+            readback_data_var[31:28] = hwif_in.trng.status.impl.next;
+        end
+        if(rd_mux_addr == 14'h9c) begin
+            readback_data_var[31:0] = hwif_in.trng.data.data.next;
+        end
+        if(rd_mux_addr == 14'ha0) begin
+            readback_data_var[7:0] = hwif_in.trng.rct_max.a.next;
+            readback_data_var[23:16] = hwif_in.trng.rct_max.b.next;
+        end
+        if(rd_mux_addr == 14'ha4) begin
+            readback_data_var[10:0] = hwif_in.trng.apt_max.a.next;
+            readback_data_var[26:16] = hwif_in.trng.apt_max.b.next;
+        end
+        if(rd_mux_addr == 14'h100) begin
+            readback_data_var[29:0] = hwif_in.rtc.nsec.nsec.next;
+        end
+        if(rd_mux_addr == 14'h104) begin
+            readback_data_var[31:0] = hwif_in.rtc.sec_lo.sec.next;
+        end
+        if(rd_mux_addr == 14'h108) begin
+            readback_data_var[31:0] = hwif_in.rtc.sec_hi.sec.next;
+        end
+        if(rd_mux_addr == 14'h10c) begin
+            readback_data_var[29:0] = field_storage.rtc.set_nsec.nsec.value;
+        end
+        if(rd_mux_addr == 14'h110) begin
+            readback_data_var[31:0] = field_storage.rtc.set_sec_lo.sec.value;
+        end
+        if(rd_mux_addr == 14'h114) begin
+            readback_data_var[31:0] = field_storage.rtc.set_sec_hi.sec.value;
+        end
+        if(rd_mux_addr == 14'h118) begin
+            readback_data_var[0] = field_storage.rtc.ctrl.load.value;
+        end
+        if(rd_mux_addr == 14'h140) begin
+            readback_data_var[0] = field_storage.flash.ctrl.cs.value;
+        end
+        if(rd_mux_addr == 14'h144) begin
+            readback_data_var[7:0] = field_storage.flash.tx.data.value;
+        end
+        if(rd_mux_addr == 14'h148) begin
+            readback_data_var[7:0] = hwif_in.flash.status.data.next;
+            readback_data_var[30] = hwif_in.flash.status.busy.next;
+            readback_data_var[31] = hwif_in.flash.status.ready.next;
         end
         if((rd_mux_addr >= 14'h400) && (rd_mux_addr <= 14'h400 + 14'h3ff)) begin
             readback_data_var = hwif_in.routing_table.rd_data;

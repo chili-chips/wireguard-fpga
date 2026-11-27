@@ -9,6 +9,7 @@
 #---Target-specific components
 ${HW_SRC}/fpgatech_lib/XILINX/fpga_pll_80M.sv
 ${HW_SRC}/fpgatech_lib/XILINX/fpga_pll_125M.sv
+${HW_SRC}/fpgatech_lib/XILINX/fpga_startup.sv
 
 #---DPE package: the widths of dpe_if, also for the AXIS library
 ${HW_SRC}/ip.dpe/dpe_pkg.sv
@@ -54,10 +55,18 @@ ${HW_SRC}/ip.infra/clk_rst_gen.sv
 ${HW_SRC}/ip.infra/cpu_fifo.sv
 ${HW_SRC}/ip.infra/uart.sv
 ${HW_SRC}/ip.infra/debounce.sv
+${HW_SRC}/ip.infra/rtc.sv
+${HW_SRC}/ip.infra/flash_spi.sv
 ${HW_SRC}/ip.infra/sync_fifo_ram.sv
 #${HW_SRC}/ip.infra/sync_fifo_srl.sv
 ${HW_SRC}/ip.dpe/dpe_if_skid_buffer.sv
 ${HW_SRC}/ip.infra/tdp_ram.sv
+#---True random number generator (#2)
+${HW_SRC}/ip.infra/trng/trng_pkg.sv
+${HW_SRC}/ip.infra/trng/trng_bank.sv
+${HW_SRC}/ip.infra/trng/trng_health.sv
+${HW_SRC}/ip.infra/trng/trng_core.sv
+${HW_SRC}/ip.infra/trng/trng.sv
 
 #---CPU
 +incdir+${BLD_DIR}/sw_build

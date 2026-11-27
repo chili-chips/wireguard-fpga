@@ -15,6 +15,7 @@ ${SIM_DIR}/models/soc_cpu.VPROC.sv
 ${SIM_DIR}/models/bfm_uart.sv
 ${SIM_DIR}/models/chk_uart_bus.sv
 ${SIM_DIR}/models/bfm_phy_mdio.sv
+${SIM_DIR}/models/spi_flash_model.sv
 #${SIM_DIR}/models/bfm_egress.sv
 
 #---Xilinx primitives

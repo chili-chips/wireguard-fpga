@@ -561,6 +561,299 @@ addrmap csr {
       } count[31:0] = 0;
    } cycle;
 
+   regfile trng {
+      name = "csr.trng";
+      desc = "True random number generator (1.hw/ip.infra/trng): two ring-oscillator banks, A and B, with the SP 800-90B continuous health tests (RCT, APT) on each";
+
+      reg {
+         name = "csr.trng.ctrl";
+         desc = "TRNG Control Register";
+
+         field {
+            name = "csr.trng.ctrl.rate[3:0]";
+            desc = "Sample period: TRNG_SAMPLE_CLKS << rate system clocks. 0 is the rate the entropy claim and the health-test cutoffs are for; a slower rate only adds jitter (raw dumps over the UART)";
+            sw = rw;
+            hw = r;
+         } rate[7:4] = 0;
+
+         field {
+            name = "csr.trng.ctrl.raw";
+            desc = "1: raw mode, for offline entropy assessment: data words from enable on, also during the startup test and after a health-test failure. Never for key material";
+            sw = rw;
+            hw = r;
+         } raw[1:1] = 0;
+
+         field {
+            name = "csr.trng.ctrl.enable";
+            desc = "1: the ring oscillators run and are tested. 0: stopped; clears the health flags, the counters, ready, valid and ovf";
+            sw = rw;
+            hw = r;
+         } enable[0:0] = 0;
+      } ctrl;
+
+      reg {
+         name = "csr.trng.status";
+         desc = "TRNG Status Register";
+
+         field {
+            name = "csr.trng.status.impl[3:0]";
+            desc = "Entropy source: 0 none, 1 ring oscillators, 2 the SIM_ONLY model (a seeded PRNG, not random)";
+            sw = r;
+            hw = w;
+         } impl[31:28] = 0;
+
+         field {
+            name = "csr.trng.status.ovf";
+            desc = "Sticky: a data word was lost (not read in time); a raw dump with ovf = 1 is not contiguous";
+            sw = r;
+            hw = w;
+         } ovf[12:12] = 0;
+
+         field {
+            name = "csr.trng.status.apt_fail_b";
+            desc = "Bank B failed the Adaptive Proportion Test; latched until enable = 0";
+            sw = r;
+            hw = w;
+         } apt_fail_b[11:11] = 0;
+
+         field {
+            name = "csr.trng.status.rct_fail_b";
+            desc = "Bank B failed the Repetition Count Test; latched until enable = 0";
+            sw = r;
+            hw = w;
+         } rct_fail_b[10:10] = 0;
+
+         field {
+            name = "csr.trng.status.apt_fail_a";
+            desc = "Bank A failed the Adaptive Proportion Test; latched until enable = 0";
+            sw = r;
+            hw = w;
+         } apt_fail_a[9:9] = 0;
+
+         field {
+            name = "csr.trng.status.rct_fail_a";
+            desc = "Bank A failed the Repetition Count Test; latched until enable = 0";
+            sw = r;
+            hw = w;
+         } rct_fail_a[8:8] = 0;
+
+         field {
+            name = "csr.trng.status.valid";
+            desc = "data holds a word not read yet";
+            sw = r;
+            hw = w;
+         } valid[1:1] = 0;
+
+         field {
+            name = "csr.trng.status.ready";
+            desc = "The startup test passed (TRNG_STARTUP samples of each bank, no failure) and no health test has failed since";
+            sw = r;
+            hw = w;
+         } ready[0:0] = 0;
+      } status;
+
+      reg {
+         name = "csr.trng.data";
+         desc = "TRNG Data Register: 16 raw samples of each bank, bit 2i from bank A and 2i+1 from bank B, sample i before sample i+1. Reading it takes the word (valid goes to 0)";
+
+         field {
+            name = "csr.trng.data.data[31:0]";
+            desc = "Raw samples";
+            sw = r;
+            hw = w;
+            swacc = true;
+         } data[31:0] = 0;
+      } data;
+
+      reg {
+         name = "csr.trng.rct_max";
+         desc = "Longest run of equal samples since enable (saturates at 255); the RCT fails at TRNG_RCT_CUTOFF";
+
+         field {
+            name = "csr.trng.rct_max.b[7:0]";
+            desc = "Bank B";
+            sw = r;
+            hw = w;
+         } b[23:16] = 0;
+
+         field {
+            name = "csr.trng.rct_max.a[7:0]";
+            desc = "Bank A";
+            sw = r;
+            hw = w;
+         } a[7:0] = 0;
+      } rct_max;
+
+      reg {
+         name = "csr.trng.apt_max";
+         desc = "Highest APT count (samples equal to the window's first one) of any window since enable; the APT fails at TRNG_APT_CUTOFF";
+
+         field {
+            name = "csr.trng.apt_max.b[10:0]";
+            desc = "Bank B";
+            sw = r;
+            hw = w;
+         } b[26:16] = 0;
+
+         field {
+            name = "csr.trng.apt_max.a[10:0]";
+            desc = "Bank A";
+            sw = r;
+            hw = w;
+         } a[10:0] = 0;
+      } apt_max;
+   } trng @ 0x0094;
+
+   // 0x00A8 to 0x00FF: free
+
+   regfile rtc {
+      name = "csr.rtc";
+      desc = "Real-time clock (#30): seconds and nanoseconds, counting on the system clock from 0 at reset until the firmware sets it. Read nsec first: that read latches the seconds of the same instant into sec_lo and sec_hi";
+
+      reg {
+         name = "csr.rtc.nsec";
+         desc = "Nanoseconds, 0 to 999999999. Reading it latches the seconds into sec_lo and sec_hi";
+
+         field {
+            name = "csr.rtc.nsec.nsec[29:0]";
+            desc = "Nanoseconds of the current second";
+            sw = r;
+            hw = w;
+            swacc = true;
+         } nsec[29:0] = 0;
+      } nsec;
+
+      reg {
+         name = "csr.rtc.sec_lo";
+         desc = "Seconds [31:0], as latched by the last read of nsec";
+
+         field {
+            name = "csr.rtc.sec_lo.sec[31:0]";
+            desc = "Seconds, low word";
+            sw = r;
+            hw = w;
+         } sec[31:0] = 0;
+      } sec_lo;
+
+      reg {
+         name = "csr.rtc.sec_hi";
+         desc = "Seconds [63:32], as latched by the last read of nsec";
+
+         field {
+            name = "csr.rtc.sec_hi.sec[31:0]";
+            desc = "Seconds, high word";
+            sw = r;
+            hw = w;
+         } sec[31:0] = 0;
+      } sec_hi;
+
+      reg {
+         name = "csr.rtc.set_nsec";
+         desc = "Nanoseconds that ctrl.load sets (below 1000000000)";
+
+         field {
+            name = "csr.rtc.set_nsec.nsec[29:0]";
+            sw = rw;
+            hw = r;
+         } nsec[29:0] = 0;
+      } set_nsec;
+
+      reg {
+         name = "csr.rtc.set_sec_lo";
+         desc = "Seconds [31:0] that ctrl.load sets";
+
+         field {
+            name = "csr.rtc.set_sec_lo.sec[31:0]";
+            sw = rw;
+            hw = r;
+         } sec[31:0] = 0;
+      } set_sec_lo;
+
+      reg {
+         name = "csr.rtc.set_sec_hi";
+         desc = "Seconds [63:32] that ctrl.load sets";
+
+         field {
+            name = "csr.rtc.set_sec_hi.sec[31:0]";
+            sw = rw;
+            hw = r;
+         } sec[31:0] = 0;
+      } set_sec_hi;
+
+      reg {
+         name = "csr.rtc.ctrl";
+         desc = "RTC Control Register";
+
+         field {
+            name = "csr.rtc.ctrl.load";
+            desc = "Write 1: the clock takes set_sec_hi, set_sec_lo and set_nsec (single pulse)";
+            singlepulse = true;
+            sw = rw;
+            hw = r;
+         } load = 0;
+      } ctrl;
+   } rtc @ 0x0100;
+
+   // 0x011C to 0x013F: free
+
+   regfile flash {
+      name = "csr.flash";
+      desc = "SPI (x1) access to the configuration flash (#30), through STARTUPE2 for its clock: the firmware drives chip select and sends one byte at a time, each transfer returning the byte read back";
+
+      reg {
+         name = "csr.flash.ctrl";
+         desc = "Flash Control Register";
+
+         field {
+            name = "csr.flash.ctrl.cs";
+            desc = "1: chip select active (FCS_B low). Ignored until status.ready";
+            sw = rw;
+            hw = r;
+         } cs = 0;
+      } ctrl;
+
+      reg {
+         name = "csr.flash.tx";
+         desc = "Flash Transmit Register";
+
+         field {
+            name = "csr.flash.tx.data[7:0]";
+            desc = "A write sends this byte, MSB first (SPI mode 0), and reads one byte back into status.data. Write only while status.busy is 0";
+            sw = rw;
+            hw = r;
+            swmod = true;
+         } data[7:0] = 0;
+      } tx;
+
+      reg {
+         name = "csr.flash.status";
+         desc = "Flash Status Register";
+
+         field {
+            name = "csr.flash.status.ready";
+            desc = "The controller has given CCLK its start-up clocks: the flash can be used";
+            sw = r;
+            hw = w;
+         } ready[31:31] = 0;
+
+         field {
+            name = "csr.flash.status.busy";
+            desc = "A byte transfer is under way";
+            sw = r;
+            hw = w;
+         } busy[30:30] = 0;
+
+         field {
+            name = "csr.flash.status.data[7:0]";
+            desc = "The byte the last transfer read, valid when busy is 0";
+            sw = r;
+            hw = w;
+         } data[7:0] = 0;
+      } status;
+   } flash @ 0x0140;
+
+   // 0x014C to 0x03FF: free
+
    external regfile routing_table {
       name = "csr.routing_table";
       desc = "Routing Table";

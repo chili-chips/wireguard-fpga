@@ -121,7 +121,11 @@ uint8_t str_parse_uint32(const char* str, uint32_t* value, uint32_t min, uint32_
    }
    while (*str != '\n' && *str != '\0') {
       if (*str >= '0' && *str <= '9') {
-         val = val * 10 + (*str - '0');
+         uint32_t d = (uint32_t)(*str - '0');
+         if (val > (0xFFFFFFFFu - d) / 10u) {
+            return 0; // Over 2^32 - 1
+         }
+         val = val * 10u + d;
       } else {
          return 0; // Invalid character
       }

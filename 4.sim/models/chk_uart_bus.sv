@@ -66,13 +66,18 @@ module chk_uart_bus;
                fw_word(1), fw_word(2));
       if (fw_word(1) == 0 || fw_word(2) != 0) dropped++;  // no progress, or lost data
     end
-    $display("CHK_UART_BUS: %s  busw=%0d collisions=%0d dropped_stores=%0d spurious=%0d",
-             (dropped == 0 && spurious == 0 && collisions > 0 &&
+    // the #61 writes themselves must have met stores, not just the routes
+    $display("CHK_UART_BUS: %s  busw=%0d collisions=%0d (#61 writes: %0d) dropped=%0d spurious=%0d",
+             (dropped == 0 && spurious == 0 && bfm_collisions() > 0 &&
               bfm_errors() == 0) ? "PASS" : "FAIL",
-             busw_cnt, collisions, dropped, spurious);
+             busw_cnt, collisions, bfm_collisions(), dropped, spurious);
   end
 
   function automatic int bfm_errors();
     return tb.bfm_uart.stress_errors;
+  endfunction
+
+  function automatic int bfm_collisions();
+    return tb.bfm_uart.stress_collisions;
   endfunction
 endmodule : chk_uart_bus

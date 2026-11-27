@@ -202,7 +202,7 @@ module bfm_uart (
          end
       end
       stress_collisions = tb.chk_uart_bus.collisions - c0;
-      $display("%t UART_BUS_STRESS: %0d bus writes, %0d data errors, %0d collisions with CPU stores",
+      $display("%t UART_BUS_STRESS: %0d bus writes, %0d data errors, %0d store collisions",
                $time, n, stress_errors, stress_collisions);
    endtask: bus_stress
 `endif

@@ -18,7 +18,7 @@ Build and lint tools as used locally (WSL, 2026-11-17). CI installs the latest O
 | Tool | In use | Use | Source |
 |---|---|---|---|
 | Vivado | 2026.1 (Artix-7) | reference flow, Pypeline core synthesis | [AMD](https://www.amd.com/en/products/software/adaptive-socs-and-fpgas/vivado.html) |
-| openXC7 | v1.0.0: Yosys 0.70, nextpnr-himbaechel 1.0.0-41-g3e5c2cdd | open-source flow | [openXC7](https://github.com/openXC7) |
+| openXC7 | main (2026-11-26): Yosys 0.71+134 (`f960e972`), nextpnr-himbaechel 1.0.0-396-g7077312a | open-source flow | [openXC7](https://github.com/openXC7) |
 | yosys-slang | OSS CAD Suite 2026-11-12 | `read_slang` front end, lint | [povik/yosys-slang](https://github.com/povik/yosys-slang) |
 | sv2v | 0.0.13 | `FRONTEND=sv2v` | [zachjs/sv2v](https://github.com/zachjs/sv2v) |
 | Verible | v0.0-4296-g0f262651 | format, lint | [chipsalliance/verible](https://github.com/chipsalliance/verible) |
@@ -93,9 +93,9 @@ make -f MakefileHW program
 
 Ported to openXC7 v1.0.0 (Yosys 0.69 + nextpnr-himbaechel) on 2026-10-21. The older nextpnr-xilinx flow follows below as the [legacy flow](#legacy-flow-pre-v100-nextpnr-xilinx-toolchainold).
 
-### openXC7 v1.0.0 (default)
+### openXC7 main (default)
 
-**Toolchain:** openXC7 v1.0.0, built with [`toolchain-installer`](https://github.com/openXC7/toolchain-installer): Yosys 0.70 (v1.0.0 ships 0.69; upgraded) with `read_slang`, nextpnr-himbaechel (called through openXC7's `nextpnr-xilinx` shim), prjxray-db and `fpga-as`. Point `NEXTPNR_XILINX_DIR` at its install prefix, or put its `bin` on `PATH`.
+**Toolchain:** openXC7 at the tip of main, not a release (since 2026-11-26: Yosys `f960e972`, nextpnr `7077312a`), built with [`toolchain-installer`](https://github.com/openXC7/toolchain-installer) main's `toolchain-sources-builder.sh` with `YOSYS_HASH` and `NEXTPNR_HASH` set to those commits: Yosys with `read_slang`, nextpnr-himbaechel (called through openXC7's `nextpnr-xilinx` shim), prjxray-db and `fpga-as`. Point `NEXTPNR_XILINX_DIR` at its install prefix, or put its `bin` on `PATH`.
 
 **Build:**
 ```bash
@@ -109,10 +109,13 @@ make                             # -> build_artifacts.slang/top.bit
 - The frontend is `read_slang`: Yosys reads the SystemVerilog directly. `make FRONTEND=sv2v` converts it with sv2v first.
 - The sources come from `1.hw/top.filelist`, the list Vivado, `4.sim` and `run-lint.sh` use (`run-lint.sh` and `run-leq.sh` also take the DPE blocks top does not instantiate yet). The CPU is the one it lists: eduBOS5 by default, PicoRV32 as the alternative.
 - The chipdb (`chipdb.new/xc7a200tfbg484-2.bin`) is generated on the first run. It is per die, so a chipdb built for another `xc7a200t` part can be copied under this name.
-- nextpnr reads only the port constraints of `1.hw/constraints/top.xdc` (#6), plus `top.openxc7.xdc` with the `clk_n` pin (#7). A Yosys techmap, `bufgmux_map.v`, builds each `BUFGMUX` from a `BUFGCTRL` (#5); openXC7 `main` maps `BUFGMUX` itself (nextpnr#132), so the techmap goes with the next release.
+- nextpnr reads only the port constraints of `1.hw/constraints/top.xdc` (#6), plus `top.openxc7.xdc` with the `clk_n` pin (#7). nextpnr main maps each `BUFGMUX` onto a `BUFGCTRL` itself, as Vivado does (nextpnr#132); our techmap `bufgmux_map.v` (#5) is gone since 2026-11-26.
 - Place and route uses `--tmg-ripup --placer-heap-timingweight 30` (`NEXTPNR_OPTS`). With nextpnr's defaults the Ethernet RX clocks land at 102-128 MHz, depending on the seed.
+- `NEXTPNR_OPTS` also has `--ignore-loops` (the default `TOOLCHAIN=new`; the legacy flow is untested with the rings): the TRNG's ring oscillators (`1.hw/ip.infra/trng`, #2) are combinational loops on purpose, and without it nextpnr stops with "Timing analysis failed due to combinational loops". The flag only skips the loops in the timing analysis. The rings are `LUT1`/`LUT2` instances, black-boxed for Yosys like the other primitives (`XILINX_PRIMS`). The rings add about 440 LUTs: sweep the seeds again.
 
-**Result (2026-11-23, eduBOS5, `SEED=2`, the Makefile default, DUMMY switch; the real switch does not route yet, [#68](https://github.com/chili-chips/wireguard-fpga/issues/68)):** about 8 minutes, 3 GB RAM; every clock meets its constraint. Seed sweep ([#3](https://github.com/chili-chips/wireguard-fpga/issues/3)), max frequency in MHz:
+- The flash clock goes through `STARTUPE2` (`1.hw/fpgatech_lib/XILINX/fpga_startup.sv`, #30), black-boxed for Yosys and in `XILINX_PRIMS` like the others.
+
+**Result (2026-11-23, eduBOS5, `SEED=2`, the Makefile default, DUMMY switch; before the TRNG, RTC and flash; the real switch does not route yet, [#68](https://github.com/chili-chips/wireguard-fpga/issues/68)):** about 8 minutes, 3 GB RAM; every clock meets its constraint. Seed sweep ([#3](https://github.com/chili-chips/wireguard-fpga/issues/3)), max frequency in MHz:
 
 | Seed | `sys_clk` (80) | RX 1-4 (125) | TX 1-4 (125) | `eth_gtx_clk` (125) | Result |
 |---|---|---|---|---|---|
@@ -305,7 +308,7 @@ Each open item has an issue here, labelled `openXC7`. Upstream numbers without a
 
 | Issue | Toolchain | Status | Ours | Upstream | Workaround |
 |---|---|---|---|---|---|
-| No mapping for `BUFGMUX` | v1.0.0 | fixed in `main` ([nextpnr#132](https://github.com/openXC7/nextpnr/pull/132)), not released | [#5](https://github.com/chili-chips/wireguard-fpga/issues/5) | nextpnr#125 | `hw_build.openXC7/bufgmux_map.v`: a `BUFGCTRL` after synthesis. On v1.0.0 its `IGNORE` bits come out inverted, so the mux switches asynchronously |
+| No mapping for `BUFGMUX` | v1.0.0 | fixed in `main` ([nextpnr#132](https://github.com/openXC7/nextpnr/pull/132)), which we build since 2026-11-26 | [#5](https://github.com/chili-chips/wireguard-fpga/issues/5) | nextpnr#125 | none: `bufgmux_map.v` (a `BUFGCTRL` after synthesis) removed; nextpnr maps `BUFGMUX` as Vivado does |
 | XDC targets other than `get_ports`/`get_cells` abort | v1.0.0 | fixed on main (nextpnr#193), not released | [#6](https://github.com/chili-chips/wireguard-fpga/issues/6) | [nextpnr#185](https://github.com/openXC7/nextpnr/issues/185) | the Makefile passes nextpnr only the `get_ports` lines of `top.xdc` |
 | Differential input needs its N pin constrained | v1.0.0 | fixed on main (nextpnr#194), not released | [#7](https://github.com/chili-chips/wireguard-fpga/issues/7) | [nextpnr#184](https://github.com/openXC7/nextpnr/issues/184) | `hw_build.openXC7/top.openxc7.xdc`: `clk_n` on T4 |
 | Timing closes on some seeds only (the sv2v failure is gone: `read_slang`) | v1.0.0 | swept 2026-11-23: seeds 1, 2, 3, 6 of 1-7 pass | [#3](https://github.com/chili-chips/wireguard-fpga/issues/3) (closed) | - | `SEED ?= 2`; sweep again after RTL changes |

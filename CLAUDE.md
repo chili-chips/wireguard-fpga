@@ -56,12 +56,12 @@ make -f MakefileSW program       # reprogram IMEM over UART on already-configure
 make -f MakefileHW              # -> hw_build.Vivado/wireguard.runs/impl_1/top.bit
 make -f MakefileHW program
 
-# openXC7 v1.0.0 (Yosys 0.69 read_slang + nextpnr-himbaechel via the nextpnr-xilinx shim)
+# openXC7 main (Yosys main read_slang + nextpnr-himbaechel main via the nextpnr-xilinx shim; not a release)
 cd hw_build.openXC7
 make check-env check-sources    # NEXTPNR_XILINX_DIR = openXC7 prefix, or its bin on PATH
 make                            # -> build_artifacts.slang/top.bit (~10 min, 3 GB)
 ```
-openXC7 needs the software built first for `imem.INIT.vh`. `FRONTEND=sv2v` converts with sv2v instead of `read_slang`; `TOOLCHAIN=old` is the legacy nextpnr-xilinx flow. nextpnr gets only the port lines of `top.xdc` plus `top.openxc7.xdc`, `BUFGMUX` is mapped by `bufgmux_map.v`, and `NEXTPNR_OPTS` (`--tmg-ripup --placer-heap-timingweight 30`) is what closes the Ethernet RX clocks; issues in the `3.build/README.md` openXC7 table.
+openXC7 needs the software built first for `imem.INIT.vh`. `FRONTEND=sv2v` converts with sv2v instead of `read_slang`; `TOOLCHAIN=old` is the legacy nextpnr-xilinx flow. nextpnr gets only the port lines of `top.xdc` plus `top.openxc7.xdc`, nextpnr maps `BUFGMUX` itself (main, nextpnr#132), and `NEXTPNR_OPTS` (`--tmg-ripup --placer-heap-timingweight 30`) is what closes the Ethernet RX clocks; issues in the `3.build/README.md` openXC7 table.
 
 **Simulation** (`4.sim/`, Verilator-based, VProc co-sim):
 ```bash
@@ -75,9 +75,9 @@ make -f MakefileVProc.mk clean
 **Lint, format, LEQ** (`3.build/hw_build.openXC7/`, as on openPCIE; sources from `1.hw/top.filelist`, plus the DPE blocks top does not instantiate yet (`BLOCK_TOPS` in `sources.sh`, each a top of its own: `read_slang --allow-toplevel-iface-ports`); CI: `.github/workflows/lint.yml`, `verible.yml` run the same scripts):
 ```bash
 S=3.build/hw_build.openXC7
-bash $S/run-lint.sh                       # tags, verilator, yosys, reset, slang, verible, ghdl, ghdl-verilator, cdc; waivers in run-lint-waivers.txt
+bash $S/run-lint.sh                       # tags, verilator, yosys, reset, iob, slang, verible, ghdl, ghdl-verilator, cdc, check-timing, methodology; waivers in run-lint-waivers.txt
 PYPELINEC=<PipelineC>/src/pypelinec bash $S/run-lint.sh ghdl ghdl-verilator  # Pypeline core VHDL (pypelinec --no_synth, no Vivado)
-VIVADO=~/Xilinx/2026.2/Vivado/bin/vivado bash $S/run-lint.sh cdc  # Vivado report_cdc on top (~3 min; core a black box); skipped without Vivado, so not in CI
+VIVADO=~/Xilinx/2026.2/Vivado/bin/vivado bash $S/run-lint.sh cdc check-timing methodology  # Vivado report_cdc, check_timing, report_methodology on top (one run, ~3 min; core a black box); skipped without Vivado, so not in CI
 VIEW=sim bash $S/run-lint.sh              # simulation view (SIM_ONLY)
 CPU=picorv32 bash $S/run-lint.sh          # the other CPU (default: the one top.filelist lists)
 bash $S/run-format.sh --check             # Verible format of our own RTL
@@ -85,7 +85,7 @@ bash $S/run-leq.sh <gold 1.hw> <gate 1.hw> # prove a cleanup keeps the logic
 ```
 Verible rules and their rationale are in `3.build/hw_build.openXC7/rules.md`.
 
-RTL conventions: [`1.hw/README.md#rtl-coding-rules`](1.hw/README.md#rtl-coding-rules). The gate enforces: our own RTL, eduBOS5, PicoRV32 and `external_lib` (our fork of Alex Forencich's verilog-ethernet/verilog-axis, trimmed to Xilinx 7-series and what the design uses) are linted and Verible-formatted (2-space indent, LF line endings, at most 100 columns); only the PeakRDL CSR is checked but not reformatted. Every control flop and flag has a reset (data and address flops need none; the `reset` phase checks it). `&&`, `||` and `!` only in `if`/`while`/`case` conditions and assertions; `&`, `|`, `~` on 1-bit operands elsewhere. An open output is `.PIN (  /*LINT:OK*/),  // why`. A waiver goes in `run-lint-waivers.txt` with its reason, only for a false positive. Each CSR client (uart, cpu_fifo, dpe) drives only its own sub-struct of `csr__in_t`, never the whole struct.
+RTL conventions: [`1.hw/README.md#rtl-coding-rules`](1.hw/README.md#rtl-coding-rules). The gate enforces: our own RTL, eduBOS5, PicoRV32 and `external_lib` (our fork of Alex Forencich's verilog-ethernet/verilog-axis, trimmed to Xilinx 7-series and what the design uses) are linted and Verible-formatted (2-space indent, LF line endings, at most 100 columns); only the PeakRDL CSR is checked but not reformatted. Every control flop and flag has a reset (data and address flops need none; the `reset` phase checks it). Every data pin of top has its flop at the pin, so it can be an IOB flop: an input drives a flop's D directly, an output comes straight from a flop that drives nothing else (the `iob` phase checks it). `&&`, `||` and `!` only in `if`/`while`/`case` conditions and assertions; `&`, `|`, `~` on 1-bit operands elsewhere. An open output is `.PIN (  /*LINT:OK*/),  // why`. A waiver goes in `run-lint-waivers.txt` with its reason, only for a false positive. Each CSR client (uart, cpu_fifo, dpe) drives only its own sub-struct of `csr__in_t`, never the whole struct.
 
 **CPU:** eduBOS5 (default; RV32IM as built here (`USE_HW_MUL=1`, fixed clock count, DSP48E1 in the build; firmware `-march=rv32im`), Harvard; option `EN_COUNTERS` (Zicntr) is off; #61 fixed (`STORE_WAITS_RDY=1`, soc_fabric) and passes the RTL `UART_BUS_STRESS` sim; hardware check pending) or PicoRV32, selected by which `soc_cpu.*.sv` lines `1.hw/top.filelist` lists. eduBOS5 halts on any SYSTEM instruction, so the firmware reads the `csr.cycle` CSR counter (`cycles()` in `2.sw/app/timer.c`), never `rdcycle`/`csrr`.
 

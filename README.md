@@ -17,6 +17,7 @@ SPDX-License-Identifier: BSD-3-Clause
 [![PCAP:YES](https://badgen.net/badge/PCAP/YES/green)](4.sim/rtl/pcap_reader_writer)
 [![Wireshark:YES](https://badgen.net/badge/Wireshark/YES/green)](https://www.wireshark.org)
 [![WaveCrux:YES](https://badgen.net/badge/WaveCrux/YES/green)](https://wavecrux.app)
+[![fCAPZ:Yes](https://badgen.net/badge/fCAPZ/Yes/green)](1.hw/README.md#on-chip-debug-fpgacapzero)
 [![JanusHDL:WIP](https://badgen.net/badge/JanusHDL/WIP/orange)](https://que.no/janushdl/)
 [![Lint](https://badgen.net/github/checks/chili-chips/wireguard-fpga/main/run-lint?label=Lint)](https://github.com/chili-chips/wireguard-fpga/actions/workflows/lint.yml)
 [![Verible](https://badgen.net/github/checks/chili-chips/wireguard-fpga/main/verible?label=Verible)](https://github.com/chili-chips/wireguard-fpga/actions/workflows/verible.yml)
@@ -96,6 +97,8 @@ To make the hardware Wireguard truly accessible in the genuine spirit of open-so
 
 **[Ref13]** [Pypeline Native Sim](https://github.com/JulianKemmerer/PipelineC/blob/master/examples/pypeline/chacha20poly1305/pypeline_sim_and_wireguard.md)
 
+**[Ref14]** [fpgacapZero](https://github.com/lcapossio/fpgacapZero), open-source on-chip logic analyzer (our ChipScope ILA replacement)
+
 # Project Outline
 
 ## Scope
@@ -166,13 +169,13 @@ The details of hardware architecture can be found in the [README.md](./1.hw/READ
 The conceptual class diagram provides an overview of the components in the software part of the system without delving into implementation details. The focus is on the WireGuard Agent, which implements the protocol's handshake procedures, along with the following supplementary components:
 - [Curve25519](http://cr.yp.to/ecdh.html) - an ECDH algorithm implementation for establishing a shared secret using a public-private key pair between two remote parties connected via an insecure channel, such as the Internet
 - ChaCha20-Poly1305 - an AEAD algorithm implementation for encryption and authentication of static keys and nonce values to prevent replay attacks
-- XChaCha20-Poly1305 (planned) - a XAEAD algorithm implementation for encrypting and authenticating nonce values in Cookie Replay messages to mitigate potential DoS attacks
+- XChaCha20-Poly1305 - the XAEAD that encrypts and authenticates the cookie in cookie reply messages, against DoS (see [Cookies](2.sw/README.md#cookies))
 - [BLAKE2s](https://www.blake2.net) - an implementation of the BLAKE2s hash function for MAC authentication and keyed hashing, per [RFC7693](https://datatracker.ietf.org/doc/html/rfc7693)
-- RNG - a random number generator used to initialize the DH key generator and generate peer identifiers
+- [RNG](2.sw/README.md#random-number-generator-lib) - a ChaCha20 DRBG, seeded from the ring-oscillator TRNG ([`1.hw/ip.infra/trng`](1.hw/ip.infra/trng/README.md)); it supplies the ephemeral keys, receiver indices and secrets
 - Timer - cycle-counter timer; rekey, retry, and keepalive timers are planned
 - [HKDF](https://eprint.iacr.org/2010/264) - an implementation of the algorithm for expanding the ECDH result
 - [Noise handshake](2.sw/README.md#noise-handshake) - WireGuard's Noise_IKpsk2 initiation and response, and the transport keys; tested against Linux WireGuard
-- RTC (planned) - a real-time clock used to generate the TAI64N timestamp
+- [RTC](2.sw/README.md#timestamps-across-a-reboot) - a real-time clock for the TAI64N timestamp, kept increasing across a reboot by a mark in flash
 - [SipHash](https://en.wikipedia.org/wiki/SipHash) - a keyed hash (SipHash-2-4) behind the hash table that finds a peer by its decrypted static public key; its secret key keeps an attacker from flooding the table
 - Routing DB Updater - a subsystem for maintaining the cryptokey routing table content and deploying it to the data plane via the HAL/CSR interface
 - ICMP - implementing basic ICMP protocol functions (echo request/reply, TTL exceeded, etc.)
@@ -424,7 +427,7 @@ If it was not for **Julian Kemmerer's** unreserved support helping us move our t
  <a href="https://github.com/JulianKemmerer/PipelineC#what-is-pypelinec"><img width="50%" alt="PypelineC logo" src="0.doc/artwork/pypelinec.logo.png"></a>
 </div>
 
-**openXC7**, with **Yosys** at its core, turns RTL into a loadable FPGA bitfile. **PeakRDL** turns our SystemRDL file into CSR RTL+headers+RegMap docs. **Verilator**, **slang** and **Verible** keep our RTL clean, and Verilator runs the SoC co-simulation. **cocotb** with **GHDL** verifies the generated crypto cores. **WaveCrux** decodes our waveforms: Ethernet, AXI-Stream and ChaCha20-Poly1305, and checks every tag. **LintCrux** runs GHDL, Verilator, Verible, slang and svlint in one CI gate. **[sv2v](https://github.com/zachjs/sv2v)** converted our SystemVerilog for the first openXC7 port, and is still there as `FRONTEND=sv2v`. But, that's not everything that made this project possible -- Thank you all for these wonderful tools :sparkles:.
+**openXC7**, with **Yosys** at its core, turns RTL into a loadable FPGA bitfile. **PeakRDL** turns our SystemRDL file into CSR RTL+headers+RegMap docs. **Verilator**, **slang** and **Verible** keep our RTL clean, and Verilator runs the SoC co-simulation. **cocotb** with **GHDL** verifies the generated crypto cores. **WaveCrux** decodes our waveforms: Ethernet, AXI-Stream and ChaCha20-Poly1305, and checks every tag. **LintCrux** runs GHDL, Verilator, Verible, slang and svlint in one CI gate. **fpgacapZero** is our open on-chip logic analyzer, in place of the closed-source ChipScope ILA. **[sv2v](https://github.com/zachjs/sv2v)** converted our SystemVerilog for the first openXC7 port, and is still there as `FRONTEND=sv2v`. But, that's not everything that made this project possible -- Thank you all for these wonderful tools :sparkles:.
 
 <div align="center"> 
   <a href="https://github.com/openXC7"><img alt="openXC7 logo" width="35%" src="0.doc/artwork/openXC7.logo.png"></a>
@@ -441,6 +444,7 @@ If it was not for **Julian Kemmerer's** unreserved support helping us move our t
   <a href="https://www.cocotb.org"><img alt="cocotb logo" width="20%" src="0.doc/artwork/cocotb.logo.png"></a>
   <a href="https://wavecrux.app"><img alt="WaveCrux logo" width="12%" src="0.doc/artwork/wavecrux.logo.png"></a>
   <a href="https://lintcrux.app"><img alt="LintCrux logo" width="12%" src="0.doc/artwork/lintcrux.logo.png"></a>
+  <a href="https://github.com/lcapossio/fpgacapZero"><img alt="fpgacapZero logo" width="12%" src="0.doc/artwork/fcapz.logo.png"></a>
   <a href="https://que.no/janushdl/"><img alt="JanusHDL logo" width="25%" src="0.doc/artwork/JanusHDL.logo.png"></a>
   <a href="https://github.com/ghdl/ghdl"><img alt="GHDL logo" width="20%" src="0.doc/artwork/GHDL.logo.png"></a>
   <a href="https://github.com/MikePopoloski/slang"><img alt="MikePopoloski slang logo" width="25%" src="0.doc/artwork/slang.logo.png"></a>
@@ -473,6 +477,12 @@ If it was not for **Julian Kemmerer's** unreserved support helping us move our t
 | openXC7 nextpnr | [nextpnr#184](https://github.com/openXC7/nextpnr/issues/184) | a differential input needs its N pin constrained | fixed on main ([nextpnr#194](https://github.com/openXC7/nextpnr/pull/194)), not released |
 | openXC7 nextpnr | [nextpnr#181](https://github.com/openXC7/nextpnr/issues/181) | no legal placement for a CARRY4 at 48% CARRY4 use, XC7A200T ([#33](https://github.com/chili-chips/wireguard-fpga/issues/33)) | open |
 | openXC7 nextpnr | [nextpnr#230](https://github.com/openXC7/nextpnr/issues/230) | router2 prints nothing for 1 h 40 min in its first iteration; no max-iterations or timeout option ([#68](https://github.com/chili-chips/wireguard-fpga/issues/68)) | open |
+| openXC7 nextpnr | [nextpnr#241](https://github.com/openXC7/nextpnr/issues/241) | an undeclared clock into a `BUFGMUX` is dropped silently; a default-timed clock warns but passes; ask: Vivado-style constraint checks ([#72](https://github.com/chili-chips/wireguard-fpga/issues/72)) | open |
+| openXC7 nextpnr | [nextpnr#242](https://github.com/openXC7/nextpnr/issues/242) | feature: allow combinational loops selectively (`ALLOW_COMBINATORIAL_LOOPS` per net); today `--ignore-loops` for the whole SoC, for the TRNG rings ([#75](https://github.com/chili-chips/wireguard-fpga/issues/75)) | open |
+| openXC7 nextpnr | [nextpnr#243](https://github.com/openXC7/nextpnr/issues/243) | feature: honour `ASYNC_REG` (synchronizer placement), `IOB = "TRUE"` (I/O flops) and `DONT_TOUCH` ([#76](https://github.com/chili-chips/wireguard-fpga/issues/76)) | open |
+| Yosys | [yosys#6567](https://github.com/YosysHQ/yosys/issues/6567) | `synth_xilinx` packs an `ASYNC_REG` synchronizer chain into an `SRL16E` ([#76](https://github.com/chili-chips/wireguard-fpga/issues/76)) | open |
+| openXC7 nextpnr | [nextpnr#244](https://github.com/openXC7/nextpnr/issues/244) | proposal: fpgacapZero as the open on-chip logic analyzer (ChipScope ILA replacement); builds on main ([#77](https://github.com/chili-chips/wireguard-fpga/issues/77)) | open |
+| GateMate nextpnr | [YosysHQ/nextpnr#1952](https://github.com/YosysHQ/nextpnr/issues/1952) | an undeclared clock is timed at 12 MHz with no warning; a fabric clock mux drops its declared input clock (pointer: [prjpeppercorn#41](https://github.com/YosysHQ/prjpeppercorn/issues/41); [#72](https://github.com/chili-chips/wireguard-fpga/issues/72)) | open |
 | PipelineC (Pypeline) | [PipelineC#394](https://github.com/JulianKemmerer/PipelineC/issues/394) | empty VHDL record from an untyped namedtuple; Vivado 2026.1 and GHDL reject it ([#35](https://github.com/chili-chips/wireguard-fpga/issues/35), [Pypeline issues](3.build/pypeline_build/README.md#issues-filed-upstream)) | fixed (`99e5e018`) |
 | PipelineC (Pypeline) | [PipelineC#396](https://github.com/JulianKemmerer/PipelineC/issues/396) | feature: auto-pipeliner aware of DSP48 boundaries, to absorb its registers into the DSP48 ([#37](https://github.com/chili-chips/wireguard-fpga/issues/37)) | open |
 | PipelineC (Pypeline) | [PipelineC#397](https://github.com/JulianKemmerer/PipelineC/issues/397) | feature: faster sweep, with less repeated whole-design synthesis ([#38](https://github.com/chili-chips/wireguard-fpga/issues/38)) | open |
@@ -490,12 +500,20 @@ If it was not for **Julian Kemmerer's** unreserved support helping us move our t
 | Icarus Verilog | [iverilog#266](https://github.com/steveicarus/iverilog/issues/266) | unpacked structs (our case added; [#45](https://github.com/chili-chips/wireguard-fpga/issues/45)) | open |
 | Icarus Verilog | [iverilog#1840](https://github.com/steveicarus/iverilog/issues/1840) | a task or function argument default of `'1` gives 1, not all ones ([#57](https://github.com/chili-chips/wireguard-fpga/issues/57)) | open |
 | Icarus Verilog | [iverilog#1895](https://github.com/steveicarus/iverilog/issues/1895) | a variable index into a packed struct member (`p.data[i]`) is an error; bench source and sink use a flat vector ([#66](https://github.com/chili-chips/wireguard-fpga/issues/66)) | open |
+| Icarus Verilog | [iverilog#1901](https://github.com/steveicarus/iverilog/issues/1901) | a `force` from a task on a continuously assigned port fails elaboration; `trng_bank` drives `smp` from `always_comb` ([#69](https://github.com/chili-chips/wireguard-fpga/issues/69)) | open |
+| Verilator | [verilator#9373](https://github.com/verilator/verilator/issues/9373) | feature: warn on `always @*` with a timing control, which never waits by design ([verilator#9196](https://github.com/verilator/verilator/issues/9196)); `trng_bank` uses an explicit sensitivity list ([#71](https://github.com/chili-chips/wireguard-fpga/issues/71)) | open |
 | udpIpPg (wyvernSemi) | [#50](https://github.com/chili-chips/wireguard-fpga/issues/50) | 1.0.5 sends a 6-byte GMII preamble (802.3: 7); fixed here by [`udpIpPg-preamble.patch`](4.sim/models/udpIpPg/udpIpPg-preamble.patch) | not filed upstream: fixed by our patch |
 | PeakRDL-regblock | [PeakRDL-regblock#225](https://github.com/SystemRDL/PeakRDL-regblock/issues/225) | the address decode keeps an always-true upper-bound compare when a block ends at the top of the address space (Verilator CMPCONST); waived for the generated csr.sv ([#52](https://github.com/chili-chips/wireguard-fpga/issues/52)) | open |
 | Verible | [verible#2656](https://github.com/chipsalliance/verible/issues/2656) | feature: align `?` and `:` in conditional assigns, wrap a long one under `=` ([#46](https://github.com/chili-chips/wireguard-fpga/issues/46)) | open |
 | WaveCrux (Ferrite) | [wavecrux#104](https://github.com/Ferrite-Engineering/wavecrux/issues/104) | AXI-Stream decoder: TDATA 8 to 64 bits only, no VALID/READY checks; decoder errors without a reason; File Picker behind the window; feature: ChaCha20-Poly1305 decoder; comments on [#89](https://github.com/Ferrite-Engineering/wavecrux/issues/89#issuecomment-6970424096), [#69](https://github.com/Ferrite-Engineering/wavecrux/issues/69#issuecomment-6970424421), [#92](https://github.com/Ferrite-Engineering/wavecrux/issues/92#issuecomment-6970424716) ([#51](https://github.com/chili-chips/wireguard-fpga/issues/51)) | fixed in 1.2.0, closed (also #69, #92); #89 open, tracked in [#61](https://github.com/chili-chips/wireguard-fpga/issues/61) |
 | WaveCrux (Ferrite) | [wavecrux#116](https://github.com/Ferrite-Engineering/wavecrux/issues/116) | ChaCha20-Poly1305 decoder: Data width defaults to 32, so a 128-bit stream gives false tag mismatches; 1.2 status on [#102](https://github.com/Ferrite-Engineering/wavecrux/issues/102#issuecomment-7095268238): no WCP tab list, a session on the command line opens a second process ([#61](https://github.com/chili-chips/wireguard-fpga/issues/61)) | open |
 | LintCrux (Ferrite) | [lintcrux#57](https://github.com/Ferrite-Engineering/lintcrux/issues/57) | feature: `baseline set` in the free CLI; question: svlint `exclude_paths` ([#62](https://github.com/chili-chips/wireguard-fpga/issues/62)) | open |
+| LintCrux (Ferrite) | [lintcrux#59](https://github.com/Ferrite-Engineering/lintcrux/issues/59) | CDC: a synchronizer with a sync reset or as a vector shift is flagged, a vector shift gets the wrong width, a crossing into a flop with enable + sync reset is missed ([#70](https://github.com/chili-chips/wireguard-fpga/issues/70)) | open |
+| LintCrux (Ferrite) | [lintcrux#60](https://github.com/Ferrite-Engineering/lintcrux/issues/60) | feature: XDC/SDC constraint checks like Vivado `check_timing` and `report_methodology` ([#72](https://github.com/chili-chips/wireguard-fpga/issues/72)) | open |
+| LintCrux (Ferrite) | [lintcrux#61](https://github.com/Ferrite-Engineering/lintcrux/issues/61) | feature: report an async set/reset/clear driven by combinational logic (Vivado LUTAR-1) ([#73](https://github.com/chili-chips/wireguard-fpga/issues/73)) | open |
+| LintCrux (Ferrite) | [lintcrux#62](https://github.com/Ferrite-Engineering/lintcrux/issues/62) | proposal: CDC engine after Bedrock's cdc_snitch (per-pin D/CE/reset classes, mixed-domain logic, unmarked crossings) ([#74](https://github.com/chili-chips/wireguard-fpga/issues/74)) | open |
+| LintCrux (Ferrite) | [lintcrux#63](https://github.com/Ferrite-Engineering/lintcrux/issues/63) | feature: check IOB flops at every data pin, and synchronizer flops packed into an SRL16E ([#78](https://github.com/chili-chips/wireguard-fpga/issues/78)) | open |
+| Yosys | [yosys#6565](https://github.com/YosysHQ/yosys/issues/6565) | proposal: a native CDC check pass, after Bedrock's cdc_snitch ([#74](https://github.com/chili-chips/wireguard-fpga/issues/74)) | open |
 | openXC7 nextpnr-xilinx | [nextpnr-xilinx#75](https://github.com/openXC7/nextpnr-xilinx/issues/75) | `BUFGMUX` not supported (legacy toolchain) | closed (fixed, [nextpnr-xilinx#81](https://github.com/openXC7/nextpnr-xilinx/pull/81)) |
 | openXC7 nextpnr-xilinx | [nextpnr-xilinx#74](https://github.com/openXC7/nextpnr-xilinx/issues/74) | `IBUFGDS` not supported (legacy toolchain) | closed |
 | openXC7 nextpnr-xilinx | [nextpnr-xilinx#73](https://github.com/openXC7/nextpnr-xilinx/issues/73) | `IOBUFGDS`, `PLLE2_BASE` not supported (legacy toolchain) | closed |

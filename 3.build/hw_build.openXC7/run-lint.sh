@@ -8,8 +8,9 @@
 # its own, interface ports and all): syntax and limited semantic
 # checks with a set of opensource tools, run in this order:
 #
-#   tags       every /*LINT:OK*/ sits on an output port, and every unique and
-#              priority case of our RTL has a default (no tool needed)
+#   tags       every /*LINT:OK*/ sits on an output port, every unique and
+#              priority case of our RTL has a default, and our RTL has no
+#              `timescale, timeunit or timeprecision (no tool needed)
 #   verilator  Verilator --lint-only -Wall: unused/undriven signals, widths,
 #              implicit nets, multiple drivers, blocking vs non-blocking, case
 #   yosys      Yosys check on the read_slang netlist: combinational loops,
@@ -17,7 +18,10 @@
 #   reset      Yosys netlist and run-lint-reset.py: a control flop or flag with
 #              no reset (data and address flops need none: waived by name);
 #              the tops, then eduBOS5 alone with RV32M and the counters
-#   slang      read_slang -Wextra: strict IEEE parse, second opinion
+#   iob        the same netlist and run-lint-iob.py: every data pin of top
+#              reaches its flop directly (input: pin to D; output: Q to pin
+#              and nothing else), so the flop can sit in the I/O tile
+#   slang     read_slang -Wextra: strict IEEE parse, second opinion
 #   verible    Verible style rules (run-lint.verible) on our own RTL: our case
 #              rule -- signals and ports lower case, constants UPPER case --
 #              and Verible's defaults
@@ -32,6 +36,18 @@
 #   cdc        Vivado report_cdc on top: clock-domain crossings and their
 #              synchronizers (there is no mature opensource CDC checker; the
 #              generated core is a black box)
+#   check-timing
+#              Vivado check_timing on the same synthesis: clocks and
+#              constraints (a register with no clock, unconstrained
+#              endpoints, ports with no I/O delay, loops); HIGH and MEDIUM
+#   methodology
+#              Vivado report_methodology on the same synthesis: the XDC and
+#              timing rules (TIMING-*, XDC*, ...); Critical Warning and Warning;
+#              plus every Vivado CRITICAL WARNING on an XDC line (a constraint
+#              that matches nothing)
+#
+#              cdc, check-timing and methodology share one Vivado run
+#              (about 3 min); skipped without Vivado, so not in CI
 #
 # usage:  bash run-lint.sh [phase ...]    default: all phases
 #         VIEW=sim bash run-lint.sh        lint the simulation view (SIM_ONLY
@@ -110,7 +126,7 @@ case $VIEW in
 esac
 
 WAIVERS=${LINT_WAIVERS:-$HERE/run-lint-waivers.txt}
-PHASES=${*:-tags verilator yosys reset slang verible ghdl ghdl-verilator cdc}
+PHASES=${*:-tags verilator yosys reset iob slang verible ghdl ghdl-verilator cdc check-timing methodology}
 W=${LINT_WORK:-$(mktemp -d)}
 mkdir -p "$W"
 W=$(cd "$W" && pwd)
@@ -134,7 +150,7 @@ top_sv() {
 ALL=$(for t in $TOPS; do top_sv $t; done | tr ' ' '\n' | awk 'NF && !seen[$0]++' | tr '\n' ' ')
 OWN=$(own_rtl 1.hw bld | grep -v /pypeline_build/soc/ | tr '\n' ' ')
 INC="bld/sw_build"
-PRIMS="PLLE2_BASE BUFG IBUFGDS BUFGMUX ODDR DSP48E1"
+PRIMS="PLLE2_BASE BUFG IBUFGDS BUFGMUX ODDR DSP48E1 STARTUPE2 LUT1 LUT2"
 
 have() { command -v "$1" >/dev/null 2>&1; }
 declare -A RESULT
@@ -262,6 +278,10 @@ for f in dict.fromkeys(files + os.environ.get('CASE_RTL', '').split()):
                 print(f'{f}:{n}: {q} case without default')
     for q, n, _, _ in stack:
         print(f'{f}:{n}: case without endcase (an `ifdef around case or endcase?)')
+    # our RTL rule: no `timescale, timeunit or timeprecision, also not under
+    # SIM_ONLY: the simulator command line gives the timescale (1.hw/README.md)
+    for m in re.finditer(r'`timescale\b|\btime(?:unit|precision)\b', t):
+        print(f'{f}:{t.count(chr(10), 0, m.start()) + 1}: {m.group(0)}: no timescale in our RTL')
 EOF
   local rc=$?
   [ $rc -eq 0 ] || { failed tags "exit $rc"; return; }
@@ -356,6 +376,26 @@ run_reset() {
   found reset < <(sed -E 's#^(\.\./)+[^ ]*/(1\.hw|bld)/#\2/#' reset.out | sort -u)
 }
 
+# IOB flops: every data pin of top reaches its flop directly, so Vivado and
+# nextpnr can put the flop in the I/O tile (run-lint-iob.py). Uses the reset
+# phase's netlist of top when this run made one
+run_iob() {
+  have "$YOSYS" || { skip iob "$YOSYS not found"; return; }
+  [ $VIEW = sim ] && { skip iob "chip view only"; return; }
+  bb || { skip iob "no Xilinx stubs"; return; }
+  local rc
+  if [[ " $PHASES " != *" reset "* ]] || [ ! -s reset.top.json ]; then
+    "$YOSYS" $YOSYS_ARGS -q -l iob.log -p "read_slang --allow-toplevel-iface-ports $SL_DEFS --top top -I $INC \
+        bb.sv $(top_sv top); hierarchy -check -top top; proc; flatten; opt_expr; opt_clean; opt_dff; \
+        opt_clean; write_json reset.top.json" >/dev/null 2>&1
+    rc=$?
+    [ $rc -eq 0 ] && [ -s reset.top.json ] || { failed iob "exit $rc, no netlist"; return; }
+  fi
+  "$PYTHON" "$HERE/run-lint-iob.py" reset.top.json > iob.out 2>> iob.log ||
+    { failed iob "netlist check failed"; return; }
+  found iob < <(sed -E 's#^(\.\./)+[^ ]*/(1\.hw|bld)/#\2/#' iob.out | sort -u)
+}
+
 run_slang() {
   have "$YOSYS" || { skip slang "$YOSYS not found"; return; }
   bb || { skip slang "no Xilinx stubs"; return; }
@@ -430,36 +470,73 @@ run_ghdl_verilator() {
 }
 
 # Vivado has its own primitives, so no stubs here; the generated core is a
-# black box (Vivado's attribute)
-run_cdc() {
-  have "$VIVADO" || { skip cdc "$VIVADO not found"; return; }
-  [ $VIEW = sim ] && { skip cdc "chip view only"; return; }
+# black box (Vivado's attribute). One synthesis serves the cdc, check-timing
+# and methodology phases (about 3 min); VIVADO_RC keeps its outcome
+VIVADO_RC=
+vivado_run() {
+  [ -n "$VIVADO_RC" ] && return $VIVADO_RC
   local c
   : > core_bb.tmp
   for c in $CORES; do
     "$PYTHON" "$HERE/gen_core_bb.py" "$REPO/3.build/pypeline_build/soc/$c.v.gz" $c >> core_bb.tmp ||
-      { failed cdc "core black box"; return; }
+      { VIVADO_RC=2; echo "core black box" > vivado.err; return 2; }
   done
   sed 's/(\* blackbox \*)/(* black_box *)/' core_bb.tmp > core_bb.sv
-  cat > cdc.tcl <<EOF
+  cat > vivado.tcl <<EOT
 read_verilog -sv {core_bb.sv $SV}
 read_xdc 1.hw/constraints/top.xdc
 synth_design -top top -part $PART -flatten_hierarchy rebuilt -include_dirs $INC
 report_cdc -details -file cdc.rpt
 report_clock_interaction -file clock_interaction.rpt
-EOF
-  rm -f cdc.rpt
-  "$VIVADO" -mode batch -nojournal -log cdc.log -source cdc.tcl >/dev/null 2>&1
-  local rc=$?
-  if [ $rc -ne 0 ] || [ ! -s cdc.rpt ]; then failed cdc "exit $rc, no cdc.rpt"; return; fi
+check_timing -verbose -file check_timing.rpt
+report_methodology -file methodology.rpt
+EOT
+  rm -f cdc.rpt check_timing.rpt methodology.rpt
+  "$VIVADO" -mode batch -nojournal -log vivado.log -source vivado.tcl >/dev/null 2>&1
+  VIVADO_RC=$?
+  echo "exit $VIVADO_RC" > vivado.err
+  [ $VIVADO_RC -eq 0 ] && [ -s cdc.rpt ] && [ -s check_timing.rpt ] && [ -s methodology.rpt ] ||
+    { [ $VIVADO_RC -eq 0 ] && VIVADO_RC=3; echo "exit $VIVADO_RC, a report is missing" > vivado.err; }
+  return $VIVADO_RC
+}
+
+vivado_phase() {  # $1 phase: skip without Vivado or in the sim view, else run it once
+  have "$VIVADO" || { skip $1 "$VIVADO not found"; return 1; }
+  [ $VIEW = sim ] && { skip $1 "chip view only"; return 1; }
+  vivado_run || { failed $1 "Vivado: $(cat vivado.err), see $W/vivado.log"; return 1; }
+}
+
+run_cdc() {
+  vivado_phase cdc || return
   # detail rows: <row> CDC-<n> <severity> <description> ... <from> <to>
   found cdc < <(grep -E '^ +[0-9]+ +CDC-[0-9]+ +(Critical|Warning) ' cdc.rpt)
 }
 
+# check_timing: every HIGH or MEDIUM line, as "<check>: <line>" (no_clock,
+# unconstrained_internal_endpoints, no_input_delay, multiple_clock, loops, ...)
+run_check_timing() {
+  vivado_phase check-timing || return
+  found check-timing < <(awk '/^[0-9]+\. checking / { chk = $3 }
+      /\((HIGH|MEDIUM)\) *$/ { l = $0; sub(/^ +/, "", l); print chk ": " l }' check_timing.rpt)
+}
+
+# report_methodology: every Critical Warning and Warning, as
+# "<rule> <severity>: <message>" (TIMING-17 Critical Warning: The clock pin ...);
+# and every CRITICAL WARNING of the Vivado run that points at an XDC line
+# (a constraint on nothing: "'set_property' expects at least one object"), as
+# "XDC <file>:<line>: <message>"
+run_methodology() {
+  vivado_phase methodology || return
+  found methodology < <(awk '/^[A-Z]+-[0-9]+#[0-9]+ (Critical Warning|Warning) *$/ {
+      r = $1; sub(/#.*/, "", r); s = $0; sub(/^[^ ]+ /, "", s); sub(/ +$/, "", s)
+      getline; getline m; sub(/ +$/, "", m); print r " " s ": " m }' methodology.rpt
+    sed -n -E 's#^CRITICAL WARNING: (.*) \[([^]]*/)?([^]/]+\.xdc):([0-9]+)\]$#XDC \3:\4: \1#p' vivado.log)
+}
+
 for ph in $PHASES; do
   case $ph in
-    tags|verilator|yosys|reset|slang|verible|ghdl|ghdl-verilator|cdc) echo "== $ph"; run_${ph//-/_} ;;
-    *) echo "unknown phase: $ph (tags verilator yosys reset slang verible ghdl ghdl-verilator cdc)"; exit 2 ;;
+    tags|verilator|yosys|reset|iob|slang|verible|ghdl|ghdl-verilator|cdc|check-timing|methodology) echo "== $ph"; run_${ph//-/_} ;;
+    *) echo "unknown phase: $ph (tags verilator yosys reset iob slang verible ghdl ghdl-verilator cdc check-timing methodology)"; exit 2 ;;
   esac
 done
 

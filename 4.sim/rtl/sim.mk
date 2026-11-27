@@ -11,14 +11,17 @@
 #   make                  Verilator (default)
 #   make SIM=icarus       Icarus Verilog (iverilog -g2012, vvp)
 #   make SIM=janushdl     JanusHDL (jhdl 0.21 or later)
-# Each one writes output/sim.log and output/wave.fst. Timescale 1ns/1ns:
-# no `timescale in our HDL, the command line gives it.
+# Each simulator writes output/sim.log and output/wave.fst. PLUSARGS reach the
+# simulation (e.g. PLUSARGS=+trng_rings=1). TIMESCALE is 1ns/1ns unless a bench
+# sets another: no `timescale in our HDL, the command line gives it.
 #==========================================================================
 
 SHELL   := /bin/bash
 .SHELLFLAGS := -o pipefail -c
 SIM     ?= verilator
 TB_NAME ?= tb
+# a bench may need a finer one (trng: 1ns/1ps)
+TIMESCALE ?= 1ns/1ns
 BLD_DIR ?= $(CURDIR)/../../../3.build
 HW_SRC  ?= $(CURDIR)/../../../1.hw
 SIM_SRC ?= $(CURDIR)/../../../4.sim
@@ -64,37 +67,37 @@ ifeq ($(SIM),verilator)
 
 compile: unpack
 	verilator $(VFLAGS) --cc --timing --trace-fst --trace-structs \
-		--timescale 1ns/1ns --exe versimSV.cpp --Mdir ./output \
+		--timescale $(TIMESCALE) --exe versimSV.cpp --Mdir ./output \
 		../waivers.vlt +define+SIM_ONLY \
 		$(addprefix -f ,$(SRC_F)) $(SRC) --top-module $(TB_NAME)
 
 sim: compile
-	cd output && make -f V$(TB_NAME).mk V$(TB_NAME) && ./V$(TB_NAME) | tee sim.log
+	cd output && make -f V$(TB_NAME).mk V$(TB_NAME) && ./V$(TB_NAME) $(PLUSARGS) | tee sim.log
 	$(CHECK)
 
 #------------------------
 else ifeq ($(SIM),icarus)
 
 compile: unpack output/files.f
-	echo '+timescale+1ns/1ns' > output/icarus.cmd
+	echo "+timescale+$(TIMESCALE)" > output/icarus.cmd
 	iverilog -g2012 -DSIM_ONLY -o output/$(TB_NAME).vvp \
 		-s $(TB_NAME) -s sim_dump -c output/icarus.cmd -c output/files.f \
 		$(SRC) ../sim_dump.sv
 
 sim: compile
-	cd output; vvp -n $(TB_NAME).vvp -fst | tee sim.log
+	cd output; vvp -n $(TB_NAME).vvp -fst $(PLUSARGS) | tee sim.log
 	$(CHECK)
 
 #------------------------
 else ifeq ($(SIM),janushdl)
 
 compile: unpack output/files.f
-	jhdl --elaborate-only --top $(TB_NAME) +define+SIM_ONLY \
+	jhdl --elaborate-only --top $(TB_NAME) --timescale $(TIMESCALE) +define+SIM_ONLY \
 		-f output/files.f $(SRC)
 
 sim: unpack output/files.f
-	cd output; jhdl --top $(TB_NAME) +define+SIM_ONLY \
-		-f files.f $(SRC_ABS) --fst wave.fst | tee sim.log
+	cd output; jhdl --top $(TB_NAME) --timescale $(TIMESCALE) +define+SIM_ONLY \
+		-f files.f $(SRC_ABS) --fst wave.fst $(PLUSARGS) | tee sim.log
 	$(CHECK)
 
 #------------------------
