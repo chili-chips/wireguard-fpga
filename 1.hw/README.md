@@ -77,6 +77,8 @@ After that, CPU reset is deasserted. This allows the application on the PC host 
 
 The UART FSM also implements a timeout mechanism to ensure correct system operation even in the event of a communication interruption between the PC host and the FPGA SoC during an active transaction. The following figure illustrates a timeout occurring during IMEM programming.
 
+The same timeout (2^21 µs, about 2.1 s; `top`'s `UART_TIMEOUT_LOG2`) also ends a session that waits for a command: a stray SOP (`0x12`, a Ctrl-R on the console) no longer holds the CPU off the bus. A host must not pause longer than that between the commands of one session. While a session holds the bus, the UART shows its address only during an access, so no CSR sees a read with side effects.
+
 ![UARTIMPRTimeout](../0.doc/Wireguard/uart_impr_timeout.png)
 
 In addition to programming the entire IMEM, it is also possible to modify a single instruction within IMEM. This is achieved using the `C_IMWR` command. Upon receiving `C_IMWR`, the UART FSM expects a 2-byte address and a 4-byte data word to determine the location within IMEM where the existing instruction will be replaced. After that, the UART FSM responds with a checksum calculated over all received bytes, starting from the address up to the data to be written:
@@ -89,7 +91,7 @@ In this process, the CPU is not reset. With PicoRV32 this allows real-time modif
 
 ![UARTIMWR](../0.doc/Wireguard/uart_imwr.png)
 
-When the special communication mode is initiated, the UART FSM activates the `bus.vld` signal, thereby taking control of the bus and effectively pausing the CPU operation. This allows observation or modification of entire memory blocks in DMEM/CSR without the risk of the CPU making changes during that period. Therefore, we can safely say that accesses to DMEM/CSR are atomic. Exception: eduBOS5 stores do not wait for the bus, so a CPU store issued during a UART transaction is lost. Fixed: eduBOS5 stores now wait for `dmem_rdy`.
+When the special communication mode is initiated, the UART FSM activates the `bus.vld` signal, thereby taking control of the bus and effectively pausing the CPU operation. This allows observation or modification of entire memory blocks in DMEM/CSR without the risk of the CPU making changes during that period. Therefore, we can safely say that accesses to DMEM/CSR are atomic. eduBOS5 stores wait for `dmem_rdy` (`STORE_WAITS_RDY=1`), so a CPU store issued during a UART transaction is held, not lost.
 
 The C_BUSR command is used for reading from the bus, after which the UART FSM expects a 4-byte address from which it will read the data. This data can originate from either the DMEM or CSR address space. After reading the data from the bus, it is sent to the PC host byte by byte. The data is then followed by a checksum, which is calculated based over all received and transmitted bytes, starting from the address up to the read data:
 
@@ -103,7 +105,7 @@ The `C_BUSW` command is used for writing data to the bus. Upon receiving `C_BUSW
 
 ![UARTBUSW](../0.doc/Wireguard/uart_busw.png)
 
-It is important to note that immediately upon entering the special mode, the UART FSM takes control of the bus and effectively halts the CPU for the duration of the special communication mode. This allows multiple read/write transactions on the bus, which can be useful for implementing software-in-the-loop (SIL) co-emulation techniques. With eduBOS5, CPU stores in that window are lost (#61).
+It is important to note that immediately upon entering the special mode, the UART FSM takes control of the bus and effectively halts the CPU for the duration of the special communication mode. This allows multiple read/write transactions on the bus, which can be useful for implementing software-in-the-loop (SIL) co-emulation techniques.
 
 ## HW/SW Working Together as a Coherent System
 The example is based on a capture of real Wireguard traffic, recorded and decoded using the Wireshark tool ([encrypted](https://gitlab.com/wireshark/wireshark/-/blob/master/test/captures/wireguard-ping-tcp.pcap) and [decrypted](https://gitlab.com/wireshark/wireshark/-/blob/master/test/captures/wireguard-ping-tcp-dsb.pcapng)). The experimental topology consists of four nodes:
@@ -215,7 +217,7 @@ Each entry has a key per direction: the encryptor uses `encrypt_key` and `send_c
 
 | | Pros | Cons |
 |---|---|---|
-| **Flip-flops** | Any number of readers, simplest RTL | 61k flip-flops, about half of the Artix-7's, and wide read multiplexers that hurt timing |
+| **Flip-flops** | Any number of readers, simplest RTL | 61k flip-flops, about a quarter (23%) of the XC7A200T's 269,200, and wide read multiplexers that hurt timing |
 | **Block RAM** | One or two BRAM36, hardly any LUTs | Two ports for four users (CPU, encryptor with its write-back, decryptor, disassembler): arbitration, and a clocked read where the disassembler wants a combinational one |
 | **Distributed RAM (LUTRAM)** | A write port and as many read ports as needed, combinational read, small | LUTs: about 2.6k for the table |
 
@@ -263,6 +265,7 @@ IEEE 1800-2009 SystemVerilog, the same rules as on [openPCIE](https://github.com
 - **Packages:** `import p::*;` in the module or interface header, right after its name, never after the port list; wildcard only, no selective `import p::name;`; no `p::` prefix on a use; no import at file level. `run-format.sh --check` reports them.
 - **Bitwise, not logical, in `assign`:** `&`, `|`, `~` on 1-bit operands, never `&&`, `||`, `!`. An integer parameter used as a flag is `(P != 0)`; a vector under `!` is `~|v`. Mind precedence: `&` binds tighter than `|` but looser than `==`, so `a & (b == c)` and `(a & b) | c` need no other parentheses. `run-format.sh --check` reports the logical operators.
 - **No macros for code:** a `` `define`` with arguments or a body over several lines stands in for code: write the code (a loop, function, struct or interface). Flags (`` `ifdef``), include guards and value macros are fine; eduBOS5 keeps its own. `run-format.sh --check` reports them.
+- **Parameters, not a macro per feature:** a few main macros select the view (`SIM_ONLY`, `SYNTHESIS`). Any other simulation or test knob is a parameter with the hardware default, passed down from `top` and set by the bench (Verilator `-G`), e.g. `top`'s `UART_TIMEOUT_LOG2`. Older macros still to convert: `UART_BUS_STRESS`(`_N`), `UART_SIM_TICK_CLKS`, `CSR_DEBUG`, `RAM_DEBUG`; `SYN_YOSYS_BUG` is a tool workaround and goes with its fix.
 - **Case:** signals and ports lower case, constants UPPER CASE (parameters, localparams, enum values, macros). Only vendor primitive pins (`PLLE2_BASE`, `BUFG`, ...) keep vendor names.
 - **Procedural blocks:** `always_ff` for flip-flops, `always_comb` for combinational logic, never plain `always`. `unique case` for parallel muxes whose items cover every value, `unique0 case` where no item may match, `priority case` for priority encoders: every `case` has one of them. Keep a sensible `default`, also in a `unique case` whose items cover every value (slang's case-redundant-default is waived for it); only a `unique0 case` has none. No inferred latches: every variable an `always_comb` assigns gets a default at its top. An `if`/`else if` chain that tests one selector is a `unique case`.
 
@@ -276,7 +279,7 @@ IEEE 1800-2009 SystemVerilog, the same rules as on [openPCIE](https://github.com
 - **`initial` blocks:** not in RTL, except the IMEM program load (`imem.INIT.vh`). Models and test benches may use them freely.
 - **No `` `timescale `` in RTL:** the test bench sets it. RTL has no `#` delays; only the `SIM_ONLY` models have them: the PLLs (`fpgatech_lib`) and the TRNG rings.
 - **No initial values on registers:** a register gets its value from the reset branch of its `always_ff`.
-- **A flop at every data pin (IOB flop):** an input pin drives a flop's D directly, with no logic before it; an output pin comes straight from a flop's Q, and that flop drives nothing else. Then Vivado (and later nextpnr, [openXC7/nextpnr#243](https://github.com/openXC7/nextpnr/issues/243)) can put the flop in the I/O tile, and the pin's timing no longer depends on place and route. Clock pins and pins on I/O primitives (ODDR, IBUFDS, STARTUPE2) are exempt. The `iob` lint phase checks it; open rework: [#78](https://github.com/chili-chips/wireguard-fpga/issues/78).
+- **A flop at every data pin (IOB flop):** an input pin drives a flop's D directly, with no logic before it; an output pin comes straight from a flop's Q, and that flop drives nothing else. Then Vivado (and later nextpnr, [openXC7/nextpnr#243](https://github.com/openXC7/nextpnr/issues/243)) can put the flop in the I/O tile, and the pin's timing no longer depends on place and route. Clock pins and pins on I/O primitives (ODDR, IBUFDS, STARTUPE2) are exempt. The `iob` lint phase checks it ([#78](https://github.com/chili-chips/wireguard-fpga/issues/78), done).
 - **Arrays, not flat buses:** arrays of lanes or structs, no index arithmetic on flat buses.
 - **Open outputs:** an unused output pin of a primitive or third-party core is written `.PIN (  /*LINT:OK*/),  // why it is open`, the reason always given. Never on an input (`run-lint.sh` flags it); unused inputs are tied off.
 - **No-connects:** unused bits of a bus output go to `NC_` signals: `.PIN ({NC_x, used})`. `NC_` signals are never read.

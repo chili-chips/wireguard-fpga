@@ -50,6 +50,11 @@
 //     plaintext for it, so it never reaches the core;
 //   - one whose outer IPv4 length says more than the core takes
 //     (AEAD_MAX_PT_BYTES of plaintext): skipped before the core;
+//   - one longer than that in fact, whatever its IPv4 length says: the core
+//     gets at most AEAD_MAX_PT_BYTES and a tag, the last beat as its tlast
+//     (so the tag does not check out), and the rest of the frame is skipped.
+//     A frame whose full-length payload and tag fit, with bytes after them,
+//     still decrypts: those bytes are never fed, as for any padding;
 //   - one whose plaintext IPv4 length is under 20, or over the plaintext.
 //
 //   One packet at a time: the core's key and nonce stay put until the
@@ -66,7 +71,7 @@
 //   The peer table answers a synchronous read: peer_rsp is valid from the
 //   2nd clock after peer_req.idx. The receiver does not advance the send
 //   counter; peer_req.new_send_cnt and update_send_cnt stay 0.
-//   TODO: the replay window on the counter (#4).
+//   TODO: the replay window on the counter (#79).
 //
 //   The ChaCha20-Poly1305 core is outside, on the core_* ports: dpe_switch
 //   connects one core shared by both directions (decrypt_* side), the
@@ -187,6 +192,11 @@ module dpe_wg_decryptor
 
   len16_t rem;  // IPv4 bytes still to go out
   assign rem = r.ip_len - r.sent;
+
+  // this core beat is the last the core takes: AEAD_MAX_PT_BYTES of
+  // plaintext and the tag in all, whatever the frame's IPv4 length says
+  logic  core_full;
+  assign core_full = (r.core_bytes == AEAD_MAX_PT_BYTES + len16_t'(POLY1305_TAG_LEN - BEAT_BYTES));
 
   // FSM registers
   always_ff @(posedge inp.clk) begin
@@ -338,15 +348,19 @@ module dpe_wg_decryptor
               end
             end
             else begin
-              // the frame's next 16 payload bytes
+              // the frame's next 16 payload bytes; the core's last beat at
+              // the core's limit, whatever follows (core_full)
               to_decrypt.tvalid = piped.tvalid;
               to_decrypt.tdata  = {piped.tdata[HEAD_W-1:0], r.carry};
-              to_decrypt.tlast  = piped.tlast & ~piped.tkeep[WG_HDR_TAIL_BYTES];
+              to_decrypt.tlast  = (piped.tlast & ~piped.tkeep[WG_HDR_TAIL_BYTES]) | core_full;
               piped.tready      = to_decrypt.tready;
               if (dec_in_hs) begin
                 r_next.carry      = piped.tdata[DPE_DATA_W-1-:CARRY_W];
                 r_next.core_bytes = r.core_bytes + len16_t'(BEAT_BYTES);
-                if (piped.tlast) begin
+                if (core_full) begin
+                  r_next.feed = piped.tlast ? FEED_DONE : FEED_SKIP;
+                end
+                else if (piped.tlast) begin
                   r_next.feed = piped.tkeep[WG_HDR_TAIL_BYTES] ? FEED_TAIL : FEED_DONE;
                 end
               end

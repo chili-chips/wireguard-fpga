@@ -68,7 +68,6 @@ module soc_fabric
   //-----------------------------------------------------------
   logic      cpu_ack;  // 1 as soon as CPU gets the bus
   logic      uart_busy;  // 1 when UART is already using the bus
-  logic      uart_done;  // 1 when UART is done with using bus
 
   // The request that has the bus: the CPU's once cpu_ack, else the UART's
   soc_addr_t grant_addr;
@@ -135,21 +134,21 @@ module soc_fabric
     end
     else begin
       uart_busy <= uart_busy
-      // once started, UART keeps the bus until transaction is over
-      //? uart.vld
-      //? ~(dmem.rdy & csr.rdy) | uart.vld
-      ? ~uart_done | uart.vld
+      // once started, UART keeps the bus while it holds vld (SOP to EOP, or
+      // its timeout); a read waits for its rdy, a write is one clock (DMEM and
+      // the CSR take it at once), and vld drops only bytes later, so nothing
+      // is in flight then. Not "no rdy yet | uart.vld": that
+      // held the bus until a rdy after vld dropped, which only came while
+      // the CSR answered the UART's half-built address every clock
+      ? uart.vld
 
       // UART gets bus if CPU doesn't want it at that very moment
       : ({cpu.vld, uart.vld} == 2'b01);
     end
   end
 
-  // UART is done with using bus
-  assign uart_done = (dmem_sel & dmem.rdy) | (csr_sel & csr.rdy);
-
   // CPU cannot interrupt an ongoing UART transaction
-  assign cpu_ack   = cpu.vld & ~uart_busy;
+  assign cpu_ack = cpu.vld & ~uart_busy;
 endmodule : soc_fabric
 
 // -----------------------------------------------------------------------------

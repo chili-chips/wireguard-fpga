@@ -12,6 +12,9 @@ This directory contains the following bus functional models
 * `bfm_phy_mdio.sv` : MDIO slave bus functional model
 * `soc_cpu.VPROC.sv` : _VProc_ based `soc_cpu` compatible virtual processor.
 * `bfm_uart.sv` : Minimal UART bus functional model
+* `bfm_egress.sv` : fills the egress routing table over CSR, sorted for longest prefix match, with a default route
+* `chk_uart_bus.sv` : checker for the UART bus master and the CPU sharing `soc_fabric` (`UART_BUS_STRESS`)
+* `spi_flash_model.sv` : behavioural model of the AX7201's N25Q128 configuration flash, the commands `2.sw/app/flash.c` uses
 
 In addition, sub-directories contain the following models
 
@@ -32,7 +35,7 @@ The `bfm_ethernet` module, in the [`udpIpPg`](udpIpPg/README.md) sub-directory, 
 
 <div align="center"><img width= "600" src="https://github.com/user-attachments/assets/5d441c97-9d9f-43d7-99da-d5156b7d106d"></div>
 
-The `bfm_ethernet` module has four parameters:
+The `bfm_ethernet` module has three parameters:
 
 * `START_NODE` : Specifies the start node for the `udpIpPg` _VProc_ nodes. Default 1.
 * `NUM_PORTS` : Specifes the number of GMII/MDIO ports supported. Default 4.
@@ -42,13 +45,8 @@ Internal to the BFM are four instantiated [_udpIpPg_](https://github.com/wyvernS
 
 ## The bfm_phy_mdio MDIO Slave Driver Module
 
-The `bfm_ethernet` module has a  MDIO interface and this is processed by instantiating the `bfm_mdio_phy` MDIO PHY slave bus functional model. This model decodes the register accesses as IEEE 802.3 Clause 22 registers and prints a message to the simulation output as to which register is being accessed upon reception. The read and write transactions are actually mapped to the shared sparse memory model via an instantiated `mem_model` HDL block. Using its address mapped read-write port, each register is mapped as a region of memory with base byte address offset specified in the `MDIO_BUFF_ADDR` parameter. Thus the `soc_cpu.VPROC` running program (or any of the _VProc_ programs) can access this memory to set values to be read, or check values that were write over MDIO.
+The `bfm_ethernet` module has a  MDIO interface and this is processed by instantiating the `bfm_phy_mdio` MDIO PHY slave bus functional model. This model decodes the register accesses as IEEE 802.3 Clause 22 registers and prints a message to the simulation output as to which register is being accessed upon reception. The read and write transactions are actually mapped to the shared sparse memory model via an instantiated `mem_model` HDL block. Using its address mapped read-write port, each register is mapped as a region of memory with base byte address offset specified in the `MDIO_BUFF_ADDR` parameter. Thus the `soc_cpu.VPROC` running program (or any of the _VProc_ programs) can access this memory to set values to be read, or check values that were write over MDIO.
 
 <div align="center"><img width=550 src="https://github.com/user-attachments/assets/889aff76-549e-4a63-80f0-c21077fbe155"></div>
 
 Within the four instantiations of the module in `bfm_ethernet`, each is assigned an offset from its `MDIO_BUFF_ADDR` base address (default `0x50000000`), spaced by 256 bytes. The `NODE` parameter is just for output display to identify from which `bfm_phy_mdio` the message originated. Within `bfm_ethernet` each of the four blocks are assigned a node starting from the `bfm_ethernet` module's `START_NODE` parameter (default 1).
-
-
-## Others
-
-TODO

@@ -14,7 +14,7 @@
 #     that installation.
 #
 # Sources: 1.hw/top.filelist (sources.sh), the list Vivado, 4.sim and
-# run-lint.sh use. The CPU is the one top.filelist lists (PicoRV32 by default).
+# run-lint.sh use. The CPU is the one top.filelist lists (eduBOS5 by default).
 # The firmware (3.build/sw_build/imem.INIT.vh) must be built first.
 #
 #   make                  full build -> build_artifacts.<sfx>/top.bit
@@ -81,7 +81,7 @@ EXTRACT_TIMESTAMP = $(EXTRACTED_DIR)/.extraction_timestamp
 
 # =============================================================================
 # SOURCE FILES: 1.hw/top.filelist, the list Vivado, 4.sim and run-lint.sh use
-# (sources.sh). The CPU is the one top.filelist lists (PicoRV32 by default).
+# (sources.sh). The CPU is the one top.filelist lists (eduBOS5 by default).
 # =============================================================================
 
 DESIGN_RTL := $(shell bash -c '. ./sources.sh && design_rtl $(HW_DIR) $(BUILD_DIR_ROOT)')
@@ -223,13 +223,18 @@ NEXTPNR_OPTS ?= $(if $(filter new,$(TOOLCHAIN)),--tmg-ripup --placer-heap-timing
 
 # nextpnr reads XDC constraints on ports only (get_ports). top.xdc is shared
 # with Vivado and also holds generated clocks and false paths (get_pins,
-# get_clocks), I/O delays and [current_design] bitstream options; nextpnr gets the port lines: pins, I/O standards, clocks.
+# get_clocks), I/O delays and [current_design] bitstream options; nextpnr gets
+# the port lines: pins, I/O standards, clocks. Not the 25 MHz MII TX clocks
+# (eN_txc): nextpnr times a BUFGMUX output with one input clock only, and
+# picks eN_txc over the 125 MHz GTX clock, so 1000BASE-T TX would be timed at
+# 25 MHz (openXC7/nextpnr#241). What meets 8 ns also meets 40 ns.
 # top.openxc7.xdc adds what nextpnr needs and Vivado infers (clk_n's pin).
 NEXTPNR_XDC = $(BUILD_ARTIFACTS)/top.nextpnr.xdc
 
 $(NEXTPNR_XDC): $(XDC_FILE) top.openxc7.xdc
 	@mkdir -p $(BUILD_ARTIFACTS)
-	grep -E 'get_ports' $< | grep -v -E '^\s*#|get_(nets|clocks|pins|cells|debug)|set_(input|output)_delay|set_false_path' > $@
+	grep -E 'get_ports' $< | grep -v -E '^\s*#|get_(nets|clocks|pins|cells|debug)|set_(input|output)_delay|set_false_path' \
+	  | grep -v -E 'create_clock.*get_ports e[0-9]_txc' > $@
 	grep -v -E '^\s*#|^\s*$$' top.openxc7.xdc >> $@
 	@echo "OK -> $@ ($$(wc -l < $@) port constraints)"
 

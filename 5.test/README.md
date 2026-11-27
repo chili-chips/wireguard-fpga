@@ -195,7 +195,7 @@ Now we can test the communication between hosts A and B, for example by pinging 
 ping 192.168.0.2
 ```
 
-> **Blueprint, work in progress.** The image below is the target this test is heading for, not a result of the current build. Today the DPE has no crypto stages, and the firmware forwards packets between eth1 and eth2 with `bypass_all` set ([`main.cpp`](../2.sw/app/main.cpp)).
+> **Blueprint, work in progress.** The image below is the target this test is heading for, not a result of the current build. The default DPE now has the WireGuard switch with the shared ChaCha20-Poly1305 core, but this capture has not been reproduced on the board. The firmware still forwards packets it does not consume between eth1 and eth2 with `bypass_all` set ([`main.cpp`](../2.sw/app/main.cpp)).
 
 The image shows the first encrypted packet (ICMP Echo Request) captured on the node 192.168.1.1.
 

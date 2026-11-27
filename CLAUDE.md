@@ -59,9 +59,9 @@ make -f MakefileHW program
 # openXC7 main (Yosys main read_slang + nextpnr-himbaechel main via the nextpnr-xilinx shim; not a release)
 cd hw_build.openXC7
 make check-env check-sources    # NEXTPNR_XILINX_DIR = openXC7 prefix, or its bin on PATH
-make                            # -> build_artifacts.slang/top.bit (~10 min, 3 GB)
+make                            # -> build_artifacts.slang/top.bit (~8 min, 3 GB)
 ```
-openXC7 needs the software built first for `imem.INIT.vh`. `FRONTEND=sv2v` converts with sv2v instead of `read_slang`; `TOOLCHAIN=old` is the legacy nextpnr-xilinx flow. nextpnr gets only the port lines of `top.xdc` plus `top.openxc7.xdc`, nextpnr maps `BUFGMUX` itself (main, nextpnr#132), and `NEXTPNR_OPTS` (`--tmg-ripup --placer-heap-timingweight 30`) is what closes the Ethernet RX clocks; issues in the `3.build/README.md` openXC7 table.
+The default `top.filelist` builds the real `dpe_switch`, which does not route on openXC7 yet (#68); for a bitstream today, select `dpe_switch.DUMMY.sv` (the ~8 min is DUMMY on v1.0.0). openXC7 needs the software built first for `imem.INIT.vh`. `FRONTEND=sv2v` converts with sv2v instead of `read_slang`; `TOOLCHAIN=old` is the legacy nextpnr-xilinx flow. nextpnr gets only the port lines of `top.xdc` (minus the `eN_txc` MII clocks, nextpnr#241) plus `top.openxc7.xdc`, nextpnr maps `BUFGMUX` itself (main, nextpnr#132), and `NEXTPNR_OPTS` (`--tmg-ripup --placer-heap-timingweight 30`) is what closes the Ethernet RX clocks; issues in the `3.build/README.md` openXC7 table.
 
 **Simulation** (`4.sim/`, Verilator-based, VProc co-sim):
 ```bash
@@ -70,9 +70,9 @@ make -f MakefileVProc.mk BUILD=ISS run        # run RISC-V-compiled code on the 
 make -f MakefileVProc.mk gui                  # same, then WaveCrux (WAVECRUX=...; File > Open wave.GMII.wavecrux)
 make -f MakefileVProc.mk clean
 ```
-`soc_cpu` is auto-selected between RTL (eduBOS5/PicoRV32; IBEX exists only as an ISS timing model) and the VProc virtual-processor model depending on which files are in `top.filelist`; see `4.sim/README.md` for the full picture (co-sim HAL usage, ISS timing models, PCAP replay, gdb debugging). A standalone RTL-only `4.sim/Makefile` also exists for cycle-accurate sim without VProc; it reads `1.hw/top.filelist`, so it simulates PicoRV32 by default.
+`soc_cpu` is auto-selected between RTL (eduBOS5/PicoRV32; IBEX exists only as an ISS timing model) and the VProc virtual-processor model depending on which files are in `top.filelist`; see `4.sim/README.md` for the full picture (co-sim HAL usage, ISS timing models, PCAP replay, gdb debugging). `4.sim/Makefile` runs `MakefileVProc.mk CPU=rtl`: the RTL `soc_cpu` that `1.hw/top.filelist` lists (eduBOS5 by default) runs the firmware, and VProc still drives the UDP BFMs.
 
-**Lint, format, LEQ** (`3.build/hw_build.openXC7/`, as on openPCIE; sources from `1.hw/top.filelist`, plus the DPE blocks top does not instantiate yet (`BLOCK_TOPS` in `sources.sh`, each a top of its own: `read_slang --allow-toplevel-iface-ports`); CI: `.github/workflows/lint.yml`, `verible.yml` run the same scripts):
+**Lint, format, LEQ** (`3.build/hw_build.openXC7/`, as on openPCIE; sources from `1.hw/top.filelist`, plus the DPE blocks inside `dpe_switch`, each also linted as a top of its own (`BLOCK_TOPS` in `sources.sh`: `read_slang --allow-toplevel-iface-ports`); CI: `.github/workflows/lint.yml`, `verible.yml` run the same scripts):
 ```bash
 S=3.build/hw_build.openXC7
 bash $S/run-lint.sh                       # tags, verilator, yosys, reset, iob, slang, verible, ghdl, ghdl-verilator, cdc, check-timing, methodology; waivers in run-lint-waivers.txt
@@ -87,7 +87,7 @@ Verible rules and their rationale are in `3.build/hw_build.openXC7/rules.md`.
 
 RTL conventions: [`1.hw/README.md#rtl-coding-rules`](1.hw/README.md#rtl-coding-rules). The gate enforces: our own RTL, eduBOS5, PicoRV32 and `external_lib` (our fork of Alex Forencich's verilog-ethernet/verilog-axis, trimmed to Xilinx 7-series and what the design uses) are linted and Verible-formatted (2-space indent, LF line endings, at most 100 columns); only the PeakRDL CSR is checked but not reformatted. Every control flop and flag has a reset (data and address flops need none; the `reset` phase checks it). Every data pin of top has its flop at the pin, so it can be an IOB flop: an input drives a flop's D directly, an output comes straight from a flop that drives nothing else (the `iob` phase checks it). `&&`, `||` and `!` only in `if`/`while`/`case` conditions and assertions; `&`, `|`, `~` on 1-bit operands elsewhere. An open output is `.PIN (  /*LINT:OK*/),  // why`. A waiver goes in `run-lint-waivers.txt` with its reason, only for a false positive. Each CSR client (uart, cpu_fifo, dpe) drives only its own sub-struct of `csr__in_t`, never the whole struct.
 
-**CPU:** eduBOS5 (default; RV32IM as built here (`USE_HW_MUL=1`, fixed clock count, DSP48E1 in the build; firmware `-march=rv32im`), Harvard; option `EN_COUNTERS` (Zicntr) is off; #61 fixed (`STORE_WAITS_RDY=1`, soc_fabric) and passes the RTL `UART_BUS_STRESS` sim; hardware check pending) or PicoRV32, selected by which `soc_cpu.*.sv` lines `1.hw/top.filelist` lists. eduBOS5 halts on any SYSTEM instruction, so the firmware reads the `csr.cycle` CSR counter (`cycles()` in `2.sw/app/timer.c`), never `rdcycle`/`csrr`.
+**CPU:** eduBOS5 (default; RV32IM as built here (`USE_HW_MUL=1`, fixed clock count, DSP48E1 in the build; firmware `-march=rv32im`), Harvard; option `EN_COUNTERS` (Zicntr) is off; lost-store fix (stores wait for `dmem_rdy`: `STORE_WAITS_RDY=1`, soc_fabric) and passes the RTL `UART_BUS_STRESS` sim; hardware check pending) or PicoRV32, selected by which `soc_cpu.*.sv` lines `1.hw/top.filelist` lists. eduBOS5 halts on any SYSTEM instruction, so the firmware reads the `csr.cycle` CSR counter (`cycles()` in `2.sw/app/timer.c`), never `rdcycle`/`csrr`.
 
 **Crypto core HLS builds** (`3.build/pipelinec_build/`, `3.build/pypeline_build/`) — each has its own build scripts/`build.py` and CLAUDE.md with full sim/synth command reference; don't duplicate that detail here.
 

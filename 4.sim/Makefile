@@ -10,7 +10,7 @@
 #
 #   make sim                                  build and run
 #   make sim TIMEOUTUS=7000 USRSIMOPTS="+define+UART_BUS_STRESS"
-#   make wave                                 build, run, then GTKWave
+#   make wave                                 build, run, then WaveCrux
 #   make clean
 #==========================================================================
 

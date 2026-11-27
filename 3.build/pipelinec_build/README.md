@@ -6,6 +6,8 @@ SPDX-License-Identifier: BSD-3-Clause
 
 # Encryption and Decryption using PipelineC
 
+> Superseded by [`pypeline_build`](../pypeline_build/README.md). The Poly1305 and ciphertext-length bugs here are left as-is.
+
 In this section we will present the architecture of our *chacha20poly1305 encryption* and *decryption*. Both *encryption* and *decryption* have been built with [PipelineC](https://github.com/JulianKemmerer/PipelineC).
 For both *encryption* and *decryption* we will present a diagram that showcases how everything is connected together, after which we will explain each block in detail.
 
@@ -17,7 +19,7 @@ For both *encryption* and *decryption* we will present a diagram that showcases 
 </div>
 
 In this section we will present the *encryption* block's structure. The architecture is displayed on the graph above. The goal of the *encryption* block is to take *plaintext* as it's input, the block will cyphere the input text and output the encrypted text. Alongside the encrypted text, as the output of this block we also have the authentiaction tag, both the tag and the encrypted text are streamed one after the other (first the ciphertext and then the tag).
-As the graph above shows, the *encryption* is consisted of four blocks: *chacha20_pipeline_shared*, prep_auth_data*, *poly1305_pipeline_shared* and *append_auth_tag*. TThe *chacha20_pipeline_shared* and *poly1305_pipeline_shared* blocks are used in both *encryption* and *decryption*, that's why these blocks are pipelines shared between the two blocks. Both pipelines have a multiplexer on their respected inputs and choose which inputs they will take. This way we manage to save space by having only one block instead of having two blocks each.
+As the graph above shows, the *encryption* is consisted of four blocks: *chacha20_pipeline_shared*, prep_auth_data*, *poly1305_pipeline_shared* and *append_auth_tag*. In the shared top (`chacha20poly1305_encrypt_decrypt_shared.c`) only *chacha20_pipeline_shared* is shared between *encryption* and *decryption*, through a multiplexer on its input. `poly1305_pipeline_shared` exists but is not included there: each path has its own Poly1305, for throughput.
 A detailed description of each block used for the *encryption* is given bellow.
 We will prsent the two shared blocks in this section, since they are the same for decryption we will only describe them once.
 
@@ -138,6 +140,8 @@ The FSM uses a static `counter` to track remaining AAD bytes or accumulated Ciph
 
 
 ## poly1305_pipeline_shared
+
+Not used by the shared top (see above).
 
 The `poly1305_pipeline_shared` module (implemented by the `poly1305_mac_sharing_mux` function) enables area-efficient reuse of the high-latency, 320-bit Poly1305 MAC loop body pipeline. Since the iterative accumulation logic is identical for both encryption and decryption operations, a single hardware resource is instantiated and dynamically shared between the two cryptographic paths.
 
@@ -358,7 +362,7 @@ The `wait_to_verify` module is the final gate in the decryption pipeline. In the
 It acts as a **synchronous buffer (FIFO)**:
 1.  **Buffering:** It immediately buffers the incoming plaintext into a FIFO.
 2.  **Waiting:** It waits until the 1-bit verification result (`wait_to_verify_verify_bit`) arrives from the comparator.
-3.  **Outputting:** Once the verification result is known, it either allows the buffered plaintext to stream out (if verified) or keeps it permanently buffered (if verification failed, preventing invalid data from leaving the chip).
+3.  **Outputting:** Once the verification result is known, the buffered plaintext streams out either way, with `wait_to_verify_is_verified_out` set to the result; the consumer drops a packet that failed.
 
 
 

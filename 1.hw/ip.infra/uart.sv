@@ -58,7 +58,11 @@
 module uart
   import csr_pkg::*;
   import soc_pkg::*;
-(
+#(
+    // the bus-master timeout: 2**TIMEOUT_LOG2 ticks of tick_1us without a
+    // byte ends the session (about 2.1 s in hardware); a bench sets it lower
+    parameter int TIMEOUT_LOG2 = 21  // at most 21: the timeout counter is 22 bits
+) (
     input  logic           arst_n,
     input  logic           clk,
 
@@ -105,6 +109,7 @@ module uart
     T_STATES_BUSR_WAIT_ADDR1,
     T_STATES_BUSR_WAIT_ADDR2,
     T_STATES_BUSR_WAIT_ADDR3,
+    T_STATES_BUSR_SETUP,        // the address on the bus for a clock: rdy is still the last one's
     T_STATES_BUSR_WAIT_DATA,
     T_STATES_BUSR_DATA0,
     T_STATES_BUSR_DATA1,
@@ -147,6 +152,11 @@ module uart
   //--------------------------------------
   // IMEM/BUS commands/responses
   //--------------------------------------
+  // TIMEOUT_LOG2 indexes the 22-bit timeout counter
+  if (TIMEOUT_LOG2 > 21) begin : g_bad_timeout
+    $error("uart: TIMEOUT_LOG2 = %0d, at most 21", TIMEOUT_LOG2);
+  end
+
   localparam logic [7:0] C_SOP  = 8'h12;  // Enter special mode
   localparam logic [7:0] C_EOP  = 8'h14;  // Exit special mode
   localparam logic [7:0] C_IMPR = 8'h05;  // Enter IMEM programming mode
@@ -661,11 +671,22 @@ module uart
       T_STATES_WAIT_SOP: begin
         if ((uart_rx_valid == 1'b1) && (uart_rx_data == C_SOP)) begin
           r_next.bus_vld = 1'b1;
+          r_next.timeout = '0;
           r_next.state   = T_STATES_WAIT_CMD;
         end
       end
 
+      // a command, or EOP; none in the timeout (a stray SOP byte, e.g. a
+      // Ctrl-R on the console) ends the session, so the CPU gets the bus back
       T_STATES_WAIT_CMD: begin
+        if ((uart_rx_valid == 1'b0) && (r.timeout[TIMEOUT_LOG2] == 1'b1)) begin
+          r_next.uart_tx_data  = C_TOUT;
+          r_next.uart_tx_valid = 1'b1;
+          r_next.state         = T_STATES_TIMEOUT;
+        end
+        else if ((uart_rx_valid == 1'b0) && (tick_1us == 1'b1)) begin
+          r_next.timeout = r.timeout + 22'd1;
+        end
         if (uart_rx_valid == 1'b1) begin
           unique case (uart_rx_data)
             C_IMPR: begin
@@ -707,7 +728,7 @@ module uart
           r_next.timeout          = '0;
           r_next.state            = T_STATES_IMPR_WAIT_LEN_HB;
         end
-        else if (r.timeout[21:21] == 1'b1) begin
+        else if (r.timeout[TIMEOUT_LOG2] == 1'b1) begin
           r_next.uart_tx_data  = C_TOUT;
           r_next.uart_tx_valid = 1'b1;
           r_next.state         = T_STATES_TIMEOUT;
@@ -724,7 +745,7 @@ module uart
           r_next.timeout           = '0;
           r_next.state             = T_STATES_IMPR_WAIT_DATA0;
         end
-        else if (r.timeout[21:21] == 1'b1) begin
+        else if (r.timeout[TIMEOUT_LOG2] == 1'b1) begin
           r_next.uart_tx_data  = C_TOUT;
           r_next.uart_tx_valid = 1'b1;
           r_next.state         = T_STATES_TIMEOUT;
@@ -741,7 +762,7 @@ module uart
           r_next.timeout       = '0;
           r_next.state         = T_STATES_IMPR_WAIT_DATA1;
         end
-        else if (r.timeout[21:21] == 1'b1) begin
+        else if (r.timeout[TIMEOUT_LOG2] == 1'b1) begin
           r_next.uart_tx_data  = C_TOUT;
           r_next.uart_tx_valid = 1'b1;
           r_next.state         = T_STATES_TIMEOUT;
@@ -758,7 +779,7 @@ module uart
           r_next.timeout        = '0;
           r_next.state          = T_STATES_IMPR_WAIT_DATA2;
         end
-        else if (r.timeout[21:21] == 1'b1) begin
+        else if (r.timeout[TIMEOUT_LOG2] == 1'b1) begin
           r_next.uart_tx_data  = C_TOUT;
           r_next.uart_tx_valid = 1'b1;
           r_next.state         = T_STATES_TIMEOUT;
@@ -775,7 +796,7 @@ module uart
           r_next.timeout         = '0;
           r_next.state           = T_STATES_IMPR_WAIT_DATA3;
         end
-        else if (r.timeout[21:21] == 1'b1) begin
+        else if (r.timeout[TIMEOUT_LOG2] == 1'b1) begin
           r_next.uart_tx_data  = C_TOUT;
           r_next.uart_tx_valid = 1'b1;
           r_next.state         = T_STATES_TIMEOUT;
@@ -796,7 +817,7 @@ module uart
           r_next.uart_tx_valid   = 1'b1;
           r_next.state           = T_STATES_IMPR_CHECKSUM;
         end
-        else if (r.timeout[21:21] == 1'b1) begin
+        else if (r.timeout[TIMEOUT_LOG2] == 1'b1) begin
           r_next.uart_tx_data  = C_TOUT;
           r_next.uart_tx_valid = 1'b1;
           r_next.state         = T_STATES_TIMEOUT;
@@ -824,6 +845,7 @@ module uart
       T_STATES_IMPR_DONE: begin
         r_next.cpu_rst_n     = 1'b1;
         r_next.uart_tx_valid = 1'b0;
+        r_next.timeout       = '0;
         r_next.state         = T_STATES_WAIT_CMD;
       end
 
@@ -834,7 +856,7 @@ module uart
           r_next.timeout       = '0;
           r_next.state         = T_STATES_BUSW_WAIT_ADDR1;
         end
-        else if (r.timeout[21:21] == 1'b1) begin
+        else if (r.timeout[TIMEOUT_LOG2] == 1'b1) begin
           r_next.uart_tx_data  = C_TOUT;
           r_next.uart_tx_valid = 1'b1;
           r_next.state         = T_STATES_TIMEOUT;
@@ -851,7 +873,7 @@ module uart
           r_next.timeout        = '0;
           r_next.state          = T_STATES_BUSW_WAIT_ADDR2;
         end
-        else if (r.timeout[21:21] == 1'b1) begin
+        else if (r.timeout[TIMEOUT_LOG2] == 1'b1) begin
           r_next.uart_tx_data  = C_TOUT;
           r_next.uart_tx_valid = 1'b1;
           r_next.state         = T_STATES_TIMEOUT;
@@ -868,7 +890,7 @@ module uart
           r_next.timeout         = '0;
           r_next.state           = T_STATES_BUSW_WAIT_ADDR3;
         end
-        else if (r.timeout[21:21] == 1'b1) begin
+        else if (r.timeout[TIMEOUT_LOG2] == 1'b1) begin
           r_next.uart_tx_data  = C_TOUT;
           r_next.uart_tx_valid = 1'b1;
           r_next.state         = T_STATES_TIMEOUT;
@@ -885,7 +907,7 @@ module uart
           r_next.timeout         = '0;
           r_next.state           = T_STATES_BUSW_WAIT_DATA0;
         end
-        else if (r.timeout[21:21] == 1'b1) begin
+        else if (r.timeout[TIMEOUT_LOG2] == 1'b1) begin
           r_next.uart_tx_data  = C_TOUT;
           r_next.uart_tx_valid = 1'b1;
           r_next.state         = T_STATES_TIMEOUT;
@@ -902,7 +924,7 @@ module uart
           r_next.timeout       = '0;
           r_next.state         = T_STATES_BUSW_WAIT_DATA1;
         end
-        else if (r.timeout[21:21] == 1'b1) begin
+        else if (r.timeout[TIMEOUT_LOG2] == 1'b1) begin
           r_next.uart_tx_data  = C_TOUT;
           r_next.uart_tx_valid = 1'b1;
           r_next.state         = T_STATES_TIMEOUT;
@@ -919,7 +941,7 @@ module uart
           r_next.timeout        = '0;
           r_next.state          = T_STATES_BUSW_WAIT_DATA2;
         end
-        else if (r.timeout[21:21] == 1'b1) begin
+        else if (r.timeout[TIMEOUT_LOG2] == 1'b1) begin
           r_next.uart_tx_data  = C_TOUT;
           r_next.uart_tx_valid = 1'b1;
           r_next.state         = T_STATES_TIMEOUT;
@@ -936,7 +958,7 @@ module uart
           r_next.timeout         = '0;
           r_next.state           = T_STATES_BUSW_WAIT_DATA3;
         end
-        else if (r.timeout[21:21] == 1'b1) begin
+        else if (r.timeout[TIMEOUT_LOG2] == 1'b1) begin
           r_next.uart_tx_data  = C_TOUT;
           r_next.uart_tx_valid = 1'b1;
           r_next.state         = T_STATES_TIMEOUT;
@@ -953,7 +975,7 @@ module uart
           r_next.timeout         = '0;
           r_next.state           = T_STATES_BUSW_WAIT_WE;
         end
-        else if (r.timeout[21:21] == 1'b1) begin
+        else if (r.timeout[TIMEOUT_LOG2] == 1'b1) begin
           r_next.uart_tx_data  = C_TOUT;
           r_next.uart_tx_valid = 1'b1;
           r_next.state         = T_STATES_TIMEOUT;
@@ -970,7 +992,7 @@ module uart
           r_next.timeout  = '0;
           r_next.state    = T_STATES_BUSW_CHECKSUM;
         end
-        else if (r.timeout[21:21] == 1'b1) begin
+        else if (r.timeout[TIMEOUT_LOG2] == 1'b1) begin
           r_next.uart_tx_data  = C_TOUT;
           r_next.uart_tx_valid = 1'b1;
           r_next.state         = T_STATES_TIMEOUT;
@@ -989,6 +1011,7 @@ module uart
 
       T_STATES_BUSW_DONE: begin
         r_next.uart_tx_valid = 1'b0;
+        r_next.timeout       = '0;
         r_next.state         = T_STATES_WAIT_CMD;
       end
 
@@ -999,7 +1022,7 @@ module uart
           r_next.timeout       = '0;
           r_next.state         = T_STATES_BUSR_WAIT_ADDR1;
         end
-        else if (r.timeout[21:21] == 1'b1) begin
+        else if (r.timeout[TIMEOUT_LOG2] == 1'b1) begin
           r_next.uart_tx_data  = C_TOUT;
           r_next.uart_tx_valid = 1'b1;
           r_next.state         = T_STATES_TIMEOUT;
@@ -1016,7 +1039,7 @@ module uart
           r_next.timeout        = '0;
           r_next.state          = T_STATES_BUSR_WAIT_ADDR2;
         end
-        else if (r.timeout[21:21] == 1'b1) begin
+        else if (r.timeout[TIMEOUT_LOG2] == 1'b1) begin
           r_next.uart_tx_data  = C_TOUT;
           r_next.uart_tx_valid = 1'b1;
           r_next.state         = T_STATES_TIMEOUT;
@@ -1033,7 +1056,7 @@ module uart
           r_next.timeout         = '0;
           r_next.state           = T_STATES_BUSR_WAIT_ADDR3;
         end
-        else if (r.timeout[21:21] == 1'b1) begin
+        else if (r.timeout[TIMEOUT_LOG2] == 1'b1) begin
           r_next.uart_tx_data  = C_TOUT;
           r_next.uart_tx_valid = 1'b1;
           r_next.state         = T_STATES_TIMEOUT;
@@ -1049,8 +1072,13 @@ module uart
           r_next.checksum        = r.checksum + uart_rx_data;
           r_next.timeout         = '0;
           r_next.state           = T_STATES_BUSR_WAIT_DATA;
+          // DMEM: a clock of setup first (its rdy may still answer the parked
+          // read); a CSR at once, so it sees one read (its read side effects)
+          if (is_dmem(r_next.bus_addr)) begin
+            r_next.state = T_STATES_BUSR_SETUP;
+          end
         end
-        else if (r.timeout[21:21] == 1'b1) begin
+        else if (r.timeout[TIMEOUT_LOG2] == 1'b1) begin
           r_next.uart_tx_data  = C_TOUT;
           r_next.uart_tx_valid = 1'b1;
           r_next.state         = T_STATES_TIMEOUT;
@@ -1060,13 +1088,20 @@ module uart
         end
       end
 
+      T_STATES_BUSR_SETUP: begin
+        // a DMEM read only: the real address goes out now; a rdy in this
+        // clock answers the parked read (DMEM base), so the data is taken
+        // from the next clock on. A CSR never sees the parked address
+        r_next.state = T_STATES_BUSR_WAIT_DATA;
+      end
+
       T_STATES_BUSR_WAIT_DATA: begin
         if (bus.rdy == 1'b1) begin
           r_next.bus_rdat = bus.rdat;
           r_next.timeout  = '0;
           r_next.state    = T_STATES_BUSR_DATA0;
         end
-        else if (r.timeout[21:21] == 1'b1) begin
+        else if (r.timeout[TIMEOUT_LOG2] == 1'b1) begin
           r_next.uart_tx_data  = C_TOUT;
           r_next.uart_tx_valid = 1'b1;
           r_next.state         = T_STATES_TIMEOUT;
@@ -1112,6 +1147,7 @@ module uart
 
       T_STATES_BUSR_DONE: begin
         r_next.uart_tx_valid = 1'b0;
+        r_next.timeout       = '0;
         r_next.state         = T_STATES_WAIT_CMD;
       end
 
@@ -1122,7 +1158,7 @@ module uart
           r_next.timeout       = '0;
           r_next.state         = T_STATES_IMWR_WAIT_ADDR1;
         end
-        else if (r.timeout[21:21] == 1'b1) begin
+        else if (r.timeout[TIMEOUT_LOG2] == 1'b1) begin
           r_next.uart_tx_data  = C_TOUT;
           r_next.uart_tx_valid = 1'b1;
           r_next.state         = T_STATES_TIMEOUT;
@@ -1139,7 +1175,7 @@ module uart
           r_next.timeout        = '0;
           r_next.state          = T_STATES_IMWR_WAIT_DATA0;
         end
-        else if (r.timeout[21:21] == 1'b1) begin
+        else if (r.timeout[TIMEOUT_LOG2] == 1'b1) begin
           r_next.uart_tx_data  = C_TOUT;
           r_next.uart_tx_valid = 1'b1;
           r_next.state         = T_STATES_TIMEOUT;
@@ -1156,7 +1192,7 @@ module uart
           r_next.timeout       = '0;
           r_next.state         = T_STATES_IMWR_WAIT_DATA1;
         end
-        else if (r.timeout[21:21] == 1'b1) begin
+        else if (r.timeout[TIMEOUT_LOG2] == 1'b1) begin
           r_next.uart_tx_data  = C_TOUT;
           r_next.uart_tx_valid = 1'b1;
           r_next.state         = T_STATES_TIMEOUT;
@@ -1173,7 +1209,7 @@ module uart
           r_next.timeout        = '0;
           r_next.state          = T_STATES_IMWR_WAIT_DATA2;
         end
-        else if (r.timeout[21:21] == 1'b1) begin
+        else if (r.timeout[TIMEOUT_LOG2] == 1'b1) begin
           r_next.uart_tx_data  = C_TOUT;
           r_next.uart_tx_valid = 1'b1;
           r_next.state         = T_STATES_TIMEOUT;
@@ -1190,7 +1226,7 @@ module uart
           r_next.timeout         = '0;
           r_next.state           = T_STATES_IMWR_WAIT_DATA3;
         end
-        else if (r.timeout[21:21] == 1'b1) begin
+        else if (r.timeout[TIMEOUT_LOG2] == 1'b1) begin
           r_next.uart_tx_data  = C_TOUT;
           r_next.uart_tx_valid = 1'b1;
           r_next.state         = T_STATES_TIMEOUT;
@@ -1208,7 +1244,7 @@ module uart
           r_next.timeout         = '0;
           r_next.state           = T_STATES_IMWR_CHECKSUM;
         end
-        else if (r.timeout[21:21] == 1'b1) begin
+        else if (r.timeout[TIMEOUT_LOG2] == 1'b1) begin
           r_next.uart_tx_data  = C_TOUT;
           r_next.uart_tx_valid = 1'b1;
           r_next.state         = T_STATES_TIMEOUT;
@@ -1227,6 +1263,7 @@ module uart
 
       T_STATES_IMWR_DONE: begin
         r_next.uart_tx_valid = 1'b0;
+        r_next.timeout       = '0;
         r_next.state         = T_STATES_WAIT_CMD;
       end
 
@@ -1246,10 +1283,20 @@ module uart
   assign imem_cpu_rst_n = r.cpu_rst_n;
   assign imem_wr        = '{we: r.ram_wen, addr: r.ram_addr[31:2], data: r.ram_data};
 
-  assign bus.vld        = r.bus_vld;
-  assign bus.we         = r.bus_we;
-  assign bus.addr       = r.bus_addr;
-  assign bus.wdat       = r.bus_wdat;
+  // bus.vld holds the bus from SOP to EOP (soc_fabric's uart_busy); the
+  // address is the real one only while an access is on (the read's wait for
+  // rdy, or a write's strobes), else the DMEM base: a CSR would take each
+  // clock of vld as a read, and fire its read side effects (trng.data,
+  // uart.rx.data, rtc.nsec) at the half-built address
+  logic bus_xfer;
+  assign bus_xfer = (r.state == T_STATES_BUSR_SETUP)
+                  | (r.state == T_STATES_BUSR_WAIT_DATA)
+                  | (r.bus_we != '0);
+
+  assign bus.vld = r.bus_vld;
+  assign bus.we = r.bus_we;
+  assign bus.addr = bus_xfer ? r.bus_addr : DMEM_BASE[31:2];
+  assign bus.wdat = r.bus_wdat;
 
   // CSR status, in one process
   always_comb begin

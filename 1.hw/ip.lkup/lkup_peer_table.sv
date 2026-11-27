@@ -16,7 +16,7 @@
 //     0), valid from the 2nd clock after dec_req.idx
 //   - the disassembler: local_id, combinationally: rcv_rsp.idx is the receiver
 //     index's low 6 bits (the entry), rcv_rsp.match whether that entry's
-//     local_id is the whole receiver index
+//     local_id is the whole receiver index (never for index 0)
 //  The CPU writes every word, byte by byte (byte enables), and reads it back
 //  one clock after its request. The send_cnt write-back goes in at once; a
 //  CPU send_cnt write in its clock is posted to the next (and wins on the
@@ -219,8 +219,14 @@ module lkup_peer_table
     dec_peer <= '{key: dec_key, default: '0};
   end
 
-  // the disassembler: the entry from the receiver index, checked in full
-  assign rcv_rsp = '{idx: dpe_peer_idx_t'(rcv_e), match: dp_rd[CK_LOCAL_ID] == rcv};
+  // the disassembler: the entry from the receiver index, checked in full. An
+  // unwritten or cleared entry holds local_id 0 (and an all-zero key), and
+  // entry 0 is never used: a receiver index of 0 never matches. The firmware's
+  // indices carry their entry (1 to 63) in the low bits, so are never 0
+  assign rcv_rsp = '{
+          idx: dpe_peer_idx_t'(rcv_e),
+          match: (dp_rd[CK_LOCAL_ID] == rcv) & (rcv != '0)
+      };
 
 endmodule
 

@@ -13,18 +13,18 @@ The build process for the WireGuard project consists of three steps:
 
 ## Tool Versions
 
-Build and lint tools as used locally (WSL, 2026-11-17). CI installs the latest OSS CAD Suite nightly instead ([`lint.yml`](../.github/workflows/lint.yml)). Simulation tools: [`4.sim` Tool Versions](../4.sim/README.md#tool-versions).
+Build and lint tools as used locally (WSL, 2026-11-26). CI installs the latest OSS CAD Suite nightly instead ([`lint.yml`](../.github/workflows/lint.yml)). Simulation tools: [`4.sim` Tool Versions](../4.sim/README.md#tool-versions).
 
 | Tool | In use | Use | Source |
 |---|---|---|---|
-| Vivado | 2026.1 (Artix-7) | reference flow, Pypeline core synthesis | [AMD](https://www.amd.com/en/products/software/adaptive-socs-and-fpgas/vivado.html) |
+| Vivado | 2026.2 (Artix-7) | reference flow, Pypeline core synthesis | [AMD](https://www.amd.com/en/products/software/adaptive-socs-and-fpgas/vivado.html) |
 | openXC7 | main (2026-11-26): Yosys 0.71+134 (`f960e972`), nextpnr-himbaechel 1.0.0-396-g7077312a | open-source flow | [openXC7](https://github.com/openXC7) |
-| yosys-slang | OSS CAD Suite 2026-11-12 | `read_slang` front end, lint | [povik/yosys-slang](https://github.com/povik/yosys-slang) |
+| yosys-slang | OSS CAD Suite 2026-11-26 | `read_slang` front end, lint | [povik/yosys-slang](https://github.com/povik/yosys-slang) |
 | sv2v | 0.0.13 | `FRONTEND=sv2v` | [zachjs/sv2v](https://github.com/zachjs/sv2v) |
 | Verible | v0.0-4296-g0f262651 | format, lint | [chipsalliance/verible](https://github.com/chipsalliance/verible) |
 | Verilator | 5.055 devel (`v5.054-260-gb9f22851`) | lint | [verilator.org](https://verilator.org) |
-| GHDL | 7.0.0-dev (`6.0.0.r729.g8e642a9a5`, OSS CAD Suite 2026-11-12; latest release v6.0.0) | Pypeline VHDL lint, cocotb sim | [ghdl/ghdl](https://github.com/ghdl/ghdl) |
-| Yosys + GHDL plugin | 0.70+385 (OSS CAD Suite 2026-11-12) | Pypeline VHDL to Verilog | [YosysHQ/oss-cad-suite-build](https://github.com/YosysHQ/oss-cad-suite-build) |
+| GHDL | 7.0.0-dev (`6.0.0.r793.g39bd39022`, OSS CAD Suite 2026-11-26; latest release v6.0.0) | Pypeline VHDL lint, cocotb sim | [ghdl/ghdl](https://github.com/ghdl/ghdl) |
+| Yosys + GHDL plugin | 0.71+128 (OSS CAD Suite 2026-11-26) | Pypeline VHDL to Verilog | [YosysHQ/oss-cad-suite-build](https://github.com/YosysHQ/oss-cad-suite-build) |
 | LintCrux | 1.2.0 (the free open-core CLI) | lint: GHDL, Verilator, Verible, slang and svlint in one run, baseline gate, SARIF ([`run-lintcrux.sh`](lintcrux_build/run-lintcrux.sh), CI: [`lintcrux.yml`](../.github/workflows/lintcrux.yml), which pins every engine, OSS CAD Suite 2026-11-12) | [lintcrux.app](https://lintcrux.app) |
 | svlint | v0.9.5 | LintCrux lint, functional rules ([`.svlint.toml`](../.svlint.toml)) | [dalance/svlint](https://github.com/dalance/svlint) |
 | PipelineC (Pypeline) | the commit in [`pipelinec.ref`](pypeline_build/pipelinec.ref) | crypto core | [JulianKemmerer/PipelineC](https://github.com/JulianKemmerer/PipelineC) |
@@ -91,11 +91,11 @@ make -f MakefileHW program
 
 ## HW Compilation - openXC7
 
-Ported to openXC7 v1.0.0 (Yosys 0.69 + nextpnr-himbaechel) on 2026-10-21. The older nextpnr-xilinx flow follows below as the [legacy flow](#legacy-flow-pre-v100-nextpnr-xilinx-toolchainold).
+Ported to openXC7 v1.0.0 (Yosys 0.69 + nextpnr-himbaechel) on 2026-10-21; built from openXC7 main since 2026-11-26. The older nextpnr-xilinx flow follows below as the [legacy flow](#legacy-flow-pre-v100-nextpnr-xilinx-toolchainold).
 
 ### openXC7 main (default)
 
-**Toolchain:** openXC7 at the tip of main, not a release (since 2026-11-26: Yosys `f960e972`, nextpnr `7077312a`), built with [`toolchain-installer`](https://github.com/openXC7/toolchain-installer) main's `toolchain-sources-builder.sh` with `YOSYS_HASH` and `NEXTPNR_HASH` set to those commits: Yosys with `read_slang`, nextpnr-himbaechel (called through openXC7's `nextpnr-xilinx` shim), prjxray-db and `fpga-as`. Point `NEXTPNR_XILINX_DIR` at its install prefix, or put its `bin` on `PATH`.
+**Toolchain:** openXC7 at the tip of main, not a release (since 2026-11-26: Yosys `f960e972`, nextpnr `7077312a`), built with [`toolchain-installer`](https://github.com/openXC7/toolchain-installer) main's `toolchain-sources-builder.sh` with `YOSYS_HASH` and `NEXTPNR_HASH` set to those commits: Yosys with `read_slang`, nextpnr-himbaechel (called through openXC7's `nextpnr-xilinx` shim), prjxray-db and `fpga-as`. Point `NEXTPNR_XILINX_DIR` at its install prefix, or put its `bin` on `PATH`. The 1.0.0 release no longer builds this design: it has no `BUFGMUX` mapping (nextpnr#132), and our techmap for it is gone.
 
 **Build:**
 ```bash
@@ -106,16 +106,18 @@ make check-env check-sources     # tools and sources present
 make                             # -> build_artifacts.slang/top.bit
 ```
 
+The default `1.hw/top.filelist` builds the real `dpe_switch`, which does not route on openXC7 yet ([#68](https://github.com/chili-chips/wireguard-fpga/issues/68)). For a bitstream today, select `dpe_switch.DUMMY.sv` there.
+
 - The frontend is `read_slang`: Yosys reads the SystemVerilog directly. `make FRONTEND=sv2v` converts it with sv2v first.
-- The sources come from `1.hw/top.filelist`, the list Vivado, `4.sim` and `run-lint.sh` use (`run-lint.sh` and `run-leq.sh` also take the DPE blocks top does not instantiate yet). The CPU is the one it lists: eduBOS5 by default, PicoRV32 as the alternative.
+- The sources come from `1.hw/top.filelist`, the list Vivado, `4.sim` and `run-lint.sh` use (`run-lint.sh` and `run-leq.sh` also take each DPE block inside `dpe_switch` as a top of its own: `BLOCK_TOPS` in `sources.sh`). The CPU is the one it lists: eduBOS5 by default, PicoRV32 as the alternative.
 - The chipdb (`chipdb.new/xc7a200tfbg484-2.bin`) is generated on the first run. It is per die, so a chipdb built for another `xc7a200t` part can be copied under this name.
-- nextpnr reads only the port constraints of `1.hw/constraints/top.xdc` (#6), plus `top.openxc7.xdc` with the `clk_n` pin (#7). nextpnr main maps each `BUFGMUX` onto a `BUFGCTRL` itself, as Vivado does (nextpnr#132); our techmap `bufgmux_map.v` (#5) is gone since 2026-11-26.
+- nextpnr reads only the port constraints of `1.hw/constraints/top.xdc` (#6), plus `top.openxc7.xdc` with the `clk_n` pin (#7), minus the 25 MHz `eN_txc` clocks: nextpnr times a `BUFGMUX` output with one input clock only and would time 1000BASE-T TX at 25 MHz (nextpnr#241). nextpnr main maps each `BUFGMUX` onto a `BUFGCTRL` itself, as Vivado does (nextpnr#132); our techmap `bufgmux_map.v` (#5) is gone since 2026-11-26.
 - Place and route uses `--tmg-ripup --placer-heap-timingweight 30` (`NEXTPNR_OPTS`). With nextpnr's defaults the Ethernet RX clocks land at 102-128 MHz, depending on the seed.
 - `NEXTPNR_OPTS` also has `--ignore-loops` (the default `TOOLCHAIN=new`; the legacy flow is untested with the rings): the TRNG's ring oscillators (`1.hw/ip.infra/trng`, #2) are combinational loops on purpose, and without it nextpnr stops with "Timing analysis failed due to combinational loops". The flag only skips the loops in the timing analysis. The rings are `LUT1`/`LUT2` instances, black-boxed for Yosys like the other primitives (`XILINX_PRIMS`). The rings add about 440 LUTs: sweep the seeds again.
 
 - The flash clock goes through `STARTUPE2` (`1.hw/fpgatech_lib/XILINX/fpga_startup.sv`, #30), black-boxed for Yosys and in `XILINX_PRIMS` like the others.
 
-**Result (2026-11-23, eduBOS5, `SEED=2`, the Makefile default, DUMMY switch; before the TRNG, RTC and flash; the real switch does not route yet, [#68](https://github.com/chili-chips/wireguard-fpga/issues/68)):** about 8 minutes, 3 GB RAM; every clock meets its constraint. Seed sweep ([#3](https://github.com/chili-chips/wireguard-fpga/issues/3)), max frequency in MHz:
+**Result (2026-11-23, openXC7 v1.0.0, DUMMY switch, eduBOS5, `SEED=2`, the Makefile default; before the TRNG, RTC and flash):** about 8 minutes, 3 GB RAM; every clock meets its constraint. Seed sweep ([#3](https://github.com/chili-chips/wireguard-fpga/issues/3)), max frequency in MHz:
 
 | Seed | `sys_clk` (80) | RX 1-4 (125) | TX 1-4 (125) | `eth_gtx_clk` (125) | Result |
 |---|---|---|---|---|---|
@@ -130,177 +132,15 @@ make                             # -> build_artifacts.slang/top.bit
 
 Seed 2 rebuilt from a clean tree gives the same numbers. The netlist changes with any RTL change, and with it the result of a seed: rerun the sweep then (`make -B SEED=N`; without `-B` a finished build is not redone), read the `Max frequency` lines at the end of `build_artifacts.slang/nextpnr.log`). Earlier sweeps, PicoRV32, 2026-10: one seed in four met timing.
 
-Use: 18,021 LUTs (6%), 9,432 FFs (3%), 34 RAMB36 + 1 RAMB18, 10 of 32 BUFGCTRL, 2 PLLs. The RX margins are thin (2.4% at seed 2), and nextpnr's timing analysis is simpler than Vivado's (openXC7/nextpnr#42): not yet tried on the board.
+Use: 18,021 LUTs (6% of nextpnr's 269,200 LUT bels; 13% of the 134,600 LUT6), 9,432 FFs (3%), 34 RAMB36 + 1 RAMB18, 10 of 32 BUFGCTRL, 2 PLLs. The RX margins are thin (2.4% at seed 2), and nextpnr's timing analysis is simpler than Vivado's (openXC7/nextpnr#42): not yet tried on the board.
 
 ### Legacy flow: pre-v1.0.0 nextpnr-xilinx (`TOOLCHAIN=old`)
 
-The instructions below are for the earlier flow (2025-12): the nextpnr-xilinx toolchain, sv2v and `build_artifacts/top.bit`. With the current Makefile run it as `make TOOLCHAIN=old PREFIX=<that installation>`.
+The 2025-12 flow: nextpnr-xilinx, sv2v only, output `build_artifacts/top.bit`. Untested since v1.0.0.
 
-#### openXC7 Installation
-
-Complete installation instructions for the openXC7 toolchain are available here:
-https://github.com/chili-chips/openeye-CamSI/blob/main/3.build/openXC7/README.md
-
-The openXC7 toolchain provides open-source FPGA synthesis and place-and-route tools for Xilinx 7-series FPGAs, including:
-- **Yosys** - RTL synthesis
-- **nextpnr-xilinx** - Place and route
-- **Project X-Ray** - FPGA bitstream generation tools
-
-Make sure to source the environment setup script before building:
-```bash
-source /opt/openxc7/setup_env.sh
-```
-
-#### sv2v Installation
-
-The SystemVerilog to Verilog converter (`sv2v`) is required to convert the project's SystemVerilog files to pure Verilog.
-
-**Automated installation:**
-```bash
-cd wireguard-fpga/3.build/hw_build.openXC7
-make install-sv2v
-```
-
-This will:
-1. Install Stack (Haskell build tool)
-2. Clone the sv2v repository
-3. Build sv2v from source
-4. Install to `~/.local/bin/`
-5. Configure your PATH
-
-After installation, reload your environment:
-```bash
-source ~/.bashrc
-sv2v --version
-```
-
-Manual verification:
-```bash
-make check-sv2v
-```
-
----
-
-#### Build Process
-
-##### Step 1: Build Software (Firmware)
-
-**IMPORTANT:** The software must be built first to generate the `imem.INIT.vh` file required by the hardware build.
-
-##### Step 2: Convert SystemVerilog to Verilog
-
-Navigate to the hardware build directory:
-```bash
-cd wireguard-fpga/3.build/hw_build.openXC7
-```
-
-Run the conversion:
-```bash
-make convert
-```
-
-This performs two operations:
-1. **Batch conversion** - All SystemVerilog files are processed together (preserves dependencies)
-2. **Module extraction** - The unified output is split into individual Verilog module files
-
-Output is generated in:
-- `converted/all_converted.v` - Unified Verilog output
-- `converted/extracted/*.v` - Individual module files
-
-**Verify conversion:**
-```bash
-make show-converted
-```
-
----
-
-##### Step 3: Build Bitstream
-
-**Full build (synthesis → place & route → bitstream):**
-```bash
-make all
-```
-
-This executes the complete FPGA build flow:
-1. **Yosys synthesis** - Converts RTL to gate-level netlist
-2. **Chipdb generation** - Creates device database (first run only)
-3. **nextpnr-xilinx** - Place and route
-4. **Bitstream generation** - Creates `build_artifacts/top.bit`
-
-**Output:**
-```
-build_artifacts/top.bit
-```
-
----
-
-##### Additional Commands
-
-The Makefile provides many utility targets. View all available options:
-
-```bash
-make help
-```
-
----
-
-##### Troubleshooting
-
-##### Environment not set up
-```
-ERROR: Please run: source /opt/openxc7/setup_env.sh
-```
-**Solution:** Source the environment script before running make.
-
-##### sv2v not found
-```
-ERROR: sv2v not found!
-```
-**Solution:** Run `make install-sv2v` or install manually.
-
-##### Missing imem.INIT.vh
-```
-ERROR: imem.INIT.vh not found
-```
-**Solution:** Build the software first (`make -f MakefileSW` from `3.build/`).
-
-##### Quick Start Summary
-
-```bash
-# 1. Install openXC7 toolchain
-# (See: https://github.com/chili-chips/openeye-CamSI/blob/main/3.build/openXC7/README.md)
-
-# 2. Install sv2v
-cd wireguard-fpga/3.build/hw_build.openXC7
-make install-sv2v
-source ~/.bashrc
-
-# 3. Build software
-cd ../
-make -f MakefileSW
-
-# 4. Build hardware
-cd hw_build.openXC7
-source /opt/openxc7/setup_env.sh
-make all
-
-# Result: build_artifacts/top.bit
-```
-
----
-
-##### Notes
-
-- **First build** will take longer due to chipdb generation for the xc7a200tfbg484-2 device
-- **Chipdb is cached** and reused for subsequent builds
-- **Conversion is incremental** - only re-runs if source files change
-- The build uses **~24 SystemVerilog modules** converted to Verilog plus **~14 pure Verilog modules** from external libraries
-- **Total source files:** ~38 modules + packages/interfaces
-
----
-
-For openXC7 toolchain issues, refer to the main installation guide:
-https://github.com/chili-chips/openeye-CamSI/blob/main/3.build/openXC7/README.md
+- Install: openXC7 per the [openeye-CamSI guide](https://github.com/chili-chips/openeye-CamSI/blob/main/3.build/openXC7/README.md); sv2v with `make install-sv2v`.
+- Run: `make TOOLCHAIN=old PREFIX=<that installation>` (default `PREFIX=/opt/openxc7`), after the firmware.
+- Key difference: it had no `BUFGMUX`, so the clock select ran through LUTs, off the clock network (see the test below).
 
 ### openXC7 issues
 
@@ -318,52 +158,4 @@ Each open item has an issue here, labelled `openXC7`. Upstream numbers without a
 
 ### Test example
 
-Results with the legacy toolchain (nextpnr-xilinx, 2025-12). With v1.0.0, `BUFGMUX` stays in the design, mapped to `BUFGCTRL` (#50).
-
-In this section, we present a simple test example to illustrate the differences between two FPGA toolchains. First, the design is synthesized and routed using Vivado, serving as a reference implementation. The same example is then processed using the openXC7 toolchain, allowing a direct comparison of synthesis and place-and-route results, as well as highlighting key differences in workflow and outputs.
-
-Note: Complete hardware is synthesised and routed, but [application](https://github.com/chili-chips/wireguard-fpga/blob/main/2.sw/app/main.cpp) running on the processor is simply testing ICMP and ARP.
-
-#### Vivado
-Build duration (synthesis + PnR): 8 minutes
-
-##### Test result:
-<img width="1401" height="556" alt="image" src="https://github.com/user-attachments/assets/4ddf11f0-bbcc-4d05-a056-c4bd6afb5585" />
-
-- Putty: App is running, ICMP and ARP logs can be seen.
-- PowerShell: All 4 messages are received successfully - no faulty packets.
-- Wireshark: Ping request/replies can be seen.
-
-#### openXC7
-Build duration (synthesis + PnR): 1 minute
-
-To support openXC7, besides multiple minor changes, 2 main Xilinx primitives needed to be adapted/removed:
-
-- IBUFGDS (adapted: IBUFDS + BUFG)
-- BUFGMUX (removed)
-
-##### Test result 1:
-<img width="1537" height="675" alt="image" src="https://github.com/user-attachments/assets/474b38a8-311e-43b2-84ff-cf4a3f8ab31e" />
-
-- Putty: App is running, ICMP and ARP logs can be seen.
-- PowerShell: All 4 messages are received successfully - no faulty packets.
-- Wireshark: Ping request/replies can be seen.
-
-##### Test result 2:
-<img width="1188" height="635" alt="image" src="https://github.com/user-attachments/assets/cb022fef-55d3-4513-b416-ee52fdef2085" />
-
-- Putty: App is running, ICMP and ARP logs can be seen.
-- PowerShell: No messages are received successfully - all packets are faulty.
-- Wireshark: Ping request can be seen - no replies.
-
-##### Test result 3:
-<img width="1544" height="473" alt="image" src="https://github.com/user-attachments/assets/c9d5c51f-b2b0-43ce-899f-45b7df54d6b6" />
-
-- Putty: App is running, ICMP and ARP logs can be seen.
-- PowerShell: Only 1 message is received successfully - 3 faulty packets.
-- Wireshark: Ping request/replies can be seen.
- 
-#### Key difference
-The main reason for this behaviour difference is the missing BUFGMUX primitive. This can be really problematic in many cases, because for the clock selection LUT would have to be used instead of BUFGMUX (clock doesn't go through clock network), which will certainly lead to delays.
-
-The delays can be seen in the examples above, which is the reason why some requests don't have adequate replies!
+The 2025-12 test, legacy toolchain, firmware answering only ICMP and ARP ([`main.cpp`](../2.sw/app/main.cpp)): Vivado built in 8 minutes and answered all 4 pings; the legacy openXC7 built in 1 minute and answered 4, 0 or 1 of 4 in three runs. The cause was the missing `BUFGMUX`: the clock select in LUTs added delay. Since v1.0.0, nextpnr keeps `BUFGMUX`, mapped to `BUFGCTRL` (nextpnr#132, #5).

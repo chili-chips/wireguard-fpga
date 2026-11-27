@@ -44,7 +44,11 @@ module top
   import csr_pkg::*;
   import soc_pkg::*;
   import dpe_pkg::*;
-(
+#(
+    // uart.sv's bus-master timeout (2**n ticks); the co-simulation sets it
+    // lower to test it in a short run (4.sim/tb.sv)
+    parameter int UART_TIMEOUT_LOG2 = 21
+) (
     input        clk_p,     //board clock positive
     input        clk_n,     //board clock negative
     input        rst_n,     //reset, low active
@@ -219,7 +223,9 @@ module top
   );
 
   //---------------------------------
-  uart u_uart (
+  uart #(
+      .TIMEOUT_LOG2 (UART_TIMEOUT_LOG2)
+  ) u_uart (
       .arst_n (sys_rst_n),  //i
       .clk    (sys_clk),    //i
 

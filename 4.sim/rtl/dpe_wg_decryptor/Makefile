@@ -6,7 +6,8 @@
 
 # LOOPBACK=0: wg_mix.pcap instead of the encryptor: RFC 8439 frames, then a keepalive,
 # an authentic packet whose IPv4 length is over its plaintext, one too long for
-# the core (all three dropped) and one more good frame. Remake it with
+# the core, one longer than its IPv4 length says (7 KB more; all four dropped,
+# the core must not overfill) and one more good frame. Remake it with
 #   python3 ../wg_check.py wgx wg_mix.pcap ../dpe_wg_encryptor/plaintext_mix.pcap
 LOOPBACK ?= 1
 VFLAGS = -GLOOPBACK=$(LOOPBACK) -Wno-PINCONNECTEMPTY -Wno-UNUSEDPARAM -Wno-UNUSEDSIGNAL -Wno-GENUNNAMED -Wno-DECLFILENAME -Wno-UNOPTFLAT

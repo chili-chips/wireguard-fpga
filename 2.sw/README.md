@@ -13,7 +13,7 @@ The conceptual class diagram provides an overview of the components in the softw
 - XChaCha20-Poly1305 - the XAEAD that encrypts and authenticates the cookie in cookie reply messages, against DoS (see [Cookies](#cookies))
 - [BLAKE2s](https://www.blake2.net) - an implementation of the BLAKE2s hash function for MAC authentication and keyed hashing, per [RFC7693](https://datatracker.ietf.org/doc/html/rfc7693)
 - [RNG](#random-number-generator-lib) - a ChaCha20 DRBG, seeded from the ring-oscillator TRNG; it supplies the ephemeral keys, receiver indices and secrets
-- Timer - cycle-counter timer; rekey, retry, and keepalive timers are planned
+- Timer - cycle-counter timer; rekey, retry, and keepalive timers are planned ([#80](https://github.com/chili-chips/wireguard-fpga/issues/80))
 - [HKDF](https://eprint.iacr.org/2010/264) - an implementation of the algorithm for expanding the ECDH result
 - [Noise handshake](#noise-handshake) - WireGuard's Noise_IKpsk2 initiation and response, and the transport keys; tested against Linux WireGuard
 - [RTC](#timestamps-across-a-reboot) - a real-time clock for the TAI64N timestamp, kept increasing across a reboot by a mark in flash
@@ -34,7 +34,14 @@ The firmware now runs WireGuard's handshake end to end, and talks to Linux WireG
 | [Random numbers](#random-number-generator-lib) ([#2](https://github.com/chili-chips/wireguard-fpga/issues/2)) | `random.c`: BLAKE2s seed from `csr.trng`, ChaCha20 DRBG; refuses on a failed health test | Python reference; RTL bench of the TRNG |
 | [Noise](#noise-handshake) | Explicit handshake states; a rejected message leaves the state untouched; secrets wiped with `bare_wipe` (volatile stores, which the compiler cannot drop) | 236 checks |
 
-Still open: the TRNG's entropy, measured on hardware; rekey timers; ARP; detecting load ([#4](https://github.com/chili-chips/wireguard-fpga/issues/4)).
+Still open:
+- the TRNG's entropy, measured on hardware; ARP
+- static keys are in the image ([#4](https://github.com/chili-chips/wireguard-fpga/issues/4))
+- anti-replay window ([#79](https://github.com/chili-chips/wireguard-fpga/issues/79))
+- WireGuard timers: rekey, retry, keepalive ([#80](https://github.com/chili-chips/wireguard-fpga/issues/80))
+- detecting load, for cookies ([#81](https://github.com/chili-chips/wireguard-fpga/issues/81))
+- Ethernet address rewrite, the next-hop MAC ([#82](https://github.com/chili-chips/wireguard-fpga/issues/82))
+- firmware state bugs ([#85](https://github.com/chili-chips/wireguard-fpga/issues/85)-[#89](https://github.com/chili-chips/wireguard-fpga/issues/89))
 
 Image: `-march=rv32im`, the unwind tables (`.eh_frame`) dropped in `link_map.lds`. IMEM 52,124 of 64 KiB (80%), DMEM 40,488 of 64 KiB with the 4 KiB stack (62%).
 
@@ -113,12 +120,7 @@ accelerations.
 - `test chacha20poly1305` (CLI) checks the RFC 8439 2.5.2 and 2.8.2 vectors
 
 ### Implementation Notes
-- Follows RFC 8439 specification.
-- Uses explicit bitwise operations (XOR, shifts, rotations).
-- No dynamic memory allocation.
-- Designed for bare-metal environments.
-- Portable across architectures.
-- Suitable for Noise / WireGuard usage.
+- RFC 8439, portable C, no heap.
 - [**Successfully tested on real hardware.**](https://github.com/chili-chips/wireguard-fpga/tree/main/99.warmup/6.chacha20poly1305_picoRV32)
 
 ## BLAKE2s lib
@@ -166,10 +168,6 @@ implementation for WireGuard, including hashing, key derivation, and HMAC constr
 ## Timer lib
 This component provides simple delay utilities based on the `csr.cycle` counter.  
 It implements millisecond and microsecond delays without relying on interrupts or external timers.
-
-The functions are intended for low-level embedded use and are primarily used within the
-Noise protocol implementation for WireGuard, where short, deterministic delays are required
-during cryptographic operations and protocol handling.
 
 ### Provided Functions
 - `delay_us(uint32_t us)`  
@@ -225,15 +223,12 @@ adapted to use the local BLAKE2s component.
 - Based on the HMAC and KDF logic used in the WireGuard Linux kernel.
 - Relies on explicit memory handling suitable for bare-metal systems.
 - No dynamic memory allocation.
-- Build passes successfully on all target platforms.
 
 ### Testing and Validation
 - This component has [**not been tested in isolation**](https://github.com/chili-chips/wireguard-fpga/tree/main/99.warmup/11.hkdf) using dedicated HKDF test vectors.
 - No official Noise KDF test vectors were available at the time of implementation.
 - Validated end to end since 2026-11-24: the Noise handshake built on it (`noise.c`) interoperates with Linux WireGuard (see [Noise handshake](#noise-handshake)).
-- The underlying BLAKE2s implementation has been **successfully tested on real hardware**.
-- Since HMAC and KDF logic is taken directly from WireGuard, and BLAKE2s is verified,
-  the implementation is assumed to be functionally correct for current use.
+- BLAKE2s is tested on hardware, and the HMAC and KDF logic follows WireGuard's.
 
 ## Noise handshake
 `noise.c` is WireGuard's handshake, Noise_IKpsk2_25519_ChaChaPoly_BLAKE2s, as in the WireGuard paper, section 5.4 [[SW1]](#sw-references): the initiation (message 1, 148 bytes), the response (message 2, 92 bytes) and the transport keys both sides derive. It builds on the libraries above: BLAKE2s for HASH and MAC, HKDF for the KDFs, X25519, ChaCha20-Poly1305.
@@ -250,7 +245,7 @@ adapted to use the local BLAKE2s component.
 - **Hand-over.** A finished handshake writes peer n's cryptokey table entry n, with the DPE paused (pause/drain): encrypt key = send key, decrypt key = receive key (one little-endian 256-bit number, as `csr.rdl`), `local_id` = our index, `remote_id` = the peer's, counters 0, and the remote MAC, IP and port the handshake came from (roaming). The handshake's secrets are then wiped. If the DPE does not drain, nothing is written and nothing answered: the initiator retries.
 - **Indices.** Random upper bits and the entry in the low 6 bits, as the disassembler expects; never one the peer still uses.
 - **Clock.** The timestamp is `rtc_now_tai64n()` ([#30](https://github.com/chili-chips/wireguard-fpga/issues/30)): strictly increasing, also across a reboot while the flash works. `wg_set_time()` (`clock set`) only moves it forward.
-- **Cookies.** Every message 1/2 is checked by `wg_cookie_validate()` before any DH work: mac1 always; under load, mac2 too, and without a valid one the sender gets a cookie reply (message 3) instead. A cookie reply to our message 1/2 is kept for our next one to that peer, not answered at once. Every message 1/2 we send gets `wg_cookie_add_mac2()`. Detecting load is [#4](https://github.com/chili-chips/wireguard-fpga/issues/4): until then `wg load` turns it on by hand. `wg_now_seconds()` (the cookie ages) is the clock's seconds; it never goes back, so a cookie cannot look newer than it is.
+- **Cookies.** Every message 1/2 is checked by `wg_cookie_validate()` before any DH work: mac1 always; under load, mac2 too, and without a valid one the sender gets a cookie reply (message 3) instead. A cookie reply to our message 1/2 is kept for our next one to that peer, not answered at once. Every message 1/2 we send gets `wg_cookie_add_mac2()`. Detecting load is [#81](https://github.com/chili-chips/wireguard-fpga/issues/81): until then `wg load` turns it on by hand. `wg_now_seconds()` (the cookie ages) is the clock's seconds; it never goes back, so a cookie cannot look newer than it is.
 - **Not done yet.** No retransmit timer: after a cookie reply, `wg initiate` sends the next message 1. One session per peer: a new handshake replaces the keys, with no previous session kept for packets in flight. No rekey timers. The endpoint MAC is entered by hand (no ARP lookup yet).
 
 CLI:
@@ -265,7 +260,7 @@ CLI:
 | `clock set <unix>` | the handshake clock, Unix seconds, only forward ([Timestamps across a reboot](#timestamps-across-a-reboot)) |
 | `flash id` | read the flash's JEDEC ID again |
 | `wg show` | our public key, the peers, the handshake, cookie and drop counters |
-| `wg load` | toggle under load (mac2 required), until [#4](https://github.com/chili-chips/wireguard-fpga/issues/4) detects it |
+| `wg load` | toggle under load (mac2 required), until [#81](https://github.com/chili-chips/wireguard-fpga/issues/81) detects it |
 
 **Testing.** [`tests/wg_session`](tests/wg_session), on the host:
 - `make test` drives a peer with `noise.c` against `wg_session.c`: answers, replays and older timestamps, unknown peers, a busy data plane, our initiation, a replayed or misdirected message 2, cookie replies both ways (under load, mac2 from the right and the wrong port), and the table entry written (keys, indices, addresses), the clock only set forward (`rtc_host.c` stands in for `rtc.c`). 53 checks.
@@ -300,7 +295,7 @@ Both parts pass (2026-11-24, kernel 6.18 in WSL2, wireguard-tools 1.0.20210914).
 ## Cookies
 `cookie.c` is WireGuard's DoS defence for the handshake (WireGuard paper, section 5.4.7 [[SW1]](#sw-references)). A responder under load does no DH work for a message 1 or 2 without a valid mac2. It sends a cookie reply (message 3, 64 bytes) instead. The cookie is `MAC(secret, ip || port)`, so only a sender that receives at that address can use it. The secret is redrawn every 2 minutes.
 
-- **Responder** (one `wg_cookie_checker_t`): `wg_cookie_validate()` checks mac1, then mac2 when under load (the caller's bool, [#4](https://github.com/chili-chips/wireguard-fpga/issues/4)). On `WG_COOKIE_SEND_REPLY`, `wg_cookie_create_reply()` builds message 3: the cookie encrypted with XChaCha20-Poly1305 under `HASH("cookie--" || our public key)`, a random 24-byte nonce, AAD = the message's mac1.
+- **Responder** (one `wg_cookie_checker_t`): `wg_cookie_validate()` checks mac1, then mac2 when under load (the caller's bool, [#81](https://github.com/chili-chips/wireguard-fpga/issues/81)). On `WG_COOKIE_SEND_REPLY`, `wg_cookie_create_reply()` builds message 3: the cookie encrypted with XChaCha20-Poly1305 under `HASH("cookie--" || our public key)`, a random 24-byte nonce, AAD = the message's mac1.
 - **Initiator** (one `wg_cookie_t` per peer): `wg_cookie_add_mac2()` on every message 1/2 sent, after mac1. `wg_cookie_consume_reply()` takes a cookie that answers the last mac1 sent, once. The cookie is used for 115 s: 120 s less 5 s for latency, as in Linux.
 - `xchacha20poly1305.c`: HChaCha20 plus the ChaCha20-Poly1305 lib, per draft-irtf-cfrg-xchacha [[SW4]](#sw-references).
 - Time comes from `wg_now_seconds()`, in `wg_session.c` (the real-time clock's seconds, `rtc_now_seconds()`, [#30](https://github.com/chili-chips/wireguard-fpga/issues/30)). Random bytes come from `random_32bytes()`, one call site ([#2](https://github.com/chili-chips/wireguard-fpga/issues/2)). Compares are constant-time, and the secrets are wiped.
@@ -324,7 +319,7 @@ The handshake responder decrypts the initiator's static public key and must find
 **Testing.** `test siphash` on the CLI checks the reference vectors (empty, 8 and 15 bytes) and the map: 64 peers set and found, a 65th refused, half removed, the rest still found. On the host, the map matched a reference model over 1 million random set/find/remove operations (ASan, UBSan).
 
 ## Multiply timing
-**The leak ([#4](https://github.com/chili-chips/wireguard-fpga/issues/4)).** RV32I has no multiply instruction, so gcc calls libgcc's `__mulsi3`, which loops over one operand's bits up to its highest 1 bit and adds only for the 1 bits. Its time depends on the operand values. In X25519 and Poly1305 those values come from the private key, the session key and the Poly1305 key. So the response time varied with the key: an attacker who measures it over many handshakes or packets could reverse-engineer the key (a timing side-channel attack).
+**The leak (fixed).** RV32I has no multiply instruction, so gcc calls libgcc's `__mulsi3`, which loops over one operand's bits up to its highest 1 bit and adds only for the 1 bits. Its time depends on the operand values. In X25519 and Poly1305 those values come from the private key, the session key and the Poly1305 key. So the response time varied with the key: an attacker who measures it over many handshakes or packets could reverse-engineer the key (a timing side-channel attack).
 
 **The fix.** The firmware is now built for `rv32im`, so X25519 and Poly1305 multiply in eduBOS5's hardware (`USE_HW_MUL=1`), in a fixed number of cycles. Measured on the RTL core (`CPU=rtl`, `csr.cycle`):
 - `mul`, `mulh`, `mulhsu`, `mulhu`: 8 cycles; `div`, `divu`, `rem`, `remu`: 36 cycles. The same for every operand pair tried, including 0, all ones, divide by zero and `0x80000000 / -1`.

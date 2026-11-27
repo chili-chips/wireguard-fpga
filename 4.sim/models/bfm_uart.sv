@@ -56,7 +56,10 @@
 //  UART_SIM_TICK_CLKS.
 //==========================================================================
 
-module bfm_uart (
+module bfm_uart #(
+   parameter bit SOP_TEST     = 1'b0,  // run sop_timeout() after the routes
+   parameter int TIMEOUT_LOG2 = 21     // the DUT's UART timeout (top UART_TIMEOUT_LOG2)
+) (
    input  logic  uart_rx,
    output logic  uart_tx
 );
@@ -158,14 +161,14 @@ module bfm_uart (
    initial MemModelWrite (ROUTES_DONE_ADDR, 0, 4'hF);
 
    // The routes of the UDP test (usercode/VUserMainUdp.cpp: node N on eth N),
-   // in plain text, by UART bus writes; the table has no reset. Then the
-   // senders go (ROUTES_DONE_ADDR), whatever the UART speed
+   // in plain text, by UART bus writes; the table has no reset. The senders
+   // go when _init sets ROUTES_DONE_ADDR (after the UART tests), whatever
+   // the UART speed
    task automatic program_routes ();
       route (0, 32'hC0A8_9801, '1, 0, 1'b0, 3'd2);  // 192.168.152.1, Node2: eth2
       route (1, 32'hC0A8_0104, '1, 0, 1'b0, 3'd4);  // 192.168.1.4, Node4: eth4
       route (2, '0, '0, 0, 1'b0, 3'd0);              // the rest: the CPU
       $display("%t UART: routing table set (3 routes)", $time);
-      MemModelWrite (ROUTES_DONE_ADDR, 1, 4'hF);
    endtask: program_routes
 
 `ifdef UART_BUS_STRESS
@@ -207,6 +210,63 @@ module bfm_uart (
    endtask: bus_stress
 `endif
 
+//- - - - - - - - - - - - - - - - - - -
+// A stray SOP (0x12, a Ctrl-R on the console), then nothing: uart.sv must
+// end the session after its timeout (TIMEOUT_LOG2, set low for this test) and
+// give the CPU the bus back; while it holds the bus, the CSR block must see
+// no access (the address waits at the DMEM base: no read side effects)
+   task automatic sop_timeout ();
+      int limit, waited, csr_hits;
+      limit    = 4 * (2 ** TIMEOUT_LOG2) * (soc_pkg::UART_TICK_CLKS + 1);
+      waited   = 0;
+      csr_hits = 0;
+      send_char (.char(8'h12));  // SOP, and no command
+      @(posedge tb.dut.u_fabric.cpu.clk iff tb.dut.u_fabric.uart_busy);
+      while (tb.dut.u_fabric.uart_busy && waited < limit) begin
+         @(posedge tb.dut.u_fabric.cpu.clk);
+         if (tb.dut.u_fabric.csr.vld) csr_hits++;
+         waited++;
+      end
+      if (!tb.dut.u_fabric.uart_busy && csr_hits == 0)
+         $display("%t UART_SOP_TEST: PASS (bus back after %0d clocks, no CSR access)",
+                  $time, waited);
+      else
+         $display("%t UART_SOP_TEST: FAIL (bus %s after %0d clocks, %0d CSR accesses)",
+                  $time, tb.dut.u_fabric.uart_busy ? "still held" : "back", waited, csr_hits);
+   endtask: sop_timeout
+
+//- - - - - - - - - - - - - - - - - - -
+// One UART bus read of a CSR (protocol of 5.test/busr.UART.py): the CSR
+// block must see exactly one read, or a register with a read side effect
+// (uart.rx.data, trng.data) would lose a word. csr.gpio has none.
+   localparam logic [31:0] CSR_GPIO = soc_pkg::CSR_BASE + 32'h48;
+
+   task automatic csr_read_once ();
+      int csr_hits;
+      csr_hits = 0;
+      fork
+         begin : count
+            forever begin
+               @(posedge tb.dut.u_fabric.cpu.clk);
+               if (tb.dut.u_fabric.uart_busy && tb.dut.u_fabric.csr.vld) csr_hits++;
+            end
+         end
+         begin : read
+            send_char (.char(8'h12));  // SOP
+            send_char (.char(8'h0F));  // BUSR
+            for (int i=0; i<4; i++) send_char (.char(CSR_GPIO[i*8 +: 8]));
+            #(60 * BITIME_NS * 1ns);   // 4 data bytes and the checksum come back
+            send_char (.char(8'h14));  // EOP
+            #(10 * BITIME_NS * 1ns);
+         end
+      join_any
+      disable fork;
+      if (csr_hits == 1)
+         $display("%t UART_SOP_TEST: CSR read PASS (1 CSR access)", $time);
+      else
+         $display("%t UART_SOP_TEST: CSR read FAIL (%0d CSR accesses, want 1)", $time, csr_hits);
+   endtask: csr_read_once
+
 
 //--------------------------------------
 // Initial greeting
@@ -228,6 +288,14 @@ module bfm_uart (
      bus_stress (`UART_BUS_STRESS_N);  // #61 first: it needs no routes
 `endif
      program_routes ();
+     if (SOP_TEST) begin
+        // after the routes: their last bus write left a CSR address (the routing
+        // table) in the UART, which the old design kept reading while it hung;
+        // before the senders: the run ends soon after the last frame
+        sop_timeout ();
+        csr_read_once ();
+     end
+     MemModelWrite (ROUTES_DONE_ADDR, 1, 4'hF);  // the UDP senders go
      //send_string ("Mi nismo mehke koze\n");
 
      //__for Command parsing and dispatch test

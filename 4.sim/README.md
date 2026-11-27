@@ -10,31 +10,38 @@ SPDX-License-Identifier: BSD-3-Clause
 ## Table of Contents
 
 * [Introduction](#introduction)
+* [VerilatorSimCtrl (interactive run control)](#verilatorsimctrl-interactive-run-control)
 * [Auto-selection of soc_cpu Component](#auto-selection-of-soc_cpu-component)
 * [_VProc_ Software](#vproc-software)
   * [Other Software Use Cases](#other-software-use-cases)
-    [Natively Compiled Application](#natively-compiled-application)
-    [RISC-V Compiled Application](#risc-v-compiled-application)
+    * [Natively Compiled Application](#natively-compiled-application)
+    * [RISC-V Compiled Application](#risc-v-compiled-application)
 * [Building and Running Code](#building-and-running-code)
   * [Configuring ISS timing model](#configuring-iss-timing-model)
   * [Running ISS code](#running-iss-code)
-* [RTL-Only Simulation Makefile](#rtl-only-simulation-makefile)
-* [JanusHDL](#janushdl)
+  * [RTL-Only Simulation Makefile](#rtl-only-simulation-makefile)
+    * [UART bus master test](#uart-bus-master-test-uart_bus_stress)
+    * [UART session test](#uart-session-test-uart_sop_test)
+  * [Sanity and regression](#sanity-and-regression)
+  * [JanusHDL](#janushdl)
 * [Debugging Code](#debugging-code)
   * [Natively Compiled Code](#natively-compiled-code)
   * [ISS Software](#iss-software)
 * [The mem_model Co-Simulation Sparse Memory Model](#the-mem_model-co-simulation-sparse-memory-model)
 * [Driving the Wireguard Logic Ethernet Ports](#driving-the-wireguard-logic-ethernet-ports)
   * [_udpIpPg_ Software](#udpippg-software)
-  + [System-Level Ethernet Simulation](#system-level-ethernet-simulation)
+  * [System-Level Ethernet Simulation](#system-level-ethernet-simulation)
+    * [PCAP replay/record quickstart](#pcap-replayrecord-quickstart-vusermainpcap)
 * [HAL](#hal)
 * [Simulation speed](#simulation-speed)
 * [Tool Versions](#tool-versions)
+  * [Local changes](#local-changes)
+  * [Timescale, delays and the UART](#timescale-delays-and-the-uart)
 * [References](#references)
 
 ## Introduction
 
-The Wireguard FPGA test bench aims to have a flexible approach to simulation which allows a common test envoironment to be used whilst selecting between alternative CPU components, one of which uses the [_VProc_ virtual processor](https://github.com/wyvernSemi/vproc) co-simulation element. This allows simulations to be fully HDL, with a RISC-V processor RTL implementation (eduBOS5 or PicoRV32), or to co-simulate software using the virtual processor, with a significant speed up in simulation times.
+The Wireguard FPGA test bench aims to have a flexible approach to simulation which allows a common test environment to be used whilst selecting between alternative CPU components, one of which uses the [_VProc_ virtual processor](https://github.com/wyvernSemi/vproc) co-simulation element. This allows simulations to be fully HDL, with a RISC-V processor RTL implementation (eduBOS5 or PicoRV32), or to co-simulate software using the virtual processor, with a significant speed up in simulation times.
 
 The _VProc_ component is wrapped up into an [`soc_cpu.VPROC`](models/README.md#soc_cpuvproc) component with identical interfaces to the RTL. Some conversion logic is added to this BFM to convert between _VProc_'s generic memory mapped interface and the <tt>soc_if</tt> defined interface. This is very lightweight logic, with less than ten combinatorial gates to match the control signals. In addition, the <tt>soc_cpu.VPROC</tt> component has a [<tt>mem_model</tt>](models/cosim/README.md) component instantiated. This is a 'memory port' to the [<tt>mem_model</tt>](https://github.com/wyvernSemi/mem_model) C software implementation of a sparse memory model, allowing updates to the RISC-V program, if using the rv32 RISC-V ISS model ([see below](#risc-v-compiled-application)). The diagram below shows a block diagram of the test bench HDL.
 
@@ -42,7 +49,13 @@ The _VProc_ component is wrapped up into an [`soc_cpu.VPROC`](models/README.md#s
 <img src="https://github.com/user-attachments/assets/98cb3a19-11c7-4470-a4e1-41c503429e14" width=800>
 </div>
 
-Shown in the diagram is the Wireguard FPGA top level component (<tt>top</tt>) with the <tt>soc_cpu.VPROC</tt> component instantiated in it as one of three possible selected devices for the soc_cpu. The IMEM write port is connected to the UART for program updates and the <tt>soc_if</tt> from  <tt>soc_cpu.VPROC</tt> is connected to the interconnect fabric (<tt>soc_fabric</tt>), just as for the two RTL components. The test bench around the top level Wireguard component has a driver for the UART (<tt>bfm_uart</tt>) and the four GMII interfaces (including MDIO signals) coming from the Wireguard core to some verification IP (`bfm_ethernet`) to drive this signalling. This BFM implementation is based around the [_udpIpPg_](https://github.com/wyvernSemi/udpIpPg) GMII VProc based VIP (RGMII support removed: the design uses GMII). In addtion there are MDIO slave models for reading and writing over the PHY MDIO signals from Wireguard, and these also read and write to allocated _VProc_ memory for access by _VProc_ `soc_cpu` code. MDIO registers access are displayed to the console as well, for logging purpose, displaying the name of the clause 22 register accessed. Finally the test bench generates the GMII clocks and the board reset (the PLL models make the system and Ethernet clocks themselves) that go to the top level's <tt>clk_rst_gen</tt> component. The keys go through <tt>debounce</tt>, which in simulation samples every 16 clocks (<tt>KEY_SAMPLE_CLKS</tt> in <tt>soc_pkg</tt>), not every 4 ms.
+The diagram shows the Wireguard FPGA top level (<tt>top</tt>) with <tt>soc_cpu.VPROC</tt> as one of three possible <tt>soc_cpu</tt> components:
+
+- The IMEM write port goes to the UART for program updates. The <tt>soc_if</tt> of <tt>soc_cpu.VPROC</tt> goes to the interconnect fabric (<tt>soc_fabric</tt>), as for the two RTL CPUs.
+- Around <tt>top</tt>, the test bench has a UART driver (<tt>bfm_uart</tt>) and drives the four GMII interfaces with `bfm_ethernet`, based on the [_udpIpPg_](https://github.com/wyvernSemi/udpIpPg) GMII VProc VIP (RGMII support removed: the design uses GMII).
+- MDIO slave models answer the PHY MDIO accesses and read and write allocated _VProc_ memory, for the _VProc_ `soc_cpu` code. Each access is logged with the name of its Clause 22 register.
+- The test bench generates the GMII clocks and the board reset for <tt>clk_rst_gen</tt>; the PLL models make the system and Ethernet clocks.
+- The keys go through <tt>debounce</tt>, which in simulation samples every 16 clocks (<tt>KEY_SAMPLE_CLKS</tt> in <tt>soc_pkg</tt>), not every 4 ms.
 
 ## VerilatorSimCtrl (interactive run control)
 
@@ -71,7 +84,7 @@ The Wireguard's top level component has the required RTL files listed in <tt>1.h
 
 ## VProc Software
 
-The VProc software consists of DPI-C code for communication and sycnronisation with the simulation, for both the memory model and VProc itself. On top of this are the APIs for VProc and mem_model for use by the running code. In the case of VProc there is a low level C API) or, if preferred, a C++ API. In Wireguard, the VProc <tt>soc_cpu</tt> is node 0, and so the entry point for user software is <tt>VUserMain0</tt>, in place of <tt>main</tt>.
+The VProc software consists of DPI-C code for communication and synchronisation with the simulation, for both the memory model and VProc itself. On top of this are the APIs for VProc and mem_model for use by the running code. In the case of VProc there is a low level C API) or, if preferred, a C++ API. In Wireguard, the VProc <tt>soc_cpu</tt> is node 0, and so the entry point for user software is <tt>VUserMain0</tt>, in place of <tt>main</tt>.
 
 The _VProc_ software is compiled into libraries located in `4.sim/models/cosim/lib`, with the headers in `4.sim/models/cosim/include (see [here](models/cosim/README.md) for more details). The C++ API is defined in a class <tt>VProc</tt> (defined in <tt>VProcClass.h</tt>), and a constructor creates an API object, defining the node for which it is connected:
 
@@ -238,9 +251,9 @@ A <tt>MakefileVProc.mk</tt> file is provided in the <tt>4.sim/</tt> directory to
 make -f MakefileVProc.mk USER_C="VUserMain0.cpp MyTest1Class.cpp"
 ```
 
-If many variants of software build are required then either scripts can be constructed with the various command line variable modification calls to `make` or other make files which set these varaiable and call the common make file. This is useful in managing source code for multiple tests located in different directories, compiling for ISS (perhaps also calling the RISC-V application build), or for compiling application code natively which will have a different set of source files.
+If many variants of software build are required then either scripts can be constructed with the various command line variable modification calls to `make` or other make files which set these variables and call the common make file. This is useful in managing source code for multiple tests located in different directories, compiling for ISS (perhaps also calling the RISC-V application build), or for compiling application code natively which will have a different set of source files.
 
-The user software is compiled into a local static library, <tt>libuser.a</tt>, which is linked to the simulation code within Verilator along with <tt>libvproc.a</tt>. The make file builds <tt>libvproc.a</tt> with *VProc*'s own Verilator make file: *VProc*, *mem_model*, the VerilatorSimCtrl node and, with <tt>BUILD=ISS</tt>, the ISS integration code. It clones *VProc* and *mem_model* next to the repository, one directory per version (<tt>../../vproc-ae80e5b5-(<tt>../../vproc-VERSION_1_13_4</tt>, <tt>../../mem_model-c7b9c62</tt>)lt;patch sha(<tt>../../vproc-VERSION_1_13_4</tt>, <tt>../../mem_model-c7b9c62</tt>)gt;</tt>, <tt>../../mem_model-c7b9c62</tt>; the VProc directory also names the hash of its patch), and takes their C headers from there. Neither library is tracked. A change of <tt>CPU</tt>, <tt>BUILD</tt>, of the model versions or of <tt>ISS_BUS_CREDIT</tt> deletes the objects and both libraries (stamp file <tt>obj/.build</tt>), so DEFAULT and ISS builds cannot mix. The HDL for these models is in <tt>4.sim/models/cosim</tt>, at the same versions. <tt>models/cosim/lib/libcosimlnx.a</tt> and <tt>models/cosim/include</tt> are not used by the build.
+The user software is compiled into a local static library, <tt>libuser.a</tt>, which is linked to the simulation code within Verilator along with <tt>libvproc.a</tt>. The make file builds <tt>libvproc.a</tt> with *VProc*'s own Verilator make file: *VProc*, *mem_model*, the VerilatorSimCtrl node and, with <tt>BUILD=ISS</tt>, the ISS integration code. It clones *VProc* and *mem_model* next to the repository, one directory per version (<tt>../../vproc-ae80e5b5-&lt;patch sha&gt;</tt>, <tt>../../mem_model-c7b9c62</tt>; the VProc directory also names the hash of its patch), and takes their C headers from there. Neither library is tracked. A change of <tt>CPU</tt>, <tt>BUILD</tt>, of the model versions or of <tt>ISS_BUS_CREDIT</tt> deletes the objects and both libraries (stamp file <tt>obj/.build</tt>), so DEFAULT and ISS builds cannot mix. The HDL for these models is in <tt>4.sim/models/cosim</tt>, at the same versions. <tt>models/cosim/lib/libcosimlnx.a</tt> and <tt>models/cosim/include</tt> are not used by the build.
 
 The <tt>MakefileVProc.mk</tt> make file has a target <tt>help</tt>, which produces the following output:
 
@@ -272,9 +285,9 @@ Command line configurable variables:
 
 By default, without a named target, the simulation executable will be built but not run. With a <tt>run</tt> target, the simulation executable is built and then executed in batch mode. To fire up waveforms after the run, a target of <tt>rungui</tt> or </tt>gui</tt> can be used. A target of <tt>clean</tt> removes all intermediate files of previous compilations.
 
-The make file has a set of variables (with default settings) that can be overridden on running <tt>make</tt>. E.g. <tt>make VAR=NewVal</tt>. The help output shows these variables with brief decriptions. Entries with multiple values should be enclosed in double quotes. By default the firmware is built for the host, but if <tt>BUILD</tt> is set to <tt>ISS</tt>, then the rv32 ISS and VProc program is compiled and, in this case, the <tt>USER_C</tt> and <tt>USRCODEDIR</tt> are ignored as the make file compiles the supplied source code for the ISS.
+The make file has a set of variables (with default settings) that can be overridden on running <tt>make</tt>. E.g. <tt>make VAR=NewVal</tt>. The help output shows these variables with brief descriptions. Entries with multiple values should be enclosed in double quotes. By default the firmware is built for the host, but if <tt>BUILD</tt> is set to <tt>ISS</tt>, then the rv32 ISS and VProc program is compiled and, in this case, the <tt>USER_C</tt> and <tt>USRCODEDIR</tt> are ignored as the make file compiles the supplied source code for the ISS.
 
-The <tt>USER_C</tt> and <tt>USERCODEDIR</tt> make file variable allows different (and multiple) user source file names to override the defaults, and to change the location of where the user code is located (if not the ISS build). This allows different programs to be run by simply changing these variable, and to organise the different source code in different directories etc. By default, the VProc code is compiled for debugging (<tt>-g</tt>), but this can be overridden by changing <tt>OPTFLAG</tt>. The trace and timing options can also be overridden to allow a faster executable. The Wireguard <tt>top.filelist</tt> filename can be overridden to allow multiple configurations to be selected from, if required. The processing of this file to remove the listed <tt>soc_cpu</tt> HDL files is selected on a pattern (<tt>ip.cpu</tt>) but this can be changed using <tt>SOCCPUMATCH</tt>. If any additional options for Verilator are required, then these can be added to <tt>USRSIMOPTS</tt>. WaveCrux is selected with <tt>WAVECRUX</tt>, and the session it suggests with <tt>WAVESESSION</tt>.
+The <tt>USER_C</tt> and <tt>USRCODEDIR</tt> make file variables allow different (and multiple) user source file names to override the defaults, and to change the location of where the user code is located (if not the ISS build). This allows different programs to be run by simply changing these variables, and to organise the different source code in different directories etc. By default, the VProc code is compiled for debugging (<tt>-g</tt>), but this can be overridden by changing <tt>OPTFLAG</tt>. The trace and timing options can also be overridden to allow a faster executable. The Wireguard <tt>top.filelist</tt> filename can be overridden to allow multiple configurations to be selected from, if required. The processing of this file to remove the listed <tt>soc_cpu</tt> HDL files is selected on a pattern (<tt>ip.cpu</tt>) but this can be changed using <tt>SOCCPUMATCH</tt>. If any additional options for Verilator are required, then these can be added to <tt>USRSIMOPTS</tt>. WaveCrux is selected with <tt>WAVECRUX</tt>, and the session it suggests with <tt>WAVESESSION</tt>.
 
 The simulation ends when the test is done: the last receiving UDP node (<tt>VUserMainUdp.cpp</tt>: both frames in; <tt>VUserMainPcap.cpp</tt>: every replayed frame in) sets the _udpIpPg_ halt, and <tt>tb.sv</tt> stops 10 us later. <tt>TIMEOUTUS</tt>, in microseconds, is the time limit for a test that never finishes. Some example commands using the make file are shown below:
 
@@ -381,7 +394,7 @@ Note that the disassembled output is a mixture of 32-bit and compressed 16-bit i
 | Command | Does |
 |---|---|
 | `make sim` | `make -f MakefileVProc.mk CPU=rtl run` |
-| `make wave` | the same, then GTKWave |
+| `make wave` | the same, then WaveCrux (`gui`) |
 | `make clean` | clean |
 
 All `MakefileVProc.mk` variables apply, e.g. `make sim TIMEOUTUS=7000`.
@@ -400,6 +413,23 @@ cd 4.sim   && make sim TIMEOUTUS=7000 USRSIMOPTS="+define+UART_BUS_STRESS +defin
 ```
 
 It ends with `CHK_UART_BUS: PASS` or `FAIL`.
+
+#### UART session test (`UART_SOP_TEST`)
+
+`tb.sv` parameters, set with Verilator `-G`: `UART_SOP_TEST=1` runs two checks in `bfm_uart` after the routes, before the UDP senders go; `UART_TIMEOUT_LOG2` shortens the UART's bus-master timeout (`top`, default 21, about 2.1 s) to fit a short run.
+
+- A stray SOP (`0x12`) and no command: the UART must end the session after its timeout and give the CPU the bus back, with no CSR access meanwhile.
+- One UART read of `csr.gpio`: the CSR block must see exactly one read, so a register with a read side effect (`uart.rx.data`, `trng.data`) loses nothing.
+
+```
+cd 4.sim && make -f MakefileVProc.mk CPU=rtl run USRSIMOPTS="-GUART_SOP_TEST=1 -GUART_TIMEOUT_LOG2=10"
+```
+
+Each check prints `UART_SOP_TEST: ... PASS` or `FAIL`; `run-sanity.sh` runs it.
+
+### Sanity and regression
+
+`bash run-sanity.sh` (about 8 min, after every change) runs the firmware's host tests, the data-path block benches and the co-simulation with the RTL CPU. `bash run-regression.sh` (about 30 min, before a push) runs the sanity set, then the other benches, simulators, the VProc-CPU co-simulation and the UART bus stress. Both print one line per run, keep logs in `4.sim/logs/`, and exit 1 if any run fails. Run them in a local copy: the co-simulation builds in `4.sim`.
 
 ### JanusHDL
 
@@ -452,7 +482,7 @@ Details of the memory model can be found in the [README.md](models/cosim/README.
 
 ## Driving the Wireguard Logic Ethernet Ports
 
-The Wireguard FPGA logic has interfaces for four Ethernet ports, transferring UDP/Ipv4 packets over GMII for 1GbE. Accompanying each Ethernet port is also an MDIO interface used for configuring the PHY with IEEE802.3 Clasue 22 registers. In order to drive these interfaces, the test bench has a [`bfm_ethernet`](models/README.md#the-bfm_ethernet-ethernet-driver-module) module based on the [udpIpPg VIP](https://github.com/wyvernSemi/udpIpPg) to generate packets over GMII, along with  [bfm_phy_mdio blocks](models/README.md#the-bfm_phy_mdio-mdio-slave-driver-module) to respond to the MDIO transactions and which map the registers to address ranges within in the [mem_model's](https://github.com/wyvernSemi/mem_model) memory space via instantiated mem_model HDL components.
+The Wireguard FPGA logic has interfaces for four Ethernet ports, transferring UDP/Ipv4 packets over GMII for 1GbE. Accompanying each Ethernet port is also an MDIO interface used for configuring the PHY with IEEE 802.3 Clause 22 registers. In order to drive these interfaces, the test bench has a [`bfm_ethernet`](models/README.md#the-bfm_ethernet-ethernet-driver-module) module based on the [udpIpPg VIP](https://github.com/wyvernSemi/udpIpPg) to generate packets over GMII, along with  [bfm_phy_mdio blocks](models/README.md#the-bfm_phy_mdio-mdio-slave-driver-module) to respond to the MDIO transactions and which map the registers to address ranges within in the [mem_model's](https://github.com/wyvernSemi/mem_model) memory space via instantiated mem_model HDL components.
 
 <div align="center"><img width= "500" src="https://github.com/user-attachments/assets/5d441c97-9d9f-43d7-99da-d5156b7d106d"></div>
 
@@ -582,18 +612,16 @@ On the RISC-V core they are loads and stores: `lw`, and `sb`, `sh` or `sw` as wi
 
 > **Why `CSR_VP_GAP`.** The host runs the firmware in zero simulated time between two accesses. Without the gap, accesses come back to back, faster than any core issues them, and a polling loop costs one _VProc_ round trip (a thread switch between simulator and C code) per bus cycle, which makes the co-simulation slower in wall-clock time than the RTL core. The 8 cycles are about what a core spends on the instructions between two accesses. To change it: `make -f MakefileVProc.mk clean`, then `make -f MakefileVProc.mk OPTFLAG="-g -DCSR_VP_GAP=<n>" run`.
 
-The firmware source has no co-simulation code but four spots:
+The firmware source has no co-simulation code but three spots:
 
 - **Entry point:** every _VProc_ node starts at `VUserMain<n>`, and the simulator has its own `main()`. So the firmware is compiled with `-Dmain=fw_main`, and [`usercode/VUserMain0.cpp`](usercode/VUserMain0.cpp) calls it.
 - **Halt and reboot:** `ebreak` and `jr zero` (`2.sw/app/main.cpp`) become a loop that ticks the _VProc_ node, so the simulation runs on to its end.
 - **C library:** the bare-metal `memset`, `memcpy` and `memcmp` (`string_bare.c`) give way to the host's, which GCC needs under those names; the firmware's own `bare_strlen` and `bare_strcmp` run in the co-simulation too.
-- **UART output:** `uart_send_char()` (`uart.c`) prints to the simulation log instead of waiting on the 115200-baud UART. The boot banner would otherwise keep the firmware out of its main loop, which forwards ETH_1 <-> ETH_2 frames, for about 40 ms.
-
 ## Simulation speed
 
 The default test, simulation only (`make -f MakefileVProc.mk run` once `make -f MakefileVProc.mk all` has built it). Each run alone, on one PC (Ryzen 9 6900HX, WSL2, Verilator 5.055):
 
-| Run | Before (`24fc84d`) | Now |
+| Run | Before (`24fc84d`) | 2026-11-16 |
 |---|---:|---:|
 | Firmware on the host (`BUILD=DEFAULT`) | 291 s (2.0 ms simulated) | 11 s (3.7 ms simulated) |
 | Firmware on the rv32 ISS (`BUILD=ISS`) | over 900 s, stopped | 12 s |

@@ -182,7 +182,11 @@ def main(mode, *paths):
         ip[2:4] = (len(ip) + 64).to_bytes(2, 'big')  # more than the plaintext holds
         hostile = [wg_from_pt(b''),  # a keepalive: the tag alone
                    wg_from_pt(bytes(ip) + bytes(padded_len(len(ip)) - len(ip))),  # authentic
-                   wg_from_pt(bytes(2048))]  # more than the core takes (2032)
+                   wg_from_pt(bytes(2048)),  # more than the core takes (2032)
+                   # longer than its IPv4 length says: 7,168 bytes after it (an
+                   # Ethernet frame passes the MAC FIFO up to 8 KB), which
+                   # must not overfill the core (the next frame still decrypts)
+                   wg_from_pt(bytes(64)) + bytes(range(256)) * 28]
         write_pcap(paths[0], [wg_frame(f) for f in plain] + hostile + [wg_frame(plain[0])])
         return 0
     plain, out = [f for f in packets(paths[0]) if plausible(f)], packets(paths[1])

@@ -180,13 +180,16 @@ section built around the same kind of diagram:
 | [src/chacha20poly1305_tb.py](src/chacha20poly1305_tb.py) | Native testbench top for random/stress checks and performance measurement. |
 | [src/chacha20poly1305_syn_tb.py](src/chacha20poly1305_syn_tb.py) | Fixed-vector testbench top. |
 | [src/poly1305/mac_components_tb.py](src/poly1305/mac_components_tb.py), [src/poly1305/paired_path_tb.py](src/poly1305/paired_path_tb.py) | Poly1305 component and paired-path testbenches. |
+| [soc/](soc/) | The SoC's gzip'd Verilog: the shared core `top.filelist` uses, and the standalone encrypt and decrypt cores for the block benches. |
+| [latency_hints/](latency_hints/) | Kept pipeline depths (`latency_profile.json`) per profile, for `--latency-hints`. |
+| [pipelinec.ref](pipelinec.ref) | Oldest PipelineC commit this design works with. |
 | `generated-files/` | Ignored local build outputs, synthesis cache, and measurements. |
 
 ## Setup and options
 
 Run commands from `3.build/pypeline_build`. Use Python 3 with `cryptography`
 for reference checks, and a PypelineC checkout with its dependencies installed.
-Vivado is needed for hardware synthesis; 2019.2 and 2026.1 both work.
+Vivado is needed for hardware synthesis; 2019.2, 2026.1 and 2026.2 work.
 PipelineC runs `vivado` from `PATH`, else from `$XILINX_VIVADO`, else from its
 built-in default install path. Generated-VHDL simulation uses GHDL and cocotb,
 and Verilog export additionally uses Yosys.
@@ -402,7 +405,7 @@ on costs under 1% of the simulation time.
 | --- | --- |
 | `default` | The random run: 12 packets per direction, plus a tampered one for decrypt. |
 | `stress` | `-D TB_STRESS=1`: directed lengths up to 2032 bytes, input gaps, output stalls, and a mid-run tamper. |
-| `closure` | `-D TB_CLOSURE=1`: 36 packets from a greedy set cover, so every length-dependent bin below is reached for both beat widths and up to eight MAC lanes. All but the three the long length classes need (1024, 1027 and 2032 bytes) are at most 201 bytes. |
+| `closure` | `-D TB_CLOSURE=1`: 36 packets from a greedy set cover, so every length-dependent bin below is reached for both beat widths and up to eight MAC lanes. All but the three the long length classes need (1024, 1091 and 2032 bytes) are at most 198 bytes. |
 
 **What is binned.** Functional bins must be hit; timing bins are reported.
 
@@ -619,7 +622,8 @@ Issues filed upstream from this design, open and closed.
 | --- | --- | --- | --- | --- |
 | PipelineC | [PipelineC#396](https://github.com/JulianKemmerer/PipelineC/issues/396) ([#37](https://github.com/chili-chips/wireguard-fpga/issues/37)) | Feature: auto-pipeliner aware of DSP48 boundaries. The Poly1305 coefficient product `(c0·r + c1) mod p` infers 36 DSP48E1 but runs them combinationally. | None needed; 80 MHz is met by more stages. | open |
 | PipelineC | [PipelineC#397](https://github.com/JulianKemmerer/PipelineC/issues/397) ([#38](https://github.com/chili-chips/wireguard-fpga/issues/38)) | Feature: faster sweep. The default build takes 1 h 55 min on Vivado 2026.1, 54 min of it in 7 whole-design syntheses of all three MAINs. | Reuse the latency memory and `--syn-cache`, or pass a kept `latency_profile.json` as `--latency-hints`. | open |
-| PipelineC | [PipelineC#400](https://github.com/JulianKemmerer/PipelineC/issues/400) ([#59](https://github.com/chili-chips/wireguard-fpga/issues/59)) | Feature: unique module names per top. The standalone encrypt and decrypt netlists share 419 module names, so Verilator needs `-Wno-MODDUP` and keeps one body of each. | `build.py --enc` and `--dec` pass `--module_prefix enc_` and `dec_`. | fixed in 4e7a7ced (`--module_prefix`), closed; `soc/*.v.gz` rebuilt with it 2026-11-23, the benches no longer need `-Wno-MODDUP` (65.6 MHz on Vivado 2026.2: simulation only, [#59](https://github.com/chili-chips/wireguard-fpga/issues/59)) |
+| PipelineC | [PipelineC#400](https://github.com/JulianKemmerer/PipelineC/issues/400) ([#59](https://github.com/chili-chips/wireguard-fpga/issues/59)) | Feature: unique module names per top. The standalone encrypt and decrypt netlists share 419 module names, so Verilator needs `-Wno-MODDUP` and keeps one body of each. | `build.py --enc` and `--dec` pass `--module_prefix enc_` and `dec_`. | fixed in 4e7a7ced (`--module_prefix`), closed; the standalone `soc/` cores rebuilt with it 2026-11-23 for the block benches, which no longer need `-Wno-MODDUP` (65.6 MHz on Vivado 2026.2: simulation only, [#59](https://github.com/chili-chips/wireguard-fpga/issues/59)). The SoC uses the shared core, `soc/chacha20poly1305_encrypt_decrypt_shared.v.gz` (2026-11-24). |
+| PipelineC | [PipelineC#394](https://github.com/JulianKemmerer/PipelineC/issues/394) | Bug: an empty VHDL record from an untyped namedtuple, which Vivado 2026.1 and GHDL reject; it stopped two 256-bit builds ([appendix](#appendix-vivado-20261-profile-comparison)). | Workaround in PipelineC `5b816e9d`. | fixed (99e5e018) |
 | PipelineC | [PipelineC#398](https://github.com/JulianKemmerer/PipelineC/issues/398) ([#42](https://github.com/chili-chips/wireguard-fpga/issues/42)) | Feature: prove the generated HDL equal to the Python source by formal equivalence (LEQ): an unpipelined reference HDL from the same source, a latency-shifted miter, Yosys or SymbiYosys. | Simulation only; our RTL LEQ, `3.build/hw_build.openXC7/run-leq.sh`, is the example. | open |
 
 ## Appendix: Vivado 2026.1 profile comparison

@@ -78,6 +78,7 @@ Thumbs.db
 /4.sim/obj/
 /4.sim/obj_dir/
 /4.sim/output/
+/4.sim/logs/
 /4.sim/rtl/*/output/
 /4.sim/libvproc.a
 /4.sim/libuser.a

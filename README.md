@@ -21,7 +21,7 @@ SPDX-License-Identifier: BSD-3-Clause
 [![JanusHDL:WIP](https://badgen.net/badge/JanusHDL/WIP/orange)](https://que.no/janushdl/)
 [![Lint](https://badgen.net/github/checks/chili-chips/wireguard-fpga/main/run-lint?label=Lint)](https://github.com/chili-chips/wireguard-fpga/actions/workflows/lint.yml)
 [![Verible](https://badgen.net/github/checks/chili-chips/wireguard-fpga/main/verible?label=Verible)](https://github.com/chili-chips/wireguard-fpga/actions/workflows/verible.yml)
-[![openXC7:Pass](https://badgen.net/badge/openXC7/Pass/green)](3.build/hw_build.openXC7)
+[![openXC7:Pass (DUMMY switch)](https://badgen.net/badge/openXC7/Pass/green)](3.build/README.md#hw-compilation---openxc7 "Pass with the DUMMY switch on v1.0.0; the real switch does not route yet (#68)")
 
 # Wireguard FPGA
 Virtual Private Networks (VPNs) are the central and indispensable component of Internet security. They comprise a set of technologies that connect geographically dispersed, heterogeneous networks through encrypted tunnels, creating the impression of a homogenous private network on the public shared physical medium. 
@@ -142,7 +142,7 @@ The hardware architecture essentially follows the HW/SW partitioning and consist
 
 The soft CPU is [eduBOS5](1.hw/ip.cpu/cpu.EDUBOS5/README.md) (default; its store fix passes the [`UART_BUS_STRESS`](4.sim/README.md#uart-bus-master-test-uart_bus_stress) simulation, hardware check pending) or PicoRV32, picked in [`1.hw/top.filelist`](1.hw/top.filelist). It runs from on-chip memory: 64 kB IMEM and 64 kB DMEM ([`1.hw/top.sv`](1.hw/top.sv)). This memory serves only the control plane and does not store packets. The connection between the control and data planes is established through a CSR-based HAL.
 
-The data plane consists of several IP cores, including data plane engine (DPE) and supporting components, which are listed and explained in the direction of network traffic propagation. The default build's DPE is multiplexer -> dummy switch (a fixed crossbar) -> demultiplexer. Swapping in [`dpe_switch.sv`](1.hw/ip.dpe/dpe_switch.sv) puts the WireGuard data path between them: disassembler, decryptor, IP lookup and encryptor ([`1.hw/top.filelist`](1.hw/top.filelist)). It is linted and simulated as a whole ([`4.sim/rtl/dpe_switch`](4.sim/rtl/dpe_switch)), but not yet built.
+The data plane consists of several IP cores, including data plane engine (DPE) and supporting components, which are listed and explained in the direction of network traffic propagation. The default build's DPE is multiplexer -> WireGuard switch ([`dpe_switch.sv`](1.hw/ip.dpe/dpe_switch.sv): disassembler, decryptor, IP lookup, encryptor, one shared ChaCha20-Poly1305 core) -> demultiplexer. The alternative is `dpe_switch.DUMMY.sv`, a fixed crossbar ([`1.hw/top.filelist`](1.hw/top.filelist)). The switch is linted and simulated as a whole ([`4.sim/rtl/dpe_switch`](4.sim/rtl/dpe_switch)); it does not route on openXC7 yet ([#68](https://github.com/chili-chips/wireguard-fpga/issues/68)).
 - _PHY Controller_ - initial configuration of Realtek PHYs and monitoring link activity (link up/down events)
 - _1G MAC_ - execution of the 1G Ethernet protocol (framing, flow control, FCS, etc.)
 - _Rx FIFOs_ - clock domain crossing, bus width conversion, and store & forward packet handling
@@ -195,7 +195,7 @@ The details of software architecture can be found in the [README.md](./2.sw/READ
 
 ### Multiply time does not depend on the key
 
-**The problem** ([#4](https://github.com/chili-chips/wireguard-fpga/issues/4)). RV32I has no multiply instruction, so the firmware multiplied in libgcc's `__mulsi3`, a loop whose time depends on the operand values. In X25519 and Poly1305 those values come from the keys. So the response time varied with the key: an attacker who measures it over many handshakes or packets could reverse-engineer the key (a timing side-channel attack).
+**The problem** (fixed: X25519 timing, hardware multiply). RV32I has no multiply instruction, so the firmware multiplied in libgcc's `__mulsi3`, a loop whose time depends on the operand values. In X25519 and Poly1305 those values come from the keys. So the response time varied with the key: an attacker who measures it over many handshakes or packets could reverse-engineer the key (a timing side-channel attack).
 
 **How it is addressed.** eduBOS5 now multiplies in hardware (RV32M, `USE_HW_MUL=1`) in a fixed number of cycles, and the firmware is built for `rv32im`. On the RTL core, `poly1305_mac` on a 64-byte message takes 5222 cycles for every key tried; built for `rv32i`, it took 36790 to 73334 cycles, depending on the key. Details: [Multiply timing](./2.sw/README.md#multiply-timing).
 
@@ -297,7 +297,7 @@ The figure illustrates a test topology consisting of two remote hosts, A and B, 
 ---
 # Project Execution Plan / Tracking
 
-This project in the final wrap up phase. The checkmarks below indicate status. Until all checkmarks are in place, anything you get from here is w/o guaranty -- Use at own risk, as you see fit, and don't blame us if it is not working 🌤️
+This project is in its final wrap-up phase. The checkmarks below indicate status. Until all checkmarks are in place, anything you get from here is w/o guaranty -- Use at own risk, as you see fit, and don't blame us if it is not working 🌤️
 
 ## Take1
 **Board bring up. In-depth review of Wireguard ecosystem and prior art. Design Blueprint**
@@ -381,9 +381,9 @@ This is about managing the bring-up, maintenance and tear-down of VPN tunnels be
 
 - ✅ Porting to openXC7 [Ref8] using [SV2V](https://github.com/zachjs/sv2v)
   - This is challenging, as openXC7 has thus far been crashing for NES SV
-  - Ported to openXC7 v1.0.0 (Yosys 0.69 + nextpnr-himbaechel) on 2026-10-21, now with `read_slang` instead of sv2v ([3.build](3.build/README.md#hw-compilation---openxc7))
+  - Ported to openXC7 v1.0.0 (Yosys 0.69 + nextpnr-himbaechel) on 2026-10-21, now with `read_slang` instead of sv2v; built from openXC7 main since 2026-11-26 ([3.build](3.build/README.md#hw-compilation---openxc7))
 
-- ✅ Timing closure with openXC7 v1.0.0: eduBOS5 meets every clock at the default seed 2 (seed sweep 2026-11-23, [#3](https://github.com/chili-chips/wireguard-fpga/issues/3)); RX margins are thin, so sweep again after RTL changes. With the DUMMY switch: the real switch does not route yet ([#68](https://github.com/chili-chips/wireguard-fpga/issues/68))
+- ✅ Timing closure with openXC7 v1.0.0: eduBOS5 meets every clock at the default seed 2 (seed sweep 2026-11-23, [#3](https://github.com/chili-chips/wireguard-fpga/issues/3)); RX margins are thin, so sweep again after RTL changes. With the DUMMY switch: the real switch does not route yet ([#68](https://github.com/chili-chips/wireguard-fpga/issues/68)). We build openXC7 main since 2026-11-26
   - This is definitely challenging, given that openXC7 is currently without accurate timing-driven STA
 
 - ✅ Filing bug tickets with open source developers for issues found in their tools, supporting them all the way to the resolution
@@ -472,34 +472,38 @@ If it was not for **Julian Kemmerer's** unreserved support helping us move our t
 
 | Tool / project | Issue | What | State |
 |---|---|---|---|
-| openXC7 nextpnr | nextpnr#125 | no mapping for `BUFGMUX` | fixed on main ([nextpnr#132](https://github.com/openXC7/nextpnr/pull/132)), not released |
-| openXC7 nextpnr | [nextpnr#185](https://github.com/openXC7/nextpnr/issues/185) | XDC targets other than `get_ports` / `get_cells` abort the run | fixed on main ([nextpnr#193](https://github.com/openXC7/nextpnr/pull/193)), not released |
-| openXC7 nextpnr | [nextpnr#184](https://github.com/openXC7/nextpnr/issues/184) | a differential input needs its N pin constrained | fixed on main ([nextpnr#194](https://github.com/openXC7/nextpnr/pull/194)), not released |
+| openXC7 nextpnr | nextpnr#125 | no mapping for `BUFGMUX` | fixed on main ([nextpnr#132](https://github.com/openXC7/nextpnr/pull/132)), which we build since 2026-11-26; `bufgmux_map.v` removed |
+| openXC7 nextpnr | [nextpnr#185](https://github.com/openXC7/nextpnr/issues/185) | XDC targets other than `get_ports` / `get_cells` abort the run | fixed on main ([nextpnr#193](https://github.com/openXC7/nextpnr/pull/193)), which we build since 2026-11-26 |
+| openXC7 nextpnr | [nextpnr#184](https://github.com/openXC7/nextpnr/issues/184) | a differential input needs its N pin constrained | fixed on main ([nextpnr#194](https://github.com/openXC7/nextpnr/pull/194)), which we build since 2026-11-26 |
 | openXC7 nextpnr | [nextpnr#181](https://github.com/openXC7/nextpnr/issues/181) | no legal placement for a CARRY4 at 48% CARRY4 use, XC7A200T ([#33](https://github.com/chili-chips/wireguard-fpga/issues/33)) | open |
 | openXC7 nextpnr | [nextpnr#230](https://github.com/openXC7/nextpnr/issues/230) | router2 prints nothing for 1 h 40 min in its first iteration; no max-iterations or timeout option ([#68](https://github.com/chili-chips/wireguard-fpga/issues/68)) | open |
-| openXC7 nextpnr | [nextpnr#241](https://github.com/openXC7/nextpnr/issues/241) | an undeclared clock into a `BUFGMUX` is dropped silently; a default-timed clock warns but passes; ask: Vivado-style constraint checks ([#72](https://github.com/chili-chips/wireguard-fpga/issues/72)) | open |
+| openXC7 nextpnr | [nextpnr#241](https://github.com/openXC7/nextpnr/issues/241) | an undeclared clock into a `BUFGMUX` is dropped silently; a `BUFGMUX` output is timed with one input clock only (25 MHz MII picked over 125 MHz GTX, so `eN_txc` stays out of nextpnr's XDC); a default-timed clock warns but passes; ask: Vivado-style constraint checks ([#72](https://github.com/chili-chips/wireguard-fpga/issues/72)) | open |
 | openXC7 nextpnr | [nextpnr#242](https://github.com/openXC7/nextpnr/issues/242) | feature: allow combinational loops selectively (`ALLOW_COMBINATORIAL_LOOPS` per net); today `--ignore-loops` for the whole SoC, for the TRNG rings ([#75](https://github.com/chili-chips/wireguard-fpga/issues/75)) | open |
 | openXC7 nextpnr | [nextpnr#243](https://github.com/openXC7/nextpnr/issues/243) | feature: honour `ASYNC_REG` (synchronizer placement), `IOB = "TRUE"` (I/O flops) and `DONT_TOUCH` ([#76](https://github.com/chili-chips/wireguard-fpga/issues/76)) | open |
 | Yosys | [yosys#6567](https://github.com/YosysHQ/yosys/issues/6567) | `synth_xilinx` packs an `ASYNC_REG` synchronizer chain into an `SRL16E` ([#76](https://github.com/chili-chips/wireguard-fpga/issues/76)) | open |
+| EQY (YosysHQ) | [eqy#108](https://github.com/YosysHQ/eqy/issues/108) | the partitioner aborts on a Yosys assert (MEMID) when memories are not collected; `run-eqy.sh` runs `memory_collect` ([#90](https://github.com/chili-chips/wireguard-fpga/issues/90)) | open |
 | openXC7 nextpnr | [nextpnr#244](https://github.com/openXC7/nextpnr/issues/244) | proposal: fpgacapZero as the open on-chip logic analyzer (ChipScope ILA replacement); builds on main ([#77](https://github.com/chili-chips/wireguard-fpga/issues/77)) | open |
 | GateMate nextpnr | [YosysHQ/nextpnr#1952](https://github.com/YosysHQ/nextpnr/issues/1952) | an undeclared clock is timed at 12 MHz with no warning; a fabric clock mux drops its declared input clock (pointer: [prjpeppercorn#41](https://github.com/YosysHQ/prjpeppercorn/issues/41); [#72](https://github.com/chili-chips/wireguard-fpga/issues/72)) | open |
 | PipelineC (Pypeline) | [PipelineC#394](https://github.com/JulianKemmerer/PipelineC/issues/394) | empty VHDL record from an untyped namedtuple; Vivado 2026.1 and GHDL reject it ([#35](https://github.com/chili-chips/wireguard-fpga/issues/35), [Pypeline issues](3.build/pypeline_build/README.md#issues-filed-upstream)) | fixed (`99e5e018`) |
+| PipelineC (Pypeline) | [PipelineC#395](https://github.com/JulianKemmerer/PipelineC/issues/395) | an enum field's NULL calls `<enum>_to_slv` before its body is elaborated (GHDL `-Welaboration`, generated `c_structs_pkg`) ([#36](https://github.com/chili-chips/wireguard-fpga/issues/36)) | fixed, closed |
 | PipelineC (Pypeline) | [PipelineC#396](https://github.com/JulianKemmerer/PipelineC/issues/396) | feature: auto-pipeliner aware of DSP48 boundaries, to absorb its registers into the DSP48 ([#37](https://github.com/chili-chips/wireguard-fpga/issues/37)) | open |
 | PipelineC (Pypeline) | [PipelineC#397](https://github.com/JulianKemmerer/PipelineC/issues/397) | feature: faster sweep, with less repeated whole-design synthesis ([#38](https://github.com/chili-chips/wireguard-fpga/issues/38)) | open |
 | PipelineC (Pypeline) | [PipelineC#398](https://github.com/JulianKemmerer/PipelineC/issues/398) | feature: formal equivalence (LEQ) between the Python source and the generated HDL ([#42](https://github.com/chili-chips/wireguard-fpga/issues/42)) | open |
 | PipelineC (Pypeline) | [PipelineC#400](https://github.com/JulianKemmerer/PipelineC/issues/400) | feature: unique module names per top (`--module_prefix`); the encrypt and decrypt netlists share 419 names ([#59](https://github.com/chili-chips/wireguard-fpga/issues/59)) | fixed in 4e7a7ced (`--module_prefix`), closed; `soc/*.v.gz` rebuilt with it 2026-11-23 (65.6 MHz, simulation only) |
-| JanusHDL | [#1](https://github.com/chili-chips/wireguard-fpga/issues/1) | 0.17.0: what simulates and what does not | all listed items fixed in 0.21.0, `+define+SYNTHESIS` workaround removed; the full system now runs, but too slowly to end (about 1 of 4 ms in 20 min) |
+| JanusHDL | [#1](https://github.com/chili-chips/wireguard-fpga/issues/1) | 0.17.0: what simulates and what does not | all listed items fixed in 0.21.0, `+define+SYNTHESIS` workaround removed; on 0.22.0 the full co-simulation ends (15 min 38 s); the crypto benches: [#64](https://github.com/chili-chips/wireguard-fpga/issues/64) |
 | JanusHDL | [#41](https://github.com/chili-chips/wireguard-fpga/issues/41) | 0.17.0: a member of a struct-typed signal in an interface names nothing | fixed in 0.21.0, closed |
 | JanusHDL | [#47](https://github.com/chili-chips/wireguard-fpga/issues/47) | 0.17.0: a cast to a named type (`len16_t'(...)`) in a constant expression is not evaluated | fixed in 0.20.0, closed |
 | JanusHDL | [#53](https://github.com/chili-chips/wireguard-fpga/issues/53) | 0.20.0: a struct `localparam` set by a named-member assignment pattern is rejected | fixed in 0.21.0, closed |
 | JanusHDL | [#54](https://github.com/chili-chips/wireguard-fpga/issues/54) | 0.20.0: an element of an interface instance array (`link[k]`) is rejected on an interface port | fixed in 0.21.0, closed |
+| JanusHDL | [#64](https://github.com/chili-chips/wireguard-fpga/issues/64) | 0.21.0: the ChaCha20-Poly1305 benches do not finish in 20 min | open |
 | JanusHDL | [#55](https://github.com/chili-chips/wireguard-fpga/issues/55) | 0.20.0: `$bits` of a type is not a constant in a part-select bound | fixed in 0.21.0, closed |
-| JanusHDL | [#56](https://github.com/chili-chips/wireguard-fpga/issues/56) | 0.20.0: a task argument default of `'1` gives 1, not all ones | default fixed in 0.21.0; an explicit `'1` argument fixed for 0.22.0 (not released) |
+| JanusHDL | [#56](https://github.com/chili-chips/wireguard-fpga/issues/56) | 0.20.0: a task argument default of `'1` gives 1, not all ones | default fixed in 0.21.0, an explicit `'1` argument in 0.22.0; closed |
 | Icarus Verilog | [iverilog#1820](https://github.com/steveicarus/iverilog/issues/1820) | `unique if` / `unique0 if` / `priority if`: syntax error ([#43](https://github.com/chili-chips/wireguard-fpga/issues/43)) | open |
 | Icarus Verilog | [iverilog#1821](https://github.com/steveicarus/iverilog/issues/1821) | an interface port's parameter rejected in a constant expression ([#44](https://github.com/chili-chips/wireguard-fpga/issues/44)) | open |
 | Icarus Verilog | [iverilog#266](https://github.com/steveicarus/iverilog/issues/266) | unpacked structs (our case added; [#45](https://github.com/chili-chips/wireguard-fpga/issues/45)) | open |
 | Icarus Verilog | [iverilog#1840](https://github.com/steveicarus/iverilog/issues/1840) | a task or function argument default of `'1` gives 1, not all ones ([#57](https://github.com/chili-chips/wireguard-fpga/issues/57)) | open |
 | Icarus Verilog | [iverilog#1895](https://github.com/steveicarus/iverilog/issues/1895) | a variable index into a packed struct member (`p.data[i]`) is an error; bench source and sink use a flat vector ([#66](https://github.com/chili-chips/wireguard-fpga/issues/66)) | open |
+| Icarus Verilog | [iverilog#1877](https://github.com/steveicarus/iverilog/issues/1877) | a queue of a packed struct is not supported; our benches do not need one ([#63](https://github.com/chili-chips/wireguard-fpga/issues/63), closed) | open |
 | Icarus Verilog | [iverilog#1901](https://github.com/steveicarus/iverilog/issues/1901) | a `force` from a task on a continuously assigned port fails elaboration; `trng_bank` drives `smp` from `always_comb` ([#69](https://github.com/chili-chips/wireguard-fpga/issues/69)) | open |
 | Verilator | [verilator#9373](https://github.com/verilator/verilator/issues/9373) | feature: warn on `always @*` with a timing control, which never waits by design ([verilator#9196](https://github.com/verilator/verilator/issues/9196)); `trng_bank` uses an explicit sensitivity list ([#71](https://github.com/chili-chips/wireguard-fpga/issues/71)) | open |
 | udpIpPg (wyvernSemi) | [#50](https://github.com/chili-chips/wireguard-fpga/issues/50) | 1.0.5 sends a 6-byte GMII preamble (802.3: 7); fixed here by [`udpIpPg-preamble.patch`](4.sim/models/udpIpPg/udpIpPg-preamble.patch) | not filed upstream: fixed by our patch |
@@ -512,7 +516,7 @@ If it was not for **Julian Kemmerer's** unreserved support helping us move our t
 | LintCrux (Ferrite) | [lintcrux#60](https://github.com/Ferrite-Engineering/lintcrux/issues/60) | feature: XDC/SDC constraint checks like Vivado `check_timing` and `report_methodology` ([#72](https://github.com/chili-chips/wireguard-fpga/issues/72)) | open |
 | LintCrux (Ferrite) | [lintcrux#61](https://github.com/Ferrite-Engineering/lintcrux/issues/61) | feature: report an async set/reset/clear driven by combinational logic (Vivado LUTAR-1) ([#73](https://github.com/chili-chips/wireguard-fpga/issues/73)) | open |
 | LintCrux (Ferrite) | [lintcrux#62](https://github.com/Ferrite-Engineering/lintcrux/issues/62) | proposal: CDC engine after Bedrock's cdc_snitch (per-pin D/CE/reset classes, mixed-domain logic, unmarked crossings) ([#74](https://github.com/chili-chips/wireguard-fpga/issues/74)) | open |
-| LintCrux (Ferrite) | [lintcrux#63](https://github.com/Ferrite-Engineering/lintcrux/issues/63) | feature: check IOB flops at every data pin, and synchronizer flops packed into an SRL16E ([#78](https://github.com/chili-chips/wireguard-fpga/issues/78)) | open |
+| LintCrux (Ferrite) | [lintcrux#63](https://github.com/Ferrite-Engineering/lintcrux/issues/63) | feature: check IOB flops at every data pin, and synchronizer flops packed into an SRL16E ([#83](https://github.com/chili-chips/wireguard-fpga/issues/83)) | open |
 | Yosys | [yosys#6565](https://github.com/YosysHQ/yosys/issues/6565) | proposal: a native CDC check pass, after Bedrock's cdc_snitch ([#74](https://github.com/chili-chips/wireguard-fpga/issues/74)) | open |
 | openXC7 nextpnr-xilinx | [nextpnr-xilinx#75](https://github.com/openXC7/nextpnr-xilinx/issues/75) | `BUFGMUX` not supported (legacy toolchain) | closed (fixed, [nextpnr-xilinx#81](https://github.com/openXC7/nextpnr-xilinx/pull/81)) |
 | openXC7 nextpnr-xilinx | [nextpnr-xilinx#74](https://github.com/openXC7/nextpnr-xilinx/issues/74) | `IBUFGDS` not supported (legacy toolchain) | closed |

@@ -1460,7 +1460,7 @@ int main(void) {
          } else if (bare_strcmp(uart_rx_data, "wg show\n") == 0) {
             wg_cli_show();
          } else if (bare_strcmp(uart_rx_data, "wg load\n") == 0) {
-            wg_set_under_load(!wg_under_load());  // until #4 detects load
+            wg_set_under_load(!wg_under_load());  // until #81 detects load
             uart_send(wg_under_load() ? "  Under load: mac2 required.\r\n" : "  Not under load.\r\n");
          } else if (bare_strcmp(uart_rx_data, "debug\n") == 0) {
             debug_enabled = !debug_enabled;

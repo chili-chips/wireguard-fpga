@@ -45,7 +45,12 @@ module tb #(
    parameter int RUN_SIM_US     = 10000,
    parameter int ETH_START_NODE = 1,
    parameter int MDIO_BUFF_ADDR = 32'h50000000,
-   parameter int DISABLE_SIM_CTRL = 1
+   parameter int DISABLE_SIM_CTRL = 1,
+   // the UART's bus-master timeout (top, uart.sv: 2**n ticks), and the stray
+   // SOP test that checks it (bfm_uart.sv); set with Verilator -G, e.g.
+   // USRSIMOPTS="-GUART_SOP_TEST=1 -GUART_TIMEOUT_LOG2=10"
+   parameter int UART_TIMEOUT_LOG2 = 21,
+   parameter bit UART_SOP_TEST     = 1'b0
 )();
    glbl glbl();
 
@@ -192,7 +197,9 @@ module tb #(
 // verilator lint_on UNUSEDSIGNAL
    logic        qspi_cs, qspi_d0, qspi_d1;
 
-   top dut (
+   top #(
+      .UART_TIMEOUT_LOG2 (UART_TIMEOUT_LOG2)
+   ) dut (
       .clk_p   (clk_p),
       .clk_n   (clk_n),
       .rst_n   (rst_n),
@@ -377,7 +384,10 @@ assign gmii[3].txd  = e4_txd;
 //--------------------------------------------------------------
 // model of external UART
 //--------------------------------------------------------------
-   bfm_uart bfm_uart (
+   bfm_uart #(
+      .SOP_TEST     (UART_SOP_TEST),
+      .TIMEOUT_LOG2 (UART_TIMEOUT_LOG2)
+   ) bfm_uart (
       .uart_rx  (uart_tx), //i
       .uart_tx  (uart_rx)  //o
    );

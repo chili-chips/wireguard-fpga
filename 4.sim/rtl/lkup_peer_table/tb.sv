@@ -15,7 +15,8 @@
 //      order, the key words in order; the decryptor's entry holds its key
 //      only.
 //   3. The disassembler's lookup: each entry's local_id matches and gives
-//      its entry; with other upper bits it does not.
+//      its entry; with other upper bits it does not, nor does index 0 on an
+//      entry whose local_id is 0 (unwritten or cleared).
 //   4. The send_cnt write-back, seen by the encryptor and by the CPU; a CPU
 //      write in the same clock wins.
 //==========================================================================
@@ -179,6 +180,10 @@ module tb;
     foreach (model[e]) check_rcv(model[e][CK_LOCAL_ID], 1'b1, e);
     check_rcv(model[9][CK_LOCAL_ID] ^ 32'h0100_0000, 1'b0, 9);  // other upper bits
     check_rcv(model[9][CK_LOCAL_ID] ^ 32'h0000_0001, 1'b0, 9);  // another entry's index
+    // an unwritten (or cleared) entry holds local_id 0: index 0 must not match
+    csr_write(0, int'(CK_LOCAL_ID), 32'h0);
+    check_rcv(32'h0, 1'b0, 0);
+    csr_write(0, int'(CK_LOCAL_ID), model[0][CK_LOCAL_ID]);
 
     // 4. the send_cnt write-back
     @(negedge clk);
