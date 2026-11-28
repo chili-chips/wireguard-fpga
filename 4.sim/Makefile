@@ -9,7 +9,7 @@
 # CPU=rtl; see README.md, "RTL-Only Simulation".
 #
 #   make sim                                  build and run
-#   make sim TIMEOUTUS=7000 USRSIMOPTS="+define+UART_BUS_STRESS"
+#   make sim TIMEOUTUS=7000 USRSIMOPTS="-GUART_BUS_STRESS_N=16"
 #   make wave                                 build, run, then WaveCrux
 #   make clean
 #==========================================================================

@@ -36,7 +36,37 @@ ISS_BUS_CREDIT   = 1
 # UART time base in simulation, in clocks (-1): 7 runs the UART 10 times
 # faster than the hardware's 1us tick (79 at 80 MHz), so console output costs
 # little simulated time. The firmware drives the real UART registers either way.
-UART_SIM_TICK_CLKS ?= 7
+UART_TICK_CLKS ?= 7
+# 0: no waveform (no wave.fst; the run is faster)
+TRACE            = 1
+# 1: the end-to-end WireGuard test (README.md "End-to-end WireGuard test"):
+# usercode/VUserMainWg.cpp plays a remote peer (eth1) and a LAN host (eth2)
+# against the firmware, configured over the UART console (tb WG_E2E). The
+# firmware runs its WireGuard timers WG_TIME_SCALE times faster, and calls
+# the bench's table read-back (WG_E2E_HOOK). TRACE, TIMEOUTUS and
+# UART_TICK_CLKS have their own defaults then
+WG_E2E           = 0
+WG_TIME_SCALE    = 20000
+
+ifeq ("$(WG_E2E)", "1")
+  ifeq ($(origin TRACE), file)
+    TRACE        = 0
+  endif
+  # the console set-up: 40 times the hardware's UART speed
+  ifeq ($(origin UART_TICK_CLKS), file)
+    UART_TICK_CLKS = 1
+  endif
+  ifeq ($(origin TIMEOUTUS), file)
+    TIMEOUTUS    = 200000
+  endif
+  E2E_DEFS       = -DWG_TIME_SCALE=$(WG_TIME_SCALE) -DWG_E2E_HOOK
+  E2E_INCL       = -I$(CURDIR)/../2.sw/app -I$(CURDIR)/../3.build/csr_build \
+                   -I$(CURDIR)/../3.build/csr_build/generated-files
+endif
+ifeq ("$(TRACE)", "0")
+  TRACEOPTS      =
+  TRACEDEFS      = -DNO_TRACE
+endif
 
 # --------------------------------------------
 # Global exported environment variables
@@ -125,9 +155,14 @@ else
   # sources and defines as 3.build/MakefileSW.
   USER_C        := VUserMain0.cpp $(USER_C)
   FW_C           = uart ethernet network string_bare chacha20 poly1305 chacha20poly1305 \
-                   curve25519 x25519 blake2s hkdf random timer siphash peer_map noise wg_session \
+                   curve25519 x25519 blake2s hkdf random timer noise wg_session \
                    xchacha20poly1305 cookie flash rtc
   FW_CPP         = main
+endif
+
+# WG_E2E=1: the peer and the LAN host in place of the UDP test
+ifeq ("$(WG_E2E)", "1")
+  UDP_C          = VUserMainWg.cpp
 endif
 
 # --------------------------------------------
@@ -142,8 +177,8 @@ CPPSTD           = -std=c++20
 # C/C++ include paths for VProc, memory model and user code. The VProc and
 # mem_model headers come from the clones only (not models/cosim/include, which
 # is for the RTL-only Makefile), so one version is used.
-INCLPATHS        = -I$(USRCODEDIR) -I$(UDPCODEDIR) -I$(UDPDIR)/include -I$(VPROCDIR)/code -I$(VPROCDIR)/verilator/src -I$(MEMMODELDIR)/src -I$(VPROC_USRCDIR) $(RV32INCLOPTS)
-DEFS             = -DVERILATOR -DVPROC_SV -DVPROC
+INCLPATHS        = -I$(USRCODEDIR) -I$(UDPCODEDIR) -I$(UDPDIR)/include -I$(VPROCDIR)/code -I$(VPROCDIR)/verilator/src -I$(MEMMODELDIR)/src -I$(VPROC_USRCDIR) $(RV32INCLOPTS) $(E2E_INCL)
+DEFS             = -DVERILATOR -DVPROC_SV -DVPROC $(E2E_DEFS)
 
 # Object directories: libuser, libvproc (VProc's make file) and the ISS
 # library each have their own, so a file name in two of them cannot collide
@@ -201,7 +236,8 @@ $(USROBJDIR)/%.o: $(UDPCODEDIR)/%.cpp | $(USROBJDIR) $(VPROCDIR) $(MEMMODELDIR)
 # or of the user code lists (USER_C, UDP_C) throws the objects and both
 # libraries away, so the next build cannot mix them. obj/.build holds the
 # configuration of the last build.
-BUILD_CFG        = $(CPU) $(BUILD) $(VPROCVERSION) $(MEMVERSION) $(ISS_BUS_CREDIT) $(USER_C) $(UDP_C)
+BUILD_CFG        = $(CPU) $(BUILD) $(VPROCVERSION) $(MEMVERSION) $(ISS_BUS_CREDIT) $(USER_C) $(UDP_C) \
+                   $(WG_E2E) $(WG_TIME_SCALE)
 BUILD_STAMP      = $(VOBJDIR)/.build
 $(BUILD_STAMP): FORCE
 	@mkdir -p $(VOBJDIR)
@@ -252,19 +288,19 @@ SIMOPTS       = --cc                                          \
                 $(TRACEOPTS) $(TIMINGOPT) $(USRSIMOPTS)       \
                 -GRUN_SIM_US=$(TIMEOUTUS)                     \
                 -GDISABLE_SIM_CTRL=$(DISABLE_SIM_CTRL)        \
+                -GUART_TICK_CLKS=$(UART_TICK_CLKS)            \
+                -GWG_E2E=$(WG_E2E)                            \
                 $(VPROCDIR)/verilator/verilator_sim_ctrl.sv   \
                 -Mdir $(WORKDIR)                              \
                 -Wno-WIDTH
 
 SIMDEFS          = +define+VPROC_BYTE_ENABLE                  \
-                   +define+SIM_ONLY                           \
-                   +define+UART_SIM_TICK_CLKS=$(UART_SIM_TICK_CLKS) \
-#                                                             \
-#                   +define+SDRAM_DEBUG                       \
-#                   +define+UART_BFM_DEBUG
+                   +define+SIM_ONLY
+# debug prints need no define: run $(SIMEXE) with +CSR_DEBUG=1, +RAM_DEBUG=1,
+# +UART_DEBUG=1 or +UART_BFM_DEBUG=1
 
 SIMINCLPATHS     = -I$(CURDIR) -I$(COSIMDIR) -I$(UDPDIR)/verilator -I$(VPROCDIR) -I$(VPROCDIR)/verilator -I$(MEMMODELDIR)
-SIMCFLAGS        = -std=c++20 -Wno-attributes $(USRCFLAGS)
+SIMCFLAGS        = -std=c++20 -Wno-attributes $(TRACEDEFS) $(USRCFLAGS)
 
 # Get OS type
 OSTYPE          := $(shell uname)
@@ -289,6 +325,8 @@ ifeq ("$(SIM)", "janushdl")
                    $(VPROCDIR)/verilator/verilator_sim_ctrl.sv \
                    -gRUN_SIM_US=$(TIMEOUTUS)                  \
                    -gDISABLE_SIM_CTRL=$(DISABLE_SIM_CTRL)     \
+                   -gUART_TICK_CLKS=$(UART_TICK_CLKS)         \
+                   -gWG_E2E=$(WG_E2E)                         \
                    --sv-lib $(SIMEXE) $(USRSIMOPTS)
 else ifneq ("$(SIM)", "verilator")
   $(error SIM must be verilator or janushdl (got "$(SIM)"))
@@ -455,7 +493,10 @@ help:
 	@$(info $(SPC) $(SPC) TIMEOUTUS:        Test bench timeout period in microseconds (default 10000))
 	@$(info $(SPC) $(SPC) DISABLE_SIM_CTRL: Disable/enable Verilator simulation control (default disabled))
 	@$(info $(SPC) $(SPC) ISS_BUS_CREDIT:   BUILD=ISS: 1 for bus credit and no fetch/load wait states (default 1))
-	@$(info $(SPC) $(SPC) UART_SIM_TICK_CLKS: UART time base in clocks-1; 7 = 10x the hardware speed, 79 = hardware (default 7))
+	@$(info $(SPC) $(SPC) UART_TICK_CLKS:     UART time base in clocks-1; 7 = 10x the hardware speed, 79 = hardware (default 7))
+	@$(info $(SPC) $(SPC) TRACE:            0: no waveform, faster (default 1; 0 with WG_E2E=1))
+	@$(info $(SPC) $(SPC) WG_E2E:           1: the end-to-end WireGuard test, usercode/VUserMainWg.cpp (default 0))
+	@$(info $(SPC) $(SPC) WG_TIME_SCALE:    WG_E2E=1: the firmware's WireGuard timers this many times faster (default 20000))
 	@$(info )
 
 #======================================================

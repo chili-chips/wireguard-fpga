@@ -51,7 +51,8 @@
 //   - the disassembler finds WireGuard data packets of a known receiver
 //     index and gives them their peer; others pass the decryptor
 //     (bypass_stage);
-//   - the decryptor decrypts them with the peer's decrypt_key;
+//   - the decryptor decrypts them with the peer's decrypt_key, dropping
+//     replays (the peer's replay window, recv_cnt and recv_win, #79);
 //   - the egress lookup routes every packet by its IPv4 destination: port,
 //     peer, and whether it goes through the tunnel (the route's encrypt
 //     flag, as bypass_stage clear for the encryptor);
@@ -141,8 +142,10 @@ module dpe_switch
 
   wg_receiver_t wg_rcv;
   rcv_rsp_t     rcv_rsp;
-  peer_req_t dec_req, enc_req;
-  wg_peer_cfg_t dec_peer, enc_peer;
+  wg_dec_req_t  dec_req;
+  peer_req_t    enc_req;
+  wg_dec_peer_t dec_peer;
+  wg_peer_cfg_t enc_peer;
   logic dis_idle, dec_idle, lkup_idle, enc_idle;
 
   dpe_wg_disassembler u_disassembler (

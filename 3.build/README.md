@@ -13,7 +13,7 @@ The build process for the WireGuard project consists of three steps:
 
 ## Tool Versions
 
-Build and lint tools as used locally (WSL, 2026-11-26). CI installs the latest OSS CAD Suite nightly instead ([`lint.yml`](../.github/workflows/lint.yml)). Simulation tools: [`4.sim` Tool Versions](../4.sim/README.md#tool-versions).
+Build and lint tools as used locally (WSL, 2026-11-27). CI uses OSS CAD Suite 2026-11-26; [`lint.yml`](../.github/workflows/lint.yml) builds the same Verilator master revision, [`lintcrux.yml`](../.github/workflows/lintcrux.yml) uses the suite's. Simulation tools: [`4.sim` Tool Versions](../4.sim/README.md#tool-versions).
 
 | Tool | In use | Use | Source |
 |---|---|---|---|
@@ -21,11 +21,11 @@ Build and lint tools as used locally (WSL, 2026-11-26). CI installs the latest O
 | openXC7 | main (2026-11-26): Yosys 0.71+134 (`f960e972`), nextpnr-himbaechel 1.0.0-396-g7077312a | open-source flow | [openXC7](https://github.com/openXC7) |
 | yosys-slang | OSS CAD Suite 2026-11-26 | `read_slang` front end, lint | [povik/yosys-slang](https://github.com/povik/yosys-slang) |
 | sv2v | 0.0.13 | `FRONTEND=sv2v` | [zachjs/sv2v](https://github.com/zachjs/sv2v) |
-| Verible | v0.0-4296-g0f262651 | format, lint | [chipsalliance/verible](https://github.com/chipsalliance/verible) |
-| Verilator | 5.055 devel (`v5.054-260-gb9f22851`) | lint | [verilator.org](https://verilator.org) |
+| Verible | v0.0-4302-gc6b29d62 | format, lint | [chipsalliance/verible](https://github.com/chipsalliance/verible) |
+| Verilator | 5.055 devel (master `v5.054-420-g1b3f232f`, 2026-11-27; CI builds the same) | lint | [verilator.org](https://verilator.org) |
 | GHDL | 7.0.0-dev (`6.0.0.r793.g39bd39022`, OSS CAD Suite 2026-11-26; latest release v6.0.0) | Pypeline VHDL lint, cocotb sim | [ghdl/ghdl](https://github.com/ghdl/ghdl) |
 | Yosys + GHDL plugin | 0.71+128 (OSS CAD Suite 2026-11-26) | Pypeline VHDL to Verilog | [YosysHQ/oss-cad-suite-build](https://github.com/YosysHQ/oss-cad-suite-build) |
-| LintCrux | 1.2.0 (the free open-core CLI) | lint: GHDL, Verilator, Verible, slang and svlint in one run, baseline gate, SARIF ([`run-lintcrux.sh`](lintcrux_build/run-lintcrux.sh), CI: [`lintcrux.yml`](../.github/workflows/lintcrux.yml), which pins every engine, OSS CAD Suite 2026-11-12) | [lintcrux.app](https://lintcrux.app) |
+| LintCrux | 1.2.0 (the free open-core CLI) | lint: GHDL, Verilator, Verible, slang and svlint in one run, baseline gate, SARIF ([`run-lintcrux.sh`](lintcrux_build/run-lintcrux.sh), CI: [`lintcrux.yml`](../.github/workflows/lintcrux.yml), which pins every engine, OSS CAD Suite 2026-11-26) | [lintcrux.app](https://lintcrux.app) |
 | svlint | v0.9.5 | LintCrux lint, functional rules ([`.svlint.toml`](../.svlint.toml)) | [dalance/svlint](https://github.com/dalance/svlint) |
 | PipelineC (Pypeline) | the commit in [`pipelinec.ref`](pypeline_build/pipelinec.ref) | crypto core | [JulianKemmerer/PipelineC](https://github.com/JulianKemmerer/PipelineC) |
 | cocotb | 2.1.0 | Pypeline generated-VHDL sim | [cocotb.org](https://www.cocotb.org) |

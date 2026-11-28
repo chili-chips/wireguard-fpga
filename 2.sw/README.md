@@ -13,11 +13,11 @@ The conceptual class diagram provides an overview of the components in the softw
 - XChaCha20-Poly1305 - the XAEAD that encrypts and authenticates the cookie in cookie reply messages, against DoS (see [Cookies](#cookies))
 - [BLAKE2s](https://www.blake2.net) - an implementation of the BLAKE2s hash function for MAC authentication and keyed hashing, per [RFC7693](https://datatracker.ietf.org/doc/html/rfc7693)
 - [RNG](#random-number-generator-lib) - a ChaCha20 DRBG, seeded from the ring-oscillator TRNG; it supplies the ephemeral keys, receiver indices and secrets
-- Timer - cycle-counter timer; rekey, retry, and keepalive timers are planned ([#80](https://github.com/chili-chips/wireguard-fpga/issues/80))
+- Timer - cycle-counter timer; the WireGuard timers (rekey, retransmit, reject, keepalive) are in `wg_session.c` ([#80](https://github.com/chili-chips/wireguard-fpga/issues/80), [Timers](#timers))
 - [HKDF](https://eprint.iacr.org/2010/264) - an implementation of the algorithm for expanding the ECDH result
 - [Noise handshake](#noise-handshake) - WireGuard's Noise_IKpsk2 initiation and response, and the transport keys; tested against Linux WireGuard
 - [RTC](#timestamps-across-a-reboot) - a real-time clock for the TAI64N timestamp, kept increasing across a reboot by a mark in flash
-- [SipHash](https://en.wikipedia.org/wiki/SipHash) - a keyed hash (SipHash-2-4) behind the hash table that finds a peer by its decrypted static public key; its secret key keeps an attacker from flooding the table
+- [Peer lookup](#peer-lookup) - finds a peer by its decrypted static public key (a search of the 63 peers)
 - Routing DB Updater - a subsystem for maintaining the cryptokey routing table content and deploying it to the data plane via the HAL/CSR interface
 - ICMP - implementing basic ICMP protocol functions (echo request/reply, TTL exceeded, etc.)
 - CLI - a USB/UART-based command-line interface for configuring the WireGuard node (setting the local IP address, remote peer IP addresses, network addresses, keys, etc.)
@@ -28,7 +28,7 @@ The firmware now runs WireGuard's handshake end to end, and talks to Linux WireG
 
 | Area | What is new | Tested |
 |---|---|---|
-| [Sessions](#sessions-from-a-handshake-to-the-data-plane) ([#28](https://github.com/chili-chips/wireguard-fpga/issues/28)) | `wg_session.c`: handshake over UDP, replay check, keys written to the cryptokey table under pause/drain, CLI `wg ...` | 53 checks; Linux kernel interop |
+| [Sessions](#sessions-from-a-handshake-to-the-data-plane) ([#28](https://github.com/chili-chips/wireguard-fpga/issues/28)) | `wg_session.c`: handshake over UDP, replay check, keys written to the cryptokey table under pause/drain, the [session pool](#session-pool) ([#85](https://github.com/chili-chips/wireguard-fpga/issues/85)), CLI `wg ...` | 159 checks; Linux kernel interop, also a rekey |
 | [Cookies](#cookies) ([#29](https://github.com/chili-chips/wireguard-fpga/issues/29)) | `cookie.c`, `xchacha20poly1305.c`: mac2 and cookie replies (message 3) | 271 checks; kernel interop under load |
 | [Timestamps](#timestamps-across-a-reboot) ([#30](https://github.com/chili-chips/wireguard-fpga/issues/30)) | `rtc.c`, `flash.c`: RTC plus a high-water mark in SPI flash; CLI `clock`, `flash id` | RTL bench with a flash model |
 | [Random numbers](#random-number-generator-lib) ([#2](https://github.com/chili-chips/wireguard-fpga/issues/2)) | `random.c`: BLAKE2s seed from `csr.trng`, ChaCha20 DRBG; refuses on a failed health test | Python reference; RTL bench of the TRNG |
@@ -37,13 +37,10 @@ The firmware now runs WireGuard's handshake end to end, and talks to Linux WireG
 Still open:
 - the TRNG's entropy, measured on hardware; ARP
 - static keys are in the image ([#4](https://github.com/chili-chips/wireguard-fpga/issues/4))
-- anti-replay window ([#79](https://github.com/chili-chips/wireguard-fpga/issues/79))
-- WireGuard timers: rekey, retry, keepalive ([#80](https://github.com/chili-chips/wireguard-fpga/issues/80))
-- detecting load, for cookies ([#81](https://github.com/chili-chips/wireguard-fpga/issues/81))
 - Ethernet address rewrite, the next-hop MAC ([#82](https://github.com/chili-chips/wireguard-fpga/issues/82))
 - firmware state bugs ([#85](https://github.com/chili-chips/wireguard-fpga/issues/85)-[#89](https://github.com/chili-chips/wireguard-fpga/issues/89))
 
-Image: `-march=rv32im`, the unwind tables (`.eh_frame`) dropped in `link_map.lds`. IMEM 52,124 of 64 KiB (80%), DMEM 40,488 of 64 KiB with the 4 KiB stack (62%).
+Image: `-march=rv32im`, the unwind tables (`.eh_frame`) dropped in `link_map.lds`. IMEM 53,940 of 64 KiB (82%), DMEM 35,176 of 64 KiB with the 4 KiB stack (54%). The CLI shows and edits the network configuration and the routing and cryptokey tables from one field list each (`main.cpp`: `show_fields`, `edit_fields`).
 
 ## curve25519 (x25519) lib
 This component provides a minimal Curve25519 (X25519) implementation used for
@@ -233,7 +230,7 @@ adapted to use the local BLAKE2s component.
 ## Noise handshake
 `noise.c` is WireGuard's handshake, Noise_IKpsk2_25519_ChaChaPoly_BLAKE2s, as in the WireGuard paper, section 5.4 [[SW1]](#sw-references): the initiation (message 1, 148 bytes), the response (message 2, 92 bytes) and the transport keys both sides derive. It builds on the libraries above: BLAKE2s for HASH and MAC, HKDF for the KDFs, X25519, ChaCha20-Poly1305.
 
-- No I/O, no RNG: the caller passes the ephemeral key, finds the peer from the decrypted static key (the peer map) and checks the TAI64N timestamp.
+- No I/O, no RNG: the caller passes the ephemeral key, finds the peer from the decrypted static key ([Peer lookup](#peer-lookup)) and checks the TAI64N timestamp.
 - An all-zero X25519 result (a low-order public key) is refused, mac1 is compared in constant time, and the secrets are wiped.
 - A bad response leaves the initiation usable: the initiator works on copies.
 - mac2 and cookie replies are `cookie.c`'s ([Cookies](#cookies)); `wg_session.c` calls both. The timestamps grow also across a reboot ([Timestamps across a reboot](#timestamps-across-a-reboot)).
@@ -241,12 +238,13 @@ adapted to use the local BLAKE2s component.
 ### Sessions: from a handshake to the data plane
 `wg_session.c` runs the handshake for the firmware: the peers, the replay check, and the hand-over of the keys to the data plane. `main.cpp` gives it the UDP frames and the hardware (`wg_hw_*`: RNG, cryptokey table); the clock is `rtc.c`'s.
 
-- **Receive.** A UDP frame to our IP and WireGuard port is a handshake message (the data plane keeps the data messages). Message 1 is checked on a scratch state, the peer is found from its static key (the peer map), and its TAI64N must be newer than the last one accepted from it. Only then does the peer's state change: we answer with message 2 to the source address. Message 2 must answer our pending initiation (its receiver index). Anything else is dropped and counted.
-- **Hand-over.** A finished handshake writes peer n's cryptokey table entry n, with the DPE paused (pause/drain): encrypt key = send key, decrypt key = receive key (one little-endian 256-bit number, as `csr.rdl`), `local_id` = our index, `remote_id` = the peer's, counters 0, and the remote MAC, IP and port the handshake came from (roaming). The handshake's secrets are then wiped. If the DPE does not drain, nothing is written and nothing answered: the initiator retries.
+- **Receive.** A UDP frame to our IP and WireGuard port is a handshake message (the data plane keeps the data messages). Message 1 is checked on a scratch state. The peer is found from its static key ([Peer lookup](#peer-lookup)) right after the first X25519 decrypts it, so an unknown key costs one X25519, not two; the second, `DH(s_i, S_r)`, is cached per peer (`wg_static_static()`, 32 bytes, computed at `wg peer add` or `wg key`), which also saves one in our initiation. Its TAI64N must be newer than the last one accepted from it. Only then does the peer's state change: we answer with message 2 to the source address. Message 2 must answer our pending initiation (its receiver index). Anything else is dropped and counted.
+- **Handshake slots.** Our initiation in flight keeps its Noise state (268 B) in one of `WG_HS_SLOTS` = 8 shared slots, not in the peer (saves 16 KB of DMEM). A peer holds its slot from message 1 until message 2, the end of the attempt (`REKEY_ATTEMPT_TIME`), an initiation from that peer, or `wg peer remove`; the slot is then wiped. The responder needs no slot: message 1 to message 2 is one call on a scratch state. The CPU answers about 3 handshakes a second, so 8 in flight is plenty. With all 8 busy, a new attempt of ours starts without message 1 and its retransmit timer tries again (`wg show`: "initiations deferred"); initiations to us are still answered.
+- **Hand-over.** A finished handshake writes a cryptokey table entry of the peer ([Session pool](#session-pool)), with the DPE paused (pause/drain): encrypt key = send key, decrypt key = receive key (one little-endian 256-bit number, as `csr.rdl`), `local_id` = our index, `remote_id` = the peer's, counters 0, and the remote MAC, IP and port the handshake came from (roaming). The handshake's secrets are then wiped. If the DPE does not drain, nothing is written and nothing answered: the initiator retries.
 - **Indices.** Random upper bits and the entry in the low 6 bits, as the disassembler expects; never one the peer still uses.
 - **Clock.** The timestamp is `rtc_now_tai64n()` ([#30](https://github.com/chili-chips/wireguard-fpga/issues/30)): strictly increasing, also across a reboot while the flash works. `wg_set_time()` (`clock set`) only moves it forward.
-- **Cookies.** Every message 1/2 is checked by `wg_cookie_validate()` before any DH work: mac1 always; under load, mac2 too, and without a valid one the sender gets a cookie reply (message 3) instead. A cookie reply to our message 1/2 is kept for our next one to that peer, not answered at once. Every message 1/2 we send gets `wg_cookie_add_mac2()`. Detecting load is [#81](https://github.com/chili-chips/wireguard-fpga/issues/81): until then `wg load` turns it on by hand. `wg_now_seconds()` (the cookie ages) is the clock's seconds; it never goes back, so a cookie cannot look newer than it is.
-- **Not done yet.** No retransmit timer: after a cookie reply, `wg initiate` sends the next message 1. One session per peer: a new handshake replaces the keys, with no previous session kept for packets in flight. No rekey timers. The endpoint MAC is entered by hand (no ARP lookup yet).
+- **Cookies.** Every message 1/2 is checked before any DH work: mac1 always; under load, mac2 too, and without a valid one the sender gets a cookie reply (message 3) instead. A cookie reply to our message 1/2 is kept for our next one to that peer, not answered at once. Every message 1/2 we send gets `wg_cookie_add_mac2()`. **Load** ([#81](https://github.com/chili-chips/wireguard-fpga/issues/81)), as the Linux driver: under load while handshake messages come faster than the CPU answers them, and for 1 s after. Linux measures its queue; we have none, so a rate: more than `WG_LOAD_MAX` = 2 messages with a valid mac1 within 1 s (cookie replies included). One answered initiation costs 23.6 M cycles, 295 ms at 80 MHz (rv32 ISS with the measured eduBOS5 timing, mul 8 cycles), so the CPU answers 3 a second at most; 2 keeps handshakes under two thirds of it. `wg load on|off` forces it, `wg load auto` (the default) detects it. `wg_now_seconds()` (the cookie ages) is the clock's seconds; it never goes back, so a cookie cannot look newer than it is.
+- **Not done yet.** The endpoint MAC is entered by hand (no ARP lookup yet).
 
 CLI:
 
@@ -254,17 +252,54 @@ CLI:
 |---|---|
 | `wg key` | set our private key (base64), or make one; prints the public key |
 | `wg peer add` | a peer: public key, preshared key (optional), endpoint IP, port, MAC and Ethernet port (optional: else learnt from its first handshake) |
-| `wg peer remove` | a peer and its cryptokey table entry |
-| `wg initiate` | send message 1 to a peer |
+| `wg peer remove` | a peer: its entries cleared, its routes to entry 0 (dropped) |
+| `wg initiate` | send message 1 to a peer (the retransmit timer resends it) |
+| `wg keepalive` | a peer's persistent keepalive interval, s (0 = off, the default) |
 | `clock` | the time, the mark, the boot count, the flash ID and the last record written |
 | `clock set <unix>` | the handshake clock, Unix seconds, only forward ([Timestamps across a reboot](#timestamps-across-a-reboot)) |
 | `flash id` | read the flash's JEDEC ID again |
-| `wg show` | our public key, the peers, the handshake, cookie and drop counters |
-| `wg load` | toggle under load (mac2 required), until [#81](https://github.com/chili-chips/wireguard-fpga/issues/81) detects it |
+| `wg show` | our public key, the peers (current, next and old entry, session age, last handshake, send and receive, the timer state), the pool (free of 63, switches, retired, in place), the handshake slots (free of 8, initiations deferred), the handshake, timer, cookie, load and drop counters |
+| `wg load [on\|off\|auto]` | under load (mac2 required): forced on or off, or detected from the rate (auto, the default); no argument: show it |
 
 **Testing.** [`tests/wg_session`](tests/wg_session), on the host:
-- `make test` drives a peer with `noise.c` against `wg_session.c`: answers, replays and older timestamps, unknown peers, a busy data plane, our initiation, a replayed or misdirected message 2, cookie replies both ways (under load, mac2 from the right and the wrong port), and the table entry written (keys, indices, addresses), the clock only set forward (`rtc_host.c` stands in for `rtc.c`). 53 checks.
-- `make interop` runs both parts of the kernel test above, through `wg_session.c`: the keys it writes to the table decrypt the kernel's data packets, and encrypt ours. Both pass (2026-11-25).
+- `make test` drives a peer with `noise.c` against `wg_session.c`: answers, replays and older timestamps, unknown peers, a busy data plane, our initiation, a replayed or misdirected message 2, cookie replies both ways (under load, mac2 from the right and the wrong port), and the table entry written (keys, indices, addresses), the clock only set forward (`rtc_host.c` stands in for `rtc.c`), load detection (on above the rate, off 1 s after, `wg load off|on`), the X25519 calls (counted with `--wrap`: one for an unknown key), and the timers on a fake clock (`rtc_host_advance_ms`) and fake counters: nothing when idle, a keepalive after 10 s of receive-only (its counter from `send_cnt`, `send_cnt` + 1, the peer opens it), a rekey when sending at 120 s, retransmits at 5 s + jitter, the keys rejected at 180 s, giving up at 90 s, a cookie reply then a retransmit with mac2, no rekey as responder, the persistent keepalive. The [session pool](#session-pool) on fake routes: the responder's first session sends nothing before confirmation; a responder rekey keeps sending on the old entry until the first data on the new one; an initiator rekey switches on message 2 and sends a keepalive; the old entry decrypts until retired, a late packet keeps it; a full pool goes in place and counts it; 63 peers, all with sessions. The handshake slots: 8 initiations in flight, a 9th deferred until a slot frees at its retransmit, an initiation to us answered with all busy, every slot freed (and wiped) on message 2, an initiation from the peer, removal and giving up. 159 checks.
+- `make interop` runs both parts of the kernel test above, through `wg_session.c`: the keys it writes to the table decrypt the kernel's data packets, and encrypt ours. Part A: the kernel's ping confirms our responder session. Part B: the kernel takes our keepalive after message 2, a rekey switches to a new entry and the kernel's next echo reply decrypts with it, and it takes a keepalive the timers build. Both pass (2026-11-27).
+
+### Timers
+The WireGuard timers (paper section 6, [#80](https://github.com/chili-chips/wireguard-fpga/issues/80)) run in `wg_session_timers()`, which the main loop calls; every 200 ms it polls each peer and never waits. No new hardware: the data plane encrypts and decrypts, and the firmware sees the traffic in the counters of the peer's cryptokey table entry. `send_cnt` moved: data sent. `recv_cnt` or `recv_win` moved: data received. The constants, named as in the protocol, are in `wg_session.h`.
+
+- **Rekey.** The initiator of the session starts a new handshake when it sends and the session is `REKEY_AFTER_TIME` (120 s) old, and once on receive at 165 s (`REJECT_AFTER_TIME - KEEPALIVE_TIMEOUT - REKEY_TIMEOUT`). Either side does after `REKEY_AFTER_MESSAGES`, and when it sent data and got nothing back for 15 s.
+- **Retransmit.** An unanswered initiation goes again after `REKEY_TIMEOUT` (5 s) plus 0 to 333 ms of jitter, a new message 1 each time, with mac2 once a cookie reply came. After `REKEY_ATTEMPT_TIME` (90 s) it gives up; data to the peer starts a new attempt.
+- **Reject.** At `REJECT_AFTER_TIME` (180 s), or a counter at `REJECT_AFTER_MESSAGES`, the keys leave the data plane: the entry is cleared under the pause/drain handshake (keys zero, `local_id` 0, so no receiver index matches). Data from the peer is dropped until a new handshake. What the routes still send to that entry the encryptor drops (zero key), but counts in `send_cnt`: data to the peer then starts a handshake, as for a peer that never had a session.
+- **Keepalive.** Data received and nothing sent for `KEEPALIVE_TIMEOUT` (10 s): the CPU sends a transport message with an empty payload. Under the pause/drain handshake it takes the counter from `send_cnt` and writes `send_cnt + 1` back, so the encryptor never reuses it; it encrypts with its copy of the session's send key (wiped with the session) and sends through the CPU TX path, as the handshake messages. `wg keepalive` sets a persistent keepalive per peer (0 = off): a keepalive after that many seconds without a packet either way. The initiator also sends one right after message 2, so the responder can switch at once ([Session pool](#session-pool)). Until data comes on the new session, it sends it again, at most every `REKEY_TIMEOUT`: when the first did not go out (the DPE did not drain), or when the responder still sends on the old keys (the keepalive was lost).
+- **Per peer, on its current session.** The session age and the counters are the current entry's; data on its next or old entry counts as received.
+- **Clock.** `wg_timer_ms()`: the RTC less what `clock set` moved it, so setting the clock fires no timer.
+
+### Session pool
+A cryptokey table entry holds one session, not one peer ([#85](https://github.com/chili-chips/wireguard-fpga/issues/85)). The firmware's peers (up to 63: keys, endpoint, timers) are separate from the 63 usable entries (entry 0 is never used). Each peer has a current entry, at most one next and one old entry. The free entries form the pool.
+
+**Why.** A rekey needs two sessions at once. The old keys must still decrypt what is in flight. The responder must not send under the new keys before the initiator has shown it has them (key confirmation). With one entry per peer, the new keys replaced the old ones: packets in flight were dropped, and the responder sent before confirmation.
+
+**Lifecycle.**
+1. **Allocate.** `wg peer add` takes the peer's current entry from the pool, with zero keys. A new session takes a free entry; its `local_id` is random upper bits with the entry in the low 6.
+2. **Install.** Keys, indices, endpoint and zero counters, under pause/drain. Its peer tag (`local_port.tag`) is the peer's current entry, where the routes point; a cleared entry's is 0. The new entry decrypts at once.
+3. **Confirm.** Initiator: message 2. Responder: the first transport packet on the new entry, seen as its `recv_cnt` or `recv_win` moving (the 200 ms timer poll).
+4. **Switch.** The peer's routes are repointed to the new entry (`peer_idx`), all under one pause. Every entry of the peer gets the new entry as its peer tag in the same pause, so data on the next or old entry passes the AllowedIPs check after decryption. The initiator then sends a keepalive, which confirms the session to the responder.
+5. **Retire.** The old entry still decrypts, as Linux keeps the previous keypair: a responder whose confirmation was lost still sends on the old keys. At the next switch or at its `REJECT_AFTER_TIME`, its keys and `local_id` are zeroed and it goes back to the pool. A new session that finds the pool empty reclaims an old entry first: the peer's own, else the one with the oldest session (what is still in flight on it drops).
+
+**Initiator and responder.** WireGuard has the initiator send first. Until confirmation, the responder sends on its old entry. A responder with no session sends nothing: the peer's routes stay on its keyless current entry, where the data plane drops and counts. An initiator with no session installs into that entry directly: there is nothing to keep.
+
+**No session.** A peer's routes always point at its current entry. With zero keys there (never a session, or `REJECT_AFTER_TIME`), the encryptor drops but counts in `send_cnt`, and that starts a handshake ([Timers](#timers)).
+
+**Routes.** `config routes` with Encrypt 1 and a WireGuard peer's number as the peer index: the route becomes that peer's, and its `peer_idx` follows the peer's current entry. Other routes keep the value entered (hand-made entries). `show routes` shows both. `wg peer remove` points the peer's routes at entry 0, which has no keys.
+
+**Full pool.** With no free entry and no old entry to reclaim, a new session goes over the current entry, as before the pool: packets in flight are dropped, and for that rekey the responder sends before confirmation. `wg show` counts these ("in place").
+
+**Limits.**
+- Every peer holds a current entry, so the pool has 63 - peers - (next and old entries) free. With 63 peers, every rekey is in place.
+- An unconfirmed responder session blocks our own initiation for `REKEY_TIMEOUT`; after that ours takes its entry, but its keys stay until our message 2. Data on it still confirms it (and ends our attempt); if our attempt ends without message 2, it waits again. Never confirmed, it goes at `REJECT_AFTER_TIME`.
+- `config cryptokeys` writes entries by hand, each with itself as its peer tag; the pool does not know about them.
+- Cost: about 6 KB of DMEM (two more sessions per peer) and 3.3 KB of IMEM.
 
 ### Testing with Linux wireguard-tools
 [`tests/noise`](tests/noise) runs on the host (Linux or WSL), with ASan and UBSan:
@@ -304,19 +339,10 @@ Both parts pass (2026-11-24, kernel 6.18 in WSL2, wireguard-tools 1.0.20210914).
 - `make test` checks the draft's HChaCha20 and AEAD vectors, and compares XAEAD outputs, a cookie reply and mac2 on messages 1 and 2 byte for byte with [`cookie_ref.py`](tests/cookie/cookie_ref.py) (from the specs, on `hashlib` and pyca/cryptography). It also covers tampered replies, a reply to an older mac1, the wrong IP or port, the time limits on both sides (120 s secret, 115 s cookie) and a clock wrap. 271 checks.
 - `make interop` runs against the Linux kernel's WireGuard, as in `tests/noise`. Part C floods the kernel with initiations (one sender per CPU) until it is under load. Our initiator opens the kernel's cookie reply, and our next initiation with mac2 gets a response while the kernel is still under load. In part D we play the responder under load: the kernel takes our cookie reply, and its retransmit 5 s later has a valid mac2. Both pass (2026-11-25, kernel 6.18 in WSL2).
 
-## SipHash and the peer map
-The handshake responder decrypts the initiator's static public key and must find that peer. `peer_map.c` maps a 32-byte public key to its peer-table index (0 to 63), through a hash table keyed with SipHash-2-4 (`siphash.c`).
+## Peer lookup
+The handshake responder decrypts the initiator's static public key and must find that peer. `wg_session.c` searches the peers' public keys: at most 63 compares of 32 bytes, about 25 us, next to the 295 ms of an answered handshake. `wg peer add` uses the same search to refuse a key twice.
 
-**Why SipHash.** With 64 peers at most, a plain search would be fast enough: it is here as an example and for its security property. A hash table with a public hash function can be flooded: an attacker sends keys that all land in one slot, and every lookup turns into a long search. SipHash takes a 128-bit secret key, drawn at boot (`random_32bytes`), so its outputs cannot be predicted and colliding keys cannot be picked. Linux WireGuard uses it for the same lookup. The key is only as unpredictable as the RNG (`csr.trng`, [#2](https://github.com/chili-chips/wireguard-fpga/issues/2)).
-
-**Implementation**
-- 128 slots for 64 peers (at most half full), open addressing, linear probing.
-- Removal shifts the rest of a run back instead of leaving markers, so lookups stay short after many changes.
-- Keys are compared in constant time, so the time does not show how many bytes of a guess match.
-- About 4.3 KB of data memory, no dynamic allocation.
-- Filled by `wg peer add`, used by the handshake responder (`wg_session.c`). `test siphash` rebuilds it from the peers afterwards.
-
-**Testing.** `test siphash` on the CLI checks the reference vectors (empty, 8 and 15 bytes) and the map: 64 peers set and found, a 65th refused, half removed, the rest still found. On the host, the map matched a reference model over 1 million random set/find/remove operations (ASan, UBSan).
+No hash table: the SipHash-keyed `peer_map.c` it replaces (as in Linux, against hash flooding) cost 4.3 KB of DMEM plus its code to speed up a lookup that is not the bottleneck. A plain search cannot be flooded. Public keys are not secret, so `memcmp` is fine.
 
 ## Multiply timing
 **The leak (fixed).** RV32I has no multiply instruction, so gcc calls libgcc's `__mulsi3`, which loops over one operand's bits up to its highest 1 bit and adds only for the 1 bits. Its time depends on the operand values. In X25519 and Poly1305 those values come from the private key, the session key and the Poly1305 key. So the response time varied with the key: an attacker who measures it over many handshakes or packets could reverse-engineer the key (a timing side-channel attack).

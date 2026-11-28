@@ -254,9 +254,18 @@ too: pull before you edit `1.hw/` or `4.sim/`.
   ([#32](https://github.com/chili-chips/wireguard-fpga/issues/32), 2026-11-23).
   Take them at each packet's first beat (`tvalid && tready`) and carry them
   with the packet through the FIFOs. Then we stop holding them (one place,
-  no duplication) and packets can overlap: one at a time costs about 290
-  clocks for a 1420-byte packet, where 4 Gb/s at 80 MHz allows 227. The shared
-  core needs it anyway. Keep AAD in the unit test (a different key, nonce,
+  no duplication) and packets can overlap. **Measured 2026-11-27**
+  ([Throughput in the SoC](README.md#throughput-in-the-soc)): one at a time,
+  a 1420-byte packet takes 217 clocks to encrypt and 316 to decrypt; line
+  rate on 4x 1GbE allows 243 at 80 MHz, so decrypt reaches only 2.88 Gb/s.
+  The gap is the fixed tag latency (about 120 clocks after the last beat,
+  at any size) that the next packet waits out; in decrypt, the plaintext
+  emit adds to it. With #32, encrypt tends to N clocks and decrypt to about
+  N + the tag check. The shared core needs it anyway.
+- **Open for you: a shorter fixed tag latency.** About 120 clocks per packet
+  (Poly1305 finalization) set the small-packet rate: 130 to 137 clocks per
+  minimum packet in the SoC, about a tenth of 4x 1GbE line rate. Faster
+  init and finalization (#40, lever 3) is the lever. Keep AAD in the unit test (a different key, nonce,
   AAD and length per packet, overlapping, both directions) although our DPE
   sends `aad_len = 0`: `prep_auth_data_fsm` (`_wide` at 256 bits) takes AAD
   when a packet leaves the auth FIFO, and a handshake offload would need AAD.

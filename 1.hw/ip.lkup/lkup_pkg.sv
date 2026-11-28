@@ -52,11 +52,11 @@ package lkup_pkg;
   typedef csr__cryptokey_table__external__out_t ck_cfg_t;
   typedef csr__cryptokey_table__external__in_t ck_sta_t;
 
-  // the cryptokey table: 64 entries of 32 words (csr.rdl: 30 used, stride
-  // 0x80), so a CSR address is {entry, word, 2'b00}
+  // the cryptokey table: 64 entries of 32 words (csr.rdl, stride 0x80), so
+  // a CSR address is {entry, word, 2'b00}
   localparam int CK_ENTRIES = 64;
   localparam int CK_ENTRY_W = $clog2(CK_ENTRIES);  // 6: addr[12:7]
-  localparam int CK_WORDS   = 30;
+  localparam int CK_WORDS   = 32;
   localparam int CK_WORD_W  = 5;                   // addr[6:2]
 
   // its words, in csr.rdl order
@@ -64,7 +64,7 @@ package lkup_pkg;
     CK_LOCAL_MAC_HI  = 5'd0,   // [15:0]: MAC bits 47:32
     CK_LOCAL_MAC_LO  = 5'd1,
     CK_LOCAL_IP      = 5'd2,
-    CK_LOCAL_PORT    = 5'd3,   // [15:0]
+    CK_LOCAL_PORT    = 5'd3,   // [15:0]; the peer tag in [CK_TAG_LSB +: CK_ENTRY_W]
     CK_LOCAL_ID      = 5'd4,   // our receiver index: random upper bits, the entry in [5:0]
     CK_REMOTE_MAC_HI = 5'd5,
     CK_REMOTE_MAC_LO = 5'd6,
@@ -78,8 +78,18 @@ package lkup_pkg;
     CK_SEND_CNT_HI   = 5'd26,
     CK_SEND_CNT_LO   = 5'd27,
     CK_RECV_CNT_HI   = 5'd28,
-    CK_RECV_CNT_LO   = 5'd29
+    CK_RECV_CNT_LO   = 5'd29,
+    // the replay window (net_pkg wg_replay_win_t): bits 63:32, 31:0
+    CK_RECV_WIN_HI   = 5'd30,
+    CK_RECV_WIN_LO   = 5'd31
   } ck_word_t;
+
+  // the peer tag (csr.rdl local_port.tag, [21:16]): the entry the peer's
+  // routes point at, the same in every entry of that peer (its current,
+  // next and old session), 0 in a free one. The decryptor tags a packet
+  // with it, so the AllowedIPs check (lkup_egress) passes a packet decrypted
+  // on any session of the peer the source route leads to
+  localparam int CK_TAG_LSB = 16;
 
 endpackage
 

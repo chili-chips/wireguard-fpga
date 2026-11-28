@@ -26,8 +26,8 @@ permissions:
 env:
   LINTCRUX_VERSION: '1.2.0'
   LINTCRUX_SHA256: 328bc276171b99240c158ebd138b616cf69e46dfc0fbd4f96b2d75fc64ed3769
-  OSS_CAD_SUITE_VERSION: '2026-11-12'  # Verilator, slang, GHDL, yosys-config
-  VERIBLE_VERSION: v0.0-4296-g0f262651
+  OSS_CAD_SUITE_VERSION: '2026-11-26'  # Verilator, slang, GHDL, yosys-config
+  VERIBLE_VERSION: v0.0-4302-gc6b29d62
   SVLINT_VERSION: v0.9.5
 
 jobs:

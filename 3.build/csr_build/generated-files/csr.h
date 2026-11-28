@@ -913,10 +913,14 @@ typedef union {
 #define CSR__CRYPTOKEY_TABLE__ENTRY__LOCAL_PORT__PORT_bm 0xffff
 #define CSR__CRYPTOKEY_TABLE__ENTRY__LOCAL_PORT__PORT_bp 0
 #define CSR__CRYPTOKEY_TABLE__ENTRY__LOCAL_PORT__PORT_bw 16
+#define CSR__CRYPTOKEY_TABLE__ENTRY__LOCAL_PORT__TAG_bm 0x3f0000
+#define CSR__CRYPTOKEY_TABLE__ENTRY__LOCAL_PORT__TAG_bp 16
+#define CSR__CRYPTOKEY_TABLE__ENTRY__LOCAL_PORT__TAG_bw 6
 typedef union {
     struct __attribute__ ((__packed__)) {
         uint32_t port :16;
-        uint32_t :16;
+        uint32_t tag :6;
+        uint32_t :10;
     } f;
     uint32_t w;
 } csr__cryptokey_table__entry__local_port_t;
@@ -1211,6 +1215,28 @@ typedef union {
     uint32_t w;
 } csr__cryptokey_table__entry__recv_cnt_31_0_t;
 
+// reg - csr::cryptokey_table::entry::recv_win_63_32
+#define CSR__CRYPTOKEY_TABLE__ENTRY__RECV_WIN_63_32__WIN_bm 0xffffffff
+#define CSR__CRYPTOKEY_TABLE__ENTRY__RECV_WIN_63_32__WIN_bp 0
+#define CSR__CRYPTOKEY_TABLE__ENTRY__RECV_WIN_63_32__WIN_bw 32
+typedef union {
+    struct __attribute__ ((__packed__)) {
+        uint32_t win :32;
+    } f;
+    uint32_t w;
+} csr__cryptokey_table__entry__recv_win_63_32_t;
+
+// reg - csr::cryptokey_table::entry::recv_win_31_0
+#define CSR__CRYPTOKEY_TABLE__ENTRY__RECV_WIN_31_0__WIN_bm 0xffffffff
+#define CSR__CRYPTOKEY_TABLE__ENTRY__RECV_WIN_31_0__WIN_bp 0
+#define CSR__CRYPTOKEY_TABLE__ENTRY__RECV_WIN_31_0__WIN_bw 32
+typedef union {
+    struct __attribute__ ((__packed__)) {
+        uint32_t win :32;
+    } f;
+    uint32_t w;
+} csr__cryptokey_table__entry__recv_win_31_0_t;
+
 // regfile - csr::cryptokey_table::entry
 typedef struct __attribute__ ((__packed__)) {
     csr__cryptokey_table__entry__local_mac_47_32_t local_mac_47_32;
@@ -1243,12 +1269,13 @@ typedef struct __attribute__ ((__packed__)) {
     csr__cryptokey_table__entry__send_cnt_31_0_t send_cnt_31_0;
     csr__cryptokey_table__entry__recv_cnt_63_32_t recv_cnt_63_32;
     csr__cryptokey_table__entry__recv_cnt_31_0_t recv_cnt_31_0;
-    uint8_t RESERVED_78_7f[0x8];
-} csr__cryptokey_table__entry__stride80_t;
+    csr__cryptokey_table__entry__recv_win_63_32_t recv_win_63_32;
+    csr__cryptokey_table__entry__recv_win_31_0_t recv_win_31_0;
+} csr__cryptokey_table__entry_t;
 
 // regfile - csr::cryptokey_table
 typedef struct __attribute__ ((__packed__)) {
-    csr__cryptokey_table__entry__stride80_t entry[64];
+    csr__cryptokey_table__entry_t entry[64];
 } csr__cryptokey_table_t;
 
 // addrmap - csr

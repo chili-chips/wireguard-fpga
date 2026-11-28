@@ -5,8 +5,8 @@
 # Accepted lint findings, read by run-lint.sh.
 #
 # One waiver per line:  <phase> <regex>
-#   <phase>  tags | verilator | yosys | reset | iob | slang | verible | ghdl | ghdl-verilator |
-#            cdc | check-timing | methodology
+#   <phase>  tags | verilator | yosys | reset | ram | iob | slang | verible | ghdl |
+#            ghdl-verilator | cdc | check-timing | methodology
 #   <regex>  extended regex (grep -E), matched against one finding line as it
 #            appears in <phase>.all of a run-lint.sh work directory
 # A finding that matches is waived. Put the reason on a comment line above it.
@@ -141,6 +141,11 @@ cdc CDC-13 .* u_eth_[1-4]/eth/eth_mac_1g_gmii_inst/mii_select_reg_reg/C +u_eth_[
 # no delay, and always @* with a delay makes Verilator's scheduler grow
 # without bound (43 GB in 2 minutes)
 slang ^1\.hw/ip\.infra/trng/trng_bank\.sv:[0-9]+:[0-9]+: warning: non-edge sensitivity on a signal will be synthesized as @\* sensitivity$
+# verilator, VIEW=sim (Verilator v5.054-420 and later): the same model's
+# stage delays are in ps, which the lint's 1 ns precision truncates. Its
+# intended use: the rings run only with +trng_rings=1 and a 1 ps precision
+# (the TRNG bench), and trng_bank stops with $fatal at 1 ns
+verilator ^%Warning-TIMEPRECTRUNC: 1\.hw/ip\.infra/trng/trng_bank\.sv:[0-9]+:[0-9]+: Time literal is not a multiple of time precision '1ns'$
 
 # check-timing and methodology (Vivado check_timing, report_methodology)
 # The TRNG ring oscillators (1.hw/ip.infra/trng/trng_bank.sv) are

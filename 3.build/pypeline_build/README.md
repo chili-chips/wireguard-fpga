@@ -355,7 +355,7 @@ pipelining. Native checks are the ordinary development workflow.
 
 ### Waveforms
 
-`--wave FILE` records any simulation's waveform, for GTKWave or Surfer:
+`--wave FILE` records any simulation's waveform, for WaveCrux or GTKWave:
 
 ```bash
 ./build.py --sim --comb --native --wave enc.vcd --enc
@@ -568,6 +568,51 @@ Publication rejects unvalidated or non-default measurements. Keep full evidence
 locally; [Poly1305 component notes](src/poly1305/poly1305_design.md) explain the
 architecture and throughput tradeoffs, and
 [which stage limits each packet size](src/poly1305/poly1305_design.md#where-the-time-goes).
+
+### Throughput in the SoC
+
+The core alone streams one 128-bit beat per clock: at 80 MHz, 4 Gb/s of
+1420-byte packets would need only about 30 MHz. In the SoC the DPE is slower,
+because each packet waits for its tag and the next one waits for it.
+
+Measured 2026-11-27 on the real `dpe_switch` (shared `--soc` core,
+`4.sim/rtl/dpe_switch` in Verilator): 24 back-to-back frames, no throttling,
+output always ready, every output byte-exact. Every packet took the same
+number of clocks. To repeat it: `cd 4.sim/rtl/dpe_switch; make perf
+CASE=dec1420` (`enc`, `dec` or `mix`, then the inner IPv4 bytes).
+
+| Case | Clocks/packet | Gb/s @80 MHz | Clock for 4x 1GbE line rate |
+| --- | ---: | ---: | ---: |
+| Encrypt, 1420 B | 217 | 4.19 | 71 MHz |
+| Decrypt, 1420 B | 316 | 2.88 | 104 MHz |
+| Encrypt and decrypt alternating, 1420 B | 207 (average) | 4.39 | 68 MHz |
+| Encrypt, 20 B (smallest) | 130 | 0.10 | 774 MHz |
+| Decrypt, 20 B (smallest) | 137 | 0.09 | 815 MHz |
+
+Line rate for 1420-byte packets is 329 kpacket/s for 4 ports; for 64-byte
+frames, 5.95 Mpacket/s. So at 80 MHz, decrypt misses line rate by about 30%.
+Small packets reach about a tenth of line rate.
+
+Where the clocks go:
+
+- **Encrypt** (N beats + about 128): the tag comes a fixed 119 clocks after the
+  last input beat, at any packet size. The next packet waits for it.
+- **Decrypt** (2N + about 136): feed the packet (N), wait about 121 clocks for
+  the tag check, then emit the plaintext (N). The next packet is fed only when
+  the last plaintext beat has left, so the three add up.
+- **Mixed:** the two directions overlap in the core, but an encrypt packet
+  passes the decryptor (bypass) and waits behind the decrypt ahead of it.
+
+What would change it, biggest first:
+
+1. **Packets that overlap** ([#32](https://github.com/chili-chips/wireguard-fpga/issues/32)):
+   key and nonce latched per packet, so the next packet is fed during the
+   tag wait. Encrypt then tends to N clocks, decrypt to about N + the tag
+   check. The DPE wrappers follow on our side.
+2. **A shorter fixed tag latency** (about 120 clocks, the Poly1305
+   finalization): it sets the small-packet rate.
+3. **The clock** is not the lever: even decrypt at 104 MHz is only a 1.3x
+   step, and the 80 MHz SoC still misses timing ([#67](https://github.com/chili-chips/wireguard-fpga/issues/67)).
 
 ## Building VHDL and Verilog
 

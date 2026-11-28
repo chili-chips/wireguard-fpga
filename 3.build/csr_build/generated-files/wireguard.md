@@ -5943,7 +5943,7 @@ No supported members.
 
 - Absolute Address: 0x20002000
 - Base Offset: 0x0
-- Size: 0x78
+- Size: 0x80
 - Array Dimensions: [64]
 - Array Stride: 0x80
 - Total Size: 0x2000
@@ -5982,6 +5982,8 @@ No supported members.
 | 0x6C |   send_cnt_31_0   |   csr.cryptokey_table.entry[0..63].send_cnt_31_0   |
 | 0x70 |   recv_cnt_63_32  |   csr.cryptokey_table.entry[0..63].recv_cnt_63_32  |
 | 0x74 |   recv_cnt_31_0   |   csr.cryptokey_table.entry[0..63].recv_cnt_31_0   |
+| 0x78 |   recv_win_63_32  |   csr.cryptokey_table.entry[0..63].recv_win_63_32  |
+| 0x7C |   recv_win_31_0   |   csr.cryptokey_table.entry[0..63].recv_win_31_0   |
 
 ### local_mac_47_32 register
 
@@ -6035,9 +6037,14 @@ No supported members.
 
 <p>Local UDP Port</p>
 
-|Bits|Identifier|Access|Reset|                         Name                         |
-|----|----------|------|-----|------------------------------------------------------|
-|15:0|   port   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.port[15:0]|
+| Bits|Identifier|Access|Reset|                         Name                         |
+|-----|----------|------|-----|------------------------------------------------------|
+| 15:0|   port   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.port[15:0]|
+|21:16|    tag   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.tag[21:16]|
+
+#### tag field
+
+<p>Peer tag: the entry the peer's routes point at, in each of its entries (current, next, old); 0 when free. The AllowedIPs check compares it</p>
 
 ### local_id register
 
@@ -6359,11 +6366,35 @@ No supported members.
 |----|----------|------|-----|--------------------------------------------------------|
 |31:0|    cnt   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_cnt_31_0.cnt[31:0]|
 
+### recv_win_63_32 register
+
+- Absolute Address: 0x20002078
+- Base Offset: 0x78
+- Size: 0x4
+
+<p>Receiver Replay Window</p>
+
+|Bits|Identifier|Access|Reset|                           Name                          |
+|----|----------|------|-----|---------------------------------------------------------|
+|31:0|    win   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_win_63_32.win[31:0]|
+
+### recv_win_31_0 register
+
+- Absolute Address: 0x2000207C
+- Base Offset: 0x7C
+- Size: 0x4
+
+<p>Receiver Replay Window</p>
+
+|Bits|Identifier|Access|Reset|                          Name                          |
+|----|----------|------|-----|--------------------------------------------------------|
+|31:0|    win   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_win_31_0.win[31:0]|
+
 ## entry register file
 
 - Absolute Address: 0x20002080
 - Base Offset: 0x0
-- Size: 0x78
+- Size: 0x80
 - Array Dimensions: [64]
 - Array Stride: 0x80
 - Total Size: 0x2000
@@ -6402,6 +6433,8 @@ No supported members.
 | 0x6C |   send_cnt_31_0   |   csr.cryptokey_table.entry[0..63].send_cnt_31_0   |
 | 0x70 |   recv_cnt_63_32  |   csr.cryptokey_table.entry[0..63].recv_cnt_63_32  |
 | 0x74 |   recv_cnt_31_0   |   csr.cryptokey_table.entry[0..63].recv_cnt_31_0   |
+| 0x78 |   recv_win_63_32  |   csr.cryptokey_table.entry[0..63].recv_win_63_32  |
+| 0x7C |   recv_win_31_0   |   csr.cryptokey_table.entry[0..63].recv_win_31_0   |
 
 ### local_mac_47_32 register
 
@@ -6455,9 +6488,14 @@ No supported members.
 
 <p>Local UDP Port</p>
 
-|Bits|Identifier|Access|Reset|                         Name                         |
-|----|----------|------|-----|------------------------------------------------------|
-|15:0|   port   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.port[15:0]|
+| Bits|Identifier|Access|Reset|                         Name                         |
+|-----|----------|------|-----|------------------------------------------------------|
+| 15:0|   port   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.port[15:0]|
+|21:16|    tag   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.tag[21:16]|
+
+#### tag field
+
+<p>Peer tag: the entry the peer's routes point at, in each of its entries (current, next, old); 0 when free. The AllowedIPs check compares it</p>
 
 ### local_id register
 
@@ -6779,11 +6817,35 @@ No supported members.
 |----|----------|------|-----|--------------------------------------------------------|
 |31:0|    cnt   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_cnt_31_0.cnt[31:0]|
 
+### recv_win_63_32 register
+
+- Absolute Address: 0x200020F8
+- Base Offset: 0x78
+- Size: 0x4
+
+<p>Receiver Replay Window</p>
+
+|Bits|Identifier|Access|Reset|                           Name                          |
+|----|----------|------|-----|---------------------------------------------------------|
+|31:0|    win   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_win_63_32.win[31:0]|
+
+### recv_win_31_0 register
+
+- Absolute Address: 0x200020FC
+- Base Offset: 0x7C
+- Size: 0x4
+
+<p>Receiver Replay Window</p>
+
+|Bits|Identifier|Access|Reset|                          Name                          |
+|----|----------|------|-----|--------------------------------------------------------|
+|31:0|    win   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_win_31_0.win[31:0]|
+
 ## entry register file
 
 - Absolute Address: 0x20002100
 - Base Offset: 0x0
-- Size: 0x78
+- Size: 0x80
 - Array Dimensions: [64]
 - Array Stride: 0x80
 - Total Size: 0x2000
@@ -6822,6 +6884,8 @@ No supported members.
 | 0x6C |   send_cnt_31_0   |   csr.cryptokey_table.entry[0..63].send_cnt_31_0   |
 | 0x70 |   recv_cnt_63_32  |   csr.cryptokey_table.entry[0..63].recv_cnt_63_32  |
 | 0x74 |   recv_cnt_31_0   |   csr.cryptokey_table.entry[0..63].recv_cnt_31_0   |
+| 0x78 |   recv_win_63_32  |   csr.cryptokey_table.entry[0..63].recv_win_63_32  |
+| 0x7C |   recv_win_31_0   |   csr.cryptokey_table.entry[0..63].recv_win_31_0   |
 
 ### local_mac_47_32 register
 
@@ -6875,9 +6939,14 @@ No supported members.
 
 <p>Local UDP Port</p>
 
-|Bits|Identifier|Access|Reset|                         Name                         |
-|----|----------|------|-----|------------------------------------------------------|
-|15:0|   port   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.port[15:0]|
+| Bits|Identifier|Access|Reset|                         Name                         |
+|-----|----------|------|-----|------------------------------------------------------|
+| 15:0|   port   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.port[15:0]|
+|21:16|    tag   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.tag[21:16]|
+
+#### tag field
+
+<p>Peer tag: the entry the peer's routes point at, in each of its entries (current, next, old); 0 when free. The AllowedIPs check compares it</p>
 
 ### local_id register
 
@@ -7199,11 +7268,35 @@ No supported members.
 |----|----------|------|-----|--------------------------------------------------------|
 |31:0|    cnt   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_cnt_31_0.cnt[31:0]|
 
+### recv_win_63_32 register
+
+- Absolute Address: 0x20002178
+- Base Offset: 0x78
+- Size: 0x4
+
+<p>Receiver Replay Window</p>
+
+|Bits|Identifier|Access|Reset|                           Name                          |
+|----|----------|------|-----|---------------------------------------------------------|
+|31:0|    win   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_win_63_32.win[31:0]|
+
+### recv_win_31_0 register
+
+- Absolute Address: 0x2000217C
+- Base Offset: 0x7C
+- Size: 0x4
+
+<p>Receiver Replay Window</p>
+
+|Bits|Identifier|Access|Reset|                          Name                          |
+|----|----------|------|-----|--------------------------------------------------------|
+|31:0|    win   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_win_31_0.win[31:0]|
+
 ## entry register file
 
 - Absolute Address: 0x20002180
 - Base Offset: 0x0
-- Size: 0x78
+- Size: 0x80
 - Array Dimensions: [64]
 - Array Stride: 0x80
 - Total Size: 0x2000
@@ -7242,6 +7335,8 @@ No supported members.
 | 0x6C |   send_cnt_31_0   |   csr.cryptokey_table.entry[0..63].send_cnt_31_0   |
 | 0x70 |   recv_cnt_63_32  |   csr.cryptokey_table.entry[0..63].recv_cnt_63_32  |
 | 0x74 |   recv_cnt_31_0   |   csr.cryptokey_table.entry[0..63].recv_cnt_31_0   |
+| 0x78 |   recv_win_63_32  |   csr.cryptokey_table.entry[0..63].recv_win_63_32  |
+| 0x7C |   recv_win_31_0   |   csr.cryptokey_table.entry[0..63].recv_win_31_0   |
 
 ### local_mac_47_32 register
 
@@ -7295,9 +7390,14 @@ No supported members.
 
 <p>Local UDP Port</p>
 
-|Bits|Identifier|Access|Reset|                         Name                         |
-|----|----------|------|-----|------------------------------------------------------|
-|15:0|   port   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.port[15:0]|
+| Bits|Identifier|Access|Reset|                         Name                         |
+|-----|----------|------|-----|------------------------------------------------------|
+| 15:0|   port   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.port[15:0]|
+|21:16|    tag   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.tag[21:16]|
+
+#### tag field
+
+<p>Peer tag: the entry the peer's routes point at, in each of its entries (current, next, old); 0 when free. The AllowedIPs check compares it</p>
 
 ### local_id register
 
@@ -7619,11 +7719,35 @@ No supported members.
 |----|----------|------|-----|--------------------------------------------------------|
 |31:0|    cnt   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_cnt_31_0.cnt[31:0]|
 
+### recv_win_63_32 register
+
+- Absolute Address: 0x200021F8
+- Base Offset: 0x78
+- Size: 0x4
+
+<p>Receiver Replay Window</p>
+
+|Bits|Identifier|Access|Reset|                           Name                          |
+|----|----------|------|-----|---------------------------------------------------------|
+|31:0|    win   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_win_63_32.win[31:0]|
+
+### recv_win_31_0 register
+
+- Absolute Address: 0x200021FC
+- Base Offset: 0x7C
+- Size: 0x4
+
+<p>Receiver Replay Window</p>
+
+|Bits|Identifier|Access|Reset|                          Name                          |
+|----|----------|------|-----|--------------------------------------------------------|
+|31:0|    win   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_win_31_0.win[31:0]|
+
 ## entry register file
 
 - Absolute Address: 0x20002200
 - Base Offset: 0x0
-- Size: 0x78
+- Size: 0x80
 - Array Dimensions: [64]
 - Array Stride: 0x80
 - Total Size: 0x2000
@@ -7662,6 +7786,8 @@ No supported members.
 | 0x6C |   send_cnt_31_0   |   csr.cryptokey_table.entry[0..63].send_cnt_31_0   |
 | 0x70 |   recv_cnt_63_32  |   csr.cryptokey_table.entry[0..63].recv_cnt_63_32  |
 | 0x74 |   recv_cnt_31_0   |   csr.cryptokey_table.entry[0..63].recv_cnt_31_0   |
+| 0x78 |   recv_win_63_32  |   csr.cryptokey_table.entry[0..63].recv_win_63_32  |
+| 0x7C |   recv_win_31_0   |   csr.cryptokey_table.entry[0..63].recv_win_31_0   |
 
 ### local_mac_47_32 register
 
@@ -7715,9 +7841,14 @@ No supported members.
 
 <p>Local UDP Port</p>
 
-|Bits|Identifier|Access|Reset|                         Name                         |
-|----|----------|------|-----|------------------------------------------------------|
-|15:0|   port   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.port[15:0]|
+| Bits|Identifier|Access|Reset|                         Name                         |
+|-----|----------|------|-----|------------------------------------------------------|
+| 15:0|   port   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.port[15:0]|
+|21:16|    tag   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.tag[21:16]|
+
+#### tag field
+
+<p>Peer tag: the entry the peer's routes point at, in each of its entries (current, next, old); 0 when free. The AllowedIPs check compares it</p>
 
 ### local_id register
 
@@ -8039,11 +8170,35 @@ No supported members.
 |----|----------|------|-----|--------------------------------------------------------|
 |31:0|    cnt   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_cnt_31_0.cnt[31:0]|
 
+### recv_win_63_32 register
+
+- Absolute Address: 0x20002278
+- Base Offset: 0x78
+- Size: 0x4
+
+<p>Receiver Replay Window</p>
+
+|Bits|Identifier|Access|Reset|                           Name                          |
+|----|----------|------|-----|---------------------------------------------------------|
+|31:0|    win   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_win_63_32.win[31:0]|
+
+### recv_win_31_0 register
+
+- Absolute Address: 0x2000227C
+- Base Offset: 0x7C
+- Size: 0x4
+
+<p>Receiver Replay Window</p>
+
+|Bits|Identifier|Access|Reset|                          Name                          |
+|----|----------|------|-----|--------------------------------------------------------|
+|31:0|    win   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_win_31_0.win[31:0]|
+
 ## entry register file
 
 - Absolute Address: 0x20002280
 - Base Offset: 0x0
-- Size: 0x78
+- Size: 0x80
 - Array Dimensions: [64]
 - Array Stride: 0x80
 - Total Size: 0x2000
@@ -8082,6 +8237,8 @@ No supported members.
 | 0x6C |   send_cnt_31_0   |   csr.cryptokey_table.entry[0..63].send_cnt_31_0   |
 | 0x70 |   recv_cnt_63_32  |   csr.cryptokey_table.entry[0..63].recv_cnt_63_32  |
 | 0x74 |   recv_cnt_31_0   |   csr.cryptokey_table.entry[0..63].recv_cnt_31_0   |
+| 0x78 |   recv_win_63_32  |   csr.cryptokey_table.entry[0..63].recv_win_63_32  |
+| 0x7C |   recv_win_31_0   |   csr.cryptokey_table.entry[0..63].recv_win_31_0   |
 
 ### local_mac_47_32 register
 
@@ -8135,9 +8292,14 @@ No supported members.
 
 <p>Local UDP Port</p>
 
-|Bits|Identifier|Access|Reset|                         Name                         |
-|----|----------|------|-----|------------------------------------------------------|
-|15:0|   port   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.port[15:0]|
+| Bits|Identifier|Access|Reset|                         Name                         |
+|-----|----------|------|-----|------------------------------------------------------|
+| 15:0|   port   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.port[15:0]|
+|21:16|    tag   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.tag[21:16]|
+
+#### tag field
+
+<p>Peer tag: the entry the peer's routes point at, in each of its entries (current, next, old); 0 when free. The AllowedIPs check compares it</p>
 
 ### local_id register
 
@@ -8459,11 +8621,35 @@ No supported members.
 |----|----------|------|-----|--------------------------------------------------------|
 |31:0|    cnt   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_cnt_31_0.cnt[31:0]|
 
+### recv_win_63_32 register
+
+- Absolute Address: 0x200022F8
+- Base Offset: 0x78
+- Size: 0x4
+
+<p>Receiver Replay Window</p>
+
+|Bits|Identifier|Access|Reset|                           Name                          |
+|----|----------|------|-----|---------------------------------------------------------|
+|31:0|    win   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_win_63_32.win[31:0]|
+
+### recv_win_31_0 register
+
+- Absolute Address: 0x200022FC
+- Base Offset: 0x7C
+- Size: 0x4
+
+<p>Receiver Replay Window</p>
+
+|Bits|Identifier|Access|Reset|                          Name                          |
+|----|----------|------|-----|--------------------------------------------------------|
+|31:0|    win   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_win_31_0.win[31:0]|
+
 ## entry register file
 
 - Absolute Address: 0x20002300
 - Base Offset: 0x0
-- Size: 0x78
+- Size: 0x80
 - Array Dimensions: [64]
 - Array Stride: 0x80
 - Total Size: 0x2000
@@ -8502,6 +8688,8 @@ No supported members.
 | 0x6C |   send_cnt_31_0   |   csr.cryptokey_table.entry[0..63].send_cnt_31_0   |
 | 0x70 |   recv_cnt_63_32  |   csr.cryptokey_table.entry[0..63].recv_cnt_63_32  |
 | 0x74 |   recv_cnt_31_0   |   csr.cryptokey_table.entry[0..63].recv_cnt_31_0   |
+| 0x78 |   recv_win_63_32  |   csr.cryptokey_table.entry[0..63].recv_win_63_32  |
+| 0x7C |   recv_win_31_0   |   csr.cryptokey_table.entry[0..63].recv_win_31_0   |
 
 ### local_mac_47_32 register
 
@@ -8555,9 +8743,14 @@ No supported members.
 
 <p>Local UDP Port</p>
 
-|Bits|Identifier|Access|Reset|                         Name                         |
-|----|----------|------|-----|------------------------------------------------------|
-|15:0|   port   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.port[15:0]|
+| Bits|Identifier|Access|Reset|                         Name                         |
+|-----|----------|------|-----|------------------------------------------------------|
+| 15:0|   port   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.port[15:0]|
+|21:16|    tag   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.tag[21:16]|
+
+#### tag field
+
+<p>Peer tag: the entry the peer's routes point at, in each of its entries (current, next, old); 0 when free. The AllowedIPs check compares it</p>
 
 ### local_id register
 
@@ -8879,11 +9072,35 @@ No supported members.
 |----|----------|------|-----|--------------------------------------------------------|
 |31:0|    cnt   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_cnt_31_0.cnt[31:0]|
 
+### recv_win_63_32 register
+
+- Absolute Address: 0x20002378
+- Base Offset: 0x78
+- Size: 0x4
+
+<p>Receiver Replay Window</p>
+
+|Bits|Identifier|Access|Reset|                           Name                          |
+|----|----------|------|-----|---------------------------------------------------------|
+|31:0|    win   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_win_63_32.win[31:0]|
+
+### recv_win_31_0 register
+
+- Absolute Address: 0x2000237C
+- Base Offset: 0x7C
+- Size: 0x4
+
+<p>Receiver Replay Window</p>
+
+|Bits|Identifier|Access|Reset|                          Name                          |
+|----|----------|------|-----|--------------------------------------------------------|
+|31:0|    win   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_win_31_0.win[31:0]|
+
 ## entry register file
 
 - Absolute Address: 0x20002380
 - Base Offset: 0x0
-- Size: 0x78
+- Size: 0x80
 - Array Dimensions: [64]
 - Array Stride: 0x80
 - Total Size: 0x2000
@@ -8922,6 +9139,8 @@ No supported members.
 | 0x6C |   send_cnt_31_0   |   csr.cryptokey_table.entry[0..63].send_cnt_31_0   |
 | 0x70 |   recv_cnt_63_32  |   csr.cryptokey_table.entry[0..63].recv_cnt_63_32  |
 | 0x74 |   recv_cnt_31_0   |   csr.cryptokey_table.entry[0..63].recv_cnt_31_0   |
+| 0x78 |   recv_win_63_32  |   csr.cryptokey_table.entry[0..63].recv_win_63_32  |
+| 0x7C |   recv_win_31_0   |   csr.cryptokey_table.entry[0..63].recv_win_31_0   |
 
 ### local_mac_47_32 register
 
@@ -8975,9 +9194,14 @@ No supported members.
 
 <p>Local UDP Port</p>
 
-|Bits|Identifier|Access|Reset|                         Name                         |
-|----|----------|------|-----|------------------------------------------------------|
-|15:0|   port   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.port[15:0]|
+| Bits|Identifier|Access|Reset|                         Name                         |
+|-----|----------|------|-----|------------------------------------------------------|
+| 15:0|   port   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.port[15:0]|
+|21:16|    tag   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.tag[21:16]|
+
+#### tag field
+
+<p>Peer tag: the entry the peer's routes point at, in each of its entries (current, next, old); 0 when free. The AllowedIPs check compares it</p>
 
 ### local_id register
 
@@ -9299,11 +9523,35 @@ No supported members.
 |----|----------|------|-----|--------------------------------------------------------|
 |31:0|    cnt   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_cnt_31_0.cnt[31:0]|
 
+### recv_win_63_32 register
+
+- Absolute Address: 0x200023F8
+- Base Offset: 0x78
+- Size: 0x4
+
+<p>Receiver Replay Window</p>
+
+|Bits|Identifier|Access|Reset|                           Name                          |
+|----|----------|------|-----|---------------------------------------------------------|
+|31:0|    win   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_win_63_32.win[31:0]|
+
+### recv_win_31_0 register
+
+- Absolute Address: 0x200023FC
+- Base Offset: 0x7C
+- Size: 0x4
+
+<p>Receiver Replay Window</p>
+
+|Bits|Identifier|Access|Reset|                          Name                          |
+|----|----------|------|-----|--------------------------------------------------------|
+|31:0|    win   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_win_31_0.win[31:0]|
+
 ## entry register file
 
 - Absolute Address: 0x20002400
 - Base Offset: 0x0
-- Size: 0x78
+- Size: 0x80
 - Array Dimensions: [64]
 - Array Stride: 0x80
 - Total Size: 0x2000
@@ -9342,6 +9590,8 @@ No supported members.
 | 0x6C |   send_cnt_31_0   |   csr.cryptokey_table.entry[0..63].send_cnt_31_0   |
 | 0x70 |   recv_cnt_63_32  |   csr.cryptokey_table.entry[0..63].recv_cnt_63_32  |
 | 0x74 |   recv_cnt_31_0   |   csr.cryptokey_table.entry[0..63].recv_cnt_31_0   |
+| 0x78 |   recv_win_63_32  |   csr.cryptokey_table.entry[0..63].recv_win_63_32  |
+| 0x7C |   recv_win_31_0   |   csr.cryptokey_table.entry[0..63].recv_win_31_0   |
 
 ### local_mac_47_32 register
 
@@ -9395,9 +9645,14 @@ No supported members.
 
 <p>Local UDP Port</p>
 
-|Bits|Identifier|Access|Reset|                         Name                         |
-|----|----------|------|-----|------------------------------------------------------|
-|15:0|   port   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.port[15:0]|
+| Bits|Identifier|Access|Reset|                         Name                         |
+|-----|----------|------|-----|------------------------------------------------------|
+| 15:0|   port   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.port[15:0]|
+|21:16|    tag   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.tag[21:16]|
+
+#### tag field
+
+<p>Peer tag: the entry the peer's routes point at, in each of its entries (current, next, old); 0 when free. The AllowedIPs check compares it</p>
 
 ### local_id register
 
@@ -9719,11 +9974,35 @@ No supported members.
 |----|----------|------|-----|--------------------------------------------------------|
 |31:0|    cnt   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_cnt_31_0.cnt[31:0]|
 
+### recv_win_63_32 register
+
+- Absolute Address: 0x20002478
+- Base Offset: 0x78
+- Size: 0x4
+
+<p>Receiver Replay Window</p>
+
+|Bits|Identifier|Access|Reset|                           Name                          |
+|----|----------|------|-----|---------------------------------------------------------|
+|31:0|    win   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_win_63_32.win[31:0]|
+
+### recv_win_31_0 register
+
+- Absolute Address: 0x2000247C
+- Base Offset: 0x7C
+- Size: 0x4
+
+<p>Receiver Replay Window</p>
+
+|Bits|Identifier|Access|Reset|                          Name                          |
+|----|----------|------|-----|--------------------------------------------------------|
+|31:0|    win   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_win_31_0.win[31:0]|
+
 ## entry register file
 
 - Absolute Address: 0x20002480
 - Base Offset: 0x0
-- Size: 0x78
+- Size: 0x80
 - Array Dimensions: [64]
 - Array Stride: 0x80
 - Total Size: 0x2000
@@ -9762,6 +10041,8 @@ No supported members.
 | 0x6C |   send_cnt_31_0   |   csr.cryptokey_table.entry[0..63].send_cnt_31_0   |
 | 0x70 |   recv_cnt_63_32  |   csr.cryptokey_table.entry[0..63].recv_cnt_63_32  |
 | 0x74 |   recv_cnt_31_0   |   csr.cryptokey_table.entry[0..63].recv_cnt_31_0   |
+| 0x78 |   recv_win_63_32  |   csr.cryptokey_table.entry[0..63].recv_win_63_32  |
+| 0x7C |   recv_win_31_0   |   csr.cryptokey_table.entry[0..63].recv_win_31_0   |
 
 ### local_mac_47_32 register
 
@@ -9815,9 +10096,14 @@ No supported members.
 
 <p>Local UDP Port</p>
 
-|Bits|Identifier|Access|Reset|                         Name                         |
-|----|----------|------|-----|------------------------------------------------------|
-|15:0|   port   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.port[15:0]|
+| Bits|Identifier|Access|Reset|                         Name                         |
+|-----|----------|------|-----|------------------------------------------------------|
+| 15:0|   port   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.port[15:0]|
+|21:16|    tag   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.tag[21:16]|
+
+#### tag field
+
+<p>Peer tag: the entry the peer's routes point at, in each of its entries (current, next, old); 0 when free. The AllowedIPs check compares it</p>
 
 ### local_id register
 
@@ -10139,11 +10425,35 @@ No supported members.
 |----|----------|------|-----|--------------------------------------------------------|
 |31:0|    cnt   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_cnt_31_0.cnt[31:0]|
 
+### recv_win_63_32 register
+
+- Absolute Address: 0x200024F8
+- Base Offset: 0x78
+- Size: 0x4
+
+<p>Receiver Replay Window</p>
+
+|Bits|Identifier|Access|Reset|                           Name                          |
+|----|----------|------|-----|---------------------------------------------------------|
+|31:0|    win   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_win_63_32.win[31:0]|
+
+### recv_win_31_0 register
+
+- Absolute Address: 0x200024FC
+- Base Offset: 0x7C
+- Size: 0x4
+
+<p>Receiver Replay Window</p>
+
+|Bits|Identifier|Access|Reset|                          Name                          |
+|----|----------|------|-----|--------------------------------------------------------|
+|31:0|    win   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_win_31_0.win[31:0]|
+
 ## entry register file
 
 - Absolute Address: 0x20002500
 - Base Offset: 0x0
-- Size: 0x78
+- Size: 0x80
 - Array Dimensions: [64]
 - Array Stride: 0x80
 - Total Size: 0x2000
@@ -10182,6 +10492,8 @@ No supported members.
 | 0x6C |   send_cnt_31_0   |   csr.cryptokey_table.entry[0..63].send_cnt_31_0   |
 | 0x70 |   recv_cnt_63_32  |   csr.cryptokey_table.entry[0..63].recv_cnt_63_32  |
 | 0x74 |   recv_cnt_31_0   |   csr.cryptokey_table.entry[0..63].recv_cnt_31_0   |
+| 0x78 |   recv_win_63_32  |   csr.cryptokey_table.entry[0..63].recv_win_63_32  |
+| 0x7C |   recv_win_31_0   |   csr.cryptokey_table.entry[0..63].recv_win_31_0   |
 
 ### local_mac_47_32 register
 
@@ -10235,9 +10547,14 @@ No supported members.
 
 <p>Local UDP Port</p>
 
-|Bits|Identifier|Access|Reset|                         Name                         |
-|----|----------|------|-----|------------------------------------------------------|
-|15:0|   port   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.port[15:0]|
+| Bits|Identifier|Access|Reset|                         Name                         |
+|-----|----------|------|-----|------------------------------------------------------|
+| 15:0|   port   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.port[15:0]|
+|21:16|    tag   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.tag[21:16]|
+
+#### tag field
+
+<p>Peer tag: the entry the peer's routes point at, in each of its entries (current, next, old); 0 when free. The AllowedIPs check compares it</p>
 
 ### local_id register
 
@@ -10559,11 +10876,35 @@ No supported members.
 |----|----------|------|-----|--------------------------------------------------------|
 |31:0|    cnt   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_cnt_31_0.cnt[31:0]|
 
+### recv_win_63_32 register
+
+- Absolute Address: 0x20002578
+- Base Offset: 0x78
+- Size: 0x4
+
+<p>Receiver Replay Window</p>
+
+|Bits|Identifier|Access|Reset|                           Name                          |
+|----|----------|------|-----|---------------------------------------------------------|
+|31:0|    win   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_win_63_32.win[31:0]|
+
+### recv_win_31_0 register
+
+- Absolute Address: 0x2000257C
+- Base Offset: 0x7C
+- Size: 0x4
+
+<p>Receiver Replay Window</p>
+
+|Bits|Identifier|Access|Reset|                          Name                          |
+|----|----------|------|-----|--------------------------------------------------------|
+|31:0|    win   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_win_31_0.win[31:0]|
+
 ## entry register file
 
 - Absolute Address: 0x20002580
 - Base Offset: 0x0
-- Size: 0x78
+- Size: 0x80
 - Array Dimensions: [64]
 - Array Stride: 0x80
 - Total Size: 0x2000
@@ -10602,6 +10943,8 @@ No supported members.
 | 0x6C |   send_cnt_31_0   |   csr.cryptokey_table.entry[0..63].send_cnt_31_0   |
 | 0x70 |   recv_cnt_63_32  |   csr.cryptokey_table.entry[0..63].recv_cnt_63_32  |
 | 0x74 |   recv_cnt_31_0   |   csr.cryptokey_table.entry[0..63].recv_cnt_31_0   |
+| 0x78 |   recv_win_63_32  |   csr.cryptokey_table.entry[0..63].recv_win_63_32  |
+| 0x7C |   recv_win_31_0   |   csr.cryptokey_table.entry[0..63].recv_win_31_0   |
 
 ### local_mac_47_32 register
 
@@ -10655,9 +10998,14 @@ No supported members.
 
 <p>Local UDP Port</p>
 
-|Bits|Identifier|Access|Reset|                         Name                         |
-|----|----------|------|-----|------------------------------------------------------|
-|15:0|   port   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.port[15:0]|
+| Bits|Identifier|Access|Reset|                         Name                         |
+|-----|----------|------|-----|------------------------------------------------------|
+| 15:0|   port   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.port[15:0]|
+|21:16|    tag   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.tag[21:16]|
+
+#### tag field
+
+<p>Peer tag: the entry the peer's routes point at, in each of its entries (current, next, old); 0 when free. The AllowedIPs check compares it</p>
 
 ### local_id register
 
@@ -10979,11 +11327,35 @@ No supported members.
 |----|----------|------|-----|--------------------------------------------------------|
 |31:0|    cnt   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_cnt_31_0.cnt[31:0]|
 
+### recv_win_63_32 register
+
+- Absolute Address: 0x200025F8
+- Base Offset: 0x78
+- Size: 0x4
+
+<p>Receiver Replay Window</p>
+
+|Bits|Identifier|Access|Reset|                           Name                          |
+|----|----------|------|-----|---------------------------------------------------------|
+|31:0|    win   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_win_63_32.win[31:0]|
+
+### recv_win_31_0 register
+
+- Absolute Address: 0x200025FC
+- Base Offset: 0x7C
+- Size: 0x4
+
+<p>Receiver Replay Window</p>
+
+|Bits|Identifier|Access|Reset|                          Name                          |
+|----|----------|------|-----|--------------------------------------------------------|
+|31:0|    win   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_win_31_0.win[31:0]|
+
 ## entry register file
 
 - Absolute Address: 0x20002600
 - Base Offset: 0x0
-- Size: 0x78
+- Size: 0x80
 - Array Dimensions: [64]
 - Array Stride: 0x80
 - Total Size: 0x2000
@@ -11022,6 +11394,8 @@ No supported members.
 | 0x6C |   send_cnt_31_0   |   csr.cryptokey_table.entry[0..63].send_cnt_31_0   |
 | 0x70 |   recv_cnt_63_32  |   csr.cryptokey_table.entry[0..63].recv_cnt_63_32  |
 | 0x74 |   recv_cnt_31_0   |   csr.cryptokey_table.entry[0..63].recv_cnt_31_0   |
+| 0x78 |   recv_win_63_32  |   csr.cryptokey_table.entry[0..63].recv_win_63_32  |
+| 0x7C |   recv_win_31_0   |   csr.cryptokey_table.entry[0..63].recv_win_31_0   |
 
 ### local_mac_47_32 register
 
@@ -11075,9 +11449,14 @@ No supported members.
 
 <p>Local UDP Port</p>
 
-|Bits|Identifier|Access|Reset|                         Name                         |
-|----|----------|------|-----|------------------------------------------------------|
-|15:0|   port   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.port[15:0]|
+| Bits|Identifier|Access|Reset|                         Name                         |
+|-----|----------|------|-----|------------------------------------------------------|
+| 15:0|   port   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.port[15:0]|
+|21:16|    tag   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.tag[21:16]|
+
+#### tag field
+
+<p>Peer tag: the entry the peer's routes point at, in each of its entries (current, next, old); 0 when free. The AllowedIPs check compares it</p>
 
 ### local_id register
 
@@ -11399,11 +11778,35 @@ No supported members.
 |----|----------|------|-----|--------------------------------------------------------|
 |31:0|    cnt   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_cnt_31_0.cnt[31:0]|
 
+### recv_win_63_32 register
+
+- Absolute Address: 0x20002678
+- Base Offset: 0x78
+- Size: 0x4
+
+<p>Receiver Replay Window</p>
+
+|Bits|Identifier|Access|Reset|                           Name                          |
+|----|----------|------|-----|---------------------------------------------------------|
+|31:0|    win   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_win_63_32.win[31:0]|
+
+### recv_win_31_0 register
+
+- Absolute Address: 0x2000267C
+- Base Offset: 0x7C
+- Size: 0x4
+
+<p>Receiver Replay Window</p>
+
+|Bits|Identifier|Access|Reset|                          Name                          |
+|----|----------|------|-----|--------------------------------------------------------|
+|31:0|    win   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_win_31_0.win[31:0]|
+
 ## entry register file
 
 - Absolute Address: 0x20002680
 - Base Offset: 0x0
-- Size: 0x78
+- Size: 0x80
 - Array Dimensions: [64]
 - Array Stride: 0x80
 - Total Size: 0x2000
@@ -11442,6 +11845,8 @@ No supported members.
 | 0x6C |   send_cnt_31_0   |   csr.cryptokey_table.entry[0..63].send_cnt_31_0   |
 | 0x70 |   recv_cnt_63_32  |   csr.cryptokey_table.entry[0..63].recv_cnt_63_32  |
 | 0x74 |   recv_cnt_31_0   |   csr.cryptokey_table.entry[0..63].recv_cnt_31_0   |
+| 0x78 |   recv_win_63_32  |   csr.cryptokey_table.entry[0..63].recv_win_63_32  |
+| 0x7C |   recv_win_31_0   |   csr.cryptokey_table.entry[0..63].recv_win_31_0   |
 
 ### local_mac_47_32 register
 
@@ -11495,9 +11900,14 @@ No supported members.
 
 <p>Local UDP Port</p>
 
-|Bits|Identifier|Access|Reset|                         Name                         |
-|----|----------|------|-----|------------------------------------------------------|
-|15:0|   port   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.port[15:0]|
+| Bits|Identifier|Access|Reset|                         Name                         |
+|-----|----------|------|-----|------------------------------------------------------|
+| 15:0|   port   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.port[15:0]|
+|21:16|    tag   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.tag[21:16]|
+
+#### tag field
+
+<p>Peer tag: the entry the peer's routes point at, in each of its entries (current, next, old); 0 when free. The AllowedIPs check compares it</p>
 
 ### local_id register
 
@@ -11819,11 +12229,35 @@ No supported members.
 |----|----------|------|-----|--------------------------------------------------------|
 |31:0|    cnt   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_cnt_31_0.cnt[31:0]|
 
+### recv_win_63_32 register
+
+- Absolute Address: 0x200026F8
+- Base Offset: 0x78
+- Size: 0x4
+
+<p>Receiver Replay Window</p>
+
+|Bits|Identifier|Access|Reset|                           Name                          |
+|----|----------|------|-----|---------------------------------------------------------|
+|31:0|    win   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_win_63_32.win[31:0]|
+
+### recv_win_31_0 register
+
+- Absolute Address: 0x200026FC
+- Base Offset: 0x7C
+- Size: 0x4
+
+<p>Receiver Replay Window</p>
+
+|Bits|Identifier|Access|Reset|                          Name                          |
+|----|----------|------|-----|--------------------------------------------------------|
+|31:0|    win   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_win_31_0.win[31:0]|
+
 ## entry register file
 
 - Absolute Address: 0x20002700
 - Base Offset: 0x0
-- Size: 0x78
+- Size: 0x80
 - Array Dimensions: [64]
 - Array Stride: 0x80
 - Total Size: 0x2000
@@ -11862,6 +12296,8 @@ No supported members.
 | 0x6C |   send_cnt_31_0   |   csr.cryptokey_table.entry[0..63].send_cnt_31_0   |
 | 0x70 |   recv_cnt_63_32  |   csr.cryptokey_table.entry[0..63].recv_cnt_63_32  |
 | 0x74 |   recv_cnt_31_0   |   csr.cryptokey_table.entry[0..63].recv_cnt_31_0   |
+| 0x78 |   recv_win_63_32  |   csr.cryptokey_table.entry[0..63].recv_win_63_32  |
+| 0x7C |   recv_win_31_0   |   csr.cryptokey_table.entry[0..63].recv_win_31_0   |
 
 ### local_mac_47_32 register
 
@@ -11915,9 +12351,14 @@ No supported members.
 
 <p>Local UDP Port</p>
 
-|Bits|Identifier|Access|Reset|                         Name                         |
-|----|----------|------|-----|------------------------------------------------------|
-|15:0|   port   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.port[15:0]|
+| Bits|Identifier|Access|Reset|                         Name                         |
+|-----|----------|------|-----|------------------------------------------------------|
+| 15:0|   port   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.port[15:0]|
+|21:16|    tag   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.tag[21:16]|
+
+#### tag field
+
+<p>Peer tag: the entry the peer's routes point at, in each of its entries (current, next, old); 0 when free. The AllowedIPs check compares it</p>
 
 ### local_id register
 
@@ -12239,11 +12680,35 @@ No supported members.
 |----|----------|------|-----|--------------------------------------------------------|
 |31:0|    cnt   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_cnt_31_0.cnt[31:0]|
 
+### recv_win_63_32 register
+
+- Absolute Address: 0x20002778
+- Base Offset: 0x78
+- Size: 0x4
+
+<p>Receiver Replay Window</p>
+
+|Bits|Identifier|Access|Reset|                           Name                          |
+|----|----------|------|-----|---------------------------------------------------------|
+|31:0|    win   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_win_63_32.win[31:0]|
+
+### recv_win_31_0 register
+
+- Absolute Address: 0x2000277C
+- Base Offset: 0x7C
+- Size: 0x4
+
+<p>Receiver Replay Window</p>
+
+|Bits|Identifier|Access|Reset|                          Name                          |
+|----|----------|------|-----|--------------------------------------------------------|
+|31:0|    win   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_win_31_0.win[31:0]|
+
 ## entry register file
 
 - Absolute Address: 0x20002780
 - Base Offset: 0x0
-- Size: 0x78
+- Size: 0x80
 - Array Dimensions: [64]
 - Array Stride: 0x80
 - Total Size: 0x2000
@@ -12282,6 +12747,8 @@ No supported members.
 | 0x6C |   send_cnt_31_0   |   csr.cryptokey_table.entry[0..63].send_cnt_31_0   |
 | 0x70 |   recv_cnt_63_32  |   csr.cryptokey_table.entry[0..63].recv_cnt_63_32  |
 | 0x74 |   recv_cnt_31_0   |   csr.cryptokey_table.entry[0..63].recv_cnt_31_0   |
+| 0x78 |   recv_win_63_32  |   csr.cryptokey_table.entry[0..63].recv_win_63_32  |
+| 0x7C |   recv_win_31_0   |   csr.cryptokey_table.entry[0..63].recv_win_31_0   |
 
 ### local_mac_47_32 register
 
@@ -12335,9 +12802,14 @@ No supported members.
 
 <p>Local UDP Port</p>
 
-|Bits|Identifier|Access|Reset|                         Name                         |
-|----|----------|------|-----|------------------------------------------------------|
-|15:0|   port   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.port[15:0]|
+| Bits|Identifier|Access|Reset|                         Name                         |
+|-----|----------|------|-----|------------------------------------------------------|
+| 15:0|   port   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.port[15:0]|
+|21:16|    tag   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.tag[21:16]|
+
+#### tag field
+
+<p>Peer tag: the entry the peer's routes point at, in each of its entries (current, next, old); 0 when free. The AllowedIPs check compares it</p>
 
 ### local_id register
 
@@ -12659,11 +13131,35 @@ No supported members.
 |----|----------|------|-----|--------------------------------------------------------|
 |31:0|    cnt   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_cnt_31_0.cnt[31:0]|
 
+### recv_win_63_32 register
+
+- Absolute Address: 0x200027F8
+- Base Offset: 0x78
+- Size: 0x4
+
+<p>Receiver Replay Window</p>
+
+|Bits|Identifier|Access|Reset|                           Name                          |
+|----|----------|------|-----|---------------------------------------------------------|
+|31:0|    win   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_win_63_32.win[31:0]|
+
+### recv_win_31_0 register
+
+- Absolute Address: 0x200027FC
+- Base Offset: 0x7C
+- Size: 0x4
+
+<p>Receiver Replay Window</p>
+
+|Bits|Identifier|Access|Reset|                          Name                          |
+|----|----------|------|-----|--------------------------------------------------------|
+|31:0|    win   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_win_31_0.win[31:0]|
+
 ## entry register file
 
 - Absolute Address: 0x20002800
 - Base Offset: 0x0
-- Size: 0x78
+- Size: 0x80
 - Array Dimensions: [64]
 - Array Stride: 0x80
 - Total Size: 0x2000
@@ -12702,6 +13198,8 @@ No supported members.
 | 0x6C |   send_cnt_31_0   |   csr.cryptokey_table.entry[0..63].send_cnt_31_0   |
 | 0x70 |   recv_cnt_63_32  |   csr.cryptokey_table.entry[0..63].recv_cnt_63_32  |
 | 0x74 |   recv_cnt_31_0   |   csr.cryptokey_table.entry[0..63].recv_cnt_31_0   |
+| 0x78 |   recv_win_63_32  |   csr.cryptokey_table.entry[0..63].recv_win_63_32  |
+| 0x7C |   recv_win_31_0   |   csr.cryptokey_table.entry[0..63].recv_win_31_0   |
 
 ### local_mac_47_32 register
 
@@ -12755,9 +13253,14 @@ No supported members.
 
 <p>Local UDP Port</p>
 
-|Bits|Identifier|Access|Reset|                         Name                         |
-|----|----------|------|-----|------------------------------------------------------|
-|15:0|   port   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.port[15:0]|
+| Bits|Identifier|Access|Reset|                         Name                         |
+|-----|----------|------|-----|------------------------------------------------------|
+| 15:0|   port   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.port[15:0]|
+|21:16|    tag   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.tag[21:16]|
+
+#### tag field
+
+<p>Peer tag: the entry the peer's routes point at, in each of its entries (current, next, old); 0 when free. The AllowedIPs check compares it</p>
 
 ### local_id register
 
@@ -13079,11 +13582,35 @@ No supported members.
 |----|----------|------|-----|--------------------------------------------------------|
 |31:0|    cnt   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_cnt_31_0.cnt[31:0]|
 
+### recv_win_63_32 register
+
+- Absolute Address: 0x20002878
+- Base Offset: 0x78
+- Size: 0x4
+
+<p>Receiver Replay Window</p>
+
+|Bits|Identifier|Access|Reset|                           Name                          |
+|----|----------|------|-----|---------------------------------------------------------|
+|31:0|    win   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_win_63_32.win[31:0]|
+
+### recv_win_31_0 register
+
+- Absolute Address: 0x2000287C
+- Base Offset: 0x7C
+- Size: 0x4
+
+<p>Receiver Replay Window</p>
+
+|Bits|Identifier|Access|Reset|                          Name                          |
+|----|----------|------|-----|--------------------------------------------------------|
+|31:0|    win   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_win_31_0.win[31:0]|
+
 ## entry register file
 
 - Absolute Address: 0x20002880
 - Base Offset: 0x0
-- Size: 0x78
+- Size: 0x80
 - Array Dimensions: [64]
 - Array Stride: 0x80
 - Total Size: 0x2000
@@ -13122,6 +13649,8 @@ No supported members.
 | 0x6C |   send_cnt_31_0   |   csr.cryptokey_table.entry[0..63].send_cnt_31_0   |
 | 0x70 |   recv_cnt_63_32  |   csr.cryptokey_table.entry[0..63].recv_cnt_63_32  |
 | 0x74 |   recv_cnt_31_0   |   csr.cryptokey_table.entry[0..63].recv_cnt_31_0   |
+| 0x78 |   recv_win_63_32  |   csr.cryptokey_table.entry[0..63].recv_win_63_32  |
+| 0x7C |   recv_win_31_0   |   csr.cryptokey_table.entry[0..63].recv_win_31_0   |
 
 ### local_mac_47_32 register
 
@@ -13175,9 +13704,14 @@ No supported members.
 
 <p>Local UDP Port</p>
 
-|Bits|Identifier|Access|Reset|                         Name                         |
-|----|----------|------|-----|------------------------------------------------------|
-|15:0|   port   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.port[15:0]|
+| Bits|Identifier|Access|Reset|                         Name                         |
+|-----|----------|------|-----|------------------------------------------------------|
+| 15:0|   port   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.port[15:0]|
+|21:16|    tag   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.tag[21:16]|
+
+#### tag field
+
+<p>Peer tag: the entry the peer's routes point at, in each of its entries (current, next, old); 0 when free. The AllowedIPs check compares it</p>
 
 ### local_id register
 
@@ -13499,11 +14033,35 @@ No supported members.
 |----|----------|------|-----|--------------------------------------------------------|
 |31:0|    cnt   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_cnt_31_0.cnt[31:0]|
 
+### recv_win_63_32 register
+
+- Absolute Address: 0x200028F8
+- Base Offset: 0x78
+- Size: 0x4
+
+<p>Receiver Replay Window</p>
+
+|Bits|Identifier|Access|Reset|                           Name                          |
+|----|----------|------|-----|---------------------------------------------------------|
+|31:0|    win   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_win_63_32.win[31:0]|
+
+### recv_win_31_0 register
+
+- Absolute Address: 0x200028FC
+- Base Offset: 0x7C
+- Size: 0x4
+
+<p>Receiver Replay Window</p>
+
+|Bits|Identifier|Access|Reset|                          Name                          |
+|----|----------|------|-----|--------------------------------------------------------|
+|31:0|    win   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_win_31_0.win[31:0]|
+
 ## entry register file
 
 - Absolute Address: 0x20002900
 - Base Offset: 0x0
-- Size: 0x78
+- Size: 0x80
 - Array Dimensions: [64]
 - Array Stride: 0x80
 - Total Size: 0x2000
@@ -13542,6 +14100,8 @@ No supported members.
 | 0x6C |   send_cnt_31_0   |   csr.cryptokey_table.entry[0..63].send_cnt_31_0   |
 | 0x70 |   recv_cnt_63_32  |   csr.cryptokey_table.entry[0..63].recv_cnt_63_32  |
 | 0x74 |   recv_cnt_31_0   |   csr.cryptokey_table.entry[0..63].recv_cnt_31_0   |
+| 0x78 |   recv_win_63_32  |   csr.cryptokey_table.entry[0..63].recv_win_63_32  |
+| 0x7C |   recv_win_31_0   |   csr.cryptokey_table.entry[0..63].recv_win_31_0   |
 
 ### local_mac_47_32 register
 
@@ -13595,9 +14155,14 @@ No supported members.
 
 <p>Local UDP Port</p>
 
-|Bits|Identifier|Access|Reset|                         Name                         |
-|----|----------|------|-----|------------------------------------------------------|
-|15:0|   port   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.port[15:0]|
+| Bits|Identifier|Access|Reset|                         Name                         |
+|-----|----------|------|-----|------------------------------------------------------|
+| 15:0|   port   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.port[15:0]|
+|21:16|    tag   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.tag[21:16]|
+
+#### tag field
+
+<p>Peer tag: the entry the peer's routes point at, in each of its entries (current, next, old); 0 when free. The AllowedIPs check compares it</p>
 
 ### local_id register
 
@@ -13919,11 +14484,35 @@ No supported members.
 |----|----------|------|-----|--------------------------------------------------------|
 |31:0|    cnt   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_cnt_31_0.cnt[31:0]|
 
+### recv_win_63_32 register
+
+- Absolute Address: 0x20002978
+- Base Offset: 0x78
+- Size: 0x4
+
+<p>Receiver Replay Window</p>
+
+|Bits|Identifier|Access|Reset|                           Name                          |
+|----|----------|------|-----|---------------------------------------------------------|
+|31:0|    win   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_win_63_32.win[31:0]|
+
+### recv_win_31_0 register
+
+- Absolute Address: 0x2000297C
+- Base Offset: 0x7C
+- Size: 0x4
+
+<p>Receiver Replay Window</p>
+
+|Bits|Identifier|Access|Reset|                          Name                          |
+|----|----------|------|-----|--------------------------------------------------------|
+|31:0|    win   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_win_31_0.win[31:0]|
+
 ## entry register file
 
 - Absolute Address: 0x20002980
 - Base Offset: 0x0
-- Size: 0x78
+- Size: 0x80
 - Array Dimensions: [64]
 - Array Stride: 0x80
 - Total Size: 0x2000
@@ -13962,6 +14551,8 @@ No supported members.
 | 0x6C |   send_cnt_31_0   |   csr.cryptokey_table.entry[0..63].send_cnt_31_0   |
 | 0x70 |   recv_cnt_63_32  |   csr.cryptokey_table.entry[0..63].recv_cnt_63_32  |
 | 0x74 |   recv_cnt_31_0   |   csr.cryptokey_table.entry[0..63].recv_cnt_31_0   |
+| 0x78 |   recv_win_63_32  |   csr.cryptokey_table.entry[0..63].recv_win_63_32  |
+| 0x7C |   recv_win_31_0   |   csr.cryptokey_table.entry[0..63].recv_win_31_0   |
 
 ### local_mac_47_32 register
 
@@ -14015,9 +14606,14 @@ No supported members.
 
 <p>Local UDP Port</p>
 
-|Bits|Identifier|Access|Reset|                         Name                         |
-|----|----------|------|-----|------------------------------------------------------|
-|15:0|   port   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.port[15:0]|
+| Bits|Identifier|Access|Reset|                         Name                         |
+|-----|----------|------|-----|------------------------------------------------------|
+| 15:0|   port   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.port[15:0]|
+|21:16|    tag   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.tag[21:16]|
+
+#### tag field
+
+<p>Peer tag: the entry the peer's routes point at, in each of its entries (current, next, old); 0 when free. The AllowedIPs check compares it</p>
 
 ### local_id register
 
@@ -14339,11 +14935,35 @@ No supported members.
 |----|----------|------|-----|--------------------------------------------------------|
 |31:0|    cnt   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_cnt_31_0.cnt[31:0]|
 
+### recv_win_63_32 register
+
+- Absolute Address: 0x200029F8
+- Base Offset: 0x78
+- Size: 0x4
+
+<p>Receiver Replay Window</p>
+
+|Bits|Identifier|Access|Reset|                           Name                          |
+|----|----------|------|-----|---------------------------------------------------------|
+|31:0|    win   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_win_63_32.win[31:0]|
+
+### recv_win_31_0 register
+
+- Absolute Address: 0x200029FC
+- Base Offset: 0x7C
+- Size: 0x4
+
+<p>Receiver Replay Window</p>
+
+|Bits|Identifier|Access|Reset|                          Name                          |
+|----|----------|------|-----|--------------------------------------------------------|
+|31:0|    win   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_win_31_0.win[31:0]|
+
 ## entry register file
 
 - Absolute Address: 0x20002A00
 - Base Offset: 0x0
-- Size: 0x78
+- Size: 0x80
 - Array Dimensions: [64]
 - Array Stride: 0x80
 - Total Size: 0x2000
@@ -14382,6 +15002,8 @@ No supported members.
 | 0x6C |   send_cnt_31_0   |   csr.cryptokey_table.entry[0..63].send_cnt_31_0   |
 | 0x70 |   recv_cnt_63_32  |   csr.cryptokey_table.entry[0..63].recv_cnt_63_32  |
 | 0x74 |   recv_cnt_31_0   |   csr.cryptokey_table.entry[0..63].recv_cnt_31_0   |
+| 0x78 |   recv_win_63_32  |   csr.cryptokey_table.entry[0..63].recv_win_63_32  |
+| 0x7C |   recv_win_31_0   |   csr.cryptokey_table.entry[0..63].recv_win_31_0   |
 
 ### local_mac_47_32 register
 
@@ -14435,9 +15057,14 @@ No supported members.
 
 <p>Local UDP Port</p>
 
-|Bits|Identifier|Access|Reset|                         Name                         |
-|----|----------|------|-----|------------------------------------------------------|
-|15:0|   port   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.port[15:0]|
+| Bits|Identifier|Access|Reset|                         Name                         |
+|-----|----------|------|-----|------------------------------------------------------|
+| 15:0|   port   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.port[15:0]|
+|21:16|    tag   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.tag[21:16]|
+
+#### tag field
+
+<p>Peer tag: the entry the peer's routes point at, in each of its entries (current, next, old); 0 when free. The AllowedIPs check compares it</p>
 
 ### local_id register
 
@@ -14759,11 +15386,35 @@ No supported members.
 |----|----------|------|-----|--------------------------------------------------------|
 |31:0|    cnt   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_cnt_31_0.cnt[31:0]|
 
+### recv_win_63_32 register
+
+- Absolute Address: 0x20002A78
+- Base Offset: 0x78
+- Size: 0x4
+
+<p>Receiver Replay Window</p>
+
+|Bits|Identifier|Access|Reset|                           Name                          |
+|----|----------|------|-----|---------------------------------------------------------|
+|31:0|    win   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_win_63_32.win[31:0]|
+
+### recv_win_31_0 register
+
+- Absolute Address: 0x20002A7C
+- Base Offset: 0x7C
+- Size: 0x4
+
+<p>Receiver Replay Window</p>
+
+|Bits|Identifier|Access|Reset|                          Name                          |
+|----|----------|------|-----|--------------------------------------------------------|
+|31:0|    win   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_win_31_0.win[31:0]|
+
 ## entry register file
 
 - Absolute Address: 0x20002A80
 - Base Offset: 0x0
-- Size: 0x78
+- Size: 0x80
 - Array Dimensions: [64]
 - Array Stride: 0x80
 - Total Size: 0x2000
@@ -14802,6 +15453,8 @@ No supported members.
 | 0x6C |   send_cnt_31_0   |   csr.cryptokey_table.entry[0..63].send_cnt_31_0   |
 | 0x70 |   recv_cnt_63_32  |   csr.cryptokey_table.entry[0..63].recv_cnt_63_32  |
 | 0x74 |   recv_cnt_31_0   |   csr.cryptokey_table.entry[0..63].recv_cnt_31_0   |
+| 0x78 |   recv_win_63_32  |   csr.cryptokey_table.entry[0..63].recv_win_63_32  |
+| 0x7C |   recv_win_31_0   |   csr.cryptokey_table.entry[0..63].recv_win_31_0   |
 
 ### local_mac_47_32 register
 
@@ -14855,9 +15508,14 @@ No supported members.
 
 <p>Local UDP Port</p>
 
-|Bits|Identifier|Access|Reset|                         Name                         |
-|----|----------|------|-----|------------------------------------------------------|
-|15:0|   port   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.port[15:0]|
+| Bits|Identifier|Access|Reset|                         Name                         |
+|-----|----------|------|-----|------------------------------------------------------|
+| 15:0|   port   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.port[15:0]|
+|21:16|    tag   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.tag[21:16]|
+
+#### tag field
+
+<p>Peer tag: the entry the peer's routes point at, in each of its entries (current, next, old); 0 when free. The AllowedIPs check compares it</p>
 
 ### local_id register
 
@@ -15179,11 +15837,35 @@ No supported members.
 |----|----------|------|-----|--------------------------------------------------------|
 |31:0|    cnt   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_cnt_31_0.cnt[31:0]|
 
+### recv_win_63_32 register
+
+- Absolute Address: 0x20002AF8
+- Base Offset: 0x78
+- Size: 0x4
+
+<p>Receiver Replay Window</p>
+
+|Bits|Identifier|Access|Reset|                           Name                          |
+|----|----------|------|-----|---------------------------------------------------------|
+|31:0|    win   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_win_63_32.win[31:0]|
+
+### recv_win_31_0 register
+
+- Absolute Address: 0x20002AFC
+- Base Offset: 0x7C
+- Size: 0x4
+
+<p>Receiver Replay Window</p>
+
+|Bits|Identifier|Access|Reset|                          Name                          |
+|----|----------|------|-----|--------------------------------------------------------|
+|31:0|    win   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_win_31_0.win[31:0]|
+
 ## entry register file
 
 - Absolute Address: 0x20002B00
 - Base Offset: 0x0
-- Size: 0x78
+- Size: 0x80
 - Array Dimensions: [64]
 - Array Stride: 0x80
 - Total Size: 0x2000
@@ -15222,6 +15904,8 @@ No supported members.
 | 0x6C |   send_cnt_31_0   |   csr.cryptokey_table.entry[0..63].send_cnt_31_0   |
 | 0x70 |   recv_cnt_63_32  |   csr.cryptokey_table.entry[0..63].recv_cnt_63_32  |
 | 0x74 |   recv_cnt_31_0   |   csr.cryptokey_table.entry[0..63].recv_cnt_31_0   |
+| 0x78 |   recv_win_63_32  |   csr.cryptokey_table.entry[0..63].recv_win_63_32  |
+| 0x7C |   recv_win_31_0   |   csr.cryptokey_table.entry[0..63].recv_win_31_0   |
 
 ### local_mac_47_32 register
 
@@ -15275,9 +15959,14 @@ No supported members.
 
 <p>Local UDP Port</p>
 
-|Bits|Identifier|Access|Reset|                         Name                         |
-|----|----------|------|-----|------------------------------------------------------|
-|15:0|   port   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.port[15:0]|
+| Bits|Identifier|Access|Reset|                         Name                         |
+|-----|----------|------|-----|------------------------------------------------------|
+| 15:0|   port   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.port[15:0]|
+|21:16|    tag   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.tag[21:16]|
+
+#### tag field
+
+<p>Peer tag: the entry the peer's routes point at, in each of its entries (current, next, old); 0 when free. The AllowedIPs check compares it</p>
 
 ### local_id register
 
@@ -15599,11 +16288,35 @@ No supported members.
 |----|----------|------|-----|--------------------------------------------------------|
 |31:0|    cnt   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_cnt_31_0.cnt[31:0]|
 
+### recv_win_63_32 register
+
+- Absolute Address: 0x20002B78
+- Base Offset: 0x78
+- Size: 0x4
+
+<p>Receiver Replay Window</p>
+
+|Bits|Identifier|Access|Reset|                           Name                          |
+|----|----------|------|-----|---------------------------------------------------------|
+|31:0|    win   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_win_63_32.win[31:0]|
+
+### recv_win_31_0 register
+
+- Absolute Address: 0x20002B7C
+- Base Offset: 0x7C
+- Size: 0x4
+
+<p>Receiver Replay Window</p>
+
+|Bits|Identifier|Access|Reset|                          Name                          |
+|----|----------|------|-----|--------------------------------------------------------|
+|31:0|    win   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_win_31_0.win[31:0]|
+
 ## entry register file
 
 - Absolute Address: 0x20002B80
 - Base Offset: 0x0
-- Size: 0x78
+- Size: 0x80
 - Array Dimensions: [64]
 - Array Stride: 0x80
 - Total Size: 0x2000
@@ -15642,6 +16355,8 @@ No supported members.
 | 0x6C |   send_cnt_31_0   |   csr.cryptokey_table.entry[0..63].send_cnt_31_0   |
 | 0x70 |   recv_cnt_63_32  |   csr.cryptokey_table.entry[0..63].recv_cnt_63_32  |
 | 0x74 |   recv_cnt_31_0   |   csr.cryptokey_table.entry[0..63].recv_cnt_31_0   |
+| 0x78 |   recv_win_63_32  |   csr.cryptokey_table.entry[0..63].recv_win_63_32  |
+| 0x7C |   recv_win_31_0   |   csr.cryptokey_table.entry[0..63].recv_win_31_0   |
 
 ### local_mac_47_32 register
 
@@ -15695,9 +16410,14 @@ No supported members.
 
 <p>Local UDP Port</p>
 
-|Bits|Identifier|Access|Reset|                         Name                         |
-|----|----------|------|-----|------------------------------------------------------|
-|15:0|   port   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.port[15:0]|
+| Bits|Identifier|Access|Reset|                         Name                         |
+|-----|----------|------|-----|------------------------------------------------------|
+| 15:0|   port   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.port[15:0]|
+|21:16|    tag   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.tag[21:16]|
+
+#### tag field
+
+<p>Peer tag: the entry the peer's routes point at, in each of its entries (current, next, old); 0 when free. The AllowedIPs check compares it</p>
 
 ### local_id register
 
@@ -16019,11 +16739,35 @@ No supported members.
 |----|----------|------|-----|--------------------------------------------------------|
 |31:0|    cnt   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_cnt_31_0.cnt[31:0]|
 
+### recv_win_63_32 register
+
+- Absolute Address: 0x20002BF8
+- Base Offset: 0x78
+- Size: 0x4
+
+<p>Receiver Replay Window</p>
+
+|Bits|Identifier|Access|Reset|                           Name                          |
+|----|----------|------|-----|---------------------------------------------------------|
+|31:0|    win   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_win_63_32.win[31:0]|
+
+### recv_win_31_0 register
+
+- Absolute Address: 0x20002BFC
+- Base Offset: 0x7C
+- Size: 0x4
+
+<p>Receiver Replay Window</p>
+
+|Bits|Identifier|Access|Reset|                          Name                          |
+|----|----------|------|-----|--------------------------------------------------------|
+|31:0|    win   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_win_31_0.win[31:0]|
+
 ## entry register file
 
 - Absolute Address: 0x20002C00
 - Base Offset: 0x0
-- Size: 0x78
+- Size: 0x80
 - Array Dimensions: [64]
 - Array Stride: 0x80
 - Total Size: 0x2000
@@ -16062,6 +16806,8 @@ No supported members.
 | 0x6C |   send_cnt_31_0   |   csr.cryptokey_table.entry[0..63].send_cnt_31_0   |
 | 0x70 |   recv_cnt_63_32  |   csr.cryptokey_table.entry[0..63].recv_cnt_63_32  |
 | 0x74 |   recv_cnt_31_0   |   csr.cryptokey_table.entry[0..63].recv_cnt_31_0   |
+| 0x78 |   recv_win_63_32  |   csr.cryptokey_table.entry[0..63].recv_win_63_32  |
+| 0x7C |   recv_win_31_0   |   csr.cryptokey_table.entry[0..63].recv_win_31_0   |
 
 ### local_mac_47_32 register
 
@@ -16115,9 +16861,14 @@ No supported members.
 
 <p>Local UDP Port</p>
 
-|Bits|Identifier|Access|Reset|                         Name                         |
-|----|----------|------|-----|------------------------------------------------------|
-|15:0|   port   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.port[15:0]|
+| Bits|Identifier|Access|Reset|                         Name                         |
+|-----|----------|------|-----|------------------------------------------------------|
+| 15:0|   port   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.port[15:0]|
+|21:16|    tag   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.tag[21:16]|
+
+#### tag field
+
+<p>Peer tag: the entry the peer's routes point at, in each of its entries (current, next, old); 0 when free. The AllowedIPs check compares it</p>
 
 ### local_id register
 
@@ -16439,11 +17190,35 @@ No supported members.
 |----|----------|------|-----|--------------------------------------------------------|
 |31:0|    cnt   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_cnt_31_0.cnt[31:0]|
 
+### recv_win_63_32 register
+
+- Absolute Address: 0x20002C78
+- Base Offset: 0x78
+- Size: 0x4
+
+<p>Receiver Replay Window</p>
+
+|Bits|Identifier|Access|Reset|                           Name                          |
+|----|----------|------|-----|---------------------------------------------------------|
+|31:0|    win   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_win_63_32.win[31:0]|
+
+### recv_win_31_0 register
+
+- Absolute Address: 0x20002C7C
+- Base Offset: 0x7C
+- Size: 0x4
+
+<p>Receiver Replay Window</p>
+
+|Bits|Identifier|Access|Reset|                          Name                          |
+|----|----------|------|-----|--------------------------------------------------------|
+|31:0|    win   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_win_31_0.win[31:0]|
+
 ## entry register file
 
 - Absolute Address: 0x20002C80
 - Base Offset: 0x0
-- Size: 0x78
+- Size: 0x80
 - Array Dimensions: [64]
 - Array Stride: 0x80
 - Total Size: 0x2000
@@ -16482,6 +17257,8 @@ No supported members.
 | 0x6C |   send_cnt_31_0   |   csr.cryptokey_table.entry[0..63].send_cnt_31_0   |
 | 0x70 |   recv_cnt_63_32  |   csr.cryptokey_table.entry[0..63].recv_cnt_63_32  |
 | 0x74 |   recv_cnt_31_0   |   csr.cryptokey_table.entry[0..63].recv_cnt_31_0   |
+| 0x78 |   recv_win_63_32  |   csr.cryptokey_table.entry[0..63].recv_win_63_32  |
+| 0x7C |   recv_win_31_0   |   csr.cryptokey_table.entry[0..63].recv_win_31_0   |
 
 ### local_mac_47_32 register
 
@@ -16535,9 +17312,14 @@ No supported members.
 
 <p>Local UDP Port</p>
 
-|Bits|Identifier|Access|Reset|                         Name                         |
-|----|----------|------|-----|------------------------------------------------------|
-|15:0|   port   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.port[15:0]|
+| Bits|Identifier|Access|Reset|                         Name                         |
+|-----|----------|------|-----|------------------------------------------------------|
+| 15:0|   port   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.port[15:0]|
+|21:16|    tag   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.tag[21:16]|
+
+#### tag field
+
+<p>Peer tag: the entry the peer's routes point at, in each of its entries (current, next, old); 0 when free. The AllowedIPs check compares it</p>
 
 ### local_id register
 
@@ -16859,11 +17641,35 @@ No supported members.
 |----|----------|------|-----|--------------------------------------------------------|
 |31:0|    cnt   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_cnt_31_0.cnt[31:0]|
 
+### recv_win_63_32 register
+
+- Absolute Address: 0x20002CF8
+- Base Offset: 0x78
+- Size: 0x4
+
+<p>Receiver Replay Window</p>
+
+|Bits|Identifier|Access|Reset|                           Name                          |
+|----|----------|------|-----|---------------------------------------------------------|
+|31:0|    win   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_win_63_32.win[31:0]|
+
+### recv_win_31_0 register
+
+- Absolute Address: 0x20002CFC
+- Base Offset: 0x7C
+- Size: 0x4
+
+<p>Receiver Replay Window</p>
+
+|Bits|Identifier|Access|Reset|                          Name                          |
+|----|----------|------|-----|--------------------------------------------------------|
+|31:0|    win   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_win_31_0.win[31:0]|
+
 ## entry register file
 
 - Absolute Address: 0x20002D00
 - Base Offset: 0x0
-- Size: 0x78
+- Size: 0x80
 - Array Dimensions: [64]
 - Array Stride: 0x80
 - Total Size: 0x2000
@@ -16902,6 +17708,8 @@ No supported members.
 | 0x6C |   send_cnt_31_0   |   csr.cryptokey_table.entry[0..63].send_cnt_31_0   |
 | 0x70 |   recv_cnt_63_32  |   csr.cryptokey_table.entry[0..63].recv_cnt_63_32  |
 | 0x74 |   recv_cnt_31_0   |   csr.cryptokey_table.entry[0..63].recv_cnt_31_0   |
+| 0x78 |   recv_win_63_32  |   csr.cryptokey_table.entry[0..63].recv_win_63_32  |
+| 0x7C |   recv_win_31_0   |   csr.cryptokey_table.entry[0..63].recv_win_31_0   |
 
 ### local_mac_47_32 register
 
@@ -16955,9 +17763,14 @@ No supported members.
 
 <p>Local UDP Port</p>
 
-|Bits|Identifier|Access|Reset|                         Name                         |
-|----|----------|------|-----|------------------------------------------------------|
-|15:0|   port   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.port[15:0]|
+| Bits|Identifier|Access|Reset|                         Name                         |
+|-----|----------|------|-----|------------------------------------------------------|
+| 15:0|   port   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.port[15:0]|
+|21:16|    tag   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.tag[21:16]|
+
+#### tag field
+
+<p>Peer tag: the entry the peer's routes point at, in each of its entries (current, next, old); 0 when free. The AllowedIPs check compares it</p>
 
 ### local_id register
 
@@ -17279,11 +18092,35 @@ No supported members.
 |----|----------|------|-----|--------------------------------------------------------|
 |31:0|    cnt   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_cnt_31_0.cnt[31:0]|
 
+### recv_win_63_32 register
+
+- Absolute Address: 0x20002D78
+- Base Offset: 0x78
+- Size: 0x4
+
+<p>Receiver Replay Window</p>
+
+|Bits|Identifier|Access|Reset|                           Name                          |
+|----|----------|------|-----|---------------------------------------------------------|
+|31:0|    win   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_win_63_32.win[31:0]|
+
+### recv_win_31_0 register
+
+- Absolute Address: 0x20002D7C
+- Base Offset: 0x7C
+- Size: 0x4
+
+<p>Receiver Replay Window</p>
+
+|Bits|Identifier|Access|Reset|                          Name                          |
+|----|----------|------|-----|--------------------------------------------------------|
+|31:0|    win   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_win_31_0.win[31:0]|
+
 ## entry register file
 
 - Absolute Address: 0x20002D80
 - Base Offset: 0x0
-- Size: 0x78
+- Size: 0x80
 - Array Dimensions: [64]
 - Array Stride: 0x80
 - Total Size: 0x2000
@@ -17322,6 +18159,8 @@ No supported members.
 | 0x6C |   send_cnt_31_0   |   csr.cryptokey_table.entry[0..63].send_cnt_31_0   |
 | 0x70 |   recv_cnt_63_32  |   csr.cryptokey_table.entry[0..63].recv_cnt_63_32  |
 | 0x74 |   recv_cnt_31_0   |   csr.cryptokey_table.entry[0..63].recv_cnt_31_0   |
+| 0x78 |   recv_win_63_32  |   csr.cryptokey_table.entry[0..63].recv_win_63_32  |
+| 0x7C |   recv_win_31_0   |   csr.cryptokey_table.entry[0..63].recv_win_31_0   |
 
 ### local_mac_47_32 register
 
@@ -17375,9 +18214,14 @@ No supported members.
 
 <p>Local UDP Port</p>
 
-|Bits|Identifier|Access|Reset|                         Name                         |
-|----|----------|------|-----|------------------------------------------------------|
-|15:0|   port   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.port[15:0]|
+| Bits|Identifier|Access|Reset|                         Name                         |
+|-----|----------|------|-----|------------------------------------------------------|
+| 15:0|   port   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.port[15:0]|
+|21:16|    tag   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.tag[21:16]|
+
+#### tag field
+
+<p>Peer tag: the entry the peer's routes point at, in each of its entries (current, next, old); 0 when free. The AllowedIPs check compares it</p>
 
 ### local_id register
 
@@ -17699,11 +18543,35 @@ No supported members.
 |----|----------|------|-----|--------------------------------------------------------|
 |31:0|    cnt   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_cnt_31_0.cnt[31:0]|
 
+### recv_win_63_32 register
+
+- Absolute Address: 0x20002DF8
+- Base Offset: 0x78
+- Size: 0x4
+
+<p>Receiver Replay Window</p>
+
+|Bits|Identifier|Access|Reset|                           Name                          |
+|----|----------|------|-----|---------------------------------------------------------|
+|31:0|    win   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_win_63_32.win[31:0]|
+
+### recv_win_31_0 register
+
+- Absolute Address: 0x20002DFC
+- Base Offset: 0x7C
+- Size: 0x4
+
+<p>Receiver Replay Window</p>
+
+|Bits|Identifier|Access|Reset|                          Name                          |
+|----|----------|------|-----|--------------------------------------------------------|
+|31:0|    win   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_win_31_0.win[31:0]|
+
 ## entry register file
 
 - Absolute Address: 0x20002E00
 - Base Offset: 0x0
-- Size: 0x78
+- Size: 0x80
 - Array Dimensions: [64]
 - Array Stride: 0x80
 - Total Size: 0x2000
@@ -17742,6 +18610,8 @@ No supported members.
 | 0x6C |   send_cnt_31_0   |   csr.cryptokey_table.entry[0..63].send_cnt_31_0   |
 | 0x70 |   recv_cnt_63_32  |   csr.cryptokey_table.entry[0..63].recv_cnt_63_32  |
 | 0x74 |   recv_cnt_31_0   |   csr.cryptokey_table.entry[0..63].recv_cnt_31_0   |
+| 0x78 |   recv_win_63_32  |   csr.cryptokey_table.entry[0..63].recv_win_63_32  |
+| 0x7C |   recv_win_31_0   |   csr.cryptokey_table.entry[0..63].recv_win_31_0   |
 
 ### local_mac_47_32 register
 
@@ -17795,9 +18665,14 @@ No supported members.
 
 <p>Local UDP Port</p>
 
-|Bits|Identifier|Access|Reset|                         Name                         |
-|----|----------|------|-----|------------------------------------------------------|
-|15:0|   port   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.port[15:0]|
+| Bits|Identifier|Access|Reset|                         Name                         |
+|-----|----------|------|-----|------------------------------------------------------|
+| 15:0|   port   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.port[15:0]|
+|21:16|    tag   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.tag[21:16]|
+
+#### tag field
+
+<p>Peer tag: the entry the peer's routes point at, in each of its entries (current, next, old); 0 when free. The AllowedIPs check compares it</p>
 
 ### local_id register
 
@@ -18119,11 +18994,35 @@ No supported members.
 |----|----------|------|-----|--------------------------------------------------------|
 |31:0|    cnt   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_cnt_31_0.cnt[31:0]|
 
+### recv_win_63_32 register
+
+- Absolute Address: 0x20002E78
+- Base Offset: 0x78
+- Size: 0x4
+
+<p>Receiver Replay Window</p>
+
+|Bits|Identifier|Access|Reset|                           Name                          |
+|----|----------|------|-----|---------------------------------------------------------|
+|31:0|    win   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_win_63_32.win[31:0]|
+
+### recv_win_31_0 register
+
+- Absolute Address: 0x20002E7C
+- Base Offset: 0x7C
+- Size: 0x4
+
+<p>Receiver Replay Window</p>
+
+|Bits|Identifier|Access|Reset|                          Name                          |
+|----|----------|------|-----|--------------------------------------------------------|
+|31:0|    win   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_win_31_0.win[31:0]|
+
 ## entry register file
 
 - Absolute Address: 0x20002E80
 - Base Offset: 0x0
-- Size: 0x78
+- Size: 0x80
 - Array Dimensions: [64]
 - Array Stride: 0x80
 - Total Size: 0x2000
@@ -18162,6 +19061,8 @@ No supported members.
 | 0x6C |   send_cnt_31_0   |   csr.cryptokey_table.entry[0..63].send_cnt_31_0   |
 | 0x70 |   recv_cnt_63_32  |   csr.cryptokey_table.entry[0..63].recv_cnt_63_32  |
 | 0x74 |   recv_cnt_31_0   |   csr.cryptokey_table.entry[0..63].recv_cnt_31_0   |
+| 0x78 |   recv_win_63_32  |   csr.cryptokey_table.entry[0..63].recv_win_63_32  |
+| 0x7C |   recv_win_31_0   |   csr.cryptokey_table.entry[0..63].recv_win_31_0   |
 
 ### local_mac_47_32 register
 
@@ -18215,9 +19116,14 @@ No supported members.
 
 <p>Local UDP Port</p>
 
-|Bits|Identifier|Access|Reset|                         Name                         |
-|----|----------|------|-----|------------------------------------------------------|
-|15:0|   port   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.port[15:0]|
+| Bits|Identifier|Access|Reset|                         Name                         |
+|-----|----------|------|-----|------------------------------------------------------|
+| 15:0|   port   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.port[15:0]|
+|21:16|    tag   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.tag[21:16]|
+
+#### tag field
+
+<p>Peer tag: the entry the peer's routes point at, in each of its entries (current, next, old); 0 when free. The AllowedIPs check compares it</p>
 
 ### local_id register
 
@@ -18539,11 +19445,35 @@ No supported members.
 |----|----------|------|-----|--------------------------------------------------------|
 |31:0|    cnt   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_cnt_31_0.cnt[31:0]|
 
+### recv_win_63_32 register
+
+- Absolute Address: 0x20002EF8
+- Base Offset: 0x78
+- Size: 0x4
+
+<p>Receiver Replay Window</p>
+
+|Bits|Identifier|Access|Reset|                           Name                          |
+|----|----------|------|-----|---------------------------------------------------------|
+|31:0|    win   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_win_63_32.win[31:0]|
+
+### recv_win_31_0 register
+
+- Absolute Address: 0x20002EFC
+- Base Offset: 0x7C
+- Size: 0x4
+
+<p>Receiver Replay Window</p>
+
+|Bits|Identifier|Access|Reset|                          Name                          |
+|----|----------|------|-----|--------------------------------------------------------|
+|31:0|    win   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_win_31_0.win[31:0]|
+
 ## entry register file
 
 - Absolute Address: 0x20002F00
 - Base Offset: 0x0
-- Size: 0x78
+- Size: 0x80
 - Array Dimensions: [64]
 - Array Stride: 0x80
 - Total Size: 0x2000
@@ -18582,6 +19512,8 @@ No supported members.
 | 0x6C |   send_cnt_31_0   |   csr.cryptokey_table.entry[0..63].send_cnt_31_0   |
 | 0x70 |   recv_cnt_63_32  |   csr.cryptokey_table.entry[0..63].recv_cnt_63_32  |
 | 0x74 |   recv_cnt_31_0   |   csr.cryptokey_table.entry[0..63].recv_cnt_31_0   |
+| 0x78 |   recv_win_63_32  |   csr.cryptokey_table.entry[0..63].recv_win_63_32  |
+| 0x7C |   recv_win_31_0   |   csr.cryptokey_table.entry[0..63].recv_win_31_0   |
 
 ### local_mac_47_32 register
 
@@ -18635,9 +19567,14 @@ No supported members.
 
 <p>Local UDP Port</p>
 
-|Bits|Identifier|Access|Reset|                         Name                         |
-|----|----------|------|-----|------------------------------------------------------|
-|15:0|   port   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.port[15:0]|
+| Bits|Identifier|Access|Reset|                         Name                         |
+|-----|----------|------|-----|------------------------------------------------------|
+| 15:0|   port   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.port[15:0]|
+|21:16|    tag   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.tag[21:16]|
+
+#### tag field
+
+<p>Peer tag: the entry the peer's routes point at, in each of its entries (current, next, old); 0 when free. The AllowedIPs check compares it</p>
 
 ### local_id register
 
@@ -18959,11 +19896,35 @@ No supported members.
 |----|----------|------|-----|--------------------------------------------------------|
 |31:0|    cnt   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_cnt_31_0.cnt[31:0]|
 
+### recv_win_63_32 register
+
+- Absolute Address: 0x20002F78
+- Base Offset: 0x78
+- Size: 0x4
+
+<p>Receiver Replay Window</p>
+
+|Bits|Identifier|Access|Reset|                           Name                          |
+|----|----------|------|-----|---------------------------------------------------------|
+|31:0|    win   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_win_63_32.win[31:0]|
+
+### recv_win_31_0 register
+
+- Absolute Address: 0x20002F7C
+- Base Offset: 0x7C
+- Size: 0x4
+
+<p>Receiver Replay Window</p>
+
+|Bits|Identifier|Access|Reset|                          Name                          |
+|----|----------|------|-----|--------------------------------------------------------|
+|31:0|    win   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_win_31_0.win[31:0]|
+
 ## entry register file
 
 - Absolute Address: 0x20002F80
 - Base Offset: 0x0
-- Size: 0x78
+- Size: 0x80
 - Array Dimensions: [64]
 - Array Stride: 0x80
 - Total Size: 0x2000
@@ -19002,6 +19963,8 @@ No supported members.
 | 0x6C |   send_cnt_31_0   |   csr.cryptokey_table.entry[0..63].send_cnt_31_0   |
 | 0x70 |   recv_cnt_63_32  |   csr.cryptokey_table.entry[0..63].recv_cnt_63_32  |
 | 0x74 |   recv_cnt_31_0   |   csr.cryptokey_table.entry[0..63].recv_cnt_31_0   |
+| 0x78 |   recv_win_63_32  |   csr.cryptokey_table.entry[0..63].recv_win_63_32  |
+| 0x7C |   recv_win_31_0   |   csr.cryptokey_table.entry[0..63].recv_win_31_0   |
 
 ### local_mac_47_32 register
 
@@ -19055,9 +20018,14 @@ No supported members.
 
 <p>Local UDP Port</p>
 
-|Bits|Identifier|Access|Reset|                         Name                         |
-|----|----------|------|-----|------------------------------------------------------|
-|15:0|   port   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.port[15:0]|
+| Bits|Identifier|Access|Reset|                         Name                         |
+|-----|----------|------|-----|------------------------------------------------------|
+| 15:0|   port   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.port[15:0]|
+|21:16|    tag   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.tag[21:16]|
+
+#### tag field
+
+<p>Peer tag: the entry the peer's routes point at, in each of its entries (current, next, old); 0 when free. The AllowedIPs check compares it</p>
 
 ### local_id register
 
@@ -19379,11 +20347,35 @@ No supported members.
 |----|----------|------|-----|--------------------------------------------------------|
 |31:0|    cnt   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_cnt_31_0.cnt[31:0]|
 
+### recv_win_63_32 register
+
+- Absolute Address: 0x20002FF8
+- Base Offset: 0x78
+- Size: 0x4
+
+<p>Receiver Replay Window</p>
+
+|Bits|Identifier|Access|Reset|                           Name                          |
+|----|----------|------|-----|---------------------------------------------------------|
+|31:0|    win   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_win_63_32.win[31:0]|
+
+### recv_win_31_0 register
+
+- Absolute Address: 0x20002FFC
+- Base Offset: 0x7C
+- Size: 0x4
+
+<p>Receiver Replay Window</p>
+
+|Bits|Identifier|Access|Reset|                          Name                          |
+|----|----------|------|-----|--------------------------------------------------------|
+|31:0|    win   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_win_31_0.win[31:0]|
+
 ## entry register file
 
 - Absolute Address: 0x20003000
 - Base Offset: 0x0
-- Size: 0x78
+- Size: 0x80
 - Array Dimensions: [64]
 - Array Stride: 0x80
 - Total Size: 0x2000
@@ -19422,6 +20414,8 @@ No supported members.
 | 0x6C |   send_cnt_31_0   |   csr.cryptokey_table.entry[0..63].send_cnt_31_0   |
 | 0x70 |   recv_cnt_63_32  |   csr.cryptokey_table.entry[0..63].recv_cnt_63_32  |
 | 0x74 |   recv_cnt_31_0   |   csr.cryptokey_table.entry[0..63].recv_cnt_31_0   |
+| 0x78 |   recv_win_63_32  |   csr.cryptokey_table.entry[0..63].recv_win_63_32  |
+| 0x7C |   recv_win_31_0   |   csr.cryptokey_table.entry[0..63].recv_win_31_0   |
 
 ### local_mac_47_32 register
 
@@ -19475,9 +20469,14 @@ No supported members.
 
 <p>Local UDP Port</p>
 
-|Bits|Identifier|Access|Reset|                         Name                         |
-|----|----------|------|-----|------------------------------------------------------|
-|15:0|   port   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.port[15:0]|
+| Bits|Identifier|Access|Reset|                         Name                         |
+|-----|----------|------|-----|------------------------------------------------------|
+| 15:0|   port   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.port[15:0]|
+|21:16|    tag   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.tag[21:16]|
+
+#### tag field
+
+<p>Peer tag: the entry the peer's routes point at, in each of its entries (current, next, old); 0 when free. The AllowedIPs check compares it</p>
 
 ### local_id register
 
@@ -19799,11 +20798,35 @@ No supported members.
 |----|----------|------|-----|--------------------------------------------------------|
 |31:0|    cnt   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_cnt_31_0.cnt[31:0]|
 
+### recv_win_63_32 register
+
+- Absolute Address: 0x20003078
+- Base Offset: 0x78
+- Size: 0x4
+
+<p>Receiver Replay Window</p>
+
+|Bits|Identifier|Access|Reset|                           Name                          |
+|----|----------|------|-----|---------------------------------------------------------|
+|31:0|    win   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_win_63_32.win[31:0]|
+
+### recv_win_31_0 register
+
+- Absolute Address: 0x2000307C
+- Base Offset: 0x7C
+- Size: 0x4
+
+<p>Receiver Replay Window</p>
+
+|Bits|Identifier|Access|Reset|                          Name                          |
+|----|----------|------|-----|--------------------------------------------------------|
+|31:0|    win   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_win_31_0.win[31:0]|
+
 ## entry register file
 
 - Absolute Address: 0x20003080
 - Base Offset: 0x0
-- Size: 0x78
+- Size: 0x80
 - Array Dimensions: [64]
 - Array Stride: 0x80
 - Total Size: 0x2000
@@ -19842,6 +20865,8 @@ No supported members.
 | 0x6C |   send_cnt_31_0   |   csr.cryptokey_table.entry[0..63].send_cnt_31_0   |
 | 0x70 |   recv_cnt_63_32  |   csr.cryptokey_table.entry[0..63].recv_cnt_63_32  |
 | 0x74 |   recv_cnt_31_0   |   csr.cryptokey_table.entry[0..63].recv_cnt_31_0   |
+| 0x78 |   recv_win_63_32  |   csr.cryptokey_table.entry[0..63].recv_win_63_32  |
+| 0x7C |   recv_win_31_0   |   csr.cryptokey_table.entry[0..63].recv_win_31_0   |
 
 ### local_mac_47_32 register
 
@@ -19895,9 +20920,14 @@ No supported members.
 
 <p>Local UDP Port</p>
 
-|Bits|Identifier|Access|Reset|                         Name                         |
-|----|----------|------|-----|------------------------------------------------------|
-|15:0|   port   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.port[15:0]|
+| Bits|Identifier|Access|Reset|                         Name                         |
+|-----|----------|------|-----|------------------------------------------------------|
+| 15:0|   port   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.port[15:0]|
+|21:16|    tag   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.tag[21:16]|
+
+#### tag field
+
+<p>Peer tag: the entry the peer's routes point at, in each of its entries (current, next, old); 0 when free. The AllowedIPs check compares it</p>
 
 ### local_id register
 
@@ -20219,11 +21249,35 @@ No supported members.
 |----|----------|------|-----|--------------------------------------------------------|
 |31:0|    cnt   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_cnt_31_0.cnt[31:0]|
 
+### recv_win_63_32 register
+
+- Absolute Address: 0x200030F8
+- Base Offset: 0x78
+- Size: 0x4
+
+<p>Receiver Replay Window</p>
+
+|Bits|Identifier|Access|Reset|                           Name                          |
+|----|----------|------|-----|---------------------------------------------------------|
+|31:0|    win   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_win_63_32.win[31:0]|
+
+### recv_win_31_0 register
+
+- Absolute Address: 0x200030FC
+- Base Offset: 0x7C
+- Size: 0x4
+
+<p>Receiver Replay Window</p>
+
+|Bits|Identifier|Access|Reset|                          Name                          |
+|----|----------|------|-----|--------------------------------------------------------|
+|31:0|    win   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_win_31_0.win[31:0]|
+
 ## entry register file
 
 - Absolute Address: 0x20003100
 - Base Offset: 0x0
-- Size: 0x78
+- Size: 0x80
 - Array Dimensions: [64]
 - Array Stride: 0x80
 - Total Size: 0x2000
@@ -20262,6 +21316,8 @@ No supported members.
 | 0x6C |   send_cnt_31_0   |   csr.cryptokey_table.entry[0..63].send_cnt_31_0   |
 | 0x70 |   recv_cnt_63_32  |   csr.cryptokey_table.entry[0..63].recv_cnt_63_32  |
 | 0x74 |   recv_cnt_31_0   |   csr.cryptokey_table.entry[0..63].recv_cnt_31_0   |
+| 0x78 |   recv_win_63_32  |   csr.cryptokey_table.entry[0..63].recv_win_63_32  |
+| 0x7C |   recv_win_31_0   |   csr.cryptokey_table.entry[0..63].recv_win_31_0   |
 
 ### local_mac_47_32 register
 
@@ -20315,9 +21371,14 @@ No supported members.
 
 <p>Local UDP Port</p>
 
-|Bits|Identifier|Access|Reset|                         Name                         |
-|----|----------|------|-----|------------------------------------------------------|
-|15:0|   port   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.port[15:0]|
+| Bits|Identifier|Access|Reset|                         Name                         |
+|-----|----------|------|-----|------------------------------------------------------|
+| 15:0|   port   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.port[15:0]|
+|21:16|    tag   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.tag[21:16]|
+
+#### tag field
+
+<p>Peer tag: the entry the peer's routes point at, in each of its entries (current, next, old); 0 when free. The AllowedIPs check compares it</p>
 
 ### local_id register
 
@@ -20639,11 +21700,35 @@ No supported members.
 |----|----------|------|-----|--------------------------------------------------------|
 |31:0|    cnt   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_cnt_31_0.cnt[31:0]|
 
+### recv_win_63_32 register
+
+- Absolute Address: 0x20003178
+- Base Offset: 0x78
+- Size: 0x4
+
+<p>Receiver Replay Window</p>
+
+|Bits|Identifier|Access|Reset|                           Name                          |
+|----|----------|------|-----|---------------------------------------------------------|
+|31:0|    win   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_win_63_32.win[31:0]|
+
+### recv_win_31_0 register
+
+- Absolute Address: 0x2000317C
+- Base Offset: 0x7C
+- Size: 0x4
+
+<p>Receiver Replay Window</p>
+
+|Bits|Identifier|Access|Reset|                          Name                          |
+|----|----------|------|-----|--------------------------------------------------------|
+|31:0|    win   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_win_31_0.win[31:0]|
+
 ## entry register file
 
 - Absolute Address: 0x20003180
 - Base Offset: 0x0
-- Size: 0x78
+- Size: 0x80
 - Array Dimensions: [64]
 - Array Stride: 0x80
 - Total Size: 0x2000
@@ -20682,6 +21767,8 @@ No supported members.
 | 0x6C |   send_cnt_31_0   |   csr.cryptokey_table.entry[0..63].send_cnt_31_0   |
 | 0x70 |   recv_cnt_63_32  |   csr.cryptokey_table.entry[0..63].recv_cnt_63_32  |
 | 0x74 |   recv_cnt_31_0   |   csr.cryptokey_table.entry[0..63].recv_cnt_31_0   |
+| 0x78 |   recv_win_63_32  |   csr.cryptokey_table.entry[0..63].recv_win_63_32  |
+| 0x7C |   recv_win_31_0   |   csr.cryptokey_table.entry[0..63].recv_win_31_0   |
 
 ### local_mac_47_32 register
 
@@ -20735,9 +21822,14 @@ No supported members.
 
 <p>Local UDP Port</p>
 
-|Bits|Identifier|Access|Reset|                         Name                         |
-|----|----------|------|-----|------------------------------------------------------|
-|15:0|   port   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.port[15:0]|
+| Bits|Identifier|Access|Reset|                         Name                         |
+|-----|----------|------|-----|------------------------------------------------------|
+| 15:0|   port   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.port[15:0]|
+|21:16|    tag   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.tag[21:16]|
+
+#### tag field
+
+<p>Peer tag: the entry the peer's routes point at, in each of its entries (current, next, old); 0 when free. The AllowedIPs check compares it</p>
 
 ### local_id register
 
@@ -21059,11 +22151,35 @@ No supported members.
 |----|----------|------|-----|--------------------------------------------------------|
 |31:0|    cnt   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_cnt_31_0.cnt[31:0]|
 
+### recv_win_63_32 register
+
+- Absolute Address: 0x200031F8
+- Base Offset: 0x78
+- Size: 0x4
+
+<p>Receiver Replay Window</p>
+
+|Bits|Identifier|Access|Reset|                           Name                          |
+|----|----------|------|-----|---------------------------------------------------------|
+|31:0|    win   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_win_63_32.win[31:0]|
+
+### recv_win_31_0 register
+
+- Absolute Address: 0x200031FC
+- Base Offset: 0x7C
+- Size: 0x4
+
+<p>Receiver Replay Window</p>
+
+|Bits|Identifier|Access|Reset|                          Name                          |
+|----|----------|------|-----|--------------------------------------------------------|
+|31:0|    win   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_win_31_0.win[31:0]|
+
 ## entry register file
 
 - Absolute Address: 0x20003200
 - Base Offset: 0x0
-- Size: 0x78
+- Size: 0x80
 - Array Dimensions: [64]
 - Array Stride: 0x80
 - Total Size: 0x2000
@@ -21102,6 +22218,8 @@ No supported members.
 | 0x6C |   send_cnt_31_0   |   csr.cryptokey_table.entry[0..63].send_cnt_31_0   |
 | 0x70 |   recv_cnt_63_32  |   csr.cryptokey_table.entry[0..63].recv_cnt_63_32  |
 | 0x74 |   recv_cnt_31_0   |   csr.cryptokey_table.entry[0..63].recv_cnt_31_0   |
+| 0x78 |   recv_win_63_32  |   csr.cryptokey_table.entry[0..63].recv_win_63_32  |
+| 0x7C |   recv_win_31_0   |   csr.cryptokey_table.entry[0..63].recv_win_31_0   |
 
 ### local_mac_47_32 register
 
@@ -21155,9 +22273,14 @@ No supported members.
 
 <p>Local UDP Port</p>
 
-|Bits|Identifier|Access|Reset|                         Name                         |
-|----|----------|------|-----|------------------------------------------------------|
-|15:0|   port   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.port[15:0]|
+| Bits|Identifier|Access|Reset|                         Name                         |
+|-----|----------|------|-----|------------------------------------------------------|
+| 15:0|   port   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.port[15:0]|
+|21:16|    tag   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.tag[21:16]|
+
+#### tag field
+
+<p>Peer tag: the entry the peer's routes point at, in each of its entries (current, next, old); 0 when free. The AllowedIPs check compares it</p>
 
 ### local_id register
 
@@ -21479,11 +22602,35 @@ No supported members.
 |----|----------|------|-----|--------------------------------------------------------|
 |31:0|    cnt   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_cnt_31_0.cnt[31:0]|
 
+### recv_win_63_32 register
+
+- Absolute Address: 0x20003278
+- Base Offset: 0x78
+- Size: 0x4
+
+<p>Receiver Replay Window</p>
+
+|Bits|Identifier|Access|Reset|                           Name                          |
+|----|----------|------|-----|---------------------------------------------------------|
+|31:0|    win   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_win_63_32.win[31:0]|
+
+### recv_win_31_0 register
+
+- Absolute Address: 0x2000327C
+- Base Offset: 0x7C
+- Size: 0x4
+
+<p>Receiver Replay Window</p>
+
+|Bits|Identifier|Access|Reset|                          Name                          |
+|----|----------|------|-----|--------------------------------------------------------|
+|31:0|    win   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_win_31_0.win[31:0]|
+
 ## entry register file
 
 - Absolute Address: 0x20003280
 - Base Offset: 0x0
-- Size: 0x78
+- Size: 0x80
 - Array Dimensions: [64]
 - Array Stride: 0x80
 - Total Size: 0x2000
@@ -21522,6 +22669,8 @@ No supported members.
 | 0x6C |   send_cnt_31_0   |   csr.cryptokey_table.entry[0..63].send_cnt_31_0   |
 | 0x70 |   recv_cnt_63_32  |   csr.cryptokey_table.entry[0..63].recv_cnt_63_32  |
 | 0x74 |   recv_cnt_31_0   |   csr.cryptokey_table.entry[0..63].recv_cnt_31_0   |
+| 0x78 |   recv_win_63_32  |   csr.cryptokey_table.entry[0..63].recv_win_63_32  |
+| 0x7C |   recv_win_31_0   |   csr.cryptokey_table.entry[0..63].recv_win_31_0   |
 
 ### local_mac_47_32 register
 
@@ -21575,9 +22724,14 @@ No supported members.
 
 <p>Local UDP Port</p>
 
-|Bits|Identifier|Access|Reset|                         Name                         |
-|----|----------|------|-----|------------------------------------------------------|
-|15:0|   port   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.port[15:0]|
+| Bits|Identifier|Access|Reset|                         Name                         |
+|-----|----------|------|-----|------------------------------------------------------|
+| 15:0|   port   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.port[15:0]|
+|21:16|    tag   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.tag[21:16]|
+
+#### tag field
+
+<p>Peer tag: the entry the peer's routes point at, in each of its entries (current, next, old); 0 when free. The AllowedIPs check compares it</p>
 
 ### local_id register
 
@@ -21899,11 +23053,35 @@ No supported members.
 |----|----------|------|-----|--------------------------------------------------------|
 |31:0|    cnt   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_cnt_31_0.cnt[31:0]|
 
+### recv_win_63_32 register
+
+- Absolute Address: 0x200032F8
+- Base Offset: 0x78
+- Size: 0x4
+
+<p>Receiver Replay Window</p>
+
+|Bits|Identifier|Access|Reset|                           Name                          |
+|----|----------|------|-----|---------------------------------------------------------|
+|31:0|    win   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_win_63_32.win[31:0]|
+
+### recv_win_31_0 register
+
+- Absolute Address: 0x200032FC
+- Base Offset: 0x7C
+- Size: 0x4
+
+<p>Receiver Replay Window</p>
+
+|Bits|Identifier|Access|Reset|                          Name                          |
+|----|----------|------|-----|--------------------------------------------------------|
+|31:0|    win   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_win_31_0.win[31:0]|
+
 ## entry register file
 
 - Absolute Address: 0x20003300
 - Base Offset: 0x0
-- Size: 0x78
+- Size: 0x80
 - Array Dimensions: [64]
 - Array Stride: 0x80
 - Total Size: 0x2000
@@ -21942,6 +23120,8 @@ No supported members.
 | 0x6C |   send_cnt_31_0   |   csr.cryptokey_table.entry[0..63].send_cnt_31_0   |
 | 0x70 |   recv_cnt_63_32  |   csr.cryptokey_table.entry[0..63].recv_cnt_63_32  |
 | 0x74 |   recv_cnt_31_0   |   csr.cryptokey_table.entry[0..63].recv_cnt_31_0   |
+| 0x78 |   recv_win_63_32  |   csr.cryptokey_table.entry[0..63].recv_win_63_32  |
+| 0x7C |   recv_win_31_0   |   csr.cryptokey_table.entry[0..63].recv_win_31_0   |
 
 ### local_mac_47_32 register
 
@@ -21995,9 +23175,14 @@ No supported members.
 
 <p>Local UDP Port</p>
 
-|Bits|Identifier|Access|Reset|                         Name                         |
-|----|----------|------|-----|------------------------------------------------------|
-|15:0|   port   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.port[15:0]|
+| Bits|Identifier|Access|Reset|                         Name                         |
+|-----|----------|------|-----|------------------------------------------------------|
+| 15:0|   port   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.port[15:0]|
+|21:16|    tag   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.tag[21:16]|
+
+#### tag field
+
+<p>Peer tag: the entry the peer's routes point at, in each of its entries (current, next, old); 0 when free. The AllowedIPs check compares it</p>
 
 ### local_id register
 
@@ -22319,11 +23504,35 @@ No supported members.
 |----|----------|------|-----|--------------------------------------------------------|
 |31:0|    cnt   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_cnt_31_0.cnt[31:0]|
 
+### recv_win_63_32 register
+
+- Absolute Address: 0x20003378
+- Base Offset: 0x78
+- Size: 0x4
+
+<p>Receiver Replay Window</p>
+
+|Bits|Identifier|Access|Reset|                           Name                          |
+|----|----------|------|-----|---------------------------------------------------------|
+|31:0|    win   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_win_63_32.win[31:0]|
+
+### recv_win_31_0 register
+
+- Absolute Address: 0x2000337C
+- Base Offset: 0x7C
+- Size: 0x4
+
+<p>Receiver Replay Window</p>
+
+|Bits|Identifier|Access|Reset|                          Name                          |
+|----|----------|------|-----|--------------------------------------------------------|
+|31:0|    win   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_win_31_0.win[31:0]|
+
 ## entry register file
 
 - Absolute Address: 0x20003380
 - Base Offset: 0x0
-- Size: 0x78
+- Size: 0x80
 - Array Dimensions: [64]
 - Array Stride: 0x80
 - Total Size: 0x2000
@@ -22362,6 +23571,8 @@ No supported members.
 | 0x6C |   send_cnt_31_0   |   csr.cryptokey_table.entry[0..63].send_cnt_31_0   |
 | 0x70 |   recv_cnt_63_32  |   csr.cryptokey_table.entry[0..63].recv_cnt_63_32  |
 | 0x74 |   recv_cnt_31_0   |   csr.cryptokey_table.entry[0..63].recv_cnt_31_0   |
+| 0x78 |   recv_win_63_32  |   csr.cryptokey_table.entry[0..63].recv_win_63_32  |
+| 0x7C |   recv_win_31_0   |   csr.cryptokey_table.entry[0..63].recv_win_31_0   |
 
 ### local_mac_47_32 register
 
@@ -22415,9 +23626,14 @@ No supported members.
 
 <p>Local UDP Port</p>
 
-|Bits|Identifier|Access|Reset|                         Name                         |
-|----|----------|------|-----|------------------------------------------------------|
-|15:0|   port   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.port[15:0]|
+| Bits|Identifier|Access|Reset|                         Name                         |
+|-----|----------|------|-----|------------------------------------------------------|
+| 15:0|   port   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.port[15:0]|
+|21:16|    tag   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.tag[21:16]|
+
+#### tag field
+
+<p>Peer tag: the entry the peer's routes point at, in each of its entries (current, next, old); 0 when free. The AllowedIPs check compares it</p>
 
 ### local_id register
 
@@ -22739,11 +23955,35 @@ No supported members.
 |----|----------|------|-----|--------------------------------------------------------|
 |31:0|    cnt   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_cnt_31_0.cnt[31:0]|
 
+### recv_win_63_32 register
+
+- Absolute Address: 0x200033F8
+- Base Offset: 0x78
+- Size: 0x4
+
+<p>Receiver Replay Window</p>
+
+|Bits|Identifier|Access|Reset|                           Name                          |
+|----|----------|------|-----|---------------------------------------------------------|
+|31:0|    win   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_win_63_32.win[31:0]|
+
+### recv_win_31_0 register
+
+- Absolute Address: 0x200033FC
+- Base Offset: 0x7C
+- Size: 0x4
+
+<p>Receiver Replay Window</p>
+
+|Bits|Identifier|Access|Reset|                          Name                          |
+|----|----------|------|-----|--------------------------------------------------------|
+|31:0|    win   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_win_31_0.win[31:0]|
+
 ## entry register file
 
 - Absolute Address: 0x20003400
 - Base Offset: 0x0
-- Size: 0x78
+- Size: 0x80
 - Array Dimensions: [64]
 - Array Stride: 0x80
 - Total Size: 0x2000
@@ -22782,6 +24022,8 @@ No supported members.
 | 0x6C |   send_cnt_31_0   |   csr.cryptokey_table.entry[0..63].send_cnt_31_0   |
 | 0x70 |   recv_cnt_63_32  |   csr.cryptokey_table.entry[0..63].recv_cnt_63_32  |
 | 0x74 |   recv_cnt_31_0   |   csr.cryptokey_table.entry[0..63].recv_cnt_31_0   |
+| 0x78 |   recv_win_63_32  |   csr.cryptokey_table.entry[0..63].recv_win_63_32  |
+| 0x7C |   recv_win_31_0   |   csr.cryptokey_table.entry[0..63].recv_win_31_0   |
 
 ### local_mac_47_32 register
 
@@ -22835,9 +24077,14 @@ No supported members.
 
 <p>Local UDP Port</p>
 
-|Bits|Identifier|Access|Reset|                         Name                         |
-|----|----------|------|-----|------------------------------------------------------|
-|15:0|   port   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.port[15:0]|
+| Bits|Identifier|Access|Reset|                         Name                         |
+|-----|----------|------|-----|------------------------------------------------------|
+| 15:0|   port   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.port[15:0]|
+|21:16|    tag   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.tag[21:16]|
+
+#### tag field
+
+<p>Peer tag: the entry the peer's routes point at, in each of its entries (current, next, old); 0 when free. The AllowedIPs check compares it</p>
 
 ### local_id register
 
@@ -23159,11 +24406,35 @@ No supported members.
 |----|----------|------|-----|--------------------------------------------------------|
 |31:0|    cnt   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_cnt_31_0.cnt[31:0]|
 
+### recv_win_63_32 register
+
+- Absolute Address: 0x20003478
+- Base Offset: 0x78
+- Size: 0x4
+
+<p>Receiver Replay Window</p>
+
+|Bits|Identifier|Access|Reset|                           Name                          |
+|----|----------|------|-----|---------------------------------------------------------|
+|31:0|    win   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_win_63_32.win[31:0]|
+
+### recv_win_31_0 register
+
+- Absolute Address: 0x2000347C
+- Base Offset: 0x7C
+- Size: 0x4
+
+<p>Receiver Replay Window</p>
+
+|Bits|Identifier|Access|Reset|                          Name                          |
+|----|----------|------|-----|--------------------------------------------------------|
+|31:0|    win   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_win_31_0.win[31:0]|
+
 ## entry register file
 
 - Absolute Address: 0x20003480
 - Base Offset: 0x0
-- Size: 0x78
+- Size: 0x80
 - Array Dimensions: [64]
 - Array Stride: 0x80
 - Total Size: 0x2000
@@ -23202,6 +24473,8 @@ No supported members.
 | 0x6C |   send_cnt_31_0   |   csr.cryptokey_table.entry[0..63].send_cnt_31_0   |
 | 0x70 |   recv_cnt_63_32  |   csr.cryptokey_table.entry[0..63].recv_cnt_63_32  |
 | 0x74 |   recv_cnt_31_0   |   csr.cryptokey_table.entry[0..63].recv_cnt_31_0   |
+| 0x78 |   recv_win_63_32  |   csr.cryptokey_table.entry[0..63].recv_win_63_32  |
+| 0x7C |   recv_win_31_0   |   csr.cryptokey_table.entry[0..63].recv_win_31_0   |
 
 ### local_mac_47_32 register
 
@@ -23255,9 +24528,14 @@ No supported members.
 
 <p>Local UDP Port</p>
 
-|Bits|Identifier|Access|Reset|                         Name                         |
-|----|----------|------|-----|------------------------------------------------------|
-|15:0|   port   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.port[15:0]|
+| Bits|Identifier|Access|Reset|                         Name                         |
+|-----|----------|------|-----|------------------------------------------------------|
+| 15:0|   port   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.port[15:0]|
+|21:16|    tag   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.tag[21:16]|
+
+#### tag field
+
+<p>Peer tag: the entry the peer's routes point at, in each of its entries (current, next, old); 0 when free. The AllowedIPs check compares it</p>
 
 ### local_id register
 
@@ -23579,11 +24857,35 @@ No supported members.
 |----|----------|------|-----|--------------------------------------------------------|
 |31:0|    cnt   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_cnt_31_0.cnt[31:0]|
 
+### recv_win_63_32 register
+
+- Absolute Address: 0x200034F8
+- Base Offset: 0x78
+- Size: 0x4
+
+<p>Receiver Replay Window</p>
+
+|Bits|Identifier|Access|Reset|                           Name                          |
+|----|----------|------|-----|---------------------------------------------------------|
+|31:0|    win   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_win_63_32.win[31:0]|
+
+### recv_win_31_0 register
+
+- Absolute Address: 0x200034FC
+- Base Offset: 0x7C
+- Size: 0x4
+
+<p>Receiver Replay Window</p>
+
+|Bits|Identifier|Access|Reset|                          Name                          |
+|----|----------|------|-----|--------------------------------------------------------|
+|31:0|    win   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_win_31_0.win[31:0]|
+
 ## entry register file
 
 - Absolute Address: 0x20003500
 - Base Offset: 0x0
-- Size: 0x78
+- Size: 0x80
 - Array Dimensions: [64]
 - Array Stride: 0x80
 - Total Size: 0x2000
@@ -23622,6 +24924,8 @@ No supported members.
 | 0x6C |   send_cnt_31_0   |   csr.cryptokey_table.entry[0..63].send_cnt_31_0   |
 | 0x70 |   recv_cnt_63_32  |   csr.cryptokey_table.entry[0..63].recv_cnt_63_32  |
 | 0x74 |   recv_cnt_31_0   |   csr.cryptokey_table.entry[0..63].recv_cnt_31_0   |
+| 0x78 |   recv_win_63_32  |   csr.cryptokey_table.entry[0..63].recv_win_63_32  |
+| 0x7C |   recv_win_31_0   |   csr.cryptokey_table.entry[0..63].recv_win_31_0   |
 
 ### local_mac_47_32 register
 
@@ -23675,9 +24979,14 @@ No supported members.
 
 <p>Local UDP Port</p>
 
-|Bits|Identifier|Access|Reset|                         Name                         |
-|----|----------|------|-----|------------------------------------------------------|
-|15:0|   port   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.port[15:0]|
+| Bits|Identifier|Access|Reset|                         Name                         |
+|-----|----------|------|-----|------------------------------------------------------|
+| 15:0|   port   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.port[15:0]|
+|21:16|    tag   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.tag[21:16]|
+
+#### tag field
+
+<p>Peer tag: the entry the peer's routes point at, in each of its entries (current, next, old); 0 when free. The AllowedIPs check compares it</p>
 
 ### local_id register
 
@@ -23999,11 +25308,35 @@ No supported members.
 |----|----------|------|-----|--------------------------------------------------------|
 |31:0|    cnt   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_cnt_31_0.cnt[31:0]|
 
+### recv_win_63_32 register
+
+- Absolute Address: 0x20003578
+- Base Offset: 0x78
+- Size: 0x4
+
+<p>Receiver Replay Window</p>
+
+|Bits|Identifier|Access|Reset|                           Name                          |
+|----|----------|------|-----|---------------------------------------------------------|
+|31:0|    win   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_win_63_32.win[31:0]|
+
+### recv_win_31_0 register
+
+- Absolute Address: 0x2000357C
+- Base Offset: 0x7C
+- Size: 0x4
+
+<p>Receiver Replay Window</p>
+
+|Bits|Identifier|Access|Reset|                          Name                          |
+|----|----------|------|-----|--------------------------------------------------------|
+|31:0|    win   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_win_31_0.win[31:0]|
+
 ## entry register file
 
 - Absolute Address: 0x20003580
 - Base Offset: 0x0
-- Size: 0x78
+- Size: 0x80
 - Array Dimensions: [64]
 - Array Stride: 0x80
 - Total Size: 0x2000
@@ -24042,6 +25375,8 @@ No supported members.
 | 0x6C |   send_cnt_31_0   |   csr.cryptokey_table.entry[0..63].send_cnt_31_0   |
 | 0x70 |   recv_cnt_63_32  |   csr.cryptokey_table.entry[0..63].recv_cnt_63_32  |
 | 0x74 |   recv_cnt_31_0   |   csr.cryptokey_table.entry[0..63].recv_cnt_31_0   |
+| 0x78 |   recv_win_63_32  |   csr.cryptokey_table.entry[0..63].recv_win_63_32  |
+| 0x7C |   recv_win_31_0   |   csr.cryptokey_table.entry[0..63].recv_win_31_0   |
 
 ### local_mac_47_32 register
 
@@ -24095,9 +25430,14 @@ No supported members.
 
 <p>Local UDP Port</p>
 
-|Bits|Identifier|Access|Reset|                         Name                         |
-|----|----------|------|-----|------------------------------------------------------|
-|15:0|   port   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.port[15:0]|
+| Bits|Identifier|Access|Reset|                         Name                         |
+|-----|----------|------|-----|------------------------------------------------------|
+| 15:0|   port   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.port[15:0]|
+|21:16|    tag   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.tag[21:16]|
+
+#### tag field
+
+<p>Peer tag: the entry the peer's routes point at, in each of its entries (current, next, old); 0 when free. The AllowedIPs check compares it</p>
 
 ### local_id register
 
@@ -24419,11 +25759,35 @@ No supported members.
 |----|----------|------|-----|--------------------------------------------------------|
 |31:0|    cnt   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_cnt_31_0.cnt[31:0]|
 
+### recv_win_63_32 register
+
+- Absolute Address: 0x200035F8
+- Base Offset: 0x78
+- Size: 0x4
+
+<p>Receiver Replay Window</p>
+
+|Bits|Identifier|Access|Reset|                           Name                          |
+|----|----------|------|-----|---------------------------------------------------------|
+|31:0|    win   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_win_63_32.win[31:0]|
+
+### recv_win_31_0 register
+
+- Absolute Address: 0x200035FC
+- Base Offset: 0x7C
+- Size: 0x4
+
+<p>Receiver Replay Window</p>
+
+|Bits|Identifier|Access|Reset|                          Name                          |
+|----|----------|------|-----|--------------------------------------------------------|
+|31:0|    win   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_win_31_0.win[31:0]|
+
 ## entry register file
 
 - Absolute Address: 0x20003600
 - Base Offset: 0x0
-- Size: 0x78
+- Size: 0x80
 - Array Dimensions: [64]
 - Array Stride: 0x80
 - Total Size: 0x2000
@@ -24462,6 +25826,8 @@ No supported members.
 | 0x6C |   send_cnt_31_0   |   csr.cryptokey_table.entry[0..63].send_cnt_31_0   |
 | 0x70 |   recv_cnt_63_32  |   csr.cryptokey_table.entry[0..63].recv_cnt_63_32  |
 | 0x74 |   recv_cnt_31_0   |   csr.cryptokey_table.entry[0..63].recv_cnt_31_0   |
+| 0x78 |   recv_win_63_32  |   csr.cryptokey_table.entry[0..63].recv_win_63_32  |
+| 0x7C |   recv_win_31_0   |   csr.cryptokey_table.entry[0..63].recv_win_31_0   |
 
 ### local_mac_47_32 register
 
@@ -24515,9 +25881,14 @@ No supported members.
 
 <p>Local UDP Port</p>
 
-|Bits|Identifier|Access|Reset|                         Name                         |
-|----|----------|------|-----|------------------------------------------------------|
-|15:0|   port   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.port[15:0]|
+| Bits|Identifier|Access|Reset|                         Name                         |
+|-----|----------|------|-----|------------------------------------------------------|
+| 15:0|   port   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.port[15:0]|
+|21:16|    tag   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.tag[21:16]|
+
+#### tag field
+
+<p>Peer tag: the entry the peer's routes point at, in each of its entries (current, next, old); 0 when free. The AllowedIPs check compares it</p>
 
 ### local_id register
 
@@ -24839,11 +26210,35 @@ No supported members.
 |----|----------|------|-----|--------------------------------------------------------|
 |31:0|    cnt   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_cnt_31_0.cnt[31:0]|
 
+### recv_win_63_32 register
+
+- Absolute Address: 0x20003678
+- Base Offset: 0x78
+- Size: 0x4
+
+<p>Receiver Replay Window</p>
+
+|Bits|Identifier|Access|Reset|                           Name                          |
+|----|----------|------|-----|---------------------------------------------------------|
+|31:0|    win   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_win_63_32.win[31:0]|
+
+### recv_win_31_0 register
+
+- Absolute Address: 0x2000367C
+- Base Offset: 0x7C
+- Size: 0x4
+
+<p>Receiver Replay Window</p>
+
+|Bits|Identifier|Access|Reset|                          Name                          |
+|----|----------|------|-----|--------------------------------------------------------|
+|31:0|    win   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_win_31_0.win[31:0]|
+
 ## entry register file
 
 - Absolute Address: 0x20003680
 - Base Offset: 0x0
-- Size: 0x78
+- Size: 0x80
 - Array Dimensions: [64]
 - Array Stride: 0x80
 - Total Size: 0x2000
@@ -24882,6 +26277,8 @@ No supported members.
 | 0x6C |   send_cnt_31_0   |   csr.cryptokey_table.entry[0..63].send_cnt_31_0   |
 | 0x70 |   recv_cnt_63_32  |   csr.cryptokey_table.entry[0..63].recv_cnt_63_32  |
 | 0x74 |   recv_cnt_31_0   |   csr.cryptokey_table.entry[0..63].recv_cnt_31_0   |
+| 0x78 |   recv_win_63_32  |   csr.cryptokey_table.entry[0..63].recv_win_63_32  |
+| 0x7C |   recv_win_31_0   |   csr.cryptokey_table.entry[0..63].recv_win_31_0   |
 
 ### local_mac_47_32 register
 
@@ -24935,9 +26332,14 @@ No supported members.
 
 <p>Local UDP Port</p>
 
-|Bits|Identifier|Access|Reset|                         Name                         |
-|----|----------|------|-----|------------------------------------------------------|
-|15:0|   port   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.port[15:0]|
+| Bits|Identifier|Access|Reset|                         Name                         |
+|-----|----------|------|-----|------------------------------------------------------|
+| 15:0|   port   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.port[15:0]|
+|21:16|    tag   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.tag[21:16]|
+
+#### tag field
+
+<p>Peer tag: the entry the peer's routes point at, in each of its entries (current, next, old); 0 when free. The AllowedIPs check compares it</p>
 
 ### local_id register
 
@@ -25259,11 +26661,35 @@ No supported members.
 |----|----------|------|-----|--------------------------------------------------------|
 |31:0|    cnt   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_cnt_31_0.cnt[31:0]|
 
+### recv_win_63_32 register
+
+- Absolute Address: 0x200036F8
+- Base Offset: 0x78
+- Size: 0x4
+
+<p>Receiver Replay Window</p>
+
+|Bits|Identifier|Access|Reset|                           Name                          |
+|----|----------|------|-----|---------------------------------------------------------|
+|31:0|    win   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_win_63_32.win[31:0]|
+
+### recv_win_31_0 register
+
+- Absolute Address: 0x200036FC
+- Base Offset: 0x7C
+- Size: 0x4
+
+<p>Receiver Replay Window</p>
+
+|Bits|Identifier|Access|Reset|                          Name                          |
+|----|----------|------|-----|--------------------------------------------------------|
+|31:0|    win   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_win_31_0.win[31:0]|
+
 ## entry register file
 
 - Absolute Address: 0x20003700
 - Base Offset: 0x0
-- Size: 0x78
+- Size: 0x80
 - Array Dimensions: [64]
 - Array Stride: 0x80
 - Total Size: 0x2000
@@ -25302,6 +26728,8 @@ No supported members.
 | 0x6C |   send_cnt_31_0   |   csr.cryptokey_table.entry[0..63].send_cnt_31_0   |
 | 0x70 |   recv_cnt_63_32  |   csr.cryptokey_table.entry[0..63].recv_cnt_63_32  |
 | 0x74 |   recv_cnt_31_0   |   csr.cryptokey_table.entry[0..63].recv_cnt_31_0   |
+| 0x78 |   recv_win_63_32  |   csr.cryptokey_table.entry[0..63].recv_win_63_32  |
+| 0x7C |   recv_win_31_0   |   csr.cryptokey_table.entry[0..63].recv_win_31_0   |
 
 ### local_mac_47_32 register
 
@@ -25355,9 +26783,14 @@ No supported members.
 
 <p>Local UDP Port</p>
 
-|Bits|Identifier|Access|Reset|                         Name                         |
-|----|----------|------|-----|------------------------------------------------------|
-|15:0|   port   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.port[15:0]|
+| Bits|Identifier|Access|Reset|                         Name                         |
+|-----|----------|------|-----|------------------------------------------------------|
+| 15:0|   port   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.port[15:0]|
+|21:16|    tag   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.tag[21:16]|
+
+#### tag field
+
+<p>Peer tag: the entry the peer's routes point at, in each of its entries (current, next, old); 0 when free. The AllowedIPs check compares it</p>
 
 ### local_id register
 
@@ -25679,11 +27112,35 @@ No supported members.
 |----|----------|------|-----|--------------------------------------------------------|
 |31:0|    cnt   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_cnt_31_0.cnt[31:0]|
 
+### recv_win_63_32 register
+
+- Absolute Address: 0x20003778
+- Base Offset: 0x78
+- Size: 0x4
+
+<p>Receiver Replay Window</p>
+
+|Bits|Identifier|Access|Reset|                           Name                          |
+|----|----------|------|-----|---------------------------------------------------------|
+|31:0|    win   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_win_63_32.win[31:0]|
+
+### recv_win_31_0 register
+
+- Absolute Address: 0x2000377C
+- Base Offset: 0x7C
+- Size: 0x4
+
+<p>Receiver Replay Window</p>
+
+|Bits|Identifier|Access|Reset|                          Name                          |
+|----|----------|------|-----|--------------------------------------------------------|
+|31:0|    win   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_win_31_0.win[31:0]|
+
 ## entry register file
 
 - Absolute Address: 0x20003780
 - Base Offset: 0x0
-- Size: 0x78
+- Size: 0x80
 - Array Dimensions: [64]
 - Array Stride: 0x80
 - Total Size: 0x2000
@@ -25722,6 +27179,8 @@ No supported members.
 | 0x6C |   send_cnt_31_0   |   csr.cryptokey_table.entry[0..63].send_cnt_31_0   |
 | 0x70 |   recv_cnt_63_32  |   csr.cryptokey_table.entry[0..63].recv_cnt_63_32  |
 | 0x74 |   recv_cnt_31_0   |   csr.cryptokey_table.entry[0..63].recv_cnt_31_0   |
+| 0x78 |   recv_win_63_32  |   csr.cryptokey_table.entry[0..63].recv_win_63_32  |
+| 0x7C |   recv_win_31_0   |   csr.cryptokey_table.entry[0..63].recv_win_31_0   |
 
 ### local_mac_47_32 register
 
@@ -25775,9 +27234,14 @@ No supported members.
 
 <p>Local UDP Port</p>
 
-|Bits|Identifier|Access|Reset|                         Name                         |
-|----|----------|------|-----|------------------------------------------------------|
-|15:0|   port   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.port[15:0]|
+| Bits|Identifier|Access|Reset|                         Name                         |
+|-----|----------|------|-----|------------------------------------------------------|
+| 15:0|   port   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.port[15:0]|
+|21:16|    tag   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.tag[21:16]|
+
+#### tag field
+
+<p>Peer tag: the entry the peer's routes point at, in each of its entries (current, next, old); 0 when free. The AllowedIPs check compares it</p>
 
 ### local_id register
 
@@ -26099,11 +27563,35 @@ No supported members.
 |----|----------|------|-----|--------------------------------------------------------|
 |31:0|    cnt   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_cnt_31_0.cnt[31:0]|
 
+### recv_win_63_32 register
+
+- Absolute Address: 0x200037F8
+- Base Offset: 0x78
+- Size: 0x4
+
+<p>Receiver Replay Window</p>
+
+|Bits|Identifier|Access|Reset|                           Name                          |
+|----|----------|------|-----|---------------------------------------------------------|
+|31:0|    win   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_win_63_32.win[31:0]|
+
+### recv_win_31_0 register
+
+- Absolute Address: 0x200037FC
+- Base Offset: 0x7C
+- Size: 0x4
+
+<p>Receiver Replay Window</p>
+
+|Bits|Identifier|Access|Reset|                          Name                          |
+|----|----------|------|-----|--------------------------------------------------------|
+|31:0|    win   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_win_31_0.win[31:0]|
+
 ## entry register file
 
 - Absolute Address: 0x20003800
 - Base Offset: 0x0
-- Size: 0x78
+- Size: 0x80
 - Array Dimensions: [64]
 - Array Stride: 0x80
 - Total Size: 0x2000
@@ -26142,6 +27630,8 @@ No supported members.
 | 0x6C |   send_cnt_31_0   |   csr.cryptokey_table.entry[0..63].send_cnt_31_0   |
 | 0x70 |   recv_cnt_63_32  |   csr.cryptokey_table.entry[0..63].recv_cnt_63_32  |
 | 0x74 |   recv_cnt_31_0   |   csr.cryptokey_table.entry[0..63].recv_cnt_31_0   |
+| 0x78 |   recv_win_63_32  |   csr.cryptokey_table.entry[0..63].recv_win_63_32  |
+| 0x7C |   recv_win_31_0   |   csr.cryptokey_table.entry[0..63].recv_win_31_0   |
 
 ### local_mac_47_32 register
 
@@ -26195,9 +27685,14 @@ No supported members.
 
 <p>Local UDP Port</p>
 
-|Bits|Identifier|Access|Reset|                         Name                         |
-|----|----------|------|-----|------------------------------------------------------|
-|15:0|   port   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.port[15:0]|
+| Bits|Identifier|Access|Reset|                         Name                         |
+|-----|----------|------|-----|------------------------------------------------------|
+| 15:0|   port   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.port[15:0]|
+|21:16|    tag   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.tag[21:16]|
+
+#### tag field
+
+<p>Peer tag: the entry the peer's routes point at, in each of its entries (current, next, old); 0 when free. The AllowedIPs check compares it</p>
 
 ### local_id register
 
@@ -26519,11 +28014,35 @@ No supported members.
 |----|----------|------|-----|--------------------------------------------------------|
 |31:0|    cnt   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_cnt_31_0.cnt[31:0]|
 
+### recv_win_63_32 register
+
+- Absolute Address: 0x20003878
+- Base Offset: 0x78
+- Size: 0x4
+
+<p>Receiver Replay Window</p>
+
+|Bits|Identifier|Access|Reset|                           Name                          |
+|----|----------|------|-----|---------------------------------------------------------|
+|31:0|    win   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_win_63_32.win[31:0]|
+
+### recv_win_31_0 register
+
+- Absolute Address: 0x2000387C
+- Base Offset: 0x7C
+- Size: 0x4
+
+<p>Receiver Replay Window</p>
+
+|Bits|Identifier|Access|Reset|                          Name                          |
+|----|----------|------|-----|--------------------------------------------------------|
+|31:0|    win   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_win_31_0.win[31:0]|
+
 ## entry register file
 
 - Absolute Address: 0x20003880
 - Base Offset: 0x0
-- Size: 0x78
+- Size: 0x80
 - Array Dimensions: [64]
 - Array Stride: 0x80
 - Total Size: 0x2000
@@ -26562,6 +28081,8 @@ No supported members.
 | 0x6C |   send_cnt_31_0   |   csr.cryptokey_table.entry[0..63].send_cnt_31_0   |
 | 0x70 |   recv_cnt_63_32  |   csr.cryptokey_table.entry[0..63].recv_cnt_63_32  |
 | 0x74 |   recv_cnt_31_0   |   csr.cryptokey_table.entry[0..63].recv_cnt_31_0   |
+| 0x78 |   recv_win_63_32  |   csr.cryptokey_table.entry[0..63].recv_win_63_32  |
+| 0x7C |   recv_win_31_0   |   csr.cryptokey_table.entry[0..63].recv_win_31_0   |
 
 ### local_mac_47_32 register
 
@@ -26615,9 +28136,14 @@ No supported members.
 
 <p>Local UDP Port</p>
 
-|Bits|Identifier|Access|Reset|                         Name                         |
-|----|----------|------|-----|------------------------------------------------------|
-|15:0|   port   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.port[15:0]|
+| Bits|Identifier|Access|Reset|                         Name                         |
+|-----|----------|------|-----|------------------------------------------------------|
+| 15:0|   port   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.port[15:0]|
+|21:16|    tag   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.tag[21:16]|
+
+#### tag field
+
+<p>Peer tag: the entry the peer's routes point at, in each of its entries (current, next, old); 0 when free. The AllowedIPs check compares it</p>
 
 ### local_id register
 
@@ -26939,11 +28465,35 @@ No supported members.
 |----|----------|------|-----|--------------------------------------------------------|
 |31:0|    cnt   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_cnt_31_0.cnt[31:0]|
 
+### recv_win_63_32 register
+
+- Absolute Address: 0x200038F8
+- Base Offset: 0x78
+- Size: 0x4
+
+<p>Receiver Replay Window</p>
+
+|Bits|Identifier|Access|Reset|                           Name                          |
+|----|----------|------|-----|---------------------------------------------------------|
+|31:0|    win   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_win_63_32.win[31:0]|
+
+### recv_win_31_0 register
+
+- Absolute Address: 0x200038FC
+- Base Offset: 0x7C
+- Size: 0x4
+
+<p>Receiver Replay Window</p>
+
+|Bits|Identifier|Access|Reset|                          Name                          |
+|----|----------|------|-----|--------------------------------------------------------|
+|31:0|    win   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_win_31_0.win[31:0]|
+
 ## entry register file
 
 - Absolute Address: 0x20003900
 - Base Offset: 0x0
-- Size: 0x78
+- Size: 0x80
 - Array Dimensions: [64]
 - Array Stride: 0x80
 - Total Size: 0x2000
@@ -26982,6 +28532,8 @@ No supported members.
 | 0x6C |   send_cnt_31_0   |   csr.cryptokey_table.entry[0..63].send_cnt_31_0   |
 | 0x70 |   recv_cnt_63_32  |   csr.cryptokey_table.entry[0..63].recv_cnt_63_32  |
 | 0x74 |   recv_cnt_31_0   |   csr.cryptokey_table.entry[0..63].recv_cnt_31_0   |
+| 0x78 |   recv_win_63_32  |   csr.cryptokey_table.entry[0..63].recv_win_63_32  |
+| 0x7C |   recv_win_31_0   |   csr.cryptokey_table.entry[0..63].recv_win_31_0   |
 
 ### local_mac_47_32 register
 
@@ -27035,9 +28587,14 @@ No supported members.
 
 <p>Local UDP Port</p>
 
-|Bits|Identifier|Access|Reset|                         Name                         |
-|----|----------|------|-----|------------------------------------------------------|
-|15:0|   port   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.port[15:0]|
+| Bits|Identifier|Access|Reset|                         Name                         |
+|-----|----------|------|-----|------------------------------------------------------|
+| 15:0|   port   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.port[15:0]|
+|21:16|    tag   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.tag[21:16]|
+
+#### tag field
+
+<p>Peer tag: the entry the peer's routes point at, in each of its entries (current, next, old); 0 when free. The AllowedIPs check compares it</p>
 
 ### local_id register
 
@@ -27359,11 +28916,35 @@ No supported members.
 |----|----------|------|-----|--------------------------------------------------------|
 |31:0|    cnt   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_cnt_31_0.cnt[31:0]|
 
+### recv_win_63_32 register
+
+- Absolute Address: 0x20003978
+- Base Offset: 0x78
+- Size: 0x4
+
+<p>Receiver Replay Window</p>
+
+|Bits|Identifier|Access|Reset|                           Name                          |
+|----|----------|------|-----|---------------------------------------------------------|
+|31:0|    win   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_win_63_32.win[31:0]|
+
+### recv_win_31_0 register
+
+- Absolute Address: 0x2000397C
+- Base Offset: 0x7C
+- Size: 0x4
+
+<p>Receiver Replay Window</p>
+
+|Bits|Identifier|Access|Reset|                          Name                          |
+|----|----------|------|-----|--------------------------------------------------------|
+|31:0|    win   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_win_31_0.win[31:0]|
+
 ## entry register file
 
 - Absolute Address: 0x20003980
 - Base Offset: 0x0
-- Size: 0x78
+- Size: 0x80
 - Array Dimensions: [64]
 - Array Stride: 0x80
 - Total Size: 0x2000
@@ -27402,6 +28983,8 @@ No supported members.
 | 0x6C |   send_cnt_31_0   |   csr.cryptokey_table.entry[0..63].send_cnt_31_0   |
 | 0x70 |   recv_cnt_63_32  |   csr.cryptokey_table.entry[0..63].recv_cnt_63_32  |
 | 0x74 |   recv_cnt_31_0   |   csr.cryptokey_table.entry[0..63].recv_cnt_31_0   |
+| 0x78 |   recv_win_63_32  |   csr.cryptokey_table.entry[0..63].recv_win_63_32  |
+| 0x7C |   recv_win_31_0   |   csr.cryptokey_table.entry[0..63].recv_win_31_0   |
 
 ### local_mac_47_32 register
 
@@ -27455,9 +29038,14 @@ No supported members.
 
 <p>Local UDP Port</p>
 
-|Bits|Identifier|Access|Reset|                         Name                         |
-|----|----------|------|-----|------------------------------------------------------|
-|15:0|   port   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.port[15:0]|
+| Bits|Identifier|Access|Reset|                         Name                         |
+|-----|----------|------|-----|------------------------------------------------------|
+| 15:0|   port   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.port[15:0]|
+|21:16|    tag   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.tag[21:16]|
+
+#### tag field
+
+<p>Peer tag: the entry the peer's routes point at, in each of its entries (current, next, old); 0 when free. The AllowedIPs check compares it</p>
 
 ### local_id register
 
@@ -27779,11 +29367,35 @@ No supported members.
 |----|----------|------|-----|--------------------------------------------------------|
 |31:0|    cnt   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_cnt_31_0.cnt[31:0]|
 
+### recv_win_63_32 register
+
+- Absolute Address: 0x200039F8
+- Base Offset: 0x78
+- Size: 0x4
+
+<p>Receiver Replay Window</p>
+
+|Bits|Identifier|Access|Reset|                           Name                          |
+|----|----------|------|-----|---------------------------------------------------------|
+|31:0|    win   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_win_63_32.win[31:0]|
+
+### recv_win_31_0 register
+
+- Absolute Address: 0x200039FC
+- Base Offset: 0x7C
+- Size: 0x4
+
+<p>Receiver Replay Window</p>
+
+|Bits|Identifier|Access|Reset|                          Name                          |
+|----|----------|------|-----|--------------------------------------------------------|
+|31:0|    win   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_win_31_0.win[31:0]|
+
 ## entry register file
 
 - Absolute Address: 0x20003A00
 - Base Offset: 0x0
-- Size: 0x78
+- Size: 0x80
 - Array Dimensions: [64]
 - Array Stride: 0x80
 - Total Size: 0x2000
@@ -27822,6 +29434,8 @@ No supported members.
 | 0x6C |   send_cnt_31_0   |   csr.cryptokey_table.entry[0..63].send_cnt_31_0   |
 | 0x70 |   recv_cnt_63_32  |   csr.cryptokey_table.entry[0..63].recv_cnt_63_32  |
 | 0x74 |   recv_cnt_31_0   |   csr.cryptokey_table.entry[0..63].recv_cnt_31_0   |
+| 0x78 |   recv_win_63_32  |   csr.cryptokey_table.entry[0..63].recv_win_63_32  |
+| 0x7C |   recv_win_31_0   |   csr.cryptokey_table.entry[0..63].recv_win_31_0   |
 
 ### local_mac_47_32 register
 
@@ -27875,9 +29489,14 @@ No supported members.
 
 <p>Local UDP Port</p>
 
-|Bits|Identifier|Access|Reset|                         Name                         |
-|----|----------|------|-----|------------------------------------------------------|
-|15:0|   port   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.port[15:0]|
+| Bits|Identifier|Access|Reset|                         Name                         |
+|-----|----------|------|-----|------------------------------------------------------|
+| 15:0|   port   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.port[15:0]|
+|21:16|    tag   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.tag[21:16]|
+
+#### tag field
+
+<p>Peer tag: the entry the peer's routes point at, in each of its entries (current, next, old); 0 when free. The AllowedIPs check compares it</p>
 
 ### local_id register
 
@@ -28199,11 +29818,35 @@ No supported members.
 |----|----------|------|-----|--------------------------------------------------------|
 |31:0|    cnt   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_cnt_31_0.cnt[31:0]|
 
+### recv_win_63_32 register
+
+- Absolute Address: 0x20003A78
+- Base Offset: 0x78
+- Size: 0x4
+
+<p>Receiver Replay Window</p>
+
+|Bits|Identifier|Access|Reset|                           Name                          |
+|----|----------|------|-----|---------------------------------------------------------|
+|31:0|    win   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_win_63_32.win[31:0]|
+
+### recv_win_31_0 register
+
+- Absolute Address: 0x20003A7C
+- Base Offset: 0x7C
+- Size: 0x4
+
+<p>Receiver Replay Window</p>
+
+|Bits|Identifier|Access|Reset|                          Name                          |
+|----|----------|------|-----|--------------------------------------------------------|
+|31:0|    win   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_win_31_0.win[31:0]|
+
 ## entry register file
 
 - Absolute Address: 0x20003A80
 - Base Offset: 0x0
-- Size: 0x78
+- Size: 0x80
 - Array Dimensions: [64]
 - Array Stride: 0x80
 - Total Size: 0x2000
@@ -28242,6 +29885,8 @@ No supported members.
 | 0x6C |   send_cnt_31_0   |   csr.cryptokey_table.entry[0..63].send_cnt_31_0   |
 | 0x70 |   recv_cnt_63_32  |   csr.cryptokey_table.entry[0..63].recv_cnt_63_32  |
 | 0x74 |   recv_cnt_31_0   |   csr.cryptokey_table.entry[0..63].recv_cnt_31_0   |
+| 0x78 |   recv_win_63_32  |   csr.cryptokey_table.entry[0..63].recv_win_63_32  |
+| 0x7C |   recv_win_31_0   |   csr.cryptokey_table.entry[0..63].recv_win_31_0   |
 
 ### local_mac_47_32 register
 
@@ -28295,9 +29940,14 @@ No supported members.
 
 <p>Local UDP Port</p>
 
-|Bits|Identifier|Access|Reset|                         Name                         |
-|----|----------|------|-----|------------------------------------------------------|
-|15:0|   port   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.port[15:0]|
+| Bits|Identifier|Access|Reset|                         Name                         |
+|-----|----------|------|-----|------------------------------------------------------|
+| 15:0|   port   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.port[15:0]|
+|21:16|    tag   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.tag[21:16]|
+
+#### tag field
+
+<p>Peer tag: the entry the peer's routes point at, in each of its entries (current, next, old); 0 when free. The AllowedIPs check compares it</p>
 
 ### local_id register
 
@@ -28619,11 +30269,35 @@ No supported members.
 |----|----------|------|-----|--------------------------------------------------------|
 |31:0|    cnt   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_cnt_31_0.cnt[31:0]|
 
+### recv_win_63_32 register
+
+- Absolute Address: 0x20003AF8
+- Base Offset: 0x78
+- Size: 0x4
+
+<p>Receiver Replay Window</p>
+
+|Bits|Identifier|Access|Reset|                           Name                          |
+|----|----------|------|-----|---------------------------------------------------------|
+|31:0|    win   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_win_63_32.win[31:0]|
+
+### recv_win_31_0 register
+
+- Absolute Address: 0x20003AFC
+- Base Offset: 0x7C
+- Size: 0x4
+
+<p>Receiver Replay Window</p>
+
+|Bits|Identifier|Access|Reset|                          Name                          |
+|----|----------|------|-----|--------------------------------------------------------|
+|31:0|    win   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_win_31_0.win[31:0]|
+
 ## entry register file
 
 - Absolute Address: 0x20003B00
 - Base Offset: 0x0
-- Size: 0x78
+- Size: 0x80
 - Array Dimensions: [64]
 - Array Stride: 0x80
 - Total Size: 0x2000
@@ -28662,6 +30336,8 @@ No supported members.
 | 0x6C |   send_cnt_31_0   |   csr.cryptokey_table.entry[0..63].send_cnt_31_0   |
 | 0x70 |   recv_cnt_63_32  |   csr.cryptokey_table.entry[0..63].recv_cnt_63_32  |
 | 0x74 |   recv_cnt_31_0   |   csr.cryptokey_table.entry[0..63].recv_cnt_31_0   |
+| 0x78 |   recv_win_63_32  |   csr.cryptokey_table.entry[0..63].recv_win_63_32  |
+| 0x7C |   recv_win_31_0   |   csr.cryptokey_table.entry[0..63].recv_win_31_0   |
 
 ### local_mac_47_32 register
 
@@ -28715,9 +30391,14 @@ No supported members.
 
 <p>Local UDP Port</p>
 
-|Bits|Identifier|Access|Reset|                         Name                         |
-|----|----------|------|-----|------------------------------------------------------|
-|15:0|   port   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.port[15:0]|
+| Bits|Identifier|Access|Reset|                         Name                         |
+|-----|----------|------|-----|------------------------------------------------------|
+| 15:0|   port   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.port[15:0]|
+|21:16|    tag   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.tag[21:16]|
+
+#### tag field
+
+<p>Peer tag: the entry the peer's routes point at, in each of its entries (current, next, old); 0 when free. The AllowedIPs check compares it</p>
 
 ### local_id register
 
@@ -29039,11 +30720,35 @@ No supported members.
 |----|----------|------|-----|--------------------------------------------------------|
 |31:0|    cnt   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_cnt_31_0.cnt[31:0]|
 
+### recv_win_63_32 register
+
+- Absolute Address: 0x20003B78
+- Base Offset: 0x78
+- Size: 0x4
+
+<p>Receiver Replay Window</p>
+
+|Bits|Identifier|Access|Reset|                           Name                          |
+|----|----------|------|-----|---------------------------------------------------------|
+|31:0|    win   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_win_63_32.win[31:0]|
+
+### recv_win_31_0 register
+
+- Absolute Address: 0x20003B7C
+- Base Offset: 0x7C
+- Size: 0x4
+
+<p>Receiver Replay Window</p>
+
+|Bits|Identifier|Access|Reset|                          Name                          |
+|----|----------|------|-----|--------------------------------------------------------|
+|31:0|    win   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_win_31_0.win[31:0]|
+
 ## entry register file
 
 - Absolute Address: 0x20003B80
 - Base Offset: 0x0
-- Size: 0x78
+- Size: 0x80
 - Array Dimensions: [64]
 - Array Stride: 0x80
 - Total Size: 0x2000
@@ -29082,6 +30787,8 @@ No supported members.
 | 0x6C |   send_cnt_31_0   |   csr.cryptokey_table.entry[0..63].send_cnt_31_0   |
 | 0x70 |   recv_cnt_63_32  |   csr.cryptokey_table.entry[0..63].recv_cnt_63_32  |
 | 0x74 |   recv_cnt_31_0   |   csr.cryptokey_table.entry[0..63].recv_cnt_31_0   |
+| 0x78 |   recv_win_63_32  |   csr.cryptokey_table.entry[0..63].recv_win_63_32  |
+| 0x7C |   recv_win_31_0   |   csr.cryptokey_table.entry[0..63].recv_win_31_0   |
 
 ### local_mac_47_32 register
 
@@ -29135,9 +30842,14 @@ No supported members.
 
 <p>Local UDP Port</p>
 
-|Bits|Identifier|Access|Reset|                         Name                         |
-|----|----------|------|-----|------------------------------------------------------|
-|15:0|   port   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.port[15:0]|
+| Bits|Identifier|Access|Reset|                         Name                         |
+|-----|----------|------|-----|------------------------------------------------------|
+| 15:0|   port   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.port[15:0]|
+|21:16|    tag   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.tag[21:16]|
+
+#### tag field
+
+<p>Peer tag: the entry the peer's routes point at, in each of its entries (current, next, old); 0 when free. The AllowedIPs check compares it</p>
 
 ### local_id register
 
@@ -29459,11 +31171,35 @@ No supported members.
 |----|----------|------|-----|--------------------------------------------------------|
 |31:0|    cnt   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_cnt_31_0.cnt[31:0]|
 
+### recv_win_63_32 register
+
+- Absolute Address: 0x20003BF8
+- Base Offset: 0x78
+- Size: 0x4
+
+<p>Receiver Replay Window</p>
+
+|Bits|Identifier|Access|Reset|                           Name                          |
+|----|----------|------|-----|---------------------------------------------------------|
+|31:0|    win   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_win_63_32.win[31:0]|
+
+### recv_win_31_0 register
+
+- Absolute Address: 0x20003BFC
+- Base Offset: 0x7C
+- Size: 0x4
+
+<p>Receiver Replay Window</p>
+
+|Bits|Identifier|Access|Reset|                          Name                          |
+|----|----------|------|-----|--------------------------------------------------------|
+|31:0|    win   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_win_31_0.win[31:0]|
+
 ## entry register file
 
 - Absolute Address: 0x20003C00
 - Base Offset: 0x0
-- Size: 0x78
+- Size: 0x80
 - Array Dimensions: [64]
 - Array Stride: 0x80
 - Total Size: 0x2000
@@ -29502,6 +31238,8 @@ No supported members.
 | 0x6C |   send_cnt_31_0   |   csr.cryptokey_table.entry[0..63].send_cnt_31_0   |
 | 0x70 |   recv_cnt_63_32  |   csr.cryptokey_table.entry[0..63].recv_cnt_63_32  |
 | 0x74 |   recv_cnt_31_0   |   csr.cryptokey_table.entry[0..63].recv_cnt_31_0   |
+| 0x78 |   recv_win_63_32  |   csr.cryptokey_table.entry[0..63].recv_win_63_32  |
+| 0x7C |   recv_win_31_0   |   csr.cryptokey_table.entry[0..63].recv_win_31_0   |
 
 ### local_mac_47_32 register
 
@@ -29555,9 +31293,14 @@ No supported members.
 
 <p>Local UDP Port</p>
 
-|Bits|Identifier|Access|Reset|                         Name                         |
-|----|----------|------|-----|------------------------------------------------------|
-|15:0|   port   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.port[15:0]|
+| Bits|Identifier|Access|Reset|                         Name                         |
+|-----|----------|------|-----|------------------------------------------------------|
+| 15:0|   port   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.port[15:0]|
+|21:16|    tag   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.tag[21:16]|
+
+#### tag field
+
+<p>Peer tag: the entry the peer's routes point at, in each of its entries (current, next, old); 0 when free. The AllowedIPs check compares it</p>
 
 ### local_id register
 
@@ -29879,11 +31622,35 @@ No supported members.
 |----|----------|------|-----|--------------------------------------------------------|
 |31:0|    cnt   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_cnt_31_0.cnt[31:0]|
 
+### recv_win_63_32 register
+
+- Absolute Address: 0x20003C78
+- Base Offset: 0x78
+- Size: 0x4
+
+<p>Receiver Replay Window</p>
+
+|Bits|Identifier|Access|Reset|                           Name                          |
+|----|----------|------|-----|---------------------------------------------------------|
+|31:0|    win   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_win_63_32.win[31:0]|
+
+### recv_win_31_0 register
+
+- Absolute Address: 0x20003C7C
+- Base Offset: 0x7C
+- Size: 0x4
+
+<p>Receiver Replay Window</p>
+
+|Bits|Identifier|Access|Reset|                          Name                          |
+|----|----------|------|-----|--------------------------------------------------------|
+|31:0|    win   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_win_31_0.win[31:0]|
+
 ## entry register file
 
 - Absolute Address: 0x20003C80
 - Base Offset: 0x0
-- Size: 0x78
+- Size: 0x80
 - Array Dimensions: [64]
 - Array Stride: 0x80
 - Total Size: 0x2000
@@ -29922,6 +31689,8 @@ No supported members.
 | 0x6C |   send_cnt_31_0   |   csr.cryptokey_table.entry[0..63].send_cnt_31_0   |
 | 0x70 |   recv_cnt_63_32  |   csr.cryptokey_table.entry[0..63].recv_cnt_63_32  |
 | 0x74 |   recv_cnt_31_0   |   csr.cryptokey_table.entry[0..63].recv_cnt_31_0   |
+| 0x78 |   recv_win_63_32  |   csr.cryptokey_table.entry[0..63].recv_win_63_32  |
+| 0x7C |   recv_win_31_0   |   csr.cryptokey_table.entry[0..63].recv_win_31_0   |
 
 ### local_mac_47_32 register
 
@@ -29975,9 +31744,14 @@ No supported members.
 
 <p>Local UDP Port</p>
 
-|Bits|Identifier|Access|Reset|                         Name                         |
-|----|----------|------|-----|------------------------------------------------------|
-|15:0|   port   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.port[15:0]|
+| Bits|Identifier|Access|Reset|                         Name                         |
+|-----|----------|------|-----|------------------------------------------------------|
+| 15:0|   port   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.port[15:0]|
+|21:16|    tag   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.tag[21:16]|
+
+#### tag field
+
+<p>Peer tag: the entry the peer's routes point at, in each of its entries (current, next, old); 0 when free. The AllowedIPs check compares it</p>
 
 ### local_id register
 
@@ -30299,11 +32073,35 @@ No supported members.
 |----|----------|------|-----|--------------------------------------------------------|
 |31:0|    cnt   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_cnt_31_0.cnt[31:0]|
 
+### recv_win_63_32 register
+
+- Absolute Address: 0x20003CF8
+- Base Offset: 0x78
+- Size: 0x4
+
+<p>Receiver Replay Window</p>
+
+|Bits|Identifier|Access|Reset|                           Name                          |
+|----|----------|------|-----|---------------------------------------------------------|
+|31:0|    win   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_win_63_32.win[31:0]|
+
+### recv_win_31_0 register
+
+- Absolute Address: 0x20003CFC
+- Base Offset: 0x7C
+- Size: 0x4
+
+<p>Receiver Replay Window</p>
+
+|Bits|Identifier|Access|Reset|                          Name                          |
+|----|----------|------|-----|--------------------------------------------------------|
+|31:0|    win   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_win_31_0.win[31:0]|
+
 ## entry register file
 
 - Absolute Address: 0x20003D00
 - Base Offset: 0x0
-- Size: 0x78
+- Size: 0x80
 - Array Dimensions: [64]
 - Array Stride: 0x80
 - Total Size: 0x2000
@@ -30342,6 +32140,8 @@ No supported members.
 | 0x6C |   send_cnt_31_0   |   csr.cryptokey_table.entry[0..63].send_cnt_31_0   |
 | 0x70 |   recv_cnt_63_32  |   csr.cryptokey_table.entry[0..63].recv_cnt_63_32  |
 | 0x74 |   recv_cnt_31_0   |   csr.cryptokey_table.entry[0..63].recv_cnt_31_0   |
+| 0x78 |   recv_win_63_32  |   csr.cryptokey_table.entry[0..63].recv_win_63_32  |
+| 0x7C |   recv_win_31_0   |   csr.cryptokey_table.entry[0..63].recv_win_31_0   |
 
 ### local_mac_47_32 register
 
@@ -30395,9 +32195,14 @@ No supported members.
 
 <p>Local UDP Port</p>
 
-|Bits|Identifier|Access|Reset|                         Name                         |
-|----|----------|------|-----|------------------------------------------------------|
-|15:0|   port   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.port[15:0]|
+| Bits|Identifier|Access|Reset|                         Name                         |
+|-----|----------|------|-----|------------------------------------------------------|
+| 15:0|   port   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.port[15:0]|
+|21:16|    tag   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.tag[21:16]|
+
+#### tag field
+
+<p>Peer tag: the entry the peer's routes point at, in each of its entries (current, next, old); 0 when free. The AllowedIPs check compares it</p>
 
 ### local_id register
 
@@ -30719,11 +32524,35 @@ No supported members.
 |----|----------|------|-----|--------------------------------------------------------|
 |31:0|    cnt   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_cnt_31_0.cnt[31:0]|
 
+### recv_win_63_32 register
+
+- Absolute Address: 0x20003D78
+- Base Offset: 0x78
+- Size: 0x4
+
+<p>Receiver Replay Window</p>
+
+|Bits|Identifier|Access|Reset|                           Name                          |
+|----|----------|------|-----|---------------------------------------------------------|
+|31:0|    win   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_win_63_32.win[31:0]|
+
+### recv_win_31_0 register
+
+- Absolute Address: 0x20003D7C
+- Base Offset: 0x7C
+- Size: 0x4
+
+<p>Receiver Replay Window</p>
+
+|Bits|Identifier|Access|Reset|                          Name                          |
+|----|----------|------|-----|--------------------------------------------------------|
+|31:0|    win   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_win_31_0.win[31:0]|
+
 ## entry register file
 
 - Absolute Address: 0x20003D80
 - Base Offset: 0x0
-- Size: 0x78
+- Size: 0x80
 - Array Dimensions: [64]
 - Array Stride: 0x80
 - Total Size: 0x2000
@@ -30762,6 +32591,8 @@ No supported members.
 | 0x6C |   send_cnt_31_0   |   csr.cryptokey_table.entry[0..63].send_cnt_31_0   |
 | 0x70 |   recv_cnt_63_32  |   csr.cryptokey_table.entry[0..63].recv_cnt_63_32  |
 | 0x74 |   recv_cnt_31_0   |   csr.cryptokey_table.entry[0..63].recv_cnt_31_0   |
+| 0x78 |   recv_win_63_32  |   csr.cryptokey_table.entry[0..63].recv_win_63_32  |
+| 0x7C |   recv_win_31_0   |   csr.cryptokey_table.entry[0..63].recv_win_31_0   |
 
 ### local_mac_47_32 register
 
@@ -30815,9 +32646,14 @@ No supported members.
 
 <p>Local UDP Port</p>
 
-|Bits|Identifier|Access|Reset|                         Name                         |
-|----|----------|------|-----|------------------------------------------------------|
-|15:0|   port   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.port[15:0]|
+| Bits|Identifier|Access|Reset|                         Name                         |
+|-----|----------|------|-----|------------------------------------------------------|
+| 15:0|   port   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.port[15:0]|
+|21:16|    tag   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.tag[21:16]|
+
+#### tag field
+
+<p>Peer tag: the entry the peer's routes point at, in each of its entries (current, next, old); 0 when free. The AllowedIPs check compares it</p>
 
 ### local_id register
 
@@ -31139,11 +32975,35 @@ No supported members.
 |----|----------|------|-----|--------------------------------------------------------|
 |31:0|    cnt   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_cnt_31_0.cnt[31:0]|
 
+### recv_win_63_32 register
+
+- Absolute Address: 0x20003DF8
+- Base Offset: 0x78
+- Size: 0x4
+
+<p>Receiver Replay Window</p>
+
+|Bits|Identifier|Access|Reset|                           Name                          |
+|----|----------|------|-----|---------------------------------------------------------|
+|31:0|    win   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_win_63_32.win[31:0]|
+
+### recv_win_31_0 register
+
+- Absolute Address: 0x20003DFC
+- Base Offset: 0x7C
+- Size: 0x4
+
+<p>Receiver Replay Window</p>
+
+|Bits|Identifier|Access|Reset|                          Name                          |
+|----|----------|------|-----|--------------------------------------------------------|
+|31:0|    win   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_win_31_0.win[31:0]|
+
 ## entry register file
 
 - Absolute Address: 0x20003E00
 - Base Offset: 0x0
-- Size: 0x78
+- Size: 0x80
 - Array Dimensions: [64]
 - Array Stride: 0x80
 - Total Size: 0x2000
@@ -31182,6 +33042,8 @@ No supported members.
 | 0x6C |   send_cnt_31_0   |   csr.cryptokey_table.entry[0..63].send_cnt_31_0   |
 | 0x70 |   recv_cnt_63_32  |   csr.cryptokey_table.entry[0..63].recv_cnt_63_32  |
 | 0x74 |   recv_cnt_31_0   |   csr.cryptokey_table.entry[0..63].recv_cnt_31_0   |
+| 0x78 |   recv_win_63_32  |   csr.cryptokey_table.entry[0..63].recv_win_63_32  |
+| 0x7C |   recv_win_31_0   |   csr.cryptokey_table.entry[0..63].recv_win_31_0   |
 
 ### local_mac_47_32 register
 
@@ -31235,9 +33097,14 @@ No supported members.
 
 <p>Local UDP Port</p>
 
-|Bits|Identifier|Access|Reset|                         Name                         |
-|----|----------|------|-----|------------------------------------------------------|
-|15:0|   port   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.port[15:0]|
+| Bits|Identifier|Access|Reset|                         Name                         |
+|-----|----------|------|-----|------------------------------------------------------|
+| 15:0|   port   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.port[15:0]|
+|21:16|    tag   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.tag[21:16]|
+
+#### tag field
+
+<p>Peer tag: the entry the peer's routes point at, in each of its entries (current, next, old); 0 when free. The AllowedIPs check compares it</p>
 
 ### local_id register
 
@@ -31559,11 +33426,35 @@ No supported members.
 |----|----------|------|-----|--------------------------------------------------------|
 |31:0|    cnt   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_cnt_31_0.cnt[31:0]|
 
+### recv_win_63_32 register
+
+- Absolute Address: 0x20003E78
+- Base Offset: 0x78
+- Size: 0x4
+
+<p>Receiver Replay Window</p>
+
+|Bits|Identifier|Access|Reset|                           Name                          |
+|----|----------|------|-----|---------------------------------------------------------|
+|31:0|    win   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_win_63_32.win[31:0]|
+
+### recv_win_31_0 register
+
+- Absolute Address: 0x20003E7C
+- Base Offset: 0x7C
+- Size: 0x4
+
+<p>Receiver Replay Window</p>
+
+|Bits|Identifier|Access|Reset|                          Name                          |
+|----|----------|------|-----|--------------------------------------------------------|
+|31:0|    win   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_win_31_0.win[31:0]|
+
 ## entry register file
 
 - Absolute Address: 0x20003E80
 - Base Offset: 0x0
-- Size: 0x78
+- Size: 0x80
 - Array Dimensions: [64]
 - Array Stride: 0x80
 - Total Size: 0x2000
@@ -31602,6 +33493,8 @@ No supported members.
 | 0x6C |   send_cnt_31_0   |   csr.cryptokey_table.entry[0..63].send_cnt_31_0   |
 | 0x70 |   recv_cnt_63_32  |   csr.cryptokey_table.entry[0..63].recv_cnt_63_32  |
 | 0x74 |   recv_cnt_31_0   |   csr.cryptokey_table.entry[0..63].recv_cnt_31_0   |
+| 0x78 |   recv_win_63_32  |   csr.cryptokey_table.entry[0..63].recv_win_63_32  |
+| 0x7C |   recv_win_31_0   |   csr.cryptokey_table.entry[0..63].recv_win_31_0   |
 
 ### local_mac_47_32 register
 
@@ -31655,9 +33548,14 @@ No supported members.
 
 <p>Local UDP Port</p>
 
-|Bits|Identifier|Access|Reset|                         Name                         |
-|----|----------|------|-----|------------------------------------------------------|
-|15:0|   port   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.port[15:0]|
+| Bits|Identifier|Access|Reset|                         Name                         |
+|-----|----------|------|-----|------------------------------------------------------|
+| 15:0|   port   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.port[15:0]|
+|21:16|    tag   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.tag[21:16]|
+
+#### tag field
+
+<p>Peer tag: the entry the peer's routes point at, in each of its entries (current, next, old); 0 when free. The AllowedIPs check compares it</p>
 
 ### local_id register
 
@@ -31979,11 +33877,35 @@ No supported members.
 |----|----------|------|-----|--------------------------------------------------------|
 |31:0|    cnt   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_cnt_31_0.cnt[31:0]|
 
+### recv_win_63_32 register
+
+- Absolute Address: 0x20003EF8
+- Base Offset: 0x78
+- Size: 0x4
+
+<p>Receiver Replay Window</p>
+
+|Bits|Identifier|Access|Reset|                           Name                          |
+|----|----------|------|-----|---------------------------------------------------------|
+|31:0|    win   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_win_63_32.win[31:0]|
+
+### recv_win_31_0 register
+
+- Absolute Address: 0x20003EFC
+- Base Offset: 0x7C
+- Size: 0x4
+
+<p>Receiver Replay Window</p>
+
+|Bits|Identifier|Access|Reset|                          Name                          |
+|----|----------|------|-----|--------------------------------------------------------|
+|31:0|    win   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_win_31_0.win[31:0]|
+
 ## entry register file
 
 - Absolute Address: 0x20003F00
 - Base Offset: 0x0
-- Size: 0x78
+- Size: 0x80
 - Array Dimensions: [64]
 - Array Stride: 0x80
 - Total Size: 0x2000
@@ -32022,6 +33944,8 @@ No supported members.
 | 0x6C |   send_cnt_31_0   |   csr.cryptokey_table.entry[0..63].send_cnt_31_0   |
 | 0x70 |   recv_cnt_63_32  |   csr.cryptokey_table.entry[0..63].recv_cnt_63_32  |
 | 0x74 |   recv_cnt_31_0   |   csr.cryptokey_table.entry[0..63].recv_cnt_31_0   |
+| 0x78 |   recv_win_63_32  |   csr.cryptokey_table.entry[0..63].recv_win_63_32  |
+| 0x7C |   recv_win_31_0   |   csr.cryptokey_table.entry[0..63].recv_win_31_0   |
 
 ### local_mac_47_32 register
 
@@ -32075,9 +33999,14 @@ No supported members.
 
 <p>Local UDP Port</p>
 
-|Bits|Identifier|Access|Reset|                         Name                         |
-|----|----------|------|-----|------------------------------------------------------|
-|15:0|   port   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.port[15:0]|
+| Bits|Identifier|Access|Reset|                         Name                         |
+|-----|----------|------|-----|------------------------------------------------------|
+| 15:0|   port   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.port[15:0]|
+|21:16|    tag   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.tag[21:16]|
+
+#### tag field
+
+<p>Peer tag: the entry the peer's routes point at, in each of its entries (current, next, old); 0 when free. The AllowedIPs check compares it</p>
 
 ### local_id register
 
@@ -32399,11 +34328,35 @@ No supported members.
 |----|----------|------|-----|--------------------------------------------------------|
 |31:0|    cnt   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_cnt_31_0.cnt[31:0]|
 
+### recv_win_63_32 register
+
+- Absolute Address: 0x20003F78
+- Base Offset: 0x78
+- Size: 0x4
+
+<p>Receiver Replay Window</p>
+
+|Bits|Identifier|Access|Reset|                           Name                          |
+|----|----------|------|-----|---------------------------------------------------------|
+|31:0|    win   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_win_63_32.win[31:0]|
+
+### recv_win_31_0 register
+
+- Absolute Address: 0x20003F7C
+- Base Offset: 0x7C
+- Size: 0x4
+
+<p>Receiver Replay Window</p>
+
+|Bits|Identifier|Access|Reset|                          Name                          |
+|----|----------|------|-----|--------------------------------------------------------|
+|31:0|    win   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_win_31_0.win[31:0]|
+
 ## entry register file
 
 - Absolute Address: 0x20003F80
 - Base Offset: 0x0
-- Size: 0x78
+- Size: 0x80
 - Array Dimensions: [64]
 - Array Stride: 0x80
 - Total Size: 0x2000
@@ -32442,6 +34395,8 @@ No supported members.
 | 0x6C |   send_cnt_31_0   |   csr.cryptokey_table.entry[0..63].send_cnt_31_0   |
 | 0x70 |   recv_cnt_63_32  |   csr.cryptokey_table.entry[0..63].recv_cnt_63_32  |
 | 0x74 |   recv_cnt_31_0   |   csr.cryptokey_table.entry[0..63].recv_cnt_31_0   |
+| 0x78 |   recv_win_63_32  |   csr.cryptokey_table.entry[0..63].recv_win_63_32  |
+| 0x7C |   recv_win_31_0   |   csr.cryptokey_table.entry[0..63].recv_win_31_0   |
 
 ### local_mac_47_32 register
 
@@ -32495,9 +34450,14 @@ No supported members.
 
 <p>Local UDP Port</p>
 
-|Bits|Identifier|Access|Reset|                         Name                         |
-|----|----------|------|-----|------------------------------------------------------|
-|15:0|   port   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.port[15:0]|
+| Bits|Identifier|Access|Reset|                         Name                         |
+|-----|----------|------|-----|------------------------------------------------------|
+| 15:0|   port   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.port[15:0]|
+|21:16|    tag   |  rw  |  —  |csr.cryptokey_table.entry[0..63].local_port.tag[21:16]|
+
+#### tag field
+
+<p>Peer tag: the entry the peer's routes point at, in each of its entries (current, next, old); 0 when free. The AllowedIPs check compares it</p>
 
 ### local_id register
 
@@ -32818,3 +34778,27 @@ No supported members.
 |Bits|Identifier|Access|Reset|                          Name                          |
 |----|----------|------|-----|--------------------------------------------------------|
 |31:0|    cnt   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_cnt_31_0.cnt[31:0]|
+
+### recv_win_63_32 register
+
+- Absolute Address: 0x20003FF8
+- Base Offset: 0x78
+- Size: 0x4
+
+<p>Receiver Replay Window</p>
+
+|Bits|Identifier|Access|Reset|                           Name                          |
+|----|----------|------|-----|---------------------------------------------------------|
+|31:0|    win   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_win_63_32.win[31:0]|
+
+### recv_win_31_0 register
+
+- Absolute Address: 0x20003FFC
+- Base Offset: 0x7C
+- Size: 0x4
+
+<p>Receiver Replay Window</p>
+
+|Bits|Identifier|Access|Reset|                          Name                          |
+|----|----------|------|-----|--------------------------------------------------------|
+|31:0|    win   |  rw  |  —  |csr.cryptokey_table.entry[0..63].recv_win_31_0.win[31:0]|

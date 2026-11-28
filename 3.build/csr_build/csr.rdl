@@ -967,6 +967,13 @@ addrmap csr {
                sw = rw;
                hw = r;
             } port[15:0];
+
+            field {
+               name = "csr.cryptokey_table.entry[0..63].local_port.tag[21:16]";
+               desc = "Peer tag: the entry the peer's routes point at, in each of its entries (current, next, old); 0 when free. The AllowedIPs check compares it";
+               sw = rw;
+               hw = r;
+            } tag[21:16];
          } local_port;
 
          reg {
@@ -1260,7 +1267,31 @@ addrmap csr {
                we;
             } cnt[31:0];
          } recv_cnt_31_0;
-      } entry[64] += 0x80;  // 30 words, padded to 32: entry = addr[12:7], word = addr[6:2]
+
+         reg {
+            name = "csr.cryptokey_table.entry[0..63].recv_win_63_32";
+            desc = "Receiver Replay Window";
+
+            field {
+               name = "csr.cryptokey_table.entry[0..63].recv_win_63_32.win[31:0]";
+               sw = rw;
+               hw = rw;
+               we;
+            } win[31:0];
+         } recv_win_63_32;
+
+         reg {
+            name = "csr.cryptokey_table.entry[0..63].recv_win_31_0";
+            desc = "Receiver Replay Window";
+
+            field {
+               name = "csr.cryptokey_table.entry[0..63].recv_win_31_0.win[31:0]";
+               sw = rw;
+               hw = rw;
+               we;
+            } win[31:0];
+         } recv_win_31_0;
+      } entry[64] += 0x80;  // 32 words: entry = addr[12:7], word = addr[6:2]
    } cryptokey_table @ 0x2000;
 };
 

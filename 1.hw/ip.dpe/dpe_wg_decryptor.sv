@@ -41,7 +41,9 @@
 //   (Ethernet, IPv4, UDP, WireGuard headers: 58 bytes, then the encrypted
 //   IPv4 packet in 16-byte blocks, then its 16-byte tag), tid = its peer.
 //   Out: the outer Ethernet header, then the decrypted IPv4 packet, cut to
-//   its own total length. Dropped whole:
+//   its own total length; tid = the entry's peer tag (wg_dec_peer_t.peer:
+//   the entry the peer's routes point at, for lkup_egress's AllowedIPs
+//   check), not the entry it decrypted on. Dropped whole:
 //   - a frame whose tag does not check out: the core holds the plaintext
 //     until its tag is checked (wait_to_verify), then flags it with
 //     decrypt_m_verified;
@@ -53,9 +55,20 @@
 //   - one longer than that in fact, whatever its IPv4 length says: the core
 //     gets at most AEAD_MAX_PT_BYTES and a tag, the last beat as its tlast
 //     (so the tag does not check out), and the rest of the frame is skipped.
-//     A frame whose full-length payload and tag fit, with bytes after them,
-//     still decrypts: those bytes are never fed, as for any padding;
-//   - one whose plaintext IPv4 length is under 20, or over the plaintext.
+//     A frame whose AEAD_MAX_PT_BYTES payload and tag fit, with bytes after
+//     them, still decrypts: those bytes are never fed. A shorter one with
+//     bytes after its tag is fed up to its tlast, so its last 16 bytes are
+//     taken as the tag and it is dropped (WireGuard frames carry no padding);
+//   - one whose plaintext IPv4 length is under 20, or over the plaintext;
+//   - a replay (WireGuard paper 5.4.6, #79): a counter at or over
+//     REJECT_AFTER_MESSAGES, one already seen, or one REPLAY_WIN (64) or
+//     more below the highest counter accepted. Checked in FEED_WG against
+//     the peer's window (wg_dec_peer_t: recv_cnt, recv_win), before the
+//     core: the frame is skipped, never fed;
+//   - one on an entry whose decrypt key is all zero (no session: a local_id
+//     written without a key would else take frames forged under the public
+//     zero key): rejected like a replay, never fed, the window kept. The
+//     zero test is registered in PEER_RSP (no_key), as in the encryptor.
 //
 //   One packet at a time: the core's key and nonce stay put until the
 //   packet's plaintext has left. Inside a packet, two FSMs run side by side:
@@ -69,9 +82,18 @@
 //   only the timing.
 //
 //   The peer table answers a synchronous read: peer_rsp is valid from the
-//   2nd clock after peer_req.idx. The receiver does not advance the send
-//   counter; peer_req.new_send_cnt and update_send_cnt stay 0.
-//   TODO: the replay window on the counter (#79).
+//   2nd clock after peer_req.idx. The replay window is updated only for a
+//   packet whose tag checked out (core_verified on its first plaintext
+//   beat), so a forged frame cannot mark its counter seen. A counter c over
+//   the highest, recv_cnt, shifts the window up to it (recv_win <<
+//   (c - recv_cnt) | 1; a shift of 64 or more clears it) and becomes
+//   recv_cnt; an older one sets bit recv_cnt - c. peer_req.update_recv
+//   then pulses, and the peer table writes the window back at once, before
+//   the next packet reads it. One packet at a time, so the check and the
+//   update of a peer never race. Timing: the check (two 64-bit subtracts,
+//   a window bit) is registered in FEED_WG and acted on in FEED_DATA; the
+//   window shift runs on registers a clock later, long before the first
+//   plaintext beat. No clock is added.
 //
 //   The ChaCha20-Poly1305 core is outside, on the core_* ports: dpe_switch
 //   connects one core shared by both directions (decrypt_* side), the
@@ -88,8 +110,8 @@ module dpe_wg_decryptor
     output logic idle,
 
     // the peer table: the packet's peer, from the 2nd clock after the request
-    output peer_req_t    peer_req,
-    input  wg_peer_cfg_t peer_rsp,
+    output wg_dec_req_t  peer_req,
+    input  wg_dec_peer_t peer_rsp,
 
     // the core (decrypt_*): key and nonce stay put while a packet is in it;
     // the nonce is 4 zero bytes, then the counter (little-endian; byte 0 in [7:0])
@@ -138,19 +160,29 @@ module dpe_wg_decryptor
   // the outer IPv4 total length: its header beat, and the most the core takes
   localparam int     IP_LEN_BEAT   = beat_of(IPV4_TOTAL_LEN_OFFSET);        // 1
   localparam len16_t IP_LEN_MAX    = WG_IPV4_OVERHEAD + AEAD_MAX_PT_BYTES;
+  // the replay window: a bit index, and a shift (REPLAY_WIN or more clears it)
+  localparam int     WIN_BIT_W     = $clog2(REPLAY_WIN);                    // 6
+  typedef logic [WIN_BIT_W:0] win_shift_t;
 
   // the registers: r, and r_next, what they hold in the next clock
   typedef struct packed {
-    state_t             state;       // [969:967]
-    feed_t              feed;        // [966:964]
-    emit_t              emit;        // [963:961]
-    dpe_addr_t          tuser_dst;   // [960:958]
-    dpe_addr_t          tuser_src;   // [957:955]
-    dpe_peer_idx_t      peer_idx;    // [954:947]
-    wg_peer_cfg_t       peer_cfg;    // [946:403] the packet's peer, from the peer table
-    logic [1:0]         hdr_k;       // [402:401] header beats in so far
-    logic [ETH_W-1:0]   eth_hdr;     // [400:289] the outer Ethernet header
-    wg_counter_t        counter;     // [288:225] the packet's counter: the nonce
+    logic               no_key;      // [956]   the peer's decrypt key is all zero
+    state_t             state;       // [955:953]
+    feed_t              feed;        // [952:950]
+    emit_t              emit;        // [949:947]
+    dpe_addr_t          tuser_dst;   // [946:944]
+    dpe_addr_t          tuser_src;   // [943:941]
+    dpe_peer_idx_t      peer_idx;    // [940:933] the entry: its window write-back
+    wg_dec_peer_t       peer_cfg;    // [932:541] the packet's peer, from the peer table
+    logic [1:0]         hdr_k;       // [540:539] header beats in so far
+    logic [ETH_W-1:0]   eth_hdr;     // [538:427] the outer Ethernet header
+    wg_counter_t        counter;     // [426:363] the packet's counter: the nonce
+    logic               fresh;       // [362]   the counter passed the replay check
+    logic               newer;       // [361]   it is over peer_cfg.recv_cnt
+    win_shift_t         win_shift;   // [360:354] by how much (newer: at most REPLAY_WIN)
+    wg_counter_t        next_cnt;    // [353:290] the window after this packet: recv_cnt
+    wg_replay_win_t     next_win;    // [289:226] and recv_win
+    logic               win_wb;      // [225]   write it back: the tag checked out
     logic [CARRY_W-1:0] carry;       // [224:177] the frame beat before: its last bytes
     len16_t             ip_len;      // [176:161] the plaintext IPv4 total length
     len16_t             sent;        // [160:145] IPv4 bytes out so far
@@ -198,9 +230,36 @@ module dpe_wg_decryptor
   logic  core_full;
   assign core_full = (r.core_bytes == AEAD_MAX_PT_BYTES + len16_t'(POLY1305_TAG_LEN - BEAT_BYTES));
 
+  // The replay check, on the counter c in piped (FEED_WG), against the
+  // peer's highest counter accepted (H: recv_cnt) and its window (W:
+  // recv_win); c > H is the borrow of H - c. Accepted if c is under
+  // REJECT_AFTER_MESSAGES and over H, or H - c < REPLAY_WIN and bit H - c of
+  // W is 0; never on an entry without a decrypt key (no_key)
+  wg_counter_t wg_cnt, ahead, behind;
+  logic  wg_newer, wg_seen, in_win, wg_fresh;
+  assign wg_cnt             = le64(piped.tdata, WG_COUNTER_OFFSET);
+  assign {wg_newer, behind} = {1'b0, r.peer_cfg.recv_cnt} - {1'b0, wg_cnt};
+  assign ahead              = wg_cnt - r.peer_cfg.recv_cnt;
+  assign wg_seen            = r.peer_cfg.recv_win[behind[WIN_BIT_W-1:0]];
+  assign in_win             = (behind < wg_counter_t'(REPLAY_WIN)) & ~wg_seen;
+  assign wg_fresh           = (wg_cnt < REJECT_AFTER_MESSAGES) & (wg_newer | in_win) & ~r.no_key;
+
+  // the window's shift: behind, or ahead up to REPLAY_WIN (clears it)
+  win_shift_t wg_shift, ahead_sat;
+  assign ahead_sat = (|ahead[63:WIN_BIT_W]) ? win_shift_t'(REPLAY_WIN) : win_shift_t'(ahead);
+  assign wg_shift  = wg_newer               ? ahead_sat                : win_shift_t'(behind);
+
+  // the window after this packet, from the check's registers: used two
+  // clocks after FEED_WG at the earliest (the core's first plaintext beat
+  // comes after it has taken the tag)
+  wg_replay_win_t win_up, win_set;
+  assign win_up  = (r.peer_cfg.recv_win << r.win_shift) | wg_replay_win_t'(1);  // c over H
+  assign win_set = r.peer_cfg.recv_win | (wg_replay_win_t'(1) << r.win_shift);  // H - c
+
   // FSM registers
   always_ff @(posedge inp.clk) begin
     if (inp.rst) begin
+      r.no_key     <= 1'b0;
       r.state      <= IDLE;
       r.feed       <= FEED_HDR;
       r.emit       <= EMIT_FIRST;
@@ -211,6 +270,12 @@ module dpe_wg_decryptor
       r.hdr_k      <= '0;
       r.eth_hdr    <= '0;
       r.counter    <= '0;
+      r.fresh      <= 1'b0;
+      r.newer      <= 1'b0;
+      r.win_shift  <= '0;
+      r.next_cnt   <= '0;
+      r.next_win   <= '0;
+      r.win_wb     <= 1'b0;
       r.carry      <= '0;
       r.ip_len     <= '0;
       r.sent       <= '0;
@@ -243,7 +308,11 @@ module dpe_wg_decryptor
     muxed.tkeep         = '1;
     muxed.tlast         = 1'b0;
     muxed.tuser         = tuser_out;
-    muxed.tid           = r.peer_idx;
+    muxed.tid           = r.peer_cfg.peer;  // the peer tag (the AllowedIPs check)
+
+    r_next.win_wb       = 1'b0;  // a pulse
+    r_next.next_cnt     = r.newer ? r.counter : r.peer_cfg.recv_cnt;
+    r_next.next_win     = r.newer ? win_up : win_set;
 
     unique case (r.state)
       IDLE: begin
@@ -287,6 +356,7 @@ module dpe_wg_decryptor
 
       PEER_RSP: begin
         r_next.peer_cfg = peer_rsp;
+        r_next.no_key   = ~|peer_rsp.key;
         r_next.feed     = FEED_HDR;
         r_next.emit     = EMIT_FIRST;
         r_next.hdr_k    = '0;
@@ -324,7 +394,10 @@ module dpe_wg_decryptor
           FEED_WG: begin
             piped.tready = 1'b1;
             if (piped_hs) begin
-              r_next.counter    = le64(piped.tdata, WG_COUNTER_OFFSET);
+              r_next.counter    = wg_cnt;
+              r_next.fresh      = wg_fresh;
+              r_next.newer      = wg_newer;
+              r_next.win_shift  = wg_shift;
               r_next.carry      = piped.tdata[DPE_DATA_W-1-:CARRY_W];
               r_next.core_bytes = '0;
               if (piped.tlast) begin
@@ -338,7 +411,15 @@ module dpe_wg_decryptor
           end
 
           FEED_DATA: begin
-            if ((r.core_bytes == '0) & piped.tlast & ~piped.tkeep[WG_HDR_TAIL_BYTES]) begin
+            if (!r.fresh) begin
+              // a replay, a counter past the limit or no key: skipped, never fed
+              piped.tready = 1'b1;
+              if (piped_hs) begin
+                r_next.feed = piped.tlast ? FEED_DONE : FEED_SKIP;
+                r_next.emit = EMIT_DONE;
+              end
+            end
+            else if ((r.core_bytes == '0) & piped.tlast & ~piped.tkeep[WG_HDR_TAIL_BYTES]) begin
               // one core beat in all, the tag alone (a keepalive): the core
               // would give no plaintext, so the frame never reaches it
               piped.tready = 1'b1;
@@ -390,6 +471,11 @@ module dpe_wg_decryptor
         // emit: the plaintext, once the core has checked its tag
         unique case (r.emit)
           EMIT_FIRST: begin
+            // the tag checked out: mark the counter seen (whatever the
+            // plaintext holds, as WireGuard does)
+            if (dec_out_hs && verified) begin
+              r_next.win_wb = 1'b1;
+            end
             // the feed is done by now: the core keeps the plaintext until the tag
             if (!verified || ip_len_first < len16_t'(IPV4_HDR_LEN) ||
                 ip_len_first > r.core_bytes - len16_t'(POLY1305_TAG_LEN)) begin
@@ -460,8 +546,8 @@ module dpe_wg_decryptor
   end
 
   assign idle       = (r.state == IDLE) & ~piped.tvalid & ~outp.tvalid;
-  // the receiver does not advance the send counter
-  assign peer_req   = '{idx: r.peer_idx, new_send_cnt: '0, update_send_cnt: 1'b0};
+  // the window write-back (the packet's peer stays in r.peer_idx until IDLE)
+  assign peer_req   = '{r.peer_idx, r.next_cnt, r.next_win, r.win_wb};  // wg_dec_req_t
 
   // the core's key and nonce (the core: outside, on to_decrypt/from_decrypt)
   assign core_key   = r.peer_cfg.key;

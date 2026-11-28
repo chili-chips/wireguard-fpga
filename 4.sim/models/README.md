@@ -13,7 +13,7 @@ This directory contains the following bus functional models
 * `soc_cpu.VPROC.sv` : _VProc_ based `soc_cpu` compatible virtual processor.
 * `bfm_uart.sv` : Minimal UART bus functional model
 * `bfm_egress.sv` : fills the egress routing table over CSR, sorted for longest prefix match, with a default route
-* `chk_uart_bus.sv` : checker for the UART bus master and the CPU sharing `soc_fabric` (`UART_BUS_STRESS`)
+* `chk_uart_bus.sv` : checker for the UART bus master and the CPU sharing `soc_fabric` (`UART_BUS_STRESS_N`)
 * `spi_flash_model.sv` : behavioural model of the AX7201's N25Q128 configuration flash, the commands `2.sw/app/flash.c` uses
 
 In addition, sub-directories contain the following models

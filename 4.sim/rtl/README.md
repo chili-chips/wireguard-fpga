@@ -35,9 +35,12 @@ The rules are in [`sim.mk`](sim.mk): `output/sim.log` and `output/wave.fst` with
 - a decrypted packet addressed to the other peer's network is encrypted again for that peer;
 - the same with a 2032-byte packet (`AEAD_MAX_PT_BYTES`), twice, while `outp` stops for 4000 clocks: the shared core's decrypt side waits on its encrypt side, nothing lost;
 - a spoofed inner source, a stale receiver index and a corrupted tag are dropped;
+- a rekey overlap ([#85](https://github.com/chili-chips/wireguard-fpga/issues/85)): frames decrypted on a peer's next entry (its peer tag the routed entry) are forwarded, also hairpinned; another peer's next entry with this peer's inner source is dropped;
 - a handshake goes to the CPU; transit WireGuard and WireGuard to this device on another port are routed unchanged; a WireGuard frame to us with EtherType ARP goes to the CPU.
 
 `sys_check.py` checks every output frame byte for byte, together with its `tuser.dst` and `bypass_all`.
+
+**Throughput:** `make perf CASE=dec1420` sends 24 frames of one case back to back, with no stalls (`tb` parameters `PERF`, `PASS_PCT`). It prints the clocks per frame, in and out, and checks the output byte for byte. `CASE` is `enc`, `dec` or `mix` (the two alternating), then the inner IPv4 bytes; `N` sets the frame count. Results: [Throughput in the SoC](../../3.build/pypeline_build/README.md#throughput-in-the-soc).
 
 ## Status
 

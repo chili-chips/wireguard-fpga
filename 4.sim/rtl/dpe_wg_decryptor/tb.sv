@@ -47,6 +47,10 @@ module tb
       key: 256'h0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF,
       send_cnt: 64'd1
   };
+  // the decryptor's view of it: its tag (no lookup after it here), the key,
+  // and an empty replay window (the bench writes nothing back, so every
+  // counter passes)
+  localparam wg_dec_peer_t DEC_PEER = '{peer: '0, key: PEER.key, recv_cnt: '0, recv_win: '0};
 
   // LOOPBACK 1: the plaintext through dpe_wg_encryptor; 0: the WireGuard
   // frames ../wg_check.py builds (RFC 8439), so the decryptor is checked
@@ -146,7 +150,7 @@ module tb
       .outp          (from_dec),
       .idle          (dec_idle),
       .peer_req      (),
-      .peer_rsp      (PEER),
+      .peer_rsp      (DEC_PEER),
       .core_key      (core_key),
       .core_nonce    (core_nonce),
       .to_decrypt    (to_core),

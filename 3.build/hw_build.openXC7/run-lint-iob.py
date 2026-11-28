@@ -4,17 +4,21 @@
 # SPDX-License-Identifier: BSD-3-Clause
 #
 # The iob phase of run-lint.sh. Our rule: every top-level data pin can have
-# its flop in the I/O tile (7-series ILOGIC/OLOGIC; Vivado IOB = TRUE, the
-# Xilinx "IOB flop"), so its timing is the pin's, not the place and route's:
+# its flop in the I/O tile (7-series ILOGIC/OLOGIC, Vivado IOB = TRUE; the
+# GateMate I/O cell's input and output registers), so its timing is the
+# pin's, not the place and route's:
 #   input   the pin drives the D of a flop directly, no logic between;
 #   output  a flop's Q drives the pin directly, and nothing else.
-# Clock pins (into a clock input or a clock buffer) and pins on an I/O
-# primitive (ODDR, IDDR, IBUFDS, OBUFDS, IOBUF, STARTUPE2, ...) are skipped:
-# those are in the I/O tile already, or are not data.
+# Clock pins (into a clock input or a clock buffer) and pins on an I/O, clock
+# or transceiver primitive (ODDR, IBUFDS, IOBUF, STARTUPE2, IBUFDS_GTE2,
+# GTPE2_CHANNEL, CC_SERDES, CC_PLL, ...) are skipped: those are in the I/O
+# tile already, or are not data. A slow pin that needs no IOB flop (an LED, a
+# reset) is waived by name in run-lint-waivers.txt.
+# The same file in openPCIE, openCologne-PCIE and wireguard-fpga.
 #
 # usage:  python3 run-lint-iob.py <netlist.json>
 #   the netlist: Yosys write_json after proc; flatten; opt_expr; opt_clean;
-#   opt_dff (the reset phase's), with the Xilinx primitives as black boxes
+#   opt_dff (the reset phase's), with the vendor primitives as black boxes
 #
 # Output: one line per pin bit that cannot be an IOB flop,
 #   "<file>:<line>: '<port>[<bit>]' <direction>: <reason>"
@@ -25,12 +29,18 @@ import sys
 
 FF = {'$dff', '$dffe', '$adff', '$adffe', '$sdff', '$sdffe', '$sdffce',
       '$aldff', '$aldffe', '$dffsr', '$dffsre'}
-# Xilinx primitives that are I/O or clocking: a pin on one is not a fabric flop
+# I/O, transceiver and configuration primitives: a pin on one is not a fabric flop
 IO_PRIM = {'ODDR', 'IDDR', 'IDDR_2CLK', 'IBUFDS', 'IBUFGDS', 'OBUFDS', 'OBUFTDS', 'IOBUF',
            'IOBUFDS', 'IBUF', 'IBUFG', 'OBUF', 'OBUFT', 'STARTUPE2', 'ISERDESE2', 'OSERDESE2',
-           'IDELAYE2', 'ODELAYE2', 'IBUFDS_GTE2', 'GTPE2_CHANNEL', 'GTXE2_CHANNEL'}
+           'IDELAYE2', 'ODELAYE2', 'IBUFDS_GTE2', 'GTPE2_CHANNEL', 'GTPE2_COMMON',
+           'GTXE2_CHANNEL', 'GTXE2_COMMON', 'PCIE_2_1',
+           # GateMate (Yosys gatemate/cells_bb.v)
+           'CC_IBUF', 'CC_OBUF', 'CC_TOBUF', 'CC_IOBUF', 'CC_LVDS_IBUF', 'CC_LVDS_OBUF',
+           'CC_LVDS_TOBUF', 'CC_LVDS_IOBUF', 'CC_IDDR', 'CC_ODDR', 'CC_SERDES', 'CC_USR_RSTN',
+           'CC_CFG_CTRL'}
 CLK_PRIM = {'BUFG', 'BUFGCE', 'BUFGMUX', 'BUFGCTRL', 'BUFH', 'BUFHCE', 'BUFIO', 'BUFR', 'BUFMR',
-            'PLLE2_BASE', 'PLLE2_ADV', 'MMCME2_BASE', 'MMCME2_ADV'}
+            'PLLE2_BASE', 'PLLE2_ADV', 'MMCME2_BASE', 'MMCME2_ADV',
+            'CC_BUFG', 'CC_PLL', 'CC_PLL_ADV'}
 
 
 def src(attrs):

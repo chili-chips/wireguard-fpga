@@ -4,14 +4,18 @@
 
 //==========================================================================
 // Checker for the UART bus master and the CPU sharing soc_fabric (#61).
-// Enabled with UART_BUS_STRESS, where bfm_uart sends busw commands while
-// the firmware runs. Flags:
+// Reports when EN (tb UART_BUS_STRESS_N > 0), where bfm_uart sends busw
+// commands while the firmware runs. Flags:
 //  - a CPU store that leaves the bus before it got ready (a lost store)
 //  - a DMEM/CSR request raised by the CPU while the UART holds the bus
 //    (it would reach the slave with the UART's address)
 // and counts the collisions, so a PASS shows the case was exercised.
+// Without EN it still prints "CHK_UART_BUS: FAIL" if a store was dropped
+// or a request misrouted, so every co-sim catches it.
 //==========================================================================
-module chk_uart_bus;
+module chk_uart_bus #(
+    parameter bit EN = 1'b1  // print the result at the end of the run (a FAIL always)
+);
   import soc_pkg::*;
 
   int        busw_cnt = 0;  // UART bus writes accepted
@@ -61,16 +65,24 @@ module chk_uart_bus;
   endfunction
 
   final begin
-    if (fw_word(0) == 32'h57AB_1E00) begin
-      $display("CHK_UART_BUS: store_stress firmware: %0d passes, %0d read-back errors",
-               fw_word(1), fw_word(2));
-      if (fw_word(1) == 0 || fw_word(2) != 0) dropped++;  // no progress, or lost data
+    if (EN) begin
+      if (fw_word(0) == 32'h57AB_1E00) begin
+        $display("CHK_UART_BUS: store_stress firmware: %0d passes, %0d read-back errors",
+                 fw_word(1), fw_word(2));
+        if (fw_word(1) == 0 || fw_word(2) != 0) dropped++;  // no progress, or lost data
+      end
+      // the #61 writes themselves must have met stores, not just the routes
+      $display("CHK_UART_BUS: %s  busw=%0d collisions=%0d (#61 writes: %0d) dropped=%0d spurious=%0d",
+               (dropped == 0 && spurious == 0 && bfm_collisions() > 0 &&
+                bfm_errors() == 0) ? "PASS" : "FAIL",
+               busw_cnt, collisions, bfm_collisions(), dropped, spurious);
     end
-    // the #61 writes themselves must have met stores, not just the routes
-    $display("CHK_UART_BUS: %s  busw=%0d collisions=%0d (#61 writes: %0d) dropped=%0d spurious=%0d",
-             (dropped == 0 && spurious == 0 && bfm_collisions() > 0 &&
-              bfm_errors() == 0) ? "PASS" : "FAIL",
-             busw_cnt, collisions, bfm_collisions(), dropped, spurious);
+    else if (dropped > 0 || spurious > 0) begin
+      // any co-sim: a lost store or a misrouted request fails the run
+      // (run-sanity.sh, run-regression.sh grep for it)
+      $display("CHK_UART_BUS: FAIL  busw=%0d collisions=%0d dropped=%0d spurious=%0d",
+               busw_cnt, collisions, dropped, spurious);
+    end
   end
 
   function automatic int bfm_errors();

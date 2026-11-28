@@ -90,10 +90,15 @@ module soc_csr
   // Sim-only
   //=========================================
 `ifdef SIM_ONLY
-`ifdef CSR_DEBUG
+  int debug;  // +CSR_DEBUG=1 on the simulator command line: print each access
+  initial begin
+    if (!$value$plusargs("CSR_DEBUG=%d", debug)) begin
+      debug = 0;
+    end
+  end
 
   always_ff @(posedge bus.clk) begin
-    if ({bus.vld, bus.rdy} == 2'b11) begin
+    if ((debug != 0) && ({bus.vld, bus.rdy} == 2'b11)) begin
       if (|bus.we == 1) begin
         $display("%t %m WRITE [%08x]<=%08x", $time, {bus.addr, 2'd0}, bus.wdat);
       end
@@ -103,7 +108,6 @@ module soc_csr
     end
   end
 
-`endif
 `endif
 
 endmodule : soc_csr

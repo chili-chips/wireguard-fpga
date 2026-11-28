@@ -109,10 +109,15 @@ module soc_ram
   // Sim-only
   //=========================================
 `ifdef SIM_ONLY
-`ifdef RAM_DEBUG
+  int debug;  // +RAM_DEBUG=1 on the simulator command line: print each access
+  initial begin
+    if (!$value$plusargs("RAM_DEBUG=%d", debug)) begin
+      debug = 0;
+    end
+  end
 
   always_ff @(posedge bus.clk) begin
-    if ({bus.vld, bus.rdy} == 2'b11) begin
+    if ((debug != 0) && ({bus.vld, bus.rdy} == 2'b11)) begin
       if (write == 1) begin
         $display("%t %m WRITE [%08x]<=%08x (we=%b)", $time, {bus.addr, 2'd0}, bus.wdat, bus.we);
       end
@@ -122,7 +127,6 @@ module soc_ram
     end
   end
 
-`endif
 `endif
 
 endmodule : soc_ram

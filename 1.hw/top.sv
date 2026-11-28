@@ -47,7 +47,10 @@ module top
 #(
     // uart.sv's bus-master timeout (2**n ticks); the co-simulation sets it
     // lower to test it in a short run (4.sim/tb.sv)
-    parameter int UART_TIMEOUT_LOG2 = 21
+    parameter int UART_TIMEOUT_LOG2 = 21,
+    // uart.sv's time base (clocks - 1, the 1us tick); the co-simulation runs
+    // the UART faster with a lower one
+    parameter int UART_TICK_CLKS    = NUM_1US_CLKS
 ) (
     input        clk_p,     //board clock positive
     input        clk_n,     //board clock negative
@@ -224,7 +227,8 @@ module top
 
   //---------------------------------
   uart #(
-      .TIMEOUT_LOG2 (UART_TIMEOUT_LOG2)
+      .TIMEOUT_LOG2 (UART_TIMEOUT_LOG2),
+      .TICK_CLKS    (UART_TICK_CLKS)
   ) u_uart (
       .arst_n (sys_rst_n),  //i
       .clk    (sys_clk),    //i

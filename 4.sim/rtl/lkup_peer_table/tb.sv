@@ -8,17 +8,23 @@
 // Description:
 //   lkup_peer_table unit bench.
 //   1. The CPU's view: every word of all 64 entries written over the CSR
-//      port; a few entries read back in full (the padding words 30, 31
-//      read 0); a write with byte enables.
+//      port; a few entries read back in full; a write with byte enables.
 //   2. The encryptor's and the decryptor's entry for several indices, two
 //      clocks after the index: every field, MAC/IP/port byte-swapped to bus
 //      order, the key words in order; the decryptor's entry holds its key
-//      only.
+//      and its replay window (recv_cnt, recv_win), and the peer tag
+//      (local_port[21:16], read at the decryptor's entry while the encryptor
+//      reads the port at its own; bits 23:22 set, not part of it).
 //   3. The disassembler's lookup: each entry's local_id matches and gives
 //      its entry; with other upper bits it does not, nor does index 0 on an
 //      entry whose local_id is 0 (unwritten or cleared).
 //   4. The send_cnt write-back, seen by the encryptor and by the CPU; a CPU
 //      write in the same clock wins.
+//   5. The decryptor's write-back of its replay window (recv_cnt, recv_win),
+//      seen by the decryptor a clock later and by the CPU; a CPU write in
+//      the same clock wins; both write-backs and a CPU write in one clock.
+//   6. The peer tag written alone (its byte, as the firmware moves it): the
+//      decryptor and the CPU see it, the port stays.
 //==========================================================================
 
 module tb;
@@ -30,9 +36,11 @@ module tb;
 
   ck_cfg_t       csr_cfg;
   ck_sta_t       csr_sta;
-  peer_req_t     enc_req, dec_req;
+  peer_req_t     enc_req;
+  wg_dec_req_t   dec_req;
   rcv_rsp_t      rcv_rsp;
-  wg_peer_cfg_t  enc_peer, dec_peer;
+  wg_peer_cfg_t  enc_peer;
+  wg_dec_peer_t  dec_peer;
   wg_receiver_t  rcv;
 
   lkup_peer_table dut (.*);
@@ -54,6 +62,8 @@ module tb;
   // its entry in [5:0]
   function automatic logic [31:0] word_of(int e, int w);
     if (w == int'(CK_LOCAL_ID)) return {26'(32'h0123457 * (e + 1)), 6'(e)};
+    // the tag (63 - e: not its own entry) under reserved bits 23:22 set
+    if (w == int'(CK_LOCAL_PORT)) return {8'(e), 2'b11, 6'(63 - e), 8'(e * 7 + w), 8'hA5};
     return {8'(e), 8'(w), 8'(e * 7 + w), 8'hA5};
   endfunction
 
@@ -75,10 +85,15 @@ module tb;
     };
   endfunction
 
-  function automatic wg_peer_cfg_t dec_want(int e);
+  function automatic wg_dec_peer_t dec_want(int e);
     wg_key_t key;
     for (int k = 0; k < 8; k++) key[255-32*k-:32] = model[e][int'(CK_DEC_KEY_0)+k];
-    return '{key: key, default: '0};
+    return '{
+        peer: dpe_peer_idx_t'(model[e][CK_LOCAL_PORT][CK_TAG_LSB+:CK_ENTRY_W]),
+        key: key,
+        recv_cnt: {model[e][CK_RECV_CNT_HI], model[e][CK_RECV_CNT_LO]},
+        recv_win: {model[e][CK_RECV_WIN_HI], model[e][CK_RECV_WIN_LO]}
+    };
   endfunction
 
   //------------------------------------------------------------------
@@ -251,8 +266,75 @@ module tb;
     model[7][CK_LOCAL_IP][23:16] = 8'h22;
     csr_read(7, int'(CK_LOCAL_IP), model[7][CK_LOCAL_IP]);
 
-    if (errors == 0) $display("RESULT: PASS (64 entries, CSR read-back, peers, receiver index)");
-    else $display("RESULT: FAIL (%0d errors)", errors);
+    // 5. the replay window write-back
+    @(negedge clk);
+    dec_req = '{idx: 8'd37, new_recv_cnt: 64'h0000_0004_0000_0010,
+                new_recv_win: 64'h8000_0000_0000_0003, update_recv: 1'b1};
+    @(negedge clk);
+    dec_req.update_recv = 1'b0;
+    @(negedge clk);
+    if (dec_peer.recv_cnt !== 64'h0000_0004_0000_0010 ||
+        dec_peer.recv_win !== 64'h8000_0000_0000_0003) begin
+      $display("ERROR: recv_cnt %h recv_win %h a clock after the write-back", dec_peer.recv_cnt,
+               dec_peer.recv_win);
+      errors++;
+    end
+    {model[37][CK_RECV_CNT_HI], model[37][CK_RECV_CNT_LO]} = 64'h0000_0004_0000_0010;
+    {model[37][CK_RECV_WIN_HI], model[37][CK_RECV_WIN_LO]} = 64'h8000_0000_0000_0003;
+    check_peer(2, 37);
+    for (int w = int'(CK_RECV_CNT_HI); w <= int'(CK_RECV_WIN_LO); w++) csr_read(37, w, model[37][w]);
+    // a CPU write in the write-back's clock wins (recv_win low word)
+    @(negedge clk);
+    dec_req = '{idx: 8'd37, new_recv_cnt: 64'h0000_0004_0000_0011,
+                new_recv_win: 64'h0000_0000_0000_0007, update_recv: 1'b1};
+    csr_cfg = '{req: 1'b1, req_is_wr: 1'b1, addr: 13'({6'd37, 5'(CK_RECV_WIN_LO), 2'b00}),
+                wr_data: 32'h1234_5678, wr_biten: '1};
+    @(negedge clk);
+    dec_req.update_recv = 1'b0;
+    csr_cfg.req = 1'b0;
+    {model[37][CK_RECV_CNT_HI], model[37][CK_RECV_CNT_LO]} = 64'h0000_0004_0000_0011;
+    {model[37][CK_RECV_WIN_HI], model[37][CK_RECV_WIN_LO]} = 64'h0000_0000_1234_5678;
+    for (int w = int'(CK_RECV_CNT_HI); w <= int'(CK_RECV_WIN_LO); w++) csr_read(37, w, model[37][w]);
+    // both write-backs in one clock (encryptor entry 5, decryptor entry 6)
+    // and a CPU write to entry 9's recv_cnt: all three land
+    @(negedge clk);
+    enc_req.idx = 8'd5;
+    enc_req.new_send_cnt = 64'h0000_0005_0000_0055;
+    enc_req.update_send_cnt = 1'b1;
+    dec_req = '{idx: 8'd6, new_recv_cnt: 64'h0000_0006_0000_0066,
+                new_recv_win: 64'hFFFF_0000_0000_FFFF, update_recv: 1'b1};
+    csr_cfg = '{req: 1'b1, req_is_wr: 1'b1, addr: 13'({6'd9, 5'(CK_RECV_CNT_HI), 2'b00}),
+                wr_data: 32'h9999_0009, wr_biten: '1};
+    @(negedge clk);
+    enc_req.update_send_cnt = 1'b0;
+    dec_req.update_recv = 1'b0;
+    csr_cfg.req = 1'b0;
+    {model[5][CK_SEND_CNT_HI], model[5][CK_SEND_CNT_LO]} = 64'h0000_0005_0000_0055;
+    {model[6][CK_RECV_CNT_HI], model[6][CK_RECV_CNT_LO]} = 64'h0000_0006_0000_0066;
+    {model[6][CK_RECV_WIN_HI], model[6][CK_RECV_WIN_LO]} = 64'hFFFF_0000_0000_FFFF;
+    model[9][CK_RECV_CNT_HI] = 32'h9999_0009;
+    check_peer(5, 6);
+    check_peer(2, 9);
+    csr_read(9, int'(CK_RECV_CNT_HI), 32'h9999_0009);
+    csr_read(6, int'(CK_RECV_WIN_HI), 32'hFFFF_0000);
+
+    // 6. the peer tag alone, a byte write (entry 5: tag 58 to 9)
+    csr_write(5, int'(CK_LOCAL_PORT), 32'h0009_0000, 32'h00FF_0000);
+    model[5][CK_LOCAL_PORT][23:16] = 8'h09;
+    csr_read(5, int'(CK_LOCAL_PORT), model[5][CK_LOCAL_PORT]);
+    check_peer(5, 5);
+    check_peer(2, 5);  // the encryptor at another entry: its port
+    if (dec_peer.peer !== 8'd9) begin
+      $display("ERROR: peer tag %0d, want 9", dec_peer.peer);
+      errors++;
+    end
+
+    if (errors == 0) begin
+      $display("RESULT: PASS (64 entries, read-back, peers, tag, receiver index, write-backs)");
+    end
+    else begin
+      $display("RESULT: FAIL (%0d errors)", errors);
+    end
     $finish(2);
   end
 endmodule

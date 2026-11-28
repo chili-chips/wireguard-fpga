@@ -5,7 +5,9 @@
 # Host tests of the WireGuard session layer (2.sw/app/wg_session.c), on Linux/WSL:
 #   make test      wg_session against a peer driven with noise.c: answers,
 #                  replay, unknown peers, a busy data plane, our initiation,
-#                  the table entry it writes
+#                  the table entry it writes, load detection (cookies), the
+#                  timers (#80) on a fake clock and fake table counters, the
+#                  session pool (#85) on fake routes
 #   make interop   against the Linux kernel's WireGuard (wireguard-tools, the
 #                  wireguard module loaded), in a user+net namespace: the keys
 #                  it hands the data plane decrypt the kernel's packets
@@ -13,16 +15,19 @@ APP    = ../../app
 OUT    = build
 CC     = gcc
 CFLAGS = -O1 -g -Wall -Wextra -DVPROC -fsanitize=address,undefined -I$(APP)
-LIB    = $(addprefix $(APP)/,wg_session.c noise.c cookie.c xchacha20poly1305.c peer_map.c \
-           siphash.c blake2s.c hkdf.c curve25519.c x25519.c chacha20poly1305.c chacha20.c \
-           poly1305.c string_bare.c) rtc_host.c
+LIB    = $(addprefix $(APP)/,wg_session.c noise.c cookie.c xchacha20poly1305.c \
+           blake2s.c hkdf.c curve25519.c x25519.c chacha20poly1305.c chacha20.c poly1305.c \
+           string_bare.c) rtc_host.c
+
+# the host test counts the X25519 calls (the unknown-peer check)
+$(OUT)/wg_session_host: LDFLAGS = -Wl,--wrap=curve25519_compute_shared_secret,--wrap=curve25519_generate_public_key
 
 .PHONY: all test interop clean
 all: test interop
 
 $(OUT)/%: %.c $(LIB) $(APP)/wg_session.h $(APP)/noise.h $(APP)/cookie.h $(APP)/rtc.h
 	@mkdir -p $(OUT)
-	$(CC) $(CFLAGS) $< $(LIB) -o $@
+	$(CC) $(CFLAGS) $< $(LIB) $(LDFLAGS) -o $@
 
 test: $(OUT)/wg_session_host
 	$(OUT)/wg_session_host

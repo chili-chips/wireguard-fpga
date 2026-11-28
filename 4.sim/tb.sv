@@ -50,7 +50,16 @@ module tb #(
    // SOP test that checks it (bfm_uart.sv); set with Verilator -G, e.g.
    // USRSIMOPTS="-GUART_SOP_TEST=1 -GUART_TIMEOUT_LOG2=10"
    parameter int UART_TIMEOUT_LOG2 = 21,
-   parameter bit UART_SOP_TEST     = 1'b0
+   parameter bit UART_SOP_TEST     = 1'b0,
+   // the UART's time base (top, uart.sv: clocks - 1 per tick; 79 = hardware),
+   // which bfm_uart follows; MakefileVProc.mk sets 7, 10 times faster
+   parameter int UART_TICK_CLKS    = soc_pkg::NUM_1US_CLKS,
+   // #61: n UART bus writes while the firmware stores (bfm_uart, chk_uart_bus;
+   // needs the store_stress firmware); 0 = off
+   parameter int UART_BUS_STRESS_N = 0,
+   // the end-to-end WireGuard test (MakefileVProc.mk WG_E2E=1,
+   // usercode/VUserMainWg.cpp): bfm_uart is the user code's console
+   parameter bit WG_E2E            = 1'b0
 )();
    glbl glbl();
 
@@ -198,7 +207,8 @@ module tb #(
    logic        qspi_cs, qspi_d0, qspi_d1;
 
    top #(
-      .UART_TIMEOUT_LOG2 (UART_TIMEOUT_LOG2)
+      .UART_TIMEOUT_LOG2 (UART_TIMEOUT_LOG2),
+      .UART_TICK_CLKS    (UART_TICK_CLKS)
    ) dut (
       .clk_p   (clk_p),
       .clk_n   (clk_n),
@@ -386,7 +396,10 @@ assign gmii[3].txd  = e4_txd;
 //--------------------------------------------------------------
    bfm_uart #(
       .SOP_TEST     (UART_SOP_TEST),
-      .TIMEOUT_LOG2 (UART_TIMEOUT_LOG2)
+      .TIMEOUT_LOG2 (UART_TIMEOUT_LOG2),
+      .TICK_CLKS    (UART_TICK_CLKS),
+      .BUS_STRESS_N (UART_BUS_STRESS_N),
+      .CLI_MAILBOX  (WG_E2E)
    ) bfm_uart (
       .uart_rx  (uart_tx), //i
       .uart_tx  (uart_rx)  //o
@@ -456,9 +469,7 @@ assign gmii[3].txd  = e4_txd;
     end
 */
 
-`ifdef UART_BUS_STRESS
-   chk_uart_bus chk_uart_bus ();
-`endif
+   chk_uart_bus #(.EN (UART_BUS_STRESS_N > 0)) chk_uart_bus ();
 
 endmodule: tb
 

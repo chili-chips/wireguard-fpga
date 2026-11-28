@@ -33,6 +33,7 @@ SPDX-License-Identifier: BSD-3-Clause
   * [System-Level Ethernet Simulation](#system-level-ethernet-simulation)
     * [PCAP replay/record quickstart](#pcap-replayrecord-quickstart-vusermainpcap)
 * [HAL](#hal)
+* [End-to-end WireGuard test](#end-to-end-wireguard-test)
 * [Simulation speed](#simulation-speed)
 * [Tool Versions](#tool-versions)
   * [Local changes](#local-changes)
@@ -280,7 +281,7 @@ Command line configurable variables:
   TIMEOUTUS:        Test bench timeout period in microseconds (default 10000)
   DISABLE_SIM_CTRL: Disable/enable Verilator simulation control (default disabled)
   ISS_BUS_CREDIT:   BUILD=ISS: 1 for bus credit and no fetch/load wait states (default 1)
-  UART_SIM_TICK_CLKS: UART time base in clocks-1; 7 = 10x the hardware speed, 79 = hardware (default 7)
+  UART_TICK_CLKS:     UART time base in clocks-1; 7 = 10x the hardware speed, 79 = hardware (default 7)
 ```
 
 By default, without a named target, the simulation executable will be built but not run. With a <tt>run</tt> target, the simulation executable is built and then executed in batch mode. To fire up waveforms after the run, a target of <tt>rungui</tt> or </tt>gui</tt> can be used. A target of <tt>clean</tt> removes all intermediate files of previous compilations.
@@ -403,13 +404,13 @@ All `MakefileVProc.mk` variables apply, e.g. `make sim TIMEOUTUS=7000`.
 
 The UART can master the bus (`busw`/`busr`, [5.test](../5.test)) while the CPU runs, so the two share `soc_fabric`. Before the fix, eduBOS5 stores did not wait for ready and were lost, and a waiting CPU request reached DMEM/CSR with the UART's address. The test drives that collision:
 
-- `bfm_uart` sends `UART_BUS_STRESS_N` (default 16) bus writes to DMEM and checks each landed.
+- `bfm_uart` sends `UART_BUS_STRESS_N` bus writes to DMEM and checks each landed (a `tb` parameter, 0 = off: `-GUART_BUS_STRESS_N=16`).
 - [`models/chk_uart_bus.sv`](models/chk_uart_bus.sv) flags a CPU store that leaves the bus before ready, and a CPU request reaching DMEM/CSR while the UART has the bus. It counts collisions: no collision fails the test, as it proves nothing.
 - The [`store_stress`](../2.sw/tests/store_stress) firmware stores to DMEM back to back (words and bytes) and checks them, so most UART writes collide with a store.
 
 ```
 cd 3.build && make -f MakefileSW SW_MAIN='$(SW_TESTS)/store_stress' sw_all
-cd 4.sim   && make sim TIMEOUTUS=7000 USRSIMOPTS="+define+UART_BUS_STRESS +define+UART_BUS_STRESS_N=4"
+cd 4.sim   && make sim TIMEOUTUS=7000 USRSIMOPTS="-GUART_BUS_STRESS_N=4"
 ```
 
 It ends with `CHK_UART_BUS: PASS` or `FAIL`.
@@ -429,7 +430,7 @@ Each check prints `UART_SOP_TEST: ... PASS` or `FAIL`; `run-sanity.sh` runs it.
 
 ### Sanity and regression
 
-`bash run-sanity.sh` (about 8 min, after every change) runs the firmware's host tests, the data-path block benches and the co-simulation with the RTL CPU. `bash run-regression.sh` (about 30 min, before a push) runs the sanity set, then the other benches, simulators, the VProc-CPU co-simulation and the UART bus stress. Both print one line per run, keep logs in `4.sim/logs/`, and exit 1 if any run fails. Run them in a local copy: the co-simulation builds in `4.sim`.
+`bash run-sanity.sh` (about 8 min, after every change) runs the firmware's host tests, the data-path block benches and the co-simulation with the RTL CPU. `bash run-regression.sh` (about 50 min, before a push) runs the sanity set, then the other benches, the DPE throughput (`make perf`: it fails when encrypt, decrypt or mixed 1420-byte packets take more clocks per frame than today's 217, 316 and 207), simulators, the VProc-CPU co-simulation, the UART bus stress and the [end-to-end WireGuard test](#end-to-end-wireguard-test). Both print one line per run, keep logs in `4.sim/logs/`, and exit 1 if any run fails. Run them in a local copy: the co-simulation builds in `4.sim`.
 
 ### JanusHDL
 
@@ -617,6 +618,50 @@ The firmware source has no co-simulation code but three spots:
 - **Entry point:** every _VProc_ node starts at `VUserMain<n>`, and the simulator has its own `main()`. So the firmware is compiled with `-Dmain=fw_main`, and [`usercode/VUserMain0.cpp`](usercode/VUserMain0.cpp) calls it.
 - **Halt and reboot:** `ebreak` and `jr zero` (`2.sw/app/main.cpp`) become a loop that ticks the _VProc_ node, so the simulation runs on to its end.
 - **C library:** the bare-metal `memset`, `memcpy` and `memcmp` (`string_bare.c`) give way to the host's, which GCC needs under those names; the firmware's own `bare_strlen` and `bare_strcmp` run in the co-simulation too.
+- **End-to-end test only** (`WG_E2E=1`, [below](#end-to-end-wireguard-test)): the main loop calls the bench's `wg_e2e_hook()` (`WG_E2E_HOOK`), and `wg_session.c` runs its timers `WG_TIME_SCALE` times faster. Hardware builds define neither.
+
+## End-to-end WireGuard test
+
+The ideal use case for _VProc_. The real firmware (all of `2.sw/app`, as for hardware) runs at native speed on the virtual CPU, against the RTL SoC with the real `dpe_switch` and its shared ChaCha20-Poly1305 core. Every CSR access still goes through the real hardware path. A complete handshake costs about 24 M cycles of X25519 on the RTL CPU, hours of RTL co-simulation; here it takes no simulated time and seconds of wall time.
+
+```
+make -f MakefileVProc.mk run WG_E2E=1
+```
+
+**Who does what.**
+- **Node 0:** the firmware.
+- **Node 1 (eth1):** a remote WireGuard peer, [`usercode/VUserMainWg.cpp`](usercode/VUserMainWg.cpp). It is built from the firmware's own `noise.c`, `chacha20poly1305.c`, `xchacha20poly1305.c` and `blake2s.c`, compiled for the host. Inner network 10.0.0.0/24.
+- **Node 2 (eth2):** a LAN host, 192.168.152.1. It checks what the DPE decrypts and sends plaintext to the peer's network.
+- **UART:** `bfm_uart` (`CLI_MAILBOX`, tb `WG_E2E`) is the peer's console. It sends the lines the user code writes to a mailbox in the shared _mem_model_ memory, and logs what the firmware prints there. The peer sets up the firmware with the real CLI: `wg key`, `wg peer add` (endpoint learnt), three `config routes`, `wg load on`.
+- **Read-back:** `wg_e2e_hook()` runs on node 0 between two rounds of the firmware's main loop. It reads the cryptokey and routing tables with the firmware's own register accesses (the co-sim HAL), and copies the firmware's peer state and counters.
+
+**Traffic.** Handshakes are UDP to 192.168.1.98:51820. The DPE hands them to the CPU; the firmware answers through the CPU TX path. Transport data from the peer is decrypted by the DPE, checked against AllowedIPs and forwarded to eth2. Plaintext from the LAN to 10.0.0.0/24 is encrypted by the DPE and sent to the peer. Keepalives are encrypted by the firmware.
+
+**Scaled timers.** The protocol's times are compile-time constants (`wg_session.h`). `WG_E2E=1` builds the firmware with `-DWG_TIME_SCALE=20000`: its timers and its load detection run 20,000 times faster. `REKEY_AFTER_TIME` (120 s) is then 6 ms simulated, the 200 ms poll 10 us. Timestamps and cookie ages keep the real clock. Hardware builds are unchanged (scale 1). The UART runs at 40 times the hardware speed (`UART_TICK_CLKS=1`), for the console set-up.
+
+**Checks.** Each prints `E2E: PASS <id>` or `E2E: FAIL <id>`; the run ends with `E2E: ALL PASS`.
+
+| Id | What |
+|---|---|
+| `0-config` | the CLI set-up; the public key printed is the expected one |
+| `1-handshake` | the peer initiates, the firmware answers; the entry read back (indices, both keys, endpoint, peer tag), pending, routes still on the keyless entry |
+| `4a-confirm-wait` | key confirmation: a LAN packet before the peer's first data reaches nobody (dropped on the keyless entry, counted in `send_cnt`) |
+| `2a-peer-to-lan` | peer data decrypted by the DPE, plaintext checked on eth2 |
+| `4b-confirmed` | the first data confirms the session: routes and tag move to the new entry |
+| `2b-lan-to-peer` | LAN data encrypted by the DPE, opened and checked by the peer |
+| `3-replay` | replayed counters dropped, a late one accepted; `recv_cnt` and `recv_win` as expected |
+| `5a-keepalive` | a keepalive after `KEEPALIVE_TIMEOUT` of receive only, its counter from `send_cnt` |
+| `4c-rekey-peer` | a rekey by the peer under traffic both ways: nothing lost or dropped at AllowedIPs during the overlap (the peer tag), also a late packet on the old keys |
+| `4d-keep` | the old entry kept 10 s without data (until the next switch or its `REJECT_AFTER_TIME`): a late packet on its keys still decrypts |
+| `5c-reject` | `REJECT_AFTER_TIME`: keys cleared, the peer's data dropped; a LAN packet dropped by the zero-key rule, its `send_cnt` starts a handshake from the firmware |
+| `4e-initiator` | the firmware as initiator: installs on message 2, its keepalive confirms the session |
+| `5b-rekey-time` | the firmware rekeys at `REKEY_AFTER_TIME` while it sends; data goes on, none lost |
+| `6-cookie` | under load (`wg load on`): a cookie reply; the peer's next initiation with mac2 is answered |
+
+**Cost.** No waveform by default (`TRACE=0`; `TRACE=1` writes `wave.fst`, slower). The full run ends at 37 ms simulated, in about 11 min (Ryzen 9 6900HX, WSL2), plus the Verilator build. Too long for `run-sanity.sh`; `run-regression.sh` runs it (`cosim-e2e`).
+
+**Not covered.** The RTL CPU itself (`CPU=rtl` would take hours per handshake), real PHY timing, and a real peer's behaviour beyond what the peer model does (it never rekeys on its own timers). The Linux interop lives in `2.sw/tests/wg_session` (`make interop`).
+
 ## Simulation speed
 
 The default test, simulation only (`make -f MakefileVProc.mk run` once `make -f MakefileVProc.mk all` has built it). Each run alone, on one PC (Ryzen 9 6900HX, WSL2, Verilator 5.055):
@@ -675,14 +720,14 @@ As in our BFMs: no `` `timescale`` in our HDL (third-party and AMD files keep th
 - No 200 MHz board clock: the PLL models make the system and Ethernet clocks themselves, so `tb.sv` holds `clk_p` at 0. `verilator_sim_ctrl` counts system clocks.
 - The only delays left are clock generation and the waits of the test bench and `bfm_uart`. Third party: AMD's `glbl.v` (its start-up reset pulses) and `ODDR.v` (`#1 $finish` on a bad parameter), unchanged.
 
-The co-simulated firmware drives the real UART registers, as on the hardware, with no `VPROC` branch. To keep console output cheap in simulated time, the make files define `UART_SIM_TICK_CLKS=7`: the UART's time base (`soc_pkg.sv`) runs 10 times faster, and `bfm_uart` follows it. `bfm_uart` prints each received line as `UART: ...`.
+The co-simulated firmware drives the real UART registers, as on the hardware, with no `VPROC` branch. To keep console output cheap in simulated time, the make files set `tb`'s `UART_TICK_CLKS` to 7 (`-GUART_TICK_CLKS=7`; `make UART_TICK_CLKS=79` for the hardware speed): the UART's time base (`top`, `uart.sv`) runs 10 times faster, and `bfm_uart` follows it. `bfm_uart` prints each received line as `UART: ...`.
 
 ## References:
 - [VProc](https://github.com/wyvernSemi/vproc)
 - [mem_model](https://github.com/wyvernSemi/mem_model)
 - [UDP/IP Packet Generator](https://github.com/wyvernSemi/udpIpPg)
 - [rv32 RISC-V ISS](https://github.com/wyvernSemi/riscV/tree/main/iss)
-- [Surfer](https://gitlab.com/surfer-project/surfer)
+- [WaveCrux](https://wavecrux.app)
 - [Verilator](https://verilator.org/guide/latest/install.html)
 - [SystemRDL](https://www.accellera.org/downloads/standards/systemrdl)
 - [PeakRDL and SystemRDLcompiler](https://github.com/SystemRDL)

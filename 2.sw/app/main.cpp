@@ -53,8 +53,6 @@
 #include "hkdf.h"
 #include "random.h"
 #include "timer.h"
-#include "siphash.h"
-#include "peer_map.h"
 #include "noise.h"
 #include "wg_session.h"
 #include "flash.h"
@@ -79,6 +77,13 @@ static void __attribute__((noinline)) stack_scrub(void) {
 }
 #else
 static void stack_scrub(void) {}
+#endif
+
+// The co-simulation's end-to-end test (4.sim, WG_E2E=1) only: its bench
+// reads the tables back over the co-sim HAL, on this node, between two
+// rounds of the main loop (4.sim/usercode/VUserMainWg.cpp)
+#if defined(VPROC) && defined(WG_E2E_HOOK)
+extern "C" void wg_e2e_hook(void);
 #endif
 
 // TEST CODE
@@ -279,54 +284,6 @@ static int test_rng(void)
    return 0;
 }
 
-// SipHash-2-4 against the reference vectors (key 00..0f, input 00..n-1),
-// then the peer map: 64 peers in, found, one more refused, half removed
-static int test_siphash(void) {
-   static const struct { uint8_t len; uint64_t want; } vec[] = {
-      {0, 0x726fdb47dd0e0e31ULL}, {8, 0x93f5f5799a932462ULL}, {15, 0xa129ca6149be45e5ULL},
-   };
-   uint8_t key[SIPHASH_KEY_SIZE], msg[16], pub[PEER_KEY_SIZE];
-   int pass = 1, ok = 1;
-
-   for (int i = 0; i < SIPHASH_KEY_SIZE; i++) key[i] = (uint8_t)i;
-   for (int i = 0; i < 16; i++) msg[i] = (uint8_t)i;
-   for (unsigned v = 0; v < sizeof(vec) / sizeof(vec[0]); v++) {
-      if (siphash24(key, msg, vec[v].len) != vec[v].want) ok = 0;
-   }
-   test_result("SipHash-2-4 reference vectors", ok, &pass);
-
-   // peer p's key: bytes p, p+1, ... (all 64 differ)
-   ok = 1;
-   peer_map_init();
-   for (int p = 0; p < PEER_MAP_PEERS; p++) {
-      for (int i = 0; i < PEER_KEY_SIZE; i++) pub[i] = (uint8_t)(p + i);
-      if (peer_map_set(pub, (uint8_t)p) != 0) ok = 0;
-   }
-   for (int p = 0; p < PEER_MAP_PEERS; p++) {
-      for (int i = 0; i < PEER_KEY_SIZE; i++) pub[i] = (uint8_t)(p + i);
-      if (peer_map_find(pub) != p) ok = 0;
-   }
-   for (int i = 0; i < PEER_KEY_SIZE; i++) pub[i] = (uint8_t)(200 + i);
-   if (peer_map_find(pub) != -1 || peer_map_set(pub, 0) != -1) ok = 0;
-   test_result("Peer map: 64 peers found, a 65th refused", ok, &pass);
-
-   ok = 1;
-   for (int p = 0; p < PEER_MAP_PEERS; p += 2) {
-      for (int i = 0; i < PEER_KEY_SIZE; i++) pub[i] = (uint8_t)(p + i);
-      peer_map_remove(pub);
-   }
-   for (int p = 0; p < PEER_MAP_PEERS; p++) {
-      for (int i = 0; i < PEER_KEY_SIZE; i++) pub[i] = (uint8_t)(p + i);
-      if (peer_map_find(pub) != ((p & 1) ? p : -1)) ok = 0;
-   }
-   if (peer_map_count() != PEER_MAP_PEERS / 2) ok = 0;
-   test_result("Peer map: even peers removed, odd ones still found", ok, &pass);
-
-   wg_peer_map_rebuild();  // the live peers again, under a new key
-   uart_send(pass ? "SipHash test passed!\r\n" : "SipHash test failed!\r\n");
-   return pass ? 0 : -1;
-}
-
 static int test_timer(void)
 {
    for (uint8_t i = 0; i < 10; i++) {
@@ -344,6 +301,8 @@ eth_raw_packet_t  eth_packet_rx;
 eth_raw_packet_t  eth_packet_tx;
 net_config_t      net_config;
 net_arp_cache_t   net_arp_cache = {0};
+
+static uint8_t    debug_enabled = 0;
 
 #define DPE_PAUSE_TIMEOUT_MS 100
 
@@ -368,353 +327,64 @@ void dpe_resume(void) {
    CSR_RMW(dpe.fcr, CSR__DPE__FCR__PAUSE, 0);
 }
 
-// The data plane takes IPv4 UDP to wg_ip:wg_port as WireGuard for this device:
-// the device's own address and its WireGuard listen port
-// The DPE pauses while they change: no packet sees half of them. False: the
-// DPE did not drain, nothing written
-bool set_wg_addr(const net_config_t* config) {
-   if (!dpe_pause()) return false;
-   CSR_REG32(dpe.wg_ip) = ((uint32_t)config->ip[0] << 24) | ((uint32_t)config->ip[1] << 16) |
-                          ((uint32_t)config->ip[2] << 8) | (uint32_t)config->ip[3];
-   CSR_SET(dpe.wg_port, CSR__DPE__WG_PORT__PORT, config->wg_port);
-   dpe_resume();
+// ---- words: IPv4 addresses, MACs and keys as the CSR words hold them ----
+
+// an IPv4 address as one word, the first byte in bits 31:24
+static uint32_t ip_word(const uint8_t ip[4]) {
+   return ((uint32_t)ip[0] << 24) | ((uint32_t)ip[1] << 16) | ((uint32_t)ip[2] << 8) | ip[3];
+}
+
+static void word_ip(uint32_t w, uint8_t ip[4]) {
+   for (int k = 0; k < 4; k++) ip[k] = (uint8_t)(w >> (24 - 8 * k));
+}
+
+// a MAC as bits 47:32 (hi) and 31:0 (lo), the first byte in bits 47:40
+static void mac_words(const uint8_t m[6], uint32_t *hi, uint32_t *lo) {
+   *hi = ((uint32_t)m[0] << 8) | m[1];
+   *lo = ip_word(m + 2);
+}
+
+static void words_mac(uint32_t hi, uint32_t lo, uint8_t m[6]) {
+   m[0] = (uint8_t)(hi >> 8);
+   m[1] = (uint8_t)hi;
+   word_ip(lo, m + 2);
+}
+
+// the CSR key words from 32 key bytes: one little-endian 256-bit number,
+// word 0 = bits 255:224 (bytes 31 .. 28), as csr.rdl
+static void key_words(const uint8_t key[32], uint32_t w[8]) {
+   for (int k = 0; k < 8; k++) {
+      w[k] = ((uint32_t)key[31 - 4 * k] << 24) | ((uint32_t)key[30 - 4 * k] << 16) |
+             ((uint32_t)key[29 - 4 * k] << 8) | (uint32_t)key[28 - 4 * k];
+   }
+}
+
+// ---- console input ----
+
+// a prompt, then wait for the answer line
+static void ask(const char *prompt, char *buf) {
+   uart_send(prompt);
+   while (!uart_recv(buf));
+}
+
+static bool is_empty(const char *buf) { return buf[0] == '\n' || buf[0] == '\0'; }
+static bool is_yes(const char *buf)   { return buf[0] == 'y' || buf[0] == 'Y'; }
+
+static void send_dec_s(uint32_t v, const char *s) {
+   uart_send_dec(v);
+   uart_send(s);
+}
+
+// a MAC as 12 hex digits: true and hi/lo (as mac_words), else false and
+// both kept
+static bool parse_mac(char *buf, uint32_t *hi, uint32_t *lo) {
+   uint32_t h, l;
+   if (bare_strlen(buf) != 13 || !str_parse_hex(buf + 4, &l, 0, 0xFFFFFFFF)) return false;
+   buf[4] = '\n';
+   if (!str_parse_hex(buf, &h, 0, 0xFFFF)) return false;
+   *hi = h;
+   *lo = l;
    return true;
-}
-
-void init_network(net_config_t* config) {
-   if (config->ip[0] == 0 && config->ip[1] == 0 && config->ip[2] == 0 && config->ip[3] == 0) {
-      config->ip[0] = 192;
-      config->ip[1] = 168;
-      config->ip[2] = 1;
-      config->ip[3] = 98;
-
-      config->sub_mask[0] = 255;
-      config->sub_mask[1] = 255;
-      config->sub_mask[2] = 255;
-      config->sub_mask[3] = 0;
-
-      config->mac[0] = 0xCC;
-      config->mac[1] = 0xBA;
-      config->mac[2] = 0xCA;
-      config->mac[3] = 0xCA;
-      config->mac[4] = 0x00;
-      config->mac[5] = 0x01;
-
-      config->def_gw[0] = 192;
-      config->def_gw[1] = 168;
-      config->def_gw[2] = 1;
-      config->def_gw[3] = 254;
-
-      config->def_if = 1;
-   }
-   if (config->wg_port == 0) {
-      config->wg_port = 51820;
-   }
-   set_wg_addr(config);
-}
-
-void show_network(net_config_t* config) {
-   uart_send("Network configuration:\r\n");
-   uart_send("  IP address:        ");
-   uart_send_ip(config->ip);
-   uart_send("\r\n  Subnet mask:       ");
-   uart_send_ip(config->sub_mask);
-   uart_send("\r\n  MAC address:       ");
-   uart_send_mac(config->mac);
-   uart_send("\r\n  Default gateway:   ");
-   uart_send_ip(config->def_gw);
-   uart_send("\r\n  Default interface: ");
-   uart_send_dec(config->def_if);
-   switch (config->def_if) {
-      case 0:
-         uart_send(" [0....]");
-         break;
-      case 1:
-         uart_send(" [.1...]");
-         break;
-      case 2:
-         uart_send(" [..2..]");
-         break;
-      case 3:
-         uart_send(" [...3.]");
-         break;
-      case 4:
-         uart_send(" [....4]");
-         break;
-      case 5:
-         uart_send(" [.1.3.]");
-         break;
-      case 6:
-         uart_send(" [..2.4]");
-         break;
-      case 7:
-         uart_send(" [.1234]");
-         break;
-   }
-   uart_send("\r\n  WireGuard port:    ");
-   uart_send_dec(config->wg_port);
-   uart_send("\r\n");
-}
-
-void config_network(net_config_t* config) {
-   char uart_rx_data[UART_RXBUF_SIZE];
-   const net_config_t old = *config;  // the IP and port the DPE has
-
-   uart_send("Enter new network configuration:\r\n");
-
-   uart_send("  IP address [");
-   uart_send_ip(config->ip);
-   uart_send("]: ");
-   while (!uart_recv(uart_rx_data));
-   net_str_parse_ip(uart_rx_data, &config->ip);
-
-   uart_send("  Subnet mask [");
-   uart_send_ip(config->sub_mask);
-   uart_send("]: ");
-   while (!uart_recv(uart_rx_data));
-   net_str_parse_ip(uart_rx_data, &config->sub_mask);
-
-   uart_send("  Generate new MAC address? (y/n) [n]: ");
-   while (!uart_recv(uart_rx_data));
-   if (uart_rx_data[0] == 'y' || uart_rx_data[0] == 'Y') {
-      uint8_t random_bytes[32];  // random_32bytes() writes 32 bytes
-      random_32bytes(random_bytes);
-      config->mac[4] = random_bytes[0]; // Use random byte for MAC suffix
-      config->mac[5] = random_bytes[1]; // Use random byte for MAC suffix
-      // a made-up MAC is locally administered (bit 1) and unicast (bit 0)
-      config->mac[0] = (uint8_t)((config->mac[0] | 0x02) & ~0x01);
-   }
-
-   uart_send("  Default gateway [");
-   uart_send_ip(config->def_gw);
-   uart_send("]: ");
-   while (!uart_recv(uart_rx_data));
-   net_str_parse_ip(uart_rx_data, &config->def_gw);
-
-   uart_send("  Default interface (0-7) [");
-   uart_send_dec(config->def_if);
-   uart_send("]: ");
-   while (!uart_recv(uart_rx_data));
-   str_parse_uint8(uart_rx_data, &config->def_if, 0, 7);
-
-   uart_send("  WireGuard port (1-65535) [");
-   uart_send_dec(config->wg_port);
-   uart_send("]: ");
-   while (!uart_recv(uart_rx_data));
-   uint32_t wg_port = config->wg_port;
-   str_parse_uint32(uart_rx_data, &wg_port, 1, 65535);
-   config->wg_port = (uint16_t)wg_port;
-   if (set_wg_addr(config)) {
-      uart_send("Network configuration updated.\r\n");
-   } else {
-      // the firmware keeps what the data plane uses
-      for (int i = 0; i < 4; i++) config->ip[i] = old.ip[i];
-      config->wg_port = old.wg_port;
-      uart_send("Network configuration updated, but not the IP address and WireGuard port.\r\n");
-   }
-
-   show_network(config);
-}
-
-void show_routes_entry(int i) {
-   uart_send("  (");
-   uart_send_dec(i);
-
-   uint32_t uip = CSR_REG32(routing_table.entry[i].ip);
-   ip_t ip = {(uint8_t)((uip >> 24) & 0xFF), (uint8_t)((uip >> 16) & 0xFF), (uint8_t)((uip >> 8) & 0xFF), (uint8_t)(uip & 0xFF)};
-   uart_send(") IP: ");
-   uart_send_ip(ip);
-
-   uint32_t umask = CSR_REG32(routing_table.entry[i].mask);
-   ip_t mask = {(uint8_t)((umask >> 24) & 0xFF), (uint8_t)((umask >> 16) & 0xFF), (uint8_t)((umask >> 8) & 0xFF), (uint8_t)(umask & 0xFF)};
-   uart_send(", Mask: ");
-   uart_send_ip(mask);
-
-   uint32_t peer_idx = CSR_GET(routing_table.entry[i].peer_idx, CSR__ROUTING_TABLE__ENTRY__PEER_IDX__PEER_IDX);
-   uart_send(", Peer index: ");
-   uart_send_dec(peer_idx);
-
-   uint32_t encrypt = CSR_GET(routing_table.entry[i].peer_idx, CSR__ROUTING_TABLE__ENTRY__PEER_IDX__ENCRYPT);
-   uart_send(", Encrypt: ");
-   uart_send_dec(encrypt);
-
-   uint32_t dst = CSR_GET(routing_table.entry[i].dst, CSR__ROUTING_TABLE__ENTRY__DST__DST);
-   uart_send(", Destination interface: ");
-   uart_send_dec(dst);
-   switch (dst) {
-      case 0:
-         uart_send(" [0....]");
-         break;
-      case 1:
-         uart_send(" [.1...]");
-         break;
-      case 2:
-         uart_send(" [..2..]");
-         break;
-      case 3:
-         uart_send(" [...3.]");
-         break;
-      case 4:
-         uart_send(" [....4]");
-         break;
-      case 5:
-         uart_send(" [.1.3.]");
-         break;
-      case 6:
-         uart_send(" [..2.4]");
-         break;
-      case 7:
-         uart_send(" [.1234]");
-         break;
-   }
-
-   uart_send("\r\n");
-}
-
-// The CPU reads the tables on a port of their own: no pause for reading
-void show_routes(void) {
-   uart_send("Routing table:\r\n");
-   for (int i = 0; i < 64; i++) {
-      show_routes_entry(i);
-   }
-}
-
-// The prompts run with the DPE running; it pauses only for the writes
-void config_routes(void) {
-   char uart_rx_data[UART_RXBUF_SIZE];
-
-   uart_send("Enter new routing table entry:\r\n");
-   uart_send("  Entry index (0-63) [0]: ");
-   while (!uart_recv(uart_rx_data));
-   uint32_t entry_idx = 0;
-   str_parse_uint32(uart_rx_data, &entry_idx, 0, 63);
-
-   uart_send("  Destination IP address [");
-   uint32_t uip = CSR_REG32(routing_table.entry[entry_idx].ip);
-   ip_t ip = {(uint8_t)((uip >> 24) & 0xFF), (uint8_t)((uip >> 16) & 0xFF), (uint8_t)((uip >> 8) & 0xFF), (uint8_t)(uip & 0xFF)};
-   uart_send_ip(ip);
-   uart_send("]: ");
-   while (!uart_recv(uart_rx_data));
-   net_str_parse_ip(uart_rx_data, &ip);
-
-   uart_send("  Subnet mask [");
-   uint32_t umask = CSR_REG32(routing_table.entry[entry_idx].mask);
-   ip_t mask = {(uint8_t)((umask >> 24) & 0xFF), (uint8_t)((umask >> 16) & 0xFF), (uint8_t)((umask >> 8) & 0xFF), (uint8_t)(umask & 0xFF)};
-   uart_send_ip(mask);
-   uart_send("]: ");
-   while (!uart_recv(uart_rx_data));
-   net_str_parse_ip(uart_rx_data, &mask);
-
-   uart_send("  Peer index (0-63) [");
-   uint32_t peer_idx = CSR_GET(routing_table.entry[entry_idx].peer_idx, CSR__ROUTING_TABLE__ENTRY__PEER_IDX__PEER_IDX);
-   uart_send_dec(peer_idx);
-   uart_send("]: ");
-   while (!uart_recv(uart_rx_data));
-   str_parse_uint32(uart_rx_data, &peer_idx, 0, 63);
-
-   uart_send("  Encrypt (0/1: through the tunnel to the peer) [");
-   uint32_t encrypt = CSR_GET(routing_table.entry[entry_idx].peer_idx, CSR__ROUTING_TABLE__ENTRY__PEER_IDX__ENCRYPT);
-   uart_send_dec(encrypt);
-   uart_send("]: ");
-   while (!uart_recv(uart_rx_data));
-   str_parse_uint32(uart_rx_data, &encrypt, 0, 1);
-
-   uart_send("  Destination interface (0-7) [");
-   uint32_t dst = CSR_GET(routing_table.entry[entry_idx].dst, CSR__ROUTING_TABLE__ENTRY__DST__DST);
-   uart_send_dec(dst);
-   uart_send("]: ");
-   while (!uart_recv(uart_rx_data));
-   str_parse_uint32(uart_rx_data, &dst, 0, 7);
-
-   // Update routing table entry
-   uip = ((uint32_t)ip[0] << 24) | ((uint32_t)ip[1] << 16) | ((uint32_t)ip[2] << 8) | (uint32_t)ip[3];
-   umask = ((uint32_t)mask[0] << 24) | ((uint32_t)mask[1] << 16) | ((uint32_t)mask[2] << 8) | (uint32_t)mask[3];
-   if (!dpe_pause()) return;
-   CSR_REG32(routing_table.entry[entry_idx].ip) = uip;
-   CSR_REG32(routing_table.entry[entry_idx].mask) = umask;
-   // peer_idx and encrypt in one word write: a byte store reaches every lane on
-   // this bus, and the DUMMY switch's table ignores byte enables
-   CSR_REG32(routing_table.entry[entry_idx].peer_idx) =
-      ((peer_idx << CSR__ROUTING_TABLE__ENTRY__PEER_IDX__PEER_IDX_bp) & CSR__ROUTING_TABLE__ENTRY__PEER_IDX__PEER_IDX_bm) |
-      ((encrypt << CSR__ROUTING_TABLE__ENTRY__PEER_IDX__ENCRYPT_bp) & CSR__ROUTING_TABLE__ENTRY__PEER_IDX__ENCRYPT_bm);
-   CSR_SET(routing_table.entry[entry_idx].dst, CSR__ROUTING_TABLE__ENTRY__DST__DST, dst);
-   dpe_resume();
-
-   uart_send("Routing table entry updated.\r\n");
-
-   show_routes_entry(entry_idx);
-}
-
-void show_cryptokeys_entry(int i) {
-   uart_send("  (");
-   uart_send_dec(i);
-
-   uart_send(") Local MAC: ");
-   uart_send_hex(CSR_GET(cryptokey_table.entry[i].local_mac_47_32, CSR__CRYPTOKEY_TABLE__ENTRY__LOCAL_MAC_47_32__MAC), 4);
-   uart_send_hex(CSR_REG32(cryptokey_table.entry[i].local_mac_31_0), 8);
-
-   uart_send(", Local IP: ");
-   uint32_t ulocal_ip = CSR_REG32(cryptokey_table.entry[i].local_ip);
-   ip_t local_ip = {(uint8_t)((ulocal_ip >> 24) & 0xFF), (uint8_t)((ulocal_ip >> 16) & 0xFF), (uint8_t)((ulocal_ip >> 8) & 0xFF), (uint8_t)(ulocal_ip & 0xFF)};
-   uart_send_ip(local_ip);
-
-   uart_send(", Local port: ");
-   uart_send_dec(CSR_GET(cryptokey_table.entry[i].local_port, CSR__CRYPTOKEY_TABLE__ENTRY__LOCAL_PORT__PORT));
-
-   uart_send(", Local ID: 0x");
-   uart_send_hex(CSR_REG32(cryptokey_table.entry[i].local_id), 8);
-
-   uart_send("\r\n    Remote MAC: ");
-   uart_send_hex(CSR_GET(cryptokey_table.entry[i].remote_mac_47_32, CSR__CRYPTOKEY_TABLE__ENTRY__REMOTE_MAC_47_32__MAC), 4);
-   uart_send_hex(CSR_REG32(cryptokey_table.entry[i].remote_mac_31_0), 8);
-
-   uart_send(", Remote IP: ");
-   uint32_t uremote_ip = CSR_REG32(cryptokey_table.entry[i].remote_ip);
-   ip_t remote_ip = {(uint8_t)((uremote_ip >> 24) & 0xFF), (uint8_t)((uremote_ip >> 16) & 0xFF), (uint8_t)((uremote_ip >> 8) & 0xFF), (uint8_t)(uremote_ip & 0xFF)};
-   uart_send_ip(remote_ip);
-
-   uart_send(", Remote port: ");
-   uart_send_dec(CSR_GET(cryptokey_table.entry[i].remote_port, CSR__CRYPTOKEY_TABLE__ENTRY__REMOTE_PORT__PORT));
-
-   uart_send(", Remote ID: 0x");
-   uart_send_hex(CSR_REG32(cryptokey_table.entry[i].remote_id), 8);
-
-   uart_send("\r\n    Encryption key: 0x");
-   uart_send_hex(CSR_REG32(cryptokey_table.entry[i].encrypt_key_255_224), 8);
-   uart_send_hex(CSR_REG32(cryptokey_table.entry[i].encrypt_key_223_192), 8);
-   uart_send_hex(CSR_REG32(cryptokey_table.entry[i].encrypt_key_191_160), 8);
-   uart_send_hex(CSR_REG32(cryptokey_table.entry[i].encrypt_key_159_128), 8);
-   uart_send_hex(CSR_REG32(cryptokey_table.entry[i].encrypt_key_127_96), 8);
-   uart_send_hex(CSR_REG32(cryptokey_table.entry[i].encrypt_key_95_64), 8);
-   uart_send_hex(CSR_REG32(cryptokey_table.entry[i].encrypt_key_63_32), 8);
-   uart_send_hex(CSR_REG32(cryptokey_table.entry[i].encrypt_key_31_0), 8);
-
-   uart_send("\r\n    Decryption key: 0x");
-   uart_send_hex(CSR_REG32(cryptokey_table.entry[i].decrypt_key_255_224), 8);
-   uart_send_hex(CSR_REG32(cryptokey_table.entry[i].decrypt_key_223_192), 8);
-   uart_send_hex(CSR_REG32(cryptokey_table.entry[i].decrypt_key_191_160), 8);
-   uart_send_hex(CSR_REG32(cryptokey_table.entry[i].decrypt_key_159_128), 8);
-   uart_send_hex(CSR_REG32(cryptokey_table.entry[i].decrypt_key_127_96), 8);
-   uart_send_hex(CSR_REG32(cryptokey_table.entry[i].decrypt_key_95_64), 8);
-   uart_send_hex(CSR_REG32(cryptokey_table.entry[i].decrypt_key_63_32), 8);
-   uart_send_hex(CSR_REG32(cryptokey_table.entry[i].decrypt_key_31_0), 8);
-
-   uart_send("\r\n    Send counter: 0x");
-   uart_send_hex(CSR_REG32(cryptokey_table.entry[i].send_cnt_63_32), 8);
-   uart_send_hex(CSR_REG32(cryptokey_table.entry[i].send_cnt_31_0), 8);
-
-   uart_send("\r\n    Recv counter: 0x");
-   uart_send_hex(CSR_REG32(cryptokey_table.entry[i].recv_cnt_63_32), 8);
-   uart_send_hex(CSR_REG32(cryptokey_table.entry[i].recv_cnt_31_0), 8);
-
-   uart_send("\r\n");
-}
-
-void show_cryptokeys(void) {
-   uart_send("Cryptokey table:\r\n");
-   for (int i = 1; i < 64; i++) {
-      show_cryptokeys_entry(i);
-   }
 }
 
 // A 32-byte key in base64 (44 characters, as WireGuard tools print it),
@@ -744,19 +414,14 @@ static bool base64_key(const char* s, uint8_t key[32]) {
 // byte 31 first; Enter keeps a word). w: the current words in, the new out.
 // The CSR words hold the key as one little-endian 256-bit number (csr.rdl)
 static void read_key(const char* name, uint32_t w[8], char* buf) {
-   static const char* const nth[8] = {"1st", "2nd", "3rd", "4th", "5th", "6th", "7th", "8th"};
    uint8_t key[32];
 
    uart_send("  ");
    uart_send(name);
-   uart_send(" key, base64 (Enter: 8 hex words): ");
-   while (!uart_recv(buf));
-   if (buf[0] != '\n' && buf[0] != '\0') {
+   ask(", base64 (Enter: 8 hex words): ", buf);
+   if (!is_empty(buf)) {
       if (base64_key(buf, key)) {
-         for (int k = 0; k < 8; k++) {
-            w[k] = ((uint32_t)key[31 - 4 * k] << 24) | ((uint32_t)key[30 - 4 * k] << 16) |
-                   ((uint32_t)key[29 - 4 * k] << 8) | (uint32_t)key[28 - 4 * k];
-         }
+         key_words(key, w);
          return;
       }
       uart_send("  Not a base64 key (44 characters); as 8 hex words:\r\n");
@@ -764,245 +429,453 @@ static void read_key(const char* name, uint32_t w[8], char* buf) {
    for (int k = 0; k < 8; k++) {
       uart_send("  ");
       uart_send(name);
-      uart_send(" key (");
-      uart_send(nth[k]);
+      uart_send(" (");
+      uart_send_dec((uint32_t)k + 1);
+      uart_send(k == 0 ? "st" : k == 1 ? "nd" : k == 2 ? "rd" : "th");
       uart_send(" 8 hex digits) [");
       uart_send_hex(w[k], 8);
-      uart_send("]: ");
-      while (!uart_recv(buf));
+      ask("]: ", buf);
       str_parse_hex(buf, &w[k], 0, 0xFFFFFFFF);
+   }
+}
+
+// " [.1...]": the Ethernet ports of interface code v (0: the CPU; 5: 1 and
+// 3, 6: 2 and 4, 7: all four)
+static void send_ifc(uint32_t v) {
+   static const uint8_t ports[8] = {0x01, 0x02, 0x04, 0x08, 0x10, 0x0A, 0x14, 0x1E};
+   if (v > 7) return;
+   uart_send(" [");
+   for (int j = 0; j < 5; j++) uart_send_char((ports[v] >> j) & 1 ? (char)('0' + j) : '.');
+   uart_send_char(']');
+}
+
+//--------------------------------------------------------------------------
+// The tables the CLI shows and edits (network, routes, cryptokeys): one
+// field list each. An entry is first copied into words (v[]: the CSR words
+// of a table entry, or the network configuration as words); show_fields
+// prints them, edit_fields asks for each editable field, its value now as
+// the default (Enter, or a bad answer, keeps it); the caller writes back.
+//--------------------------------------------------------------------------
+
+enum {
+   F_DEC,     // decimal, bits bp up of word w, hi is the mask: lo .. hi
+   F_IFC,     // as F_DEC, shown with its ports: send_ifc
+   F_PEER,    // as F_DEC, a routing table peer index: shows its WireGuard peer
+   F_IP,      // IPv4 address, word w (ip_word)
+   F_MAC,     // MAC, words w (47:32) and w + 1 (31:0): 12 hex digits
+   F_MACGEN,  // as F_MAC, shown xx:xx:..; edited: make a new one or not
+   F_HEX,     // bp words from w, in hex: 0x... (bp = 1: an 8 hex digit word)
+   F_KEY      // as F_HEX, 8 words: a key (read_key)
+};
+
+enum {
+   F_NL = 1,  // shown on a new line
+   F_RO = 2   // shown only
+};
+
+struct cli_field_t {
+   const char *name;   // as shown
+   const char *ask;    // the prompt: NULL: name; " ...": name and this; else this
+   uint8_t     w, fmt, bp, flags;
+   uint16_t    lo, hi;
+};
+
+// the cryptokey table entry: its CSR words in order (csr.rdl)
+static const cli_field_t ck_fields[] = {
+   {"Local MAC",      " address",         0, F_MAC,  0, 0,           0, 0},
+   {"Local IP",       " address",         2, F_IP,   0, 0,           0, 0},
+   {"Local port",     " (0-65535)",       3, F_DEC,  0, 0,           0, 0xFFFF},
+   {"Tag",            NULL,               3, F_DEC, 16, F_RO,        0, 63},
+   {"Local ID",       " (8 hex digits)",  4, F_HEX,  1, 0,           0, 0},
+   {"Remote MAC",     " address",         5, F_MAC,  0, F_NL,        0, 0},
+   {"Remote IP",      " address",         7, F_IP,   0, 0,           0, 0},
+   {"Remote port",    " (0-65535)",       8, F_DEC,  0, 0,           0, 0xFFFF},
+   {"Remote ID",      " (8 hex digits)",  9, F_HEX,  1, 0,           0, 0},
+   {"Encryption key", NULL,              10, F_KEY,  8, F_NL,        0, 0},
+   {"Decryption key", NULL,              18, F_KEY,  8, F_NL,        0, 0},
+   {"Send counter",   NULL,              26, F_HEX,  2, F_NL | F_RO, 0, 0},
+   {"Recv counter",   NULL,              28, F_HEX,  2, F_NL | F_RO, 0, 0},
+   {"Recv window",    NULL,              30, F_HEX,  2, F_NL | F_RO, 0, 0},
+};
+
+#define CK_WORDS  32  // words of a cryptokey table entry
+#define CK_KEYED  26  // the words up to the keys: the counters follow
+
+// the routing table entry: ip, mask, peer_idx, dst
+static const cli_field_t rt_fields[] = {
+   {"IP",                    "Destination IP address",                     0, F_IP,   0, 0, 0, 0},
+   {"Mask",                  "Subnet mask",                                1, F_IP,   0, 0, 0, 0},
+   {"Peer index",            " (0-63; a WireGuard peer if Encrypt is 1)",  2, F_PEER, 0, 0, 0, 63},
+   {"Encrypt",               " (0/1: through the tunnel to the peer)",     2, F_DEC,  8, 0, 0, 1},
+   {"Destination interface", " (0-7)",                                     3, F_IFC,  0, 0, 0, 7},
+};
+
+// the network configuration, as net_words
+static const cli_field_t net_fields[] = {
+   {"IP address",        NULL,         0, F_IP,     0, 0, 0, 0},
+   {"Subnet mask",       NULL,         1, F_IP,     0, 0, 0, 0},
+   {"MAC address",       NULL,         2, F_MACGEN, 0, 0, 0, 0},
+   {"Default gateway",   NULL,         4, F_IP,     0, 0, 0, 0},
+   {"Default interface", " (0-7)",     5, F_IFC,    0, 0, 0, 7},
+   {"WireGuard port",    " (1-65535)", 6, F_DEC,    0, 0, 1, 0xFFFF},
+};
+
+#define N_FIELDS(t)  ((int)(sizeof(t) / sizeof((t)[0])))
+
+// the words the field lists name, at the offsets they have in the CSR block
+static_assert(offsetof(csr__cryptokey_table__entry_t, remote_mac_47_32) == 4 * 5, "csr.rdl");
+static_assert(offsetof(csr__cryptokey_table__entry_t, remote_port) == 4 * 8, "csr.rdl");
+static_assert(offsetof(csr__cryptokey_table__entry_t, encrypt_key_255_224) == 4 * 10, "csr.rdl");
+static_assert(offsetof(csr__cryptokey_table__entry_t, decrypt_key_255_224) == 4 * 18, "csr.rdl");
+static_assert(offsetof(csr__cryptokey_table__entry_t, send_cnt_63_32) == 4 * CK_KEYED, "csr.rdl");
+static_assert(sizeof(csr__cryptokey_table__entry_t) == 4 * CK_WORDS, "csr.rdl");
+static_assert(offsetof(csr__routing_table__entry_t, dst) == 4 * 3, "csr.rdl");
+
+// a CSR word by its byte address
+#ifdef VPROC
+# define CSR_AT(a)  (csr_vp_reg32(a))  // parenthesized: not a declaration
+#else
+# define CSR_AT(a)  (*(volatile uint32_t *)(uintptr_t)(a))
+#endif
+
+static void csr_read_words(uint32_t a, uint32_t *v, int n) {
+   for (int k = 0; k < n; k++) v[k] = CSR_AT(a + 4u * (uint32_t)k);
+}
+
+// a field's value; prompt: as the default in a prompt (no 0x, no ports, no
+// WireGuard peer). entry: the routing table entry (F_PEER)
+static void send_field(const cli_field_t *f, const uint32_t *v, int entry, bool prompt) {
+   const uint32_t *p = v + f->w;
+   uint32_t        x = (*p >> f->bp) & f->hi;
+   uint8_t         b[6];
+   switch (f->fmt) {
+      case F_IP:
+         word_ip(*p, b);
+         uart_send_ip(b);
+         break;
+      case F_MAC:
+         uart_send_hex(p[0], 4);
+         uart_send_hex(p[1], 8);
+         break;
+      case F_MACGEN:
+         words_mac(p[0], p[1], b);
+         uart_send_mac(b);
+         break;
+      case F_HEX:
+      case F_KEY:
+         if (!prompt) uart_send("0x");
+         for (int k = 0; k < f->bp; k++) uart_send_hex(p[k], 8);
+         break;
+      default:  // F_DEC, F_IFC, F_PEER
+         uart_send_dec(x);
+         if (prompt) break;
+         if (f->fmt == F_IFC) send_ifc(x);
+         if (f->fmt == F_PEER && wg_route_peer(entry)) {  // the entry follows that peer's sessions (#85)
+            uart_send(" (WireGuard peer ");
+            uart_send_dec((uint32_t)wg_route_peer(entry));
+            uart_send_char(')');
+         }
+   }
+}
+
+// entry >= 0: "  (entry) A: a, B: b", an F_NL field on a new line;
+// entry < 0: one "  A:   a" line each, the values aligned
+static void show_fields(const cli_field_t *f, int n, const uint32_t *v, int entry) {
+   if (entry >= 0) {
+      uart_send("  (");
+      uart_send_dec((uint32_t)entry);
+      uart_send_char(')');
+   }
+   for (int k = 0; k < n; k++, f++) {
+      if (entry < 0) {
+         uart_send("  ");
+      } else {
+         uart_send(k == 0 ? " " : (f->flags & F_NL) ? "\r\n    " : ", ");
+      }
+      uart_send(f->name);
+      uart_send_char(':');
+      for (int s = entry < 0 ? 18 - (int)bare_strlen(f->name) : 1; s > 0; s--) uart_send_char(' ');
+      send_field(f, v, entry, false);
+      if (entry < 0) uart_send("\r\n");
+   }
+   if (entry >= 0) uart_send("\r\n");
+}
+
+static void edit_fields(const cli_field_t *f, int n, uint32_t *v, char *buf) {
+   for (; n > 0; n--, f++) {
+      uint32_t *p = v + f->w;
+      if (f->flags & F_RO) continue;
+      if (f->fmt == F_KEY) {
+         read_key(f->name, p, buf);
+         continue;
+      }
+      uart_send("  ");
+      if (f->fmt == F_MACGEN) {
+         uart_send("Generate new ");
+         uart_send(f->name);
+         ask("? (y/n) [n]: ", buf);
+         if (is_yes(buf)) {
+            uint8_t rnd[32];  // random_32bytes() writes 32 bytes
+            random_32bytes(rnd);
+            // the last two bytes made up; a made-up MAC is locally
+            // administered (bit 1 of byte 0) and unicast (bit 0)
+            p[1] = (p[1] & 0xFFFF0000u) | ((uint32_t)rnd[0] << 8) | rnd[1];
+            p[0] = (p[0] | 0x0200u) & ~0x0100u;
+         }
+         continue;
+      }
+      if (!f->ask || f->ask[0] == ' ') uart_send(f->name);
+      if (f->ask) uart_send(f->ask);
+      uart_send(" [");
+      send_field(f, v, 0, true);
+      ask("]: ", buf);
+      switch (f->fmt) {
+         case F_IP: {
+            ip_t ip;
+            word_ip(*p, ip);
+            net_str_parse_ip(buf, &ip);
+            *p = ip_word(ip);
+            break;
+         }
+         case F_MAC:
+            parse_mac(buf, p, p + 1);
+            break;
+         case F_HEX:
+            str_parse_hex(buf, p, 0, 0xFFFFFFFF);
+            break;
+         default: {  // F_DEC, F_IFC, F_PEER
+            uint32_t x = (*p >> f->bp) & f->hi;
+            str_parse_uint32(buf, &x, f->lo, f->hi);
+            *p = (*p & ~((uint32_t)f->hi << f->bp)) | (x << f->bp);
+         }
+      }
+   }
+}
+
+// ---- network ----
+
+// The data plane takes IPv4 UDP to wg_ip:wg_port as WireGuard for this device:
+// the device's own address and its WireGuard listen port
+// The DPE pauses while they change: no packet sees half of them. False: the
+// DPE did not drain, nothing written
+bool set_wg_addr(const net_config_t* config) {
+   if (!dpe_pause()) return false;
+   CSR_REG32(dpe.wg_ip) = ip_word(config->ip);
+   CSR_SET(dpe.wg_port, CSR__DPE__WG_PORT__PORT, config->wg_port);
+   dpe_resume();
+   return true;
+}
+
+void init_network(net_config_t* config) {
+   static const net_config_t def = {
+      {192, 168, 1, 98}, {255, 255, 255, 0}, {0xCC, 0xBA, 0xCA, 0xCA, 0x00, 0x01},
+      {192, 168, 1, 254}, 1, 0};
+   if (ip_word(config->ip) == 0) {
+      uint16_t port = config->wg_port;
+      *config = def;
+      config->wg_port = port;
+   }
+   if (config->wg_port == 0) {
+      config->wg_port = 51820;
+   }
+   set_wg_addr(config);
+}
+
+// the network configuration as words, for net_fields
+static void net_words(const net_config_t *c, uint32_t v[7]) {
+   v[0] = ip_word(c->ip);
+   v[1] = ip_word(c->sub_mask);
+   mac_words(c->mac, &v[2], &v[3]);
+   v[4] = ip_word(c->def_gw);
+   v[5] = c->def_if;
+   v[6] = c->wg_port;
+}
+
+void show_network(net_config_t* config) {
+   uint32_t v[7];
+   net_words(config, v);
+   uart_send("Network configuration:\r\n");
+   show_fields(net_fields, N_FIELDS(net_fields), v, -1);
+}
+
+void config_network(net_config_t* config) {
+   char           buf[UART_RXBUF_SIZE];
+   uint32_t       v[7];
+   const uint32_t old_ip = ip_word(config->ip);  // the IP and port the DPE has
+   const uint16_t old_port = config->wg_port;
+
+   uart_send("Enter new network configuration:\r\n");
+   net_words(config, v);
+   edit_fields(net_fields, N_FIELDS(net_fields), v, buf);
+   word_ip(v[0], config->ip);
+   word_ip(v[1], config->sub_mask);
+   words_mac(v[2], v[3], config->mac);
+   word_ip(v[4], config->def_gw);
+   config->def_if  = (uint8_t)v[5];
+   config->wg_port = (uint16_t)v[6];
+   if (set_wg_addr(config)) {
+      uart_send("Network configuration updated.\r\n");
+   } else {
+      // the firmware keeps what the data plane uses
+      word_ip(old_ip, config->ip);
+      config->wg_port = old_port;
+      uart_send("Network configuration updated, but not the IP address and WireGuard port.\r\n");
+   }
+
+   show_network(config);
+}
+
+// ---- routing table ----
+
+static void rt_read(int i, uint32_t v[4]) {
+   csr_read_words(CSR_ADDR(routing_table.entry[i]), v, 4);
+}
+
+void show_routes_entry(int i) {
+   uint32_t v[4];
+   rt_read(i, v);
+   show_fields(rt_fields, N_FIELDS(rt_fields), v, i);
+}
+
+// The CPU reads the tables on a port of their own: no pause for reading
+void show_routes(void) {
+   uart_send("Routing table:\r\n");
+   for (int i = 0; i < 64; i++) {
+      show_routes_entry(i);
+   }
+}
+
+// The prompts run with the DPE running; it pauses only for the writes
+void config_routes(void) {
+   char     buf[UART_RXBUF_SIZE];
+   uint32_t e = 0, v[4];
+
+   uart_send("Enter new routing table entry:\r\n");
+   ask("  Entry index (0-63) [0]: ", buf);
+   str_parse_uint32(buf, &e, 0, 63);
+   rt_read((int)e, v);
+
+   // a WireGuard peer (wg show) with Encrypt 1: the route follows its
+   // sessions (#85), peer_idx = its current entry; else peer_idx as entered
+   int rp = wg_route_peer((int)e);
+   if (rp) v[2] = (v[2] & ~(uint32_t)CSR__ROUTING_TABLE__ENTRY__PEER_IDX__PEER_IDX_bm) | (uint32_t)rp;
+   edit_fields(rt_fields, N_FIELDS(rt_fields), v, buf);
+   uint32_t peer_idx = RDL_FIELD(v[2], CSR__ROUTING_TABLE__ENTRY__PEER_IDX__PEER_IDX);
+   uint32_t encrypt  = RDL_FIELD(v[2], CSR__ROUTING_TABLE__ENTRY__PEER_IDX__ENCRYPT);
+
+   // Update routing table entry
+   const wg_peer_t* wp = encrypt ? wg_peer((int)peer_idx) : NULL;
+   uint32_t hw_idx = wp ? wp->cur.entry : peer_idx;
+   if (!dpe_pause()) return;
+   CSR_REG32(routing_table.entry[e].ip) = v[0];
+   CSR_REG32(routing_table.entry[e].mask) = v[1];
+   // peer_idx and encrypt in one word write: a byte store reaches every lane on
+   // this bus, and the DUMMY switch's table ignores byte enables
+   CSR_REG32(routing_table.entry[e].peer_idx) =
+      CSR_FLD_VAL(CSR__ROUTING_TABLE__ENTRY__PEER_IDX__PEER_IDX, hw_idx) |
+      CSR_FLD_VAL(CSR__ROUTING_TABLE__ENTRY__PEER_IDX__ENCRYPT, encrypt);
+   CSR_SET(routing_table.entry[e].dst, CSR__ROUTING_TABLE__ENTRY__DST__DST, v[3]);
+   dpe_resume();
+   wg_route_set((int)e, wp ? (int)peer_idx : 0);
+
+   uart_send("Routing table entry updated.\r\n");
+
+   show_routes_entry((int)e);
+}
+
+// ---- cryptokey table ----
+
+static uint32_t ck_addr(int n) {
+   return CSR_ADDR(cryptokey_table.entry[n]);
+}
+
+// words 0 .. n - 1 of cryptokey table entry e, in order, the DPE paused: the
+// MAC high halves and the remote port (bits 15:0, alone in their word) in
+// a half-word store, the rest in word stores
+static void ck_write(int e, const uint32_t *v, int n) {
+   uint32_t a = ck_addr(e);
+   for (int w = 0; w < n; w++, a += 4) {
+      if (w == 0 || w == 5 || w == 8) {
+         csr_wr_lanes(a, 0, 2, v[w]);
+      } else {
+         CSR_AT(a) = v[w];
+      }
+   }
+}
+
+// R&D: shows the keys too (removed for the final product)
+void show_cryptokeys_entry(int i) {
+   uint32_t v[CK_WORDS];
+   csr_read_words(ck_addr(i), v, CK_WORDS);
+   show_fields(ck_fields, N_FIELDS(ck_fields), v, i);
+}
+
+void show_cryptokeys(void) {
+   uart_send("Cryptokey table:\r\n");
+   for (int i = 1; i < 64; i++) {
+      show_cryptokeys_entry(i);
    }
 }
 
 // As config_routes: the DPE pauses only for the writes
 void config_cryptokeys(void) {
-   char uart_rx_data[UART_RXBUF_SIZE];
+   char     buf[UART_RXBUF_SIZE];
+   uint32_t e = 1, v[CK_WORDS];
 
    uart_send("Enter new cryptokey table entry:\r\n");
-   uart_send("  Entry index (1-63) [1]: ");
-   while (!uart_recv(uart_rx_data));
-   uint32_t entry_idx = 1;
-   str_parse_uint32(uart_rx_data, &entry_idx, 1, 63);
+   ask("  Entry index (1-63) [1]: ", buf);
+   str_parse_uint32(buf, &e, 1, 63);
+   csr_read_words(ck_addr((int)e), v, CK_WORDS);
+   edit_fields(ck_fields, N_FIELDS(ck_fields), v, buf);
+   ask("  Reset send/recv counters? (y/n) [n]: ", buf);
+   bool reset_cnt = is_yes(buf);
 
-   uart_send("  Local MAC address [");
-   uint32_t local_mac_47_32 = CSR_GET(cryptokey_table.entry[entry_idx].local_mac_47_32, CSR__CRYPTOKEY_TABLE__ENTRY__LOCAL_MAC_47_32__MAC);
-   uart_send_hex(local_mac_47_32, 4);
-   uint32_t local_mac_31_0 = CSR_REG32(cryptokey_table.entry[entry_idx].local_mac_31_0);
-   uart_send_hex(local_mac_31_0, 8);
-   uart_send("]: ");
-   while (!uart_recv(uart_rx_data));
-   if (bare_strlen(uart_rx_data) == 13) {
-      str_parse_hex(uart_rx_data + 4, &local_mac_31_0, 0, 0xFFFFFFFF);
-      uart_rx_data[4] = '\n';
-      str_parse_hex(uart_rx_data, &local_mac_47_32, 0, 0xFFFF);
-   }
-
-   uart_send("  Local IP address [");
-   uint32_t ulocal_ip = CSR_REG32(cryptokey_table.entry[entry_idx].local_ip);
-   ip_t local_ip = {(uint8_t)((ulocal_ip >> 24) & 0xFF), (uint8_t)((ulocal_ip >> 16) & 0xFF), (uint8_t)((ulocal_ip >> 8) & 0xFF), (uint8_t)(ulocal_ip & 0xFF)};
-   uart_send_ip(local_ip);
-   uart_send("]: ");
-   while (!uart_recv(uart_rx_data));
-   net_str_parse_ip(uart_rx_data, &local_ip);
-   ulocal_ip = ((uint32_t)local_ip[0] << 24) | ((uint32_t)local_ip[1] << 16) | ((uint32_t)local_ip[2] << 8) | (uint32_t)local_ip[3];
-
-   uart_send("  Local port (0-65535) [");
-   uint32_t local_port = CSR_GET(cryptokey_table.entry[entry_idx].local_port, CSR__CRYPTOKEY_TABLE__ENTRY__LOCAL_PORT__PORT);
-   uart_send_dec(local_port);
-   uart_send("]: ");
-   while (!uart_recv(uart_rx_data));
-   str_parse_uint32(uart_rx_data, &local_port, 0, 65535);
-
-   uart_send("  Local ID (8 hex digits) [");
-   uint32_t local_id = CSR_REG32(cryptokey_table.entry[entry_idx].local_id);
-   uart_send_hex(local_id, 8);
-   uart_send("]: ");
-   while (!uart_recv(uart_rx_data));
-   str_parse_hex(uart_rx_data, &local_id, 0, 0xFFFFFFFF);
-
-   uart_send("  Remote MAC address [");
-   uint32_t remote_mac_47_32 = CSR_GET(cryptokey_table.entry[entry_idx].remote_mac_47_32, CSR__CRYPTOKEY_TABLE__ENTRY__REMOTE_MAC_47_32__MAC);
-   uart_send_hex(remote_mac_47_32, 4);
-   uint32_t remote_mac_31_0 = CSR_REG32(cryptokey_table.entry[entry_idx].remote_mac_31_0);
-   uart_send_hex(remote_mac_31_0, 8);
-   uart_send("]: ");
-   while (!uart_recv(uart_rx_data));
-   if (bare_strlen(uart_rx_data) == 13) {
-      str_parse_hex(uart_rx_data + 4, &remote_mac_31_0, 0, 0xFFFFFFFF);
-      uart_rx_data[4] = '\n';
-      str_parse_hex(uart_rx_data, &remote_mac_47_32, 0, 0xFFFF);
-   }
-
-   uart_send("  Remote IP address [");
-   uint32_t uremote_ip = CSR_REG32(cryptokey_table.entry[entry_idx].remote_ip);
-   ip_t remote_ip = {(uint8_t)((uremote_ip >> 24) & 0xFF), (uint8_t)((uremote_ip >> 16) & 0xFF), (uint8_t)((uremote_ip >> 8) & 0xFF), (uint8_t)(uremote_ip & 0xFF)};
-   uart_send_ip(remote_ip);
-   uart_send("]: ");
-   while (!uart_recv(uart_rx_data));
-   net_str_parse_ip(uart_rx_data, &remote_ip);
-   uremote_ip = ((uint32_t)remote_ip[0] << 24) | ((uint32_t)remote_ip[1] << 16) | ((uint32_t)remote_ip[2] << 8) | (uint32_t)remote_ip[3];
-
-   uart_send("  Remote port (0-65535) [");
-   uint32_t remote_port = CSR_GET(cryptokey_table.entry[entry_idx].remote_port, CSR__CRYPTOKEY_TABLE__ENTRY__REMOTE_PORT__PORT);
-   uart_send_dec(remote_port);
-   uart_send("]: ");
-   while (!uart_recv(uart_rx_data));
-   str_parse_uint32(uart_rx_data, &remote_port, 0, 65535);
-
-   uart_send("  Remote ID (8 hex digits) [");
-   uint32_t remote_id = CSR_REG32(cryptokey_table.entry[entry_idx].remote_id);
-   uart_send_hex(remote_id, 8);
-   uart_send("]: ");
-   while (!uart_recv(uart_rx_data));
-   str_parse_hex(uart_rx_data, &remote_id, 0, 0xFFFFFFFF);
-
-   uint32_t encrypt_key[8] = {
-      CSR_REG32(cryptokey_table.entry[entry_idx].encrypt_key_255_224),
-      CSR_REG32(cryptokey_table.entry[entry_idx].encrypt_key_223_192),
-      CSR_REG32(cryptokey_table.entry[entry_idx].encrypt_key_191_160),
-      CSR_REG32(cryptokey_table.entry[entry_idx].encrypt_key_159_128),
-      CSR_REG32(cryptokey_table.entry[entry_idx].encrypt_key_127_96),
-      CSR_REG32(cryptokey_table.entry[entry_idx].encrypt_key_95_64),
-      CSR_REG32(cryptokey_table.entry[entry_idx].encrypt_key_63_32),
-      CSR_REG32(cryptokey_table.entry[entry_idx].encrypt_key_31_0)};
-   read_key("Encryption", encrypt_key, uart_rx_data);
-
-   uint32_t decrypt_key[8] = {
-      CSR_REG32(cryptokey_table.entry[entry_idx].decrypt_key_255_224),
-      CSR_REG32(cryptokey_table.entry[entry_idx].decrypt_key_223_192),
-      CSR_REG32(cryptokey_table.entry[entry_idx].decrypt_key_191_160),
-      CSR_REG32(cryptokey_table.entry[entry_idx].decrypt_key_159_128),
-      CSR_REG32(cryptokey_table.entry[entry_idx].decrypt_key_127_96),
-      CSR_REG32(cryptokey_table.entry[entry_idx].decrypt_key_95_64),
-      CSR_REG32(cryptokey_table.entry[entry_idx].decrypt_key_63_32),
-      CSR_REG32(cryptokey_table.entry[entry_idx].decrypt_key_31_0)};
-   read_key("Decryption", decrypt_key, uart_rx_data);
-
-   uart_send("  Reset send/recv counters? (y/n) [n]: ");
-   while (!uart_recv(uart_rx_data));
-   bool reset_cnt = uart_rx_data[0] == 'y' || uart_rx_data[0] == 'Y';
+   // the peer tag: the entry itself
+   v[3] = CSR_FLD_VAL(CSR__CRYPTOKEY_TABLE__ENTRY__LOCAL_PORT__PORT, v[3]) |
+          CSR_FLD_VAL(CSR__CRYPTOKEY_TABLE__ENTRY__LOCAL_PORT__TAG, e);
+   for (int w = CK_KEYED; w < CK_WORDS; w++) v[w] = 0;
 
    // Update cryptokeys table entry
    if (!dpe_pause()) return;
-   CSR_SET(cryptokey_table.entry[entry_idx].local_mac_47_32, CSR__CRYPTOKEY_TABLE__ENTRY__LOCAL_MAC_47_32__MAC, local_mac_47_32);
-   CSR_REG32(cryptokey_table.entry[entry_idx].local_mac_31_0) = local_mac_31_0;
-   CSR_REG32(cryptokey_table.entry[entry_idx].local_ip) = ulocal_ip;
-   CSR_SET(cryptokey_table.entry[entry_idx].local_port, CSR__CRYPTOKEY_TABLE__ENTRY__LOCAL_PORT__PORT, local_port);
-   CSR_REG32(cryptokey_table.entry[entry_idx].local_id) = local_id;
-   CSR_SET(cryptokey_table.entry[entry_idx].remote_mac_47_32, CSR__CRYPTOKEY_TABLE__ENTRY__REMOTE_MAC_47_32__MAC, remote_mac_47_32);
-   CSR_REG32(cryptokey_table.entry[entry_idx].remote_mac_31_0) = remote_mac_31_0;
-   CSR_REG32(cryptokey_table.entry[entry_idx].remote_ip) = uremote_ip;
-   CSR_SET(cryptokey_table.entry[entry_idx].remote_port, CSR__CRYPTOKEY_TABLE__ENTRY__REMOTE_PORT__PORT, remote_port);
-   CSR_REG32(cryptokey_table.entry[entry_idx].remote_id) = remote_id;
-   CSR_REG32(cryptokey_table.entry[entry_idx].encrypt_key_255_224) = encrypt_key[0];
-   CSR_REG32(cryptokey_table.entry[entry_idx].encrypt_key_223_192) = encrypt_key[1];
-   CSR_REG32(cryptokey_table.entry[entry_idx].encrypt_key_191_160) = encrypt_key[2];
-   CSR_REG32(cryptokey_table.entry[entry_idx].encrypt_key_159_128) = encrypt_key[3];
-   CSR_REG32(cryptokey_table.entry[entry_idx].encrypt_key_127_96) = encrypt_key[4];
-   CSR_REG32(cryptokey_table.entry[entry_idx].encrypt_key_95_64) = encrypt_key[5];
-   CSR_REG32(cryptokey_table.entry[entry_idx].encrypt_key_63_32) = encrypt_key[6];
-   CSR_REG32(cryptokey_table.entry[entry_idx].encrypt_key_31_0) = encrypt_key[7];
-   CSR_REG32(cryptokey_table.entry[entry_idx].decrypt_key_255_224) = decrypt_key[0];
-   CSR_REG32(cryptokey_table.entry[entry_idx].decrypt_key_223_192) = decrypt_key[1];
-   CSR_REG32(cryptokey_table.entry[entry_idx].decrypt_key_191_160) = decrypt_key[2];
-   CSR_REG32(cryptokey_table.entry[entry_idx].decrypt_key_159_128) = decrypt_key[3];
-   CSR_REG32(cryptokey_table.entry[entry_idx].decrypt_key_127_96) = decrypt_key[4];
-   CSR_REG32(cryptokey_table.entry[entry_idx].decrypt_key_95_64) = decrypt_key[5];
-   CSR_REG32(cryptokey_table.entry[entry_idx].decrypt_key_63_32) = decrypt_key[6];
-   CSR_REG32(cryptokey_table.entry[entry_idx].decrypt_key_31_0) = decrypt_key[7];
-   if (reset_cnt) {
-      CSR_REG32(cryptokey_table.entry[entry_idx].send_cnt_63_32) = 0;
-      CSR_REG32(cryptokey_table.entry[entry_idx].send_cnt_31_0) = 0;
-      CSR_REG32(cryptokey_table.entry[entry_idx].recv_cnt_63_32) = 0;
-      CSR_REG32(cryptokey_table.entry[entry_idx].recv_cnt_31_0) = 0;
-   }
+   ck_write((int)e, v, reset_cnt ? CK_WORDS : CK_KEYED);
    dpe_resume();
 
    uart_send("Cryptokey table entry updated.\r\n");
 
-   show_cryptokeys_entry(entry_idx);
+   show_cryptokeys_entry((int)e);
 }
 
 //--------------------------------------------------------------------------
 // WireGuard handshake (wg_session.c, noise.c): the platform side
 //--------------------------------------------------------------------------
 
-// the CSR key words from 32 key bytes: one little-endian 256-bit number,
-// word 0 = bits 255:224 (bytes 31 .. 28), as read_key and csr.rdl
-static void key_words(const uint8_t key[32], uint32_t w[8]) {
-   for (int k = 0; k < 8; k++) {
-      w[k] = ((uint32_t)key[31 - 4 * k] << 24) | ((uint32_t)key[30 - 4 * k] << 16) |
-             ((uint32_t)key[29 - 4 * k] << 8) | (uint32_t)key[28 - 4 * k];
-   }
-}
-
-static uint32_t ip_word(const uint8_t ip[4]) {
-   return ((uint32_t)ip[0] << 24) | ((uint32_t)ip[1] << 16) | ((uint32_t)ip[2] << 8) | ip[3];
-}
-
 extern "C" void wg_hw_random(uint8_t out[32]) { random_32bytes(out); }  // #2
 
 // Cryptokey table entry n for a new session (in = NULL: cleared), with the
 // DPE paused: MAC, IP and port in natural order, the keys as key_words
 extern "C" int wg_hw_install(int n, const wg_install_t *in) {
-   uint32_t enc[8] = {0}, dec[8] = {0};
-   uint32_t rmac_hi = 0, rmac_lo = 0, rip = 0, rport = 0, lid = 0, rid = 0;
-   uint32_t lmac_hi = 0, lmac_lo = 0, lip = 0, lport = 0;
+   uint32_t v[CK_WORDS] = {0};  // the counters 0
+   int      rc = -1;
    if (in) {
-      const uint8_t *m = in->remote.mac;
-      key_words(in->send_key, enc);
-      key_words(in->recv_key, dec);
-      rmac_hi = ((uint32_t)m[0] << 8) | m[1];
-      rmac_lo = ((uint32_t)m[2] << 24) | ((uint32_t)m[3] << 16) | ((uint32_t)m[4] << 8) | m[5];
-      rip     = ip_word(in->remote.ip);
-      rport   = in->remote.port;
-      lid     = in->local_id;
-      rid     = in->remote_id;
-      m       = net_config.mac;
-      lmac_hi = ((uint32_t)m[0] << 8) | m[1];
-      lmac_lo = ((uint32_t)m[2] << 24) | ((uint32_t)m[3] << 16) | ((uint32_t)m[4] << 8) | m[5];
-      lip     = ip_word(net_config.ip);
-      lport   = net_config.wg_port;
+      mac_words(net_config.mac, &v[0], &v[1]);
+      v[2] = ip_word(net_config.ip);
+      v[3] = CSR_FLD_VAL(CSR__CRYPTOKEY_TABLE__ENTRY__LOCAL_PORT__PORT, net_config.wg_port) |
+             CSR_FLD_VAL(CSR__CRYPTOKEY_TABLE__ENTRY__LOCAL_PORT__TAG, in->tag);
+      v[4] = in->local_id;
+      mac_words(in->remote.mac, &v[5], &v[6]);
+      v[7] = ip_word(in->remote.ip);
+      v[8] = in->remote.port;
+      v[9] = in->remote_id;
+      key_words(in->send_key, v + 10);
+      key_words(in->recv_key, v + 18);
    }
-   if (!dpe_pause()) {
-      bare_wipe(enc, sizeof(enc));
-      bare_wipe(dec, sizeof(dec));
-      return -1;
+   if (dpe_pause()) {
+      ck_write(n, v, CK_WORDS);
+      dpe_resume();
+      rc = 0;
    }
-   CSR_SET(cryptokey_table.entry[n].local_mac_47_32, CSR__CRYPTOKEY_TABLE__ENTRY__LOCAL_MAC_47_32__MAC, lmac_hi);
-   CSR_REG32(cryptokey_table.entry[n].local_mac_31_0) = lmac_lo;
-   CSR_REG32(cryptokey_table.entry[n].local_ip) = lip;
-   CSR_SET(cryptokey_table.entry[n].local_port, CSR__CRYPTOKEY_TABLE__ENTRY__LOCAL_PORT__PORT, lport);
-   CSR_REG32(cryptokey_table.entry[n].local_id) = lid;
-   CSR_SET(cryptokey_table.entry[n].remote_mac_47_32, CSR__CRYPTOKEY_TABLE__ENTRY__REMOTE_MAC_47_32__MAC, rmac_hi);
-   CSR_REG32(cryptokey_table.entry[n].remote_mac_31_0) = rmac_lo;
-   CSR_REG32(cryptokey_table.entry[n].remote_ip) = rip;
-   CSR_SET(cryptokey_table.entry[n].remote_port, CSR__CRYPTOKEY_TABLE__ENTRY__REMOTE_PORT__PORT, rport);
-   CSR_REG32(cryptokey_table.entry[n].remote_id) = rid;
-   CSR_REG32(cryptokey_table.entry[n].encrypt_key_255_224) = enc[0];
-   CSR_REG32(cryptokey_table.entry[n].encrypt_key_223_192) = enc[1];
-   CSR_REG32(cryptokey_table.entry[n].encrypt_key_191_160) = enc[2];
-   CSR_REG32(cryptokey_table.entry[n].encrypt_key_159_128) = enc[3];
-   CSR_REG32(cryptokey_table.entry[n].encrypt_key_127_96) = enc[4];
-   CSR_REG32(cryptokey_table.entry[n].encrypt_key_95_64) = enc[5];
-   CSR_REG32(cryptokey_table.entry[n].encrypt_key_63_32) = enc[6];
-   CSR_REG32(cryptokey_table.entry[n].encrypt_key_31_0) = enc[7];
-   CSR_REG32(cryptokey_table.entry[n].decrypt_key_255_224) = dec[0];
-   CSR_REG32(cryptokey_table.entry[n].decrypt_key_223_192) = dec[1];
-   CSR_REG32(cryptokey_table.entry[n].decrypt_key_191_160) = dec[2];
-   CSR_REG32(cryptokey_table.entry[n].decrypt_key_159_128) = dec[3];
-   CSR_REG32(cryptokey_table.entry[n].decrypt_key_127_96) = dec[4];
-   CSR_REG32(cryptokey_table.entry[n].decrypt_key_95_64) = dec[5];
-   CSR_REG32(cryptokey_table.entry[n].decrypt_key_63_32) = dec[6];
-   CSR_REG32(cryptokey_table.entry[n].decrypt_key_31_0) = dec[7];
-   CSR_REG32(cryptokey_table.entry[n].send_cnt_63_32) = 0;
-   CSR_REG32(cryptokey_table.entry[n].send_cnt_31_0) = 0;
-   CSR_REG32(cryptokey_table.entry[n].recv_cnt_63_32) = 0;
-   CSR_REG32(cryptokey_table.entry[n].recv_cnt_31_0) = 0;
-   dpe_resume();
-   bare_wipe(enc, sizeof(enc));
-   bare_wipe(dec, sizeof(dec));
-   return 0;
+   bare_wipe(v, sizeof(v));
+   return rc;
 }
 
 // A UDP datagram to dst from our WireGuard port, in eth_packet_tx, out
@@ -1036,6 +909,55 @@ static void udp_send(const wg_endpoint_t *dst, const uint8_t *data, uint32_t len
    eth_packet_tx.len          = 14 + ip_len < 60 ? 60 : 14 + ip_len;
    if (eth_packet_tx.len > 14 + ip_len) memset(f + 14 + ip_len, 0, eth_packet_tx.len - 14 - ip_len);
    eth_send_packet(&eth_packet_tx);
+}
+
+// ---- the timers (#80, wg_session_timers) ----
+
+// the counters the data plane writes back; read on the CPU's own port, no
+// pause (a torn 64-bit read only looks like one more event)
+extern "C" void wg_hw_counters(int n, uint64_t *send_cnt, uint64_t *recv_cnt, uint64_t *recv_win) {
+   *send_cnt = ((uint64_t)CSR_REG32(cryptokey_table.entry[n].send_cnt_63_32) << 32) |
+               CSR_REG32(cryptokey_table.entry[n].send_cnt_31_0);
+   *recv_cnt = ((uint64_t)CSR_REG32(cryptokey_table.entry[n].recv_cnt_63_32) << 32) |
+               CSR_REG32(cryptokey_table.entry[n].recv_cnt_31_0);
+   *recv_win = ((uint64_t)CSR_REG32(cryptokey_table.entry[n].recv_win_63_32) << 32) |
+               CSR_REG32(cryptokey_table.entry[n].recv_win_31_0);
+}
+
+// a send counter for a keepalive: with the DPE drained no packet of the
+// encryptor's is in flight, so send_cnt is the next free one; + 1 back
+extern "C" int wg_hw_take_send_cnt(int n, uint64_t *cnt) {
+   if (!dpe_pause()) return -1;
+   uint64_t c = ((uint64_t)CSR_REG32(cryptokey_table.entry[n].send_cnt_63_32) << 32) |
+                CSR_REG32(cryptokey_table.entry[n].send_cnt_31_0);
+   CSR_REG32(cryptokey_table.entry[n].send_cnt_63_32) = (uint32_t)((c + 1) >> 32);
+   CSR_REG32(cryptokey_table.entry[n].send_cnt_31_0)  = (uint32_t)(c + 1);
+   dpe_resume();
+   *cnt = c;
+   return 0;
+}
+
+extern "C" void wg_hw_send(const wg_endpoint_t *dst, const uint8_t *msg, size_t len) {
+   udp_send(dst, msg, (uint32_t)len);
+}
+
+// the session pool (#85): a peer's routes to its new entry, and the peer tag
+// of its entries, under one pause; peer_idx and encrypt in one word write,
+// as config_routes; the tag in a byte store of its own, the port kept
+extern "C" int wg_hw_routes(uint64_t routes, uint64_t entries, int e) {
+   if (!dpe_pause()) return -1;
+   for (int x = 1; x < 64; x++) {
+      if ((entries >> x) & 1) CSR_SET(cryptokey_table.entry[x].local_port, CSR__CRYPTOKEY_TABLE__ENTRY__LOCAL_PORT__TAG, e);
+   }
+   for (int r = 0; r < 64; r++) {
+      if (!((routes >> r) & 1)) continue;
+      uint32_t enc = CSR_GET(routing_table.entry[r].peer_idx, CSR__ROUTING_TABLE__ENTRY__PEER_IDX__ENCRYPT);
+      CSR_REG32(routing_table.entry[r].peer_idx) =
+         (((uint32_t)e << CSR__ROUTING_TABLE__ENTRY__PEER_IDX__PEER_IDX_bp) & CSR__ROUTING_TABLE__ENTRY__PEER_IDX__PEER_IDX_bm) |
+         ((enc << CSR__ROUTING_TABLE__ENTRY__PEER_IDX__ENCRYPT_bp) & CSR__ROUTING_TABLE__ENTRY__PEER_IDX__ENCRYPT_bm);
+   }
+   dpe_resume();
+   return 0;
 }
 
 // A received UDP frame: a WireGuard handshake message to our IP and port goes
@@ -1087,19 +1009,20 @@ static void send_base64(const uint8_t key[32]) {
 static void wg_cli_key(void) {
    char    buf[UART_RXBUF_SIZE];
    uint8_t priv[32];
-   uart_send("  Private key, base64 (Enter: make a new one): ");
-   while (!uart_recv(buf));
-   if (buf[0] == '\n' || buf[0] == '\0') {
+   ask("  Private key, base64 (Enter: make a new one): ", buf);
+   bool ok = true;
+   if (is_empty(buf)) {
       random_32bytes(priv);
-   } else if (!base64_key(buf, priv)) {
-      bare_wipe(buf, sizeof(buf));
-      bare_wipe(priv, sizeof(priv));
+   } else {
+      ok = base64_key(buf, priv);
+   }
+   bare_wipe(buf, sizeof(buf));
+   if (ok) wg_set_private(priv);
+   bare_wipe(priv, sizeof(priv));
+   if (!ok) {
       uart_send("  Not a base64 key (44 characters).\r\n");
       return;
    }
-   bare_wipe(buf, sizeof(buf));
-   wg_set_private(priv);
-   bare_wipe(priv, sizeof(priv));
    uart_send("  Public key: ");
    send_base64(wg_identity()->pub);
    uart_send("\r\n");
@@ -1112,74 +1035,55 @@ static void wg_cli_peer_add(void) {
    bool          has_psk = false;
    wg_endpoint_t ep;
    bool          has_ep = false;
+   const char   *err = "  Not a base64 key.\r\n";
 
-   uart_send("  Public key, base64: ");
-   while (!uart_recv(buf));
-   if (!base64_key(buf, pub)) {
-      uart_send("  Not a base64 key.\r\n");
-      return;
+   ask("  Public key, base64: ", buf);
+   if (base64_key(buf, pub)) {
+      ask("  Preshared key, base64 (Enter: none): ", buf);
+      has_psk = !is_empty(buf);
+      if (!has_psk || base64_key(buf, psk)) err = NULL;
+      bare_wipe(buf, sizeof(buf));
    }
-   uart_send("  Preshared key, base64 (Enter: none): ");
-   while (!uart_recv(buf));
-   if (buf[0] != '\n' && buf[0] != '\0') {
-      if (!base64_key(buf, psk)) {
-         bare_wipe(buf, sizeof(buf));
-         uart_send("  Not a base64 key.\r\n");
-         return;
+   if (!err) {
+      ask("  Endpoint IP (Enter: learn it from the peer's handshake): ", buf);
+      if (!is_empty(buf)) {
+         uint32_t port = 51820, ifc = 1, hi, lo;
+         if (!net_str_parse_ip(buf, &ep.ip)) {
+            err = "  Not an IP address.\r\n";
+         } else {
+            ask("  Endpoint port [51820]: ", buf);
+            str_parse_uint32(buf, &port, 1, 65535);
+            ask("  Endpoint (or gateway) MAC, 12 hex digits: ", buf);  // no ARP lookup yet
+            if (!parse_mac(buf, &hi, &lo)) {
+               err = "  Not 12 hex digits.\r\n";
+            } else {
+               ask("  Ethernet port (1-4) [1]: ", buf);
+               str_parse_uint32(buf, &ifc, 1, 4);
+               words_mac(hi, lo, ep.mac);
+               ep.port = (uint16_t)port;
+               ep.ifc  = (uint8_t)ifc;
+               has_ep  = true;
+            }
+         }
       }
-      has_psk = true;
    }
-   bare_wipe(buf, sizeof(buf));
-   uart_send("  Endpoint IP (Enter: learn it from the peer's handshake): ");
-   while (!uart_recv(buf));
-   if (buf[0] != '\n' && buf[0] != '\0') {
-      ip_t     ip;
-      uint32_t port = 51820, ifc = 1, hi = 0, lo = 0;
-      if (!net_str_parse_ip(buf, &ip)) {
-         uart_send("  Not an IP address.\r\n");
-         if (has_psk) bare_wipe(psk, sizeof(psk));
-         return;
+   if (!err) {
+      int n = wg_peer_add(pub, has_psk ? psk : NULL, has_ep ? &ep : NULL);
+      if (n < 0) {
+         err = "  Not added: the table is full, or the key is ours or there already.\r\n";
+      } else {
+         uart_send("  Peer ");
+         send_dec_s((uint32_t)n, " added.\r\n");
       }
-      memcpy(ep.ip, ip, 4);
-      uart_send("  Endpoint port [51820]: ");
-      while (!uart_recv(buf));
-      str_parse_uint32(buf, &port, 1, 65535);
-      uart_send("  Endpoint (or gateway) MAC, 12 hex digits: ");  // no ARP lookup yet
-      while (!uart_recv(buf));
-      bool mac_ok = bare_strlen(buf) == 13 && str_parse_hex(buf + 4, &lo, 0, 0xFFFFFFFF);
-      buf[4] = '\n';
-      mac_ok = mac_ok && str_parse_hex(buf, &hi, 0, 0xFFFF);
-      if (!mac_ok) {
-         uart_send("  Not 12 hex digits.\r\n");
-         if (has_psk) bare_wipe(psk, sizeof(psk));
-         return;
-      }
-      uart_send("  Ethernet port (1-4) [1]: ");
-      while (!uart_recv(buf));
-      str_parse_uint32(buf, &ifc, 1, 4);
-      ep.mac[0] = (uint8_t)(hi >> 8); ep.mac[1] = (uint8_t)hi;
-      ep.mac[2] = (uint8_t)(lo >> 24); ep.mac[3] = (uint8_t)(lo >> 16);
-      ep.mac[4] = (uint8_t)(lo >> 8); ep.mac[5] = (uint8_t)lo;
-      ep.port = (uint16_t)port;
-      ep.ifc  = (uint8_t)ifc;
-      has_ep  = true;
    }
-   int n = wg_peer_add(pub, has_psk ? psk : NULL, has_ep ? &ep : NULL);
-   if (has_psk) bare_wipe(psk, sizeof(psk));
-   if (n < 0) {
-      uart_send("  Not added: the table is full, or the key is ours or there already.\r\n");
-   } else {
-      uart_send("  Peer ");
-      uart_send_dec((uint32_t)n);
-      uart_send(" added.\r\n");
-   }
+   bare_wipe(psk, sizeof(psk));
+   if (err) uart_send(err);
 }
 
 static int wg_cli_entry(void) {
    char     buf[UART_RXBUF_SIZE];
    uint32_t n = 0;
-   uart_send("  Peer (1-63): ");
-   while (!uart_recv(buf));
+   ask("  Peer (1-63): ", buf);
    if (!str_parse_uint32(buf, &n, 1, 63) || !wg_peer((int)n)) {
       uart_send("  No such peer.\r\n");
       return -1;
@@ -1187,8 +1091,120 @@ static int wg_cli_entry(void) {
    return (int)n;
 }
 
+// the load mode and whether we are under load now (#81)
+static void wg_send_load(void) {
+   int m = wg_load_mode();
+   uart_send(m == WG_LOAD_ON ? "forced on" : m == WG_LOAD_OFF ? "forced off" : "auto");
+   uart_send(wg_under_load() ? ", under load (mac2 required)" : ", not under load");
+}
+
+// wg load [on|off|auto]: arg is the rest of the line after "wg load"
+static void wg_cli_load(const char *arg) {
+   if (bare_strcmp(arg, " on\n") == 0) {
+      wg_set_load_mode(WG_LOAD_ON);
+   } else if (bare_strcmp(arg, " off\n") == 0) {
+      wg_set_load_mode(WG_LOAD_OFF);
+   } else if (bare_strcmp(arg, " auto\n") == 0) {
+      wg_set_load_mode(WG_LOAD_AUTO);
+   } else if (bare_strcmp(arg, "\n") != 0) {
+      uart_send("  Usage: wg load [on|off|auto]\r\n");
+      return;
+   }
+   uart_send("  Load: ");
+   wg_send_load();
+   uart_send(".\r\n");
+}
+
+// " <what> N s ago", or never (valid 0)
+static void wg_send_ago(const char *what, uint32_t now, uint32_t t, int valid) {
+   uart_send(what);
+   if (valid) {
+      send_dec_s((now - t) / 1000u, " s ago");
+   } else {
+      uart_send("never");
+   }
+}
+
+// a peer's timers (#80): its session, the traffic the counters showed, the state
+static void wg_send_timers(const wg_peer_t *p) {
+   uint32_t now = wg_timer_ms();
+   uart_send("      ");
+   if (p->live) {
+      uart_send("session ");
+      send_dec_s((now - p->cur.t_start) / 1000u, " s old (");
+      uart_send(p->tm & WG_TM_INITIATOR ? "we initiated)," : "it initiated),");
+   } else {
+      uart_send("no session,");
+   }
+   wg_send_ago(" last handshake ", now, p->t_hs, p->tm & WG_TM_HS);
+   wg_send_ago(", send ", now, p->t_sent, p->tm & WG_TM_SENT);
+   wg_send_ago(", receive ", now, p->t_recv, p->tm & WG_TM_RECV);
+   uart_send("\r\n      timers: ");
+   if (p->tm & WG_TM_ATTEMPT) {
+      uart_send(p->live ? "rekey pending, " : "handshake pending, ");
+      uart_send("retransmit ");
+      uart_send_dec(p->retries);
+   } else if (p->tm & WG_TM_GAVE_UP) {
+      uart_send("gave up (no answer in 90 s)");
+   } else if (!p->live && (p->tm & WG_TM_REJECTED)) {
+      uart_send("keys rejected (expired)");
+   } else {
+      uart_send("idle");
+   }
+   if (p->tm & WG_TM_KA) uart_send(", keepalive due");
+   uart_send(", persistent keepalive ");
+   if (p->keepalive) {
+      send_dec_s(p->keepalive, " s\r\n");
+   } else {
+      uart_send("off\r\n");
+   }
+}
+
+// wg keepalive: a peer's persistent keepalive interval (0 = off)
+static void wg_cli_keepalive(void) {
+   char     buf[UART_RXBUF_SIZE];
+   uint32_t s = 0;
+   int      n = wg_cli_entry();
+   if (n < 0) return;
+   ask("  Persistent keepalive, s (0 = off, up to 65535): ", buf);
+   bool ok = str_parse_uint32(buf, &s, 0, 0xFFFF) && wg_peer_set_keepalive(n, (uint16_t)s) == 0;
+   uart_send(ok ? "  Set.\r\n" : "  Not set.\r\n");
+}
+
+// wg show's counters: a wg_stats_t word (its offset / 4), or one of these
+enum { ST_POOL = 0xF0, ST_HS, ST_SLOTS, ST_LOAD };
+#define ST(f)  ((uint8_t)(offsetof(wg_stats_t, f) / 4))
+static_assert(sizeof(wg_stats_t) % 4 == 0, "wg_stats_t: uint32_t counters only");
+
+static void wg_send_stats(void) {
+   static const struct { uint8_t i; const char *s; } st[] = {
+      {ST(rx_init), " answered, "}, {ST(tx_init), " sent, "}, {ST(rx_resp), " answered to us, "},
+      {ST(sessions), " sessions\r\n  Timers: "},
+      {ST(rekeys), " rekeys, "}, {ST(retransmits), " retransmits, "}, {ST(gave_up), " gave up, "},
+      {ST(rejected), " keys rejected, "}, {ST(keepalive_tx), " keepalives sent\r\n  Session pool: "},
+      {ST_POOL, " / 63 entries free, "}, {ST(switches), " switches, "}, {ST(retired), " retired, "},
+      {ST(in_place), " in place (pool full)\r\n  Handshake slots: "},
+      {ST_HS, " / "}, {ST_SLOTS, " free, "},
+      {ST(hs_busy), " initiations deferred (all busy)\r\n  Cookie replies: "},
+      {ST(cookie_tx), " sent, "}, {ST(cookie_rx), " taken\r\n  Load: "},
+      {ST_LOAD, ", rate exceeded "}, {ST(load_hits), " times\r\n  Dropped: "},
+      {ST(drop_bad), " invalid, "}, {ST(drop_unknown), " unknown peer or index, "},
+      {ST(drop_replay), " replayed, "}, {ST(drop_hw), " data plane busy\r\n"}};
+   const uint32_t *w = (const uint32_t *)wg_stats();
+   uart_send("  Handshakes: ");
+   for (unsigned k = 0; k < sizeof(st) / sizeof(st[0]); k++) {
+      uint8_t i = st[k].i;
+      if (i == ST_LOAD) {
+         wg_send_load();
+      } else {
+         uart_send_dec(i == ST_POOL ? (uint32_t)wg_pool_free() : i == ST_HS ? (uint32_t)wg_hs_free() :
+                       i == ST_SLOTS ? (uint32_t)WG_HS_SLOTS : w[i]);
+      }
+      uart_send(st[k].s);
+   }
+}
+
 static void wg_cli_show(void) {
-   const wg_stats_t *s = wg_stats();
    uart_send("WireGuard:\r\n  Public key: ");
    if (wg_has_private()) {
       send_base64(wg_identity()->pub);
@@ -1200,11 +1216,23 @@ static void wg_cli_show(void) {
       const wg_peer_t *p = wg_peer(n);
       if (!p) continue;
       uart_send("  (");
-      uart_send_dec((uint32_t)n);
-      uart_send(") ");
+      send_dec_s((uint32_t)n, ") ");
       send_base64(p->pub);
-      uart_send(p->live ? ", live, local ID 0x" : ", no session, local ID 0x");
-      uart_send_hex(p->local_id, 8);
+      // its entries (the session pool, #85): current, next, old
+      uart_send(p->live ? ", live, entry " : ", no session, entry ");
+      send_dec_s(p->cur.entry, " (local ID 0x");
+      uart_send_hex(p->cur.local_id, 8);
+      uart_send("), next ");
+      if (p->next.entry) {
+         uart_send_dec(p->next.entry);
+         uart_send(p->next.state == WG_KP_RESERVED ? " (our initiation)" : " (to confirm)");
+      } else {
+         uart_send("none");
+      }
+      if (p->prev.entry) {
+         uart_send(", old ");
+         send_dec_s(p->prev.entry, " (retiring)");
+      }
       uart_send(", endpoint ");
       if (p->has_ep) {
          uart_send_ip(p->ep.ip);
@@ -1214,19 +1242,9 @@ static void wg_cli_show(void) {
          uart_send("unknown");
       }
       uart_send("\r\n");
+      wg_send_timers(p);
    }
-   uart_send("  Handshakes: ");
-   uart_send_dec(s->rx_init);  uart_send(" answered, ");
-   uart_send_dec(s->tx_init);  uart_send(" sent, ");
-   uart_send_dec(s->rx_resp);  uart_send(" answered to us, ");
-   uart_send_dec(s->sessions); uart_send(" sessions\r\n  Cookie replies: ");
-   uart_send_dec(s->cookie_tx); uart_send(" sent, ");
-   uart_send_dec(s->cookie_rx); uart_send(wg_under_load() ? " taken (under load)\r\n  Dropped: "
-                                                         : " taken\r\n  Dropped: ");
-   uart_send_dec(s->drop_bad);     uart_send(" invalid, ");
-   uart_send_dec(s->drop_unknown); uart_send(" unknown peer or index, ");
-   uart_send_dec(s->drop_replay);  uart_send(" replayed, ");
-   uart_send_dec(s->drop_hw);      uart_send(" data plane busy\r\n");
+   wg_send_stats();
 }
 
 static void wg_cli_initiate(void) {
@@ -1235,7 +1253,7 @@ static void wg_cli_initiate(void) {
    uint8_t       msg[WG_MSG_INIT_LEN];
    wg_endpoint_t dst;
    if (wg_session_initiate(n, msg, &dst) != 0) {
-      uart_send("  Needs our key (wg key) and the peer's endpoint.\r\n");
+      uart_send("  Needs our key (wg key) and the peer's endpoint; or its new session awaits confirmation.\r\n");
       return;
    }
    udp_send(&dst, msg, sizeof(msg));
@@ -1263,10 +1281,11 @@ static void clock_show(void) {
                               : ", last record FAILED\r\n");
 }
 
-// clock set <unix>: only forward (a peer keeps our newest timestamp)
+// clock set <unix>: only forward (a peer keeps our newest timestamp). arg:
+// the rest of the line after "clock set"
 static void clock_set(const char *arg) {
    uint32_t t = 0;
-   if (!str_parse_uint32(arg, &t, 1, 0xFFFFFFFF)) {
+   if (*arg != ' ' || !str_parse_uint32(arg + 1, &t, 1, 0xFFFFFFFF)) {
       uart_send("  Usage: clock set <Unix seconds>\r\n");
    } else if (wg_set_time(t) != 0) {
       uart_send("  Refused: not ahead of the clock (it only goes forward).\r\n");
@@ -1285,13 +1304,6 @@ static void flash_cli_id(void) {
    uart_send("\r\n");
 }
 
-static bool starts_with(const char *s, const char *prefix) {
-   while (*prefix) {
-      if (*s++ != *prefix++) return false;
-   }
-   return true;
-}
-
 void reboot() {
 #ifdef VPROC
    // Co-simulation: no restart, park the VProc node
@@ -1301,10 +1313,110 @@ void reboot() {
 #endif
 }
 
+// ---- the commands: each takes the rest of its line ----
+
+static void cmd_test_aead(const char *)       { test_chacha20poly1305(); }
+static void cmd_test_blake2s(const char *)    { test_blake2s(); }
+static void cmd_test_curve25519(const char *) { test_curve25519(); }
+static void cmd_test_rng(const char *)        { test_rng(); }
+static void cmd_test_timer(const char *)      { test_timer(); }
+static void cmd_show_network(const char *)    { show_network(&net_config); }
+static void cmd_config_network(const char *)  { config_network(&net_config); }
+static void cmd_show_routes(const char *)     { show_routes(); }
+static void cmd_config_routes(const char *)   { config_routes(); }
+static void cmd_show_ck(const char *)         { show_cryptokeys(); }
+static void cmd_config_ck(const char *)       { config_cryptokeys(); }
+static void cmd_wg_key(const char *)          { wg_cli_key(); }
+static void cmd_wg_peer_add(const char *)     { wg_cli_peer_add(); }
+static void cmd_wg_initiate(const char *)     { wg_cli_initiate(); }
+static void cmd_wg_keepalive(const char *)    { wg_cli_keepalive(); }
+static void cmd_wg_show(const char *)         { wg_cli_show(); }
+static void cmd_clock(const char *)           { clock_show(); }
+static void cmd_flash_id(const char *)        { flash_cli_id(); }
+static void cmd_reboot(const char *)          { reboot(); }
+
+static void cmd_wg_peer_remove(const char *) {
+   int n = wg_cli_entry();
+   if (n > 0) uart_send(wg_peer_remove(n) == 0 ? "  Removed.\r\n" : "  Not removed.\r\n");
+}
+
+static void cmd_debug(const char *) {
+   debug_enabled = !debug_enabled;
+   uart_send("Debug mode ");
+   uart_send(debug_enabled ? "enabled.\r\n" : "disabled.\r\n");
+}
+
+static void cmd_help(const char *);
+
+// name: the command, then " <...>" or " [...]" for its arguments (in help)
+static const struct {
+   const char *name, *help;
+   void      (*fn)(const char *arg);
+} cli_cmds[] = {
+   {"test chacha20poly1305", "Test ChaCha20-Poly1305 AEAD",                     cmd_test_aead},
+   {"test blake2s",          "Test BLAKE2s hash function",                      cmd_test_blake2s},
+   {"test curve25519",       "Test Curve25519 key exchange",                    cmd_test_curve25519},
+   {"test rng",              "Test random number generator",                    cmd_test_rng},
+   {"test timer",            "Test timer functionality",                        cmd_test_timer},
+   {"show network",          "Show network configuration",                      cmd_show_network},
+   {"config network",        "Configure network settings",                      cmd_config_network},
+   {"show routes",           "Show routing table",                              cmd_show_routes},
+   {"config routes",         "Configure routing table entry",                   cmd_config_routes},
+   {"show cryptokeys",       "Show cryptokey table",                            cmd_show_ck},
+   {"config cryptokeys",     "Configure cryptokey table entry",                 cmd_config_ck},
+   {"wg key",                "Set or make our WireGuard private key",           cmd_wg_key},
+   {"wg peer add",           "Add a peer (public key, psk, endpoint)",          cmd_wg_peer_add},
+   {"wg peer remove",        "Remove a peer and its table entry",               cmd_wg_peer_remove},
+   {"wg initiate",           "Start a handshake with a peer",                   cmd_wg_initiate},
+   {"wg keepalive",          "A peer's persistent keepalive (s, 0 = off)",      cmd_wg_keepalive},
+   {"wg show",               "Show our key, the peers and counters",            cmd_wg_show},
+   {"wg load [on|off|auto]", "Under load (cookie replies): forced, or auto",    wg_cli_load},
+   {"clock",                 "Show the clock, its flash mark, boots",           cmd_clock},
+   {"clock set <unix>",      "Set the clock (Unix seconds; only forward)",      clock_set},
+   {"flash id",              "Read the configuration flash's JEDEC ID",         cmd_flash_id},
+   {"debug",                 "Toggle debug mode",                               cmd_debug},
+   {"reboot",                "Reboot the system",                               cmd_reboot},
+   {"help",                  "Show this help message",                          cmd_help},
+};
+
+static void cmd_help(const char *) {
+   uart_send("Available commands:\r\n");
+   for (const auto &c : cli_cmds) {
+      uart_send("  ");
+      uart_send(c.name);
+      for (int s = 23 - (int)bare_strlen(c.name); s > 0; s--) uart_send_char(' ');
+      uart_send("- ");
+      uart_send(c.help);
+      uart_send("\r\n");
+   }
+}
+
+// line is command name: the rest of the line (its "\n", or for a command
+// with arguments " ..." too), else NULL
+static const char *cli_match(const char *line, const char *name) {
+   for (; *name; name++, line++) {
+      if (name[0] == ' ' && (name[1] == '<' || name[1] == '[')) {
+         return (*line == ' ' || *line == '\n') ? line : NULL;
+      }
+      if (*name != *line) return NULL;
+   }
+   return *line == '\n' ? line : NULL;
+}
+
+// a line of the debug mode: "<< NET_PROTO_ARP: 60"
+static void debug_packet(const char *dir, net_protocol_t protocol, uint32_t len) {
+   static const char *const name[] = {"UNKNOWN", "ARP", "ICMP", "UDP"};
+   if (!debug_enabled) return;
+   uart_send(dir);
+   uart_send(" NET_PROTO_");
+   uart_send(name[protocol]);
+   uart_send(": ");
+   send_dec_s(len, "\r\n");
+}
+
 int main(void) {
    char uart_rx_data[UART_RXBUF_SIZE];
    uint8_t uart_rx_len;
-   uint8_t debug_enabled = 0;
 
    // Check hardware ID
    if (CSR_GET(hw_id, CSR__HW_ID__VENDOR) != 0xCCBA ||
@@ -1334,7 +1446,6 @@ int main(void) {
       uart_send("Clock: no flash, starts at 2026-01-01 (clock set)\r\n");
    }
    init_network(&net_config);
-   peer_map_init();
    wg_session_init();  // no key yet: wg key
    show_network(&net_config);
 
@@ -1344,69 +1455,44 @@ int main(void) {
 
    stack_scrub();  // the start-up key generation
    while (1) {
+#if defined(VPROC) && defined(WG_E2E_HOOK)
+      wg_e2e_hook();
+#endif
       rtc_poll();  // a new high-water mark in the flash before the clock reaches it
+      // WireGuard timers (#80): every 200 ms, the peers' counters polled;
+      // rekeys, retransmits, keepalives, keys rejected. Never blocks (a
+      // handshake initiation: 2 X25519)
+      if (wg_session_timers()) stack_scrub();
       // Receive Ethernet packet for CPU FIFO
       if (eth_receive_packet(&eth_packet_rx)) {
          bool consumed = false;  // a WireGuard handshake: not forwarded below
+         bool reply    = false;  // an ARP or ICMP answer in eth_packet_tx
          CSR_RMW(gpio, CSR__GPIO__LED2, 1);
          // Parse packet header
          net_protocol_t protocol = net_parse_packet_header(&eth_packet_rx);
+         debug_packet("<<", protocol, eth_packet_rx.len);
          switch (protocol) {
             case NET_PROTO_UNKNOWN:
-               if (debug_enabled) {
-                  uart_send("<< NET_PROTO_UNKNOWN: ");
-                  uart_send_dec(eth_packet_rx.len);
-                  uart_send("\r\n");
-               }
                break;
             case NET_PROTO_ARP:
-               if (debug_enabled) {
-                  uart_send("<< NET_PROTO_ARP: ");
-                  uart_send_dec(eth_packet_rx.len);
-                  uart_send("\r\n");
-               }
-               if (net_process_arp(&net_config, &net_arp_cache, &eth_packet_rx, &eth_packet_tx)) {
-                  eth_send_packet(&eth_packet_tx);
-                  if (debug_enabled) {
-                     uart_send(">> NET_PROTO_ARP: ");
-                     uart_send_dec(eth_packet_tx.len);
-                     uart_send("\r\n");
-                  }
-               }
+               reply = net_process_arp(&net_config, &net_arp_cache, &eth_packet_rx, &eth_packet_tx);
                break;
             case NET_PROTO_ICMP:
-               if (debug_enabled) {
-                  uart_send("<< NET_PROTO_ICMP: ");
-                  uart_send_dec(eth_packet_rx.len);
-                  uart_send("\r\n");
-               }
-               if (net_process_icmp(&net_config, &eth_packet_rx, &eth_packet_tx)) {
-                  eth_send_packet(&eth_packet_tx);
-                  if (debug_enabled) {
-                     uart_send(">> NET_PROTO_ICMP: ");
-                     uart_send_dec(eth_packet_tx.len);
-                     uart_send("\r\n");
-                  }
-               }
+               reply = net_process_icmp(&net_config, &eth_packet_rx, &eth_packet_tx);
                break;
             case NET_PROTO_UDP:
-               if (debug_enabled) {
-                  uart_send("<< NET_PROTO_UDP: ");
-                  uart_send_dec(eth_packet_rx.len);
-                  uart_send("\r\n");
-               }
                consumed = wg_udp_rx(&eth_packet_rx, debug_enabled);
                break;
+         }
+         if (reply) {
+            eth_send_packet(&eth_packet_tx);
+            debug_packet(">>", protocol, eth_packet_tx.len);
          }
 
          if (consumed) {
             // answered (or dropped) by the WireGuard handshake
-         } else if (eth_packet_rx.src == DPE_ADDR_ETH_1) {
-            eth_packet_rx.dst = DPE_ADDR_ETH_2;
-            eth_packet_rx.bypass_all = 1;
-            eth_send_packet(&eth_packet_rx);
-         } else if (eth_packet_rx.src == DPE_ADDR_ETH_2) {
-            eth_packet_rx.dst = DPE_ADDR_ETH_1;
+         } else if (eth_packet_rx.src == DPE_ADDR_ETH_1 || eth_packet_rx.src == DPE_ADDR_ETH_2) {
+            eth_packet_rx.dst = eth_packet_rx.src == DPE_ADDR_ETH_1 ? DPE_ADDR_ETH_2 : DPE_ADDR_ETH_1;
             eth_packet_rx.bypass_all = 1;
             eth_send_packet(&eth_packet_rx);
          }
@@ -1418,86 +1504,14 @@ int main(void) {
       // Receive and process CLI command
       uart_rx_len = uart_recv(uart_rx_data);
       if (uart_rx_len) {
-         if (bare_strcmp(uart_rx_data, "test chacha20poly1305\n") == 0) {
-            test_chacha20poly1305();
-         } else if (bare_strcmp(uart_rx_data, "test blake2s\n") == 0) {
-            test_blake2s();
-         } else if (bare_strcmp(uart_rx_data, "test curve25519\n") == 0) {
-            test_curve25519();
-         } else if (bare_strcmp(uart_rx_data, "test rng\n") == 0) {
-            test_rng();
-         } else if (bare_strcmp(uart_rx_data, "test siphash\n") == 0) {
-            test_siphash();
-         } else if (bare_strcmp(uart_rx_data, "test timer\n") == 0) {
-            test_timer();
-         } else if (bare_strcmp(uart_rx_data, "show network\n") == 0) {
-            show_network(&net_config);
-         } else if (bare_strcmp(uart_rx_data, "config network\n") == 0) {
-            config_network(&net_config);
-         } else if (bare_strcmp(uart_rx_data, "show routes\n") == 0) {
-            show_routes();
-         } else if (bare_strcmp(uart_rx_data, "config routes\n") == 0) {
-            config_routes();
-         } else if (bare_strcmp(uart_rx_data, "show cryptokeys\n") == 0) {
-            show_cryptokeys();
-         } else if (bare_strcmp(uart_rx_data, "config cryptokeys\n") == 0) {
-            config_cryptokeys();
-         } else if (bare_strcmp(uart_rx_data, "wg key\n") == 0) {
-            wg_cli_key();
-         } else if (bare_strcmp(uart_rx_data, "wg peer add\n") == 0) {
-            wg_cli_peer_add();
-         } else if (bare_strcmp(uart_rx_data, "wg peer remove\n") == 0) {
-            int n = wg_cli_entry();
-            if (n > 0) uart_send(wg_peer_remove(n) == 0 ? "  Removed.\r\n" : "  Not removed.\r\n");
-         } else if (bare_strcmp(uart_rx_data, "wg initiate\n") == 0) {
-            wg_cli_initiate();
-         } else if (bare_strcmp(uart_rx_data, "clock\n") == 0) {
-            clock_show();
-         } else if (starts_with(uart_rx_data, "clock set ")) {
-            clock_set(uart_rx_data + 10);
-         } else if (bare_strcmp(uart_rx_data, "flash id\n") == 0) {
-            flash_cli_id();
-         } else if (bare_strcmp(uart_rx_data, "wg show\n") == 0) {
-            wg_cli_show();
-         } else if (bare_strcmp(uart_rx_data, "wg load\n") == 0) {
-            wg_set_under_load(!wg_under_load());  // until #81 detects load
-            uart_send(wg_under_load() ? "  Under load: mac2 required.\r\n" : "  Not under load.\r\n");
-         } else if (bare_strcmp(uart_rx_data, "debug\n") == 0) {
-            debug_enabled = !debug_enabled;
-            uart_send("Debug mode ");;
-            if (debug_enabled) {
-               uart_send("enabled.\r\n");
-            } else {
-               uart_send("disabled.\r\n");
-            }
-         } else if (bare_strcmp(uart_rx_data, "reboot\n") == 0) {
-            reboot();
-         } else if (bare_strcmp(uart_rx_data, "help\n") == 0) {
-            uart_send("Available commands:\r\n");
-            uart_send("  test chacha20poly1305  - Test ChaCha20-Poly1305 AEAD\r\n");
-            uart_send("  test blake2s           - Test BLAKE2s hash function\r\n");
-            uart_send("  test curve25519        - Test Curve25519 key exchange\r\n");
-            uart_send("  test rng               - Test random number generator\r\n");
-            uart_send("  test siphash           - Test SipHash and the peer map\r\n");
-            uart_send("  test timer             - Test timer functionality\r\n");
-            uart_send("  show network           - Show network configuration\r\n");
-            uart_send("  config network         - Configure network settings\r\n");
-            uart_send("  show routes            - Show routing table\r\n");
-            uart_send("  config routes          - Configure routing table entry\r\n");
-            uart_send("  show cryptokeys        - Show cryptokey table\r\n");
-            uart_send("  config cryptokeys      - Configure cryptokey table entry\r\n");
-            uart_send("  wg key                 - Set or make our WireGuard private key\r\n");
-            uart_send("  wg peer add            - Add a peer (public key, psk, endpoint)\r\n");
-            uart_send("  wg peer remove         - Remove a peer and its table entry\r\n");
-            uart_send("  wg initiate            - Start a handshake with a peer\r\n");
-            uart_send("  wg show                - Show our key, the peers and counters\r\n");
-            uart_send("  wg load                - Toggle under load (cookie replies, mac2)\r\n");
-            uart_send("  clock                  - Show the clock, its flash mark, boots\r\n");
-            uart_send("  clock set <unix>       - Set the clock (Unix seconds; only forward)\r\n");
-            uart_send("  flash id               - Read the configuration flash's JEDEC ID\r\n");
-            uart_send("  debug                  - Toggle debug mode\r\n");
-            uart_send("  reboot                 - Reboot the system\r\n");
-            uart_send("  help                   - Show this help message\r\n");
+         const char *arg = NULL;
+         unsigned    k;
+         for (k = 0; k < sizeof(cli_cmds) / sizeof(cli_cmds[0]); k++) {
+            arg = cli_match(uart_rx_data, cli_cmds[k].name);
+            if (arg) break;
+         }
+         if (arg) {
+            cli_cmds[k].fn(arg);
          } else if (uart_rx_len > 1) {
             uart_send("Unknown command\r\n");
          }

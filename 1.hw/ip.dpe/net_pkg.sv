@@ -160,6 +160,34 @@ package net_pkg;
     logic          update_send_cnt;  // [0]
   } peer_req_t;
 
+  // The replay window (WireGuard paper 5.4.6, #79): a peer's highest counter
+  // accepted, recv_cnt, and bit i of recv_win set when counter recv_cnt - i
+  // was seen. All zero at install: nothing seen, so counter 0 passes once.
+  // A counter at REJECT_AFTER_MESSAGES (2^64 - 2^13 - 1) or over never does
+  localparam int REPLAY_WIN = 64;
+  typedef logic [REPLAY_WIN-1:0] wg_replay_win_t;
+  localparam wg_counter_t REJECT_AFTER_MESSAGES = 64'hFFFF_FFFF_FFFF_DFFF;
+
+  // the decryptor's peer: its tag (the entry its routes point at: the
+  // packet's tid out), its key and its replay window, from the 2nd clock
+  // after wg_dec_req_t.idx
+  typedef struct packed {
+    dpe_peer_idx_t  peer;      // [391:384]
+    wg_key_t        key;       // [383:128]
+    wg_counter_t    recv_cnt;  // [127:64]
+    wg_replay_win_t recv_win;  // [63:0]
+  } wg_dec_peer_t;
+
+  // the decryptor's request to the peer table: the peer, and the replay
+  // window to write back (update_recv pulses once a packet, when its tag
+  // checked out)
+  typedef struct packed {
+    dpe_peer_idx_t  idx;           // [136:129]
+    wg_counter_t    new_recv_cnt;  // [128:65]
+    wg_replay_win_t new_recv_win;  // [64:1]
+    logic           update_recv;   // [0]
+  } wg_dec_req_t;
+
   // the peer table's answer to a receiver index, combinationally: its peer,
   // and whether the index is known
   typedef struct packed {

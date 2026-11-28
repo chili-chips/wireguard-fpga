@@ -18,6 +18,9 @@
 #   reset      Yosys netlist and run-lint-reset.py: a control flop or flag with
 #              no reset (data and address flops need none: waived by name);
 #              the tops, then eduBOS5 alone with RV32M and the counters
+#   ram        Yosys memory_libmap (synth_xilinx's) and run-lint-ram.py: a
+#              memory mapped to block or LUT RAM with read-first or
+#              transparency logic built in fabric; the tops
 #   iob        the same netlist and run-lint-iob.py: every data pin of top
 #              reaches its flop directly (input: pin to D; output: Q to pin
 #              and nothing else), so the flop can sit in the I/O tile
@@ -48,6 +51,9 @@
 #
 #              cdc, check-timing and methodology share one Vivado run
 #              (about 3 min); skipped without Vivado, so not in CI
+#
+# The phase names and helpers are those of openPCIE and openCologne-PCIE
+# (run-lint-ram.py, run-lint-iob.py, run-lint-reset.py: the same files).
 #
 # usage:  bash run-lint.sh [phase ...]    default: all phases
 #         VIEW=sim bash run-lint.sh        lint the simulation view (SIM_ONLY
@@ -126,14 +132,20 @@ case $VIEW in
 esac
 
 WAIVERS=${LINT_WAIVERS:-$HERE/run-lint-waivers.txt}
-PHASES=${*:-tags verilator yosys reset iob slang verible ghdl ghdl-verilator cdc check-timing methodology}
+PHASES=${*:-tags verilator yosys reset ram iob slang verible ghdl ghdl-verilator cdc check-timing methodology}
 W=${LINT_WORK:-$(mktemp -d)}
 mkdir -p "$W"
 W=$(cd "$W" && pwd)
+PHASE_NAMES="tags verilator yosys reset ram iob slang verible ghdl ghdl-verilator cdc check-timing methodology"
+for ph in $PHASES; do  # every name first, before minutes of Vivado
+  case " $PHASE_NAMES " in *" $ph "*) ;; *) echo "unknown phase: $ph ($PHASE_NAMES)"; exit 2 ;; esac
+done
 
 # ---- work copy ----------------------------------------------------------------
-# a reused LINT_WORK keeps no stale sources, stubs or generated VHDL
-rm -rf "$W/1.hw" "$W/bld" "$W/bb.sv" "$W/pypeline" "$W/pypeline.failed" "$W/ghdl.work"
+# a reused LINT_WORK keeps no stale sources, stubs, generated VHDL or netlists
+# (iob reads reset's netlist when both run)
+rm -rf "$W/1.hw" "$W/bld" "$W/bb.sv" "$W/pypeline" "$W/pypeline.failed" "$W/ghdl.work" \
+  "$W"/reset*.json "$W"/ram*.json
 (cd "$REPO" && cp -r --parents 1.hw/top.filelist 1.hw/top.sv 1.hw/fpgatech_lib 1.hw/external_lib \
    1.hw/ip.* 1.hw/constraints "$W/")
 mkdir -p "$W/bld/csr_build/generated-files" "$W/bld/sw_build"
@@ -205,8 +217,8 @@ bb() {
 # module headers of the design and the primitive stubs
 # A tool that fails, or stops before the step its findings come from, fails its
 # phase: "0 finding(s)" must not stand for "not checked"
-failed() {  # $1 phase, $2 reason
-  RESULT[$1]="FAILED ($2), see $W/$1.log"
+failed() {  # $1 phase, $2 reason, $3 its log (default $W/<phase>.log)
+  RESULT[$1]="FAILED ($2), see ${3:-$W/$1.log}"
   echo "-- $1: FAILED, $2"
 }
 
@@ -376,6 +388,35 @@ run_reset() {
   found reset < <(sed -E 's#^(\.\./)+[^ ]*/(1\.hw|bld)/#\2/#' reset.out | sort -u)
 }
 
+# A memory mapped to block or LUT RAM must need no read-first or transparency
+# logic in fabric: Yosys builds it there, saying so only in its debug log.
+# synth_xilinx up to its memory mapping, then that step under debug, so the
+# libraries and options are synth_xilinx's own. The memories' source lines
+# come from a netlist written before it (after it, the simulation models it
+# reads stop write_json). One finding per memory, at its source line; the
+# rules are in run-lint-ram.py.
+run_ram() {
+  have "$YOSYS" || { skip ram "$YOSYS not found"; return; }
+  [ $VIEW = sim ] && { skip ram "chip view only"; return; }
+  bb || { skip ram "no Xilinx stubs"; return; }
+  local t rc syn
+  : > ram.log; : > ram.out
+  for t in $TOPS; do
+    syn="synth_xilinx -family xc7 -top $t"
+    "$YOSYS" $YOSYS_ARGS -q -l ram.$t.log -p "read_slang --allow-toplevel-iface-ports $SL_DEFS --top $t -I $INC \
+        bb.sv $(top_sv $t); hierarchy -check -top $t; proc; write_json ram.$t.json; \
+        $syn -run begin:map_memory; debug $syn -run map_memory:map_ffram" \
+        >/dev/null 2>&1
+    rc=$?
+    cat ram.$t.log >> ram.log
+    [ $rc -eq 0 ] && [ -s ram.$t.json ] && grep -q 'Executing MEMORY_LIBMAP' ram.$t.log ||
+      { failed ram "top $t: exit $rc, memory_libmap not reached"; return; }
+    "$PYTHON" "$HERE/run-lint-ram.py" ram.$t.log ram.$t.json >> ram.out 2>> ram.log ||
+      { failed ram "top $t: log check failed"; return; }
+  done
+  found ram < <(sed -E 's#^(\.\./)+[^ ]*/(1\.hw|bld)/#\2/#' ram.out | sort -u)
+}
+
 # IOB flops: every data pin of top reaches its flop directly, so Vivado and
 # nextpnr can put the flop in the I/O tile (run-lint-iob.py). Uses the reset
 # phase's netlist of top when this run made one
@@ -503,7 +544,7 @@ EOT
 vivado_phase() {  # $1 phase: skip without Vivado or in the sim view, else run it once
   have "$VIVADO" || { skip $1 "$VIVADO not found"; return 1; }
   [ $VIEW = sim ] && { skip $1 "chip view only"; return 1; }
-  vivado_run || { failed $1 "Vivado: $(cat vivado.err), see $W/vivado.log"; return 1; }
+  vivado_run || { failed $1 "Vivado: $(cat vivado.err)" "$W/vivado.log"; return 1; }
 }
 
 run_cdc() {
@@ -534,10 +575,7 @@ run_methodology() {
 }
 
 for ph in $PHASES; do
-  case $ph in
-    tags|verilator|yosys|reset|iob|slang|verible|ghdl|ghdl-verilator|cdc|check-timing|methodology) echo "== $ph"; run_${ph//-/_} ;;
-    *) echo "unknown phase: $ph (tags verilator yosys reset iob slang verible ghdl ghdl-verilator cdc check-timing methodology)"; exit 2 ;;
-  esac
+  echo "== $ph"; run_${ph//-/_}  # names checked at start-up
 done
 
 echo; echo "== summary  ($VIEW view, $W)"

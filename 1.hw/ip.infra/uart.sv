@@ -61,7 +61,10 @@ module uart
 #(
     // the bus-master timeout: 2**TIMEOUT_LOG2 ticks of tick_1us without a
     // byte ends the session (about 2.1 s in hardware); a bench sets it lower
-    parameter int TIMEOUT_LOG2 = 21  // at most 21: the timeout counter is 22 bits
+    parameter int TIMEOUT_LOG2 = 21,           // at most 21: the timeout counter is 22 bits
+    // the time base, in clocks (-1): the 1us tick in hardware; a bench sets
+    // it lower, and the UART runs (NUM_1US_CLKS+1)/(TICK_CLKS+1) times faster
+    parameter int TICK_CLKS    = NUM_1US_CLKS
 ) (
     input  logic           arst_n,
     input  logic           clk,
@@ -205,7 +208,7 @@ module uart
       // number of clocks for 1us time-tick pulse depends
       //   on board, i.e. the period of available clocks
       // (-1 because we count from 0)
-      tick_1us <= (cnt_1us == cnt_1us_t'(UART_TICK_CLKS - 1));
+      tick_1us <= (cnt_1us == cnt_1us_t'(TICK_CLKS - 1));
 
       if (tick_1us == 1'b1) begin
         cnt_1us <= '0;
@@ -215,6 +218,15 @@ module uart
       end
     end
   end
+
+`ifdef SIM_ONLY
+  int debug;  // +UART_DEBUG=1 on the simulator command line: print each byte
+  initial begin
+    if (!$value$plusargs("UART_DEBUG=%d", debug)) begin
+      debug = 0;
+    end
+  end
+`endif
 
   //--------------------------------------
   // uart_rx synchronizer (ASYNC_REG: Vivado CDC-2)
@@ -352,8 +364,10 @@ module uart
           // 'rx_fifo_we' is generated at this moment
           rx_state <= IDLE;
 
-`ifdef UART_DEBUG
-          $display("%t %m RX'd %0h (%s)", $time, rx_shift, string'(rx_shift));
+`ifdef SIM_ONLY
+          if (debug != 0) begin
+            $display("%t %m RX'd %0h (%s)", $time, rx_shift, string'(rx_shift));
+          end
 `endif
         end
 
@@ -576,8 +590,10 @@ module uart
           tx_cnt1us <= TX_WAIT_STOP;
           tx_state  <= STOP;
 
-`ifdef UART_DEBUG
-          $display("%t %m TX'd \t\t%0h (%s)", $time, tx_data, string'(tx_data));
+`ifdef SIM_ONLY
+          if (debug != 0) begin
+            $display("%t %m TX'd \t\t%0h (%s)", $time, tx_data, string'(tx_data));
+          end
 `endif
         end
 

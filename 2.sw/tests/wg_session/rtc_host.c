@@ -5,13 +5,14 @@
 // Host stand-in for 2.sw/app/rtc.c (no csr.rtc, no flash): the clock starts
 // at RTC_EPOCH_DEFAULT (an empty flash) when the test starts and runs on
 // CLOCK_MONOTONIC; rtc_set_time only moves it forward; the timestamps
-// strictly increase, as on the device.
+// strictly increase, as on the device. rtc_host_advance_ms() lets time pass.
 #include <time.h>
 #include "rtc.h"
 #include "noise.h"
 
 static uint64_t base_ns;     // CLOCK_MONOTONIC at the first call
 static uint64_t offset_s = RTC_EPOCH_DEFAULT;
+static uint64_t skip_ns;     // rtc_host_advance_ms: time passing, faster
 static uint64_t last_sec;
 static uint32_t last_nsec;
 
@@ -23,10 +24,14 @@ static uint64_t mono_ns(void) {
 
 void rtc_get(uint64_t *sec, uint32_t *nsec) {
     if (base_ns == 0) base_ns = mono_ns();
-    uint64_t ns = mono_ns() - base_ns;
+    uint64_t ns = mono_ns() - base_ns + skip_ns;
     *sec        = offset_s + ns / 1000000000ull;
     *nsec       = (uint32_t)(ns % 1000000000ull);
 }
+
+// the timer tests (#80): let ms pass at once, as the hardware clock would
+// (not a clock set: the timers see it)
+void rtc_host_advance_ms(uint64_t ms) { skip_ns += ms * 1000000ull; }
 
 int rtc_set_time(uint64_t unix_seconds) {
     uint64_t sec;

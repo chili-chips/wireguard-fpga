@@ -7,21 +7,32 @@
 //--------------------------------------------------------------------------
 // Description: the peer table, the data plane's side of the CSR
 //  cryptokey_table (1.hw/README.md: "Receiver Index: From a WireGuard
-//  Packet to Its Peer"). 64 entries of 30 words; each word is a 64-entry
+//  Packet to Its Peer"). 64 entries of 32 words; each word is a 64-entry
 //  distributed RAM (LUTRAM), stored once and read where it is used:
 //   - the encryptor: addresses, remote_id, encrypt_key, send_cnt; its entry
 //     (wg_peer_cfg_t) is valid from the 2nd clock after enc_req.idx, and it
 //     writes send_cnt back (enc_req.update_send_cnt, for entry enc_req.idx)
-//   - the decryptor: decrypt_key, in dec_peer.key (the rest of dec_peer is
-//     0), valid from the 2nd clock after dec_req.idx
+//   - the decryptor: decrypt_key, the replay window (recv_cnt and
+//     recv_win) and the peer tag (local_port's upper bits, on a read port
+//     of its own: the encryptor reads that word for the port)
+//     (wg_dec_peer_t), valid from the 2nd clock after dec_req.idx;
+//     it writes the window back (dec_req.update_recv, for entry dec_req.idx)
 //   - the disassembler: local_id, combinationally: rcv_rsp.idx is the receiver
 //     index's low 6 bits (the entry), rcv_rsp.match whether that entry's
 //     local_id is the whole receiver index (never for index 0)
 //  The CPU writes every word, byte by byte (byte enables), and reads it back
-//  one clock after its request. The send_cnt write-back goes in at once; a
-//  CPU send_cnt write in its clock is posted to the next (and wins on the
-//  same entry). CPU requests are clocks apart, so a posted write never
-//  meets the next one.
+//  one clock after its request. The write-backs (send_cnt; recv_cnt and
+//  recv_win) go in at once; a CPU write to one of their words in the
+//  write-back's clock is posted to the next (and wins on the same entry).
+//  CPU requests are clocks apart, so a posted write never meets the next
+//  one.
+//  The posted write orders only the same clock. A packet in flight on an
+//  entry read it at PEER_RSP and writes its window (words 28 to 31) back
+//  after its tag check, clocks later (send_cnt likewise, after its frame):
+//  that write-back overwrites a CPU write made between the two. So the CPU
+//  installs or rewrites an entry only under the pause/drain handshake
+//  (CLAUDE.md: csr.dpe.fcr.pause, wait for csr.dpe.fcr.idle, write, clear
+//  pause), when no packet is in flight.
 //  MAC, IP and port are natural values in the CSR (byte 0 of the address
 //  in the top bits) and in bus byte order in wg_peer_cfg_t (byte 0 in
 //  [7:0]); the key is {key_255_224, ..., key_31_0}.
@@ -44,8 +55,8 @@ module lkup_peer_table
     output wg_peer_cfg_t enc_peer,
 
     // the decryptor
-    input  peer_req_t    dec_req,
-    output wg_peer_cfg_t dec_peer,
+    input  wg_dec_req_t  dec_req,
+    output wg_dec_peer_t dec_peer,
 
     // the disassembler
     input  wg_receiver_t rcv,
@@ -67,28 +78,27 @@ module lkup_peer_table
   // the data-plane readers' entries (a peer index, tid, has 8 bits: the
   // table holds 64 peers)
   entry_t enc_e, dec_e, rcv_e;
-  logic        [3:0] NC_idx_hi;
-  wg_counter_t       NC_dec_cnt;  // the decryptor writes no counter back
-  logic  NC_dec_upd;
-  assign enc_e      = enc_req.idx[CK_ENTRY_W-1:0];
-  assign dec_e      = dec_req.idx[CK_ENTRY_W-1:0];
-  assign rcv_e      = rcv[CK_ENTRY_W-1:0];
-  assign NC_idx_hi  = {enc_req.idx[7:CK_ENTRY_W], dec_req.idx[7:CK_ENTRY_W]};
-  assign NC_dec_cnt = dec_req.new_send_cnt;
-  assign NC_dec_upd = dec_req.update_send_cnt;
+  logic [3:0] NC_idx_hi;
+  assign      enc_e     = enc_req.idx[CK_ENTRY_W-1:0];
+  assign      dec_e     = dec_req.idx[CK_ENTRY_W-1:0];
+  assign      rcv_e     = rcv[CK_ENTRY_W-1:0];
+  assign      NC_idx_hi = {enc_req.idx[7:CK_ENTRY_W], dec_req.idx[7:CK_ENTRY_W]};
 
-  word_t dp_rd[CK_WORDS];  // each word at its reader's entry
+  word_t dp_rd [CK_WORDS];  // each word at its reader's entry
   word_t cpu_rd[CK_WORDS];  // each word at the CPU's entry
 
-  // Each word has one write port. The encryptor's send_cnt write-back always
-  // goes in at once, so the next packet to that peer reads the new count (a
-  // stale or lost count would reuse a nonce). A CPU write to a send_cnt word
-  // in the same clock is posted: acknowledged at once, written in the next
-  // clock (the write-back pulses once a packet), so it lands after the
-  // write-back and wins on the same entry.
-  logic cpu_cnt_wr;  // the CPU writes a send_cnt word
-  assign cpu_cnt_wr = csr_wr &
+  // Each word has one write port. The encryptor's send_cnt write-back and
+  // the decryptor's recv_cnt/recv_win one always go in at once, so the next
+  // packet of that peer reads the new value (a stale or lost count would
+  // reuse a nonce, a stale window let a replay through). A CPU write to one
+  // of their words in the same clock as its write-back is posted:
+  // acknowledged at once, written in the next clock (each write-back pulses
+  // once a packet), so it lands after the write-back and wins on the same
+  // entry.
+  logic cpu_send_wr, cpu_recv_wr;  // the CPU writes a send_cnt word; a recv_cnt or recv_win one
+  assign cpu_send_wr = csr_wr &
       ((csr_word == CK_WORD_W'(CK_SEND_CNT_HI)) | (csr_word == CK_WORD_W'(CK_SEND_CNT_LO)));
+  assign cpu_recv_wr = csr_wr & (csr_word >= CK_WORD_W'(CK_RECV_CNT_HI));  // words 28 to 31
 
   logic                   pw_valid;  // a posted CPU write
   entry_t                 pw_e;
@@ -104,7 +114,7 @@ module lkup_peer_table
       pw_be    <= '0;
     end
     else begin
-      pw_valid <= cpu_cnt_wr & enc_req.update_send_cnt;
+      pw_valid <= (cpu_send_wr & enc_req.update_send_cnt) | (cpu_recv_wr & dec_req.update_recv);
       pw_e <= csr_entry;
       pw_word <= csr_word;
       pw_data <= csr_cfg.wr_data;
@@ -127,15 +137,22 @@ module lkup_peer_table
   end
 `endif
 
+  // the peer tag: local_port's byte CK_TAG_LSB / 8 at the decryptor's entry
+  logic [7:0] tag_rd;
+  logic [1:0] NC_tag_hi;  // reserved bits 23:22
+  assign      NC_tag_hi = tag_rd[7:CK_ENTRY_W];
+
   for (genvar w = 0; w < CK_WORDS; w++) begin : g_word
     entry_t rd_e;  // its data-plane reader's entry
-    logic   dp_we;  // the encryptor's send_cnt write-back
+    logic   dp_we;  // its write-back: the encryptor's send_cnt, the decryptor's window
+    entry_t wb_e;  // the write-back's entry
     word_t  dp_wdata;
 
     if (w == int'(CK_LOCAL_ID)) begin : g_rcv
       assign rd_e = rcv_e;
     end
-    else if ((w >= int'(CK_DEC_KEY_0)) && (w < int'(CK_DEC_KEY_0) + 8)) begin : g_dec
+    else if (((w >= int'(CK_DEC_KEY_0)) && (w < int'(CK_DEC_KEY_0) + 8)) ||
+             (w >= int'(CK_RECV_CNT_HI))) begin : g_dec
       assign rd_e = dec_e;
     end
     else begin : g_enc
@@ -144,14 +161,37 @@ module lkup_peer_table
 
     if (w == int'(CK_SEND_CNT_HI)) begin : g_cnt_hi
       assign dp_we    = enc_req.update_send_cnt;
+      assign wb_e     = enc_e;
       assign dp_wdata = enc_req.new_send_cnt[63:32];
     end
     else if (w == int'(CK_SEND_CNT_LO)) begin : g_cnt_lo
       assign dp_we    = enc_req.update_send_cnt;
+      assign wb_e     = enc_e;
       assign dp_wdata = enc_req.new_send_cnt[31:0];
+    end
+    else if (w == int'(CK_RECV_CNT_HI)) begin : g_recv_cnt_hi
+      assign dp_we    = dec_req.update_recv;
+      assign wb_e     = dec_e;
+      assign dp_wdata = dec_req.new_recv_cnt[63:32];
+    end
+    else if (w == int'(CK_RECV_CNT_LO)) begin : g_recv_cnt_lo
+      assign dp_we    = dec_req.update_recv;
+      assign wb_e     = dec_e;
+      assign dp_wdata = dec_req.new_recv_cnt[31:0];
+    end
+    else if (w == int'(CK_RECV_WIN_HI)) begin : g_recv_win_hi
+      assign dp_we    = dec_req.update_recv;
+      assign wb_e     = dec_e;
+      assign dp_wdata = dec_req.new_recv_win[63:32];
+    end
+    else if (w == int'(CK_RECV_WIN_LO)) begin : g_recv_win_lo
+      assign dp_we    = dec_req.update_recv;
+      assign wb_e     = dec_e;
+      assign dp_wdata = dec_req.new_recv_win[31:0];
     end
     else begin : g_no_wb
       assign dp_we    = 1'b0;
+      assign wb_e     = '0;
       assign dp_wdata = '0;
     end
 
@@ -161,7 +201,7 @@ module lkup_peer_table
       logic [7:0] mem[CK_ENTRIES];
       always_ff @(posedge clk) begin
         if (dp_we) begin
-          mem[enc_e] <= dp_wdata[8*b+:8];
+          mem[wb_e] <= dp_wdata[8*b+:8];
         end
         else if (pw_valid & (pw_word == CK_WORD_W'(w))) begin
           if (pw_be[b]) begin
@@ -174,6 +214,9 @@ module lkup_peer_table
       end
       assign dp_rd[w][8*b+:8]  = mem[rd_e];
       assign cpu_rd[w][8*b+:8] = mem[csr_entry];
+      if ((w == int'(CK_LOCAL_PORT)) && (b == CK_TAG_LSB / 8)) begin : g_tag
+        assign tag_rd = mem[dec_e];
+      end
     end
   end
 
@@ -187,7 +230,7 @@ module lkup_peer_table
     end
     else begin
       rd_ack  <= csr_rd;
-      rd_data <= (csr_word < CK_WORD_W'(CK_WORDS)) ? cpu_rd[csr_word] : '0;  // 30, 31: padding
+      rd_data <= cpu_rd[csr_word];  // CK_WORDS: every word is used
     end
   end
   assign csr_sta.rd_ack  = rd_ack;
@@ -216,7 +259,12 @@ module lkup_peer_table
         key: enc_key,
         send_cnt: {dp_rd[CK_SEND_CNT_HI], dp_rd[CK_SEND_CNT_LO]}
     };
-    dec_peer <= '{key: dec_key, default: '0};
+    dec_peer <= '{
+        peer: dpe_peer_idx_t'(tag_rd[CK_ENTRY_W-1:0]),
+        key: dec_key,
+        recv_cnt: {dp_rd[CK_RECV_CNT_HI], dp_rd[CK_RECV_CNT_LO]},
+        recv_win: {dp_rd[CK_RECV_WIN_HI], dp_rd[CK_RECV_WIN_LO]}
+    };
   end
 
   // the disassembler: the entry from the receiver index, checked in full. An

@@ -127,6 +127,17 @@ static int mix_dh1(uint8_t ck[WG_KEY_LEN], const uint8_t priv[WG_KEY_LEN], const
     return rc;
 }
 
+// ck, k = KDF2(ck, ss): the static-static DH, cached (wg_static_static) or
+// computed (ss NULL); -1 on a bad key (a cached all-zero one)
+static int mix_ss2(uint8_t ck[WG_KEY_LEN], uint8_t k[WG_KEY_LEN], const uint8_t *ss,
+                   const uint8_t priv[WG_KEY_LEN], const uint8_t pub[WG_KEY_LEN]) {
+    static const uint8_t zero[WG_KEY_LEN] = {0};
+    if (!ss) return mix_dh2(ck, k, priv, pub);
+    if (ct_equal(ss, zero, WG_KEY_LEN)) return -1;
+    kdf2(ck, k, ss, WG_KEY_LEN);
+    return 0;
+}
+
 // ck, tau, k = KDF3(ck, psk); h = HASH(h || tau)
 static void mix_psk(uint8_t ck[WG_KEY_LEN], uint8_t h[WG_KEY_LEN], uint8_t k[WG_KEY_LEN],
                     const uint8_t psk[WG_KEY_LEN]) {
@@ -163,9 +174,23 @@ void wg_identity_init(wg_identity_t *id, const uint8_t priv[WG_KEY_LEN]) {
     mac1_key(id->mac1_key, id->pub);
 }
 
+int wg_static_static(const wg_identity_t *id, const uint8_t pub[WG_KEY_LEN],
+                     uint8_t ss[WG_KEY_LEN]) {
+    int rc = dh(ss, id->priv, pub);
+    if (rc != 0) wipe(ss, WG_KEY_LEN);
+    return rc;
+}
+
 int wg_create_initiation(const wg_identity_t *id, wg_handshake_t *hs, uint32_t local_index,
                          const uint8_t e_priv[WG_KEY_LEN], const uint8_t timestamp[WG_TAI64N_LEN],
                          uint8_t msg[WG_MSG_INIT_LEN]) {
+    return wg_create_initiation_ss(id, hs, local_index, e_priv, timestamp, NULL, msg);
+}
+
+int wg_create_initiation_ss(const wg_identity_t *id, wg_handshake_t *hs, uint32_t local_index,
+                            const uint8_t e_priv[WG_KEY_LEN],
+                            const uint8_t timestamp[WG_TAI64N_LEN],
+                            const uint8_t *ss, uint8_t msg[WG_MSG_INIT_LEN]) {
     uint8_t k[WG_KEY_LEN], key[WG_KEY_LEN];
     int rc = -1;
 
@@ -184,7 +209,7 @@ int wg_create_initiation(const wg_identity_t *id, wg_handshake_t *hs, uint32_t l
     if (mix_dh2(hs->ck, k, hs->e_priv, hs->remote_static) != 0) goto out;
     encrypt_and_hash(msg + I_STATIC, k, id->pub, WG_KEY_LEN, hs->h);
 
-    if (mix_dh2(hs->ck, k, id->priv, hs->remote_static) != 0) goto out;
+    if (mix_ss2(hs->ck, k, ss, id->priv, hs->remote_static) != 0) goto out;
     encrypt_and_hash(msg + I_TIMESTAMP, k, timestamp, WG_TAI64N_LEN, hs->h);
 
     mac1_key(key, hs->remote_static);
@@ -206,8 +231,18 @@ int wg_consume_initiation(const wg_identity_t *id, wg_handshake_t *hs,
                           const uint8_t msg[WG_MSG_INIT_LEN],
                           uint8_t initiator_static[WG_KEY_LEN],
                           uint8_t timestamp[WG_TAI64N_LEN]) {
+    return wg_consume_initiation_peer(id, hs, msg, NULL, NULL, initiator_static, timestamp);
+}
+
+// lookup NULL: no peer lookup, the second DH computed
+int wg_consume_initiation_peer(const wg_identity_t *id, wg_handshake_t *hs,
+                               const uint8_t msg[WG_MSG_INIT_LEN],
+                               wg_peer_lookup_t lookup, void *ctx,
+                               uint8_t initiator_static[WG_KEY_LEN],
+                               uint8_t timestamp[WG_TAI64N_LEN]) {
     uint8_t m[MAC_LEN], k[WG_KEY_LEN], ck[WG_KEY_LEN], h[WG_KEY_LEN];
     const uint8_t *e = msg + I_EPHEMERAL;
+    const uint8_t *ss = NULL;
     int rc = -1;
 
     memset(initiator_static, 0, WG_KEY_LEN);
@@ -225,7 +260,12 @@ int wg_consume_initiation(const wg_identity_t *id, wg_handshake_t *hs,
     if (mix_dh2(ck, k, id->priv, e) != 0) goto out;
     if (decrypt_and_hash(initiator_static, k, msg + I_STATIC, WG_KEY_LEN, h) != 0) goto out;
 
-    if (mix_dh2(ck, k, id->priv, initiator_static) != 0) goto out;
+    // the peer, from its static key: an unknown one gets no second X25519
+    if (lookup && (ss = lookup(ctx, initiator_static)) == NULL) {
+        rc = -2;
+        goto out;
+    }
+    if (mix_ss2(ck, k, ss, id->priv, initiator_static) != 0) goto out;
     if (decrypt_and_hash(timestamp, k, msg + I_TIMESTAMP, WG_TAI64N_LEN, h) != 0) goto out;
 
     memcpy(hs->ck, ck, WG_KEY_LEN);

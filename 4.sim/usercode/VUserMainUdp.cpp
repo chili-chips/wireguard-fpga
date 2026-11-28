@@ -76,7 +76,7 @@ struct rxNode {
 #define ROUTES_DONE_ADDR 0x50001000ULL
 #define SHARED_MEM_NODE  0
 
-// Idle until the routes are in, whatever the UART speed (UART_SIM_TICK_CLKS)
+// Idle until the routes are in, whatever the UART speed (tb UART_TICK_CLKS)
 static void waitRoutes(udpIpPg& pUdp, uint32_t node) {
     VPrint("Node%u: waiting for the routes (models/bfm_uart.sv)...\n", node);
     while (ReadRamWord(ROUTES_DONE_ADDR, 1, SHARED_MEM_NODE) == 0) pUdp.UdpVpSendIdle(100);

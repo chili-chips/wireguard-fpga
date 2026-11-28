@@ -202,7 +202,9 @@ module lkup_egress
   logic          da_ok;  // the frame holds its whole IPv4 destination
   logic          ipv4;  // EtherType IPv4: anything else takes the default route
   // decrypted: it came out of the decryptor (bypass_stage clear), from peer
-  // from_peer (tid); its inner source must be one that peer may use
+  // from_peer (tid: the entry's peer tag, the entry that peer's routes
+  // point at, also for its next or old session); its inner source must be
+  // one that peer may use
   logic          decrypted;
   dpe_peer_idx_t from_peer;
   ipv4_addr_t    src_ip;

@@ -51,7 +51,7 @@
  **********************************************************************/
 void uart_send_char(char c) {
    // wait for HW "not busy", then send the byte/character. Co-simulation runs
-   // this same code; its UART runs faster (UART_SIM_TICK_CLKS in soc_pkg.sv)
+   // this same code; its UART runs faster (top's UART_TICK_CLKS parameter)
    while (CSR_GET(uart.tx, CSR__UART__TX__BUSY));
    CSR_SET(uart.tx, CSR__UART__TX__DATA, c);
 }

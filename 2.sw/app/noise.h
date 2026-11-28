@@ -9,7 +9,7 @@
 //
 // No I/O and no RNG here: the caller passes the ephemeral private key
 // (random_32bytes on the CPU, fixed values in the tests), finds the peer
-// from the decrypted static key (peer_map) and checks the timestamp.
+// from the decrypted static key (wg_session.c) and checks the timestamp.
 // Cookies (mac2, message 3) are not handled yet: mac2 is sent as zeros.
 //==========================================================================
 
@@ -84,6 +84,37 @@ int wg_consume_initiation(const wg_identity_t *id, wg_handshake_t *hs,
                           const uint8_t msg[WG_MSG_INIT_LEN],
                           uint8_t initiator_static[WG_KEY_LEN],
                           uint8_t timestamp[WG_TAI64N_LEN]);
+
+// The static-static DH with a peer, DH(our private key, its public key): the
+// same value on both sides, and the same in every handshake with it, so it is
+// computed once per peer (Linux: precomputed_static_static) and passed to the
+// two calls below. 0, or -1 for a low-order key (ss then zeros: every
+// handshake with that peer fails, as it would without the cache)
+int wg_static_static(const wg_identity_t *id, const uint8_t pub[WG_KEY_LEN],
+                     uint8_t ss[WG_KEY_LEN]);
+
+// As wg_create_initiation, with ss = wg_static_static(id, hs->remote_static)
+// instead of the second X25519 (ss NULL: compute it)
+int wg_create_initiation_ss(const wg_identity_t *id, wg_handshake_t *hs, uint32_t local_index,
+                            const uint8_t e_priv[WG_KEY_LEN],
+                            const uint8_t timestamp[WG_TAI64N_LEN],
+                            const uint8_t *ss, uint8_t msg[WG_MSG_INIT_LEN]);
+
+// The responder's peer lookup: from the initiator's static key (decrypted,
+// authenticated by its AEAD) the peer's wg_static_static, or NULL when it is
+// not a peer of ours
+typedef const uint8_t *(*wg_peer_lookup_t)(void *ctx, const uint8_t initiator_static[WG_KEY_LEN]);
+
+// As wg_consume_initiation, but the peer is looked up as soon as its static
+// key is decrypted (the first X25519, DH(s_r, e_i)), before the second one,
+// which its cached static-static replaces. An initiation from an unknown
+// static key costs one X25519, not two: -2 then (outputs zeros, hs not
+// written). 0 or -1 as wg_consume_initiation
+int wg_consume_initiation_peer(const wg_identity_t *id, wg_handshake_t *hs,
+                               const uint8_t msg[WG_MSG_INIT_LEN],
+                               wg_peer_lookup_t lookup, void *ctx,
+                               uint8_t initiator_static[WG_KEY_LEN],
+                               uint8_t timestamp[WG_TAI64N_LEN]);
 
 // Responder: build message 2 after a successful wg_consume_initiation, then
 // derive the transport keys. 0 or -1

@@ -57,6 +57,12 @@
 //   Every beat moves on its own handshake, so stalls on either side
 //   change only the timing.
 //
+//   An entry with an all-zero encrypt key has no session (never written,
+//   or removed by the firmware): its frames are dropped whole, nothing out
+//   and nothing into the core, but send_cnt still counts them, so the
+//   firmware sees the demand and starts a handshake. The zero test is
+//   registered in PEER_RSP (no_key) and acts on frame beat 0.
+//
 //   The peer table answers a synchronous read: peer_rsp is valid from the
 //   2nd clock after peer_req.idx.
 //
@@ -120,6 +126,7 @@ module dpe_wg_encryptor
 
   // the registers: r, and r_next, what they hold in the next clock
   typedef struct packed {
+    logic               no_key;           // [809]   the peer's encrypt key is all zero
     state_t             state;            // [808:806]
     feed_t              feed;             // [805:804]
     emit_t              emit;             // [803:801]
@@ -226,6 +233,7 @@ module dpe_wg_encryptor
   // FSM registers
   always_ff @(posedge inp.clk) begin
     if (inp.rst) begin
+      r.no_key          <= 1'b0;
       r.state           <= IDLE;
       r.feed            <= FEED_ETH;
       r.emit            <= EMIT_HDR_0;
@@ -312,6 +320,7 @@ module dpe_wg_encryptor
 
       PEER_RSP: begin
         r_next.peer_cfg = peer_rsp;
+        r_next.no_key   = ~|peer_rsp.key;
         r_next.feed     = FEED_ETH;
         r_next.emit     = EMIT_HDR_0;
         r_next.in_done  = 1'b0;
@@ -329,6 +338,14 @@ module dpe_wg_encryptor
               r_next.carry   = piped.tdata[DPE_DATA_W-1-:CARRY_W];
               r_next.in_done = piped.tlast;
               r_next.feed    = FEED_DATA;
+              if (r.no_key) begin
+                // no session: drop it, nothing out (emit waits for the length),
+                // but count it, so the firmware starts a handshake
+                r_next.emit            = EMIT_DONE;
+                r_next.feed            = piped.tlast ? FEED_DONE : FEED_DRAIN;
+                r_next.new_send_cnt    = r.peer_cfg.send_cnt + 1;
+                r_next.update_send_cnt = 1'b1;
+              end
             end
           end
 

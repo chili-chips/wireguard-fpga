@@ -49,23 +49,29 @@
 //
 //  along with always-on monitoring of Rx wire.
 //
-//  Use +define+UART_DEBUG for printout of debug messages.
+//  Run with +UART_BFM_DEBUG=1 for its debug messages (+UART_DEBUG=1: uart.sv's).
 //
-//  The bit time follows the UART's time base (soc_pkg::UART_TICK_CLKS):
-//  8.68us in hardware, shorter when the simulation build defines
-//  UART_SIM_TICK_CLKS.
+//  The bit time follows the UART's time base (TICK_CLKS, top UART_TICK_CLKS):
+//  8.68us in hardware, shorter when the bench sets a lower one.
 //==========================================================================
 
 module bfm_uart #(
    parameter bit SOP_TEST     = 1'b0,  // run sop_timeout() after the routes
-   parameter int TIMEOUT_LOG2 = 21     // the DUT's UART timeout (top UART_TIMEOUT_LOG2)
+   parameter int TIMEOUT_LOG2 = 21,    // the DUT's UART timeout (top UART_TIMEOUT_LOG2)
+   parameter int TICK_CLKS    = soc_pkg::NUM_1US_CLKS,  // the DUT's UART time base (top UART_TICK_CLKS)
+   parameter int BUS_STRESS_N = 0,     // #61: bus_stress() writes before the routes; 0 = off
+   parameter bit CLI_MAILBOX  = 1'b0   // the console for the user code (cli_mailbox), no routes
 ) (
    input  logic  uart_rx,
    output logic  uart_tx
 );
 
    // time for one bit in ns: 8.68us at the hardware's 1us tick
-   localparam real BITIME_NS = 8_680.0 * (soc_pkg::UART_TICK_CLKS + 1)
+   byte unsigned rx_q[$];  // received bytes, for the session tests' replies
+   int debug;  // +UART_BFM_DEBUG=1 on the simulator command line
+   initial if (!$value$plusargs("UART_BFM_DEBUG=%d", debug)) debug = 0;
+
+   localparam real BITIME_NS = 8_680.0 * (TICK_CLKS + 1)
                                        / (soc_pkg::NUM_1US_CLKS + 1);
 
 //--------------------------------------
@@ -89,9 +95,9 @@ module bfm_uart #(
 
 //- - - - - - - - - - - - - - - - - - -
    task send_cmd (input string cmd);
-   `ifdef UART_BFM_DEBUG
+   if (debug) begin
       $display("\n%t --START-- %m '$%s'\n", $time, cmd);
-   `endif
+   end
 
      // Send Start-of-Command character
       send_char (.char("$"));
@@ -105,17 +111,17 @@ module bfm_uart #(
       send_char (.char("\r"));
       send_char (.char("\n"));
 
-   `ifdef UART_BFM_DEBUG
+   if (debug) begin
       $display("\n%t -- END -- %m '$%s'\n", $time, cmd);
-   `endif
+   end
    endtask: send_cmd
 
 
 //- - - - - - - - - - - - - - - - - - -
    task send_string (input string text);
-   `ifdef UART_BFM_DEBUG
+   if (debug) begin
       $display("\n%t --START-- %m '%s'\n", $time, text);
-   `endif
+   end
 
       for (int i=0; i<text.len; i++) begin
          send_char (.char(text[i]));
@@ -124,9 +130,9 @@ module bfm_uart #(
      // Send 'C' End-of-String character
       send_char (.char(8'h0));
 
-   `ifdef UART_BFM_DEBUG
+   if (debug) begin
       $display("\n%t -- END -- %m '%s'\n", $time, text);
-   `endif
+   end
    endtask: send_string
 
 //- - - - - - - - - - - - - - - - - - -
@@ -171,7 +177,6 @@ module bfm_uart #(
       $display("%t UART: routing table set (3 routes)", $time);
    endtask: program_routes
 
-`ifdef UART_BUS_STRESS
 //- - - - - - - - - - - - - - - - - - -
 // #61: UART bus writes while the firmware runs (and stores); chk_uart_bus
 // checks the bus, this checks the data landed in DMEM
@@ -188,7 +193,7 @@ module bfm_uart #(
       logic [31:0] addr, data;
       int c0;
       // Start inside the firmware's store loop, whatever the UART speed
-      // (UART_SIM_TICK_CLKS): wait for the CPU's 64th store. Before any other
+      // (TICK_CLKS): wait for the CPU's 64th store. Before any other
       // UART bus write (the routes come after), so these are the ones that
       // meet the stores
       repeat (64) @(posedge tb.dut.u_fabric.cpu.clk
@@ -208,31 +213,43 @@ module bfm_uart #(
       $display("%t UART_BUS_STRESS: %0d bus writes, %0d data errors, %0d store collisions",
                $time, n, stress_errors, stress_collisions);
    endtask: bus_stress
-`endif
 
 //- - - - - - - - - - - - - - - - - - -
 // A stray SOP (0x12, a Ctrl-R on the console), then nothing: uart.sv must
 // end the session after its timeout (TIMEOUT_LOG2, set low for this test) and
 // give the CPU the bus back; while it holds the bus, the CSR block must see
 // no access (the address waits at the DMEM base: no read side effects)
+   localparam logic [7:0] C_TOUT = 8'h07;  // uart.sv: the timeout reply
+
    task automatic sop_timeout ();
-      int limit, waited, csr_hits;
-      limit    = 4 * (2 ** TIMEOUT_LOG2) * (soc_pkg::UART_TICK_CLKS + 1);
+      int limit, least, waited, csr_hits;
+      bit took, tout;
+      limit    = 4 * (2 ** TIMEOUT_LOG2) * (TICK_CLKS + 1);
+      least    = (2 ** TIMEOUT_LOG2) * (TICK_CLKS + 1) / 2;  // not before the timeout
       waited   = 0;
       csr_hits = 0;
+      took     = 1'b0;
+      rx_q.delete ();
       send_char (.char(8'h12));  // SOP, and no command
-      @(posedge tb.dut.u_fabric.cpu.clk iff tb.dut.u_fabric.uart_busy);
-      while (tb.dut.u_fabric.uart_busy && waited < limit) begin
+      // the UART takes the bus at SOP; give it a few bit times
+      for (int i=0; i<20 * (TICK_CLKS + 1) * 87 && !took; i++) begin
+         @(posedge tb.dut.u_fabric.cpu.clk);
+         took = tb.dut.u_fabric.uart_busy;
+      end
+      while (took && tb.dut.u_fabric.uart_busy && waited < limit) begin
          @(posedge tb.dut.u_fabric.cpu.clk);
          if (tb.dut.u_fabric.csr.vld) csr_hits++;
          waited++;
       end
-      if (!tb.dut.u_fabric.uart_busy && csr_hits == 0)
-         $display("%t UART_SOP_TEST: PASS (bus back after %0d clocks, no CSR access)",
+      #(12 * BITIME_NS * 1ns);  // the C_TOUT reply
+      tout = (rx_q.size() > 0) && (rx_q[rx_q.size()-1] == C_TOUT);
+      if (took && !tb.dut.u_fabric.uart_busy && waited >= least && tout && csr_hits == 0)
+         $display("%t UART_SOP_TEST: PASS (bus back after %0d clocks, C_TOUT, no CSR access)",
                   $time, waited);
       else
-         $display("%t UART_SOP_TEST: FAIL (bus %s after %0d clocks, %0d CSR accesses)",
-                  $time, tb.dut.u_fabric.uart_busy ? "still held" : "back", waited, csr_hits);
+         $display("%t UART_SOP_TEST: FAIL (took the bus: %0d, %s after %0d clocks (at least %0d), C_TOUT: %0d, %0d CSR accesses)",
+                  $time, took, tb.dut.u_fabric.uart_busy ? "still held" : "back", waited, least,
+                  tout, csr_hits);
    endtask: sop_timeout
 
 //- - - - - - - - - - - - - - - - - - -
@@ -243,12 +260,19 @@ module bfm_uart #(
 
    task automatic csr_read_once ();
       int csr_hits;
+      logic [31:0] rdat;   // what the CSR block answered
+      logic [7:0]  sum;    // the reply's checksum: address and data bytes
+      bit          reply;
       csr_hits = 0;
+      rdat     = 'X;
+      rx_q.delete ();
       fork
          begin : count
             forever begin
                @(posedge tb.dut.u_fabric.cpu.clk);
                if (tb.dut.u_fabric.uart_busy && tb.dut.u_fabric.csr.vld) csr_hits++;
+               if (tb.dut.u_fabric.uart_busy && tb.dut.u_fabric.csr.vld &&
+                   tb.dut.u_fabric.csr.rdy) rdat = tb.dut.u_fabric.csr.rdat;
             end
          end
          begin : read
@@ -261,12 +285,57 @@ module bfm_uart #(
          end
       join_any
       disable fork;
-      if (csr_hits == 1)
-         $display("%t UART_SOP_TEST: CSR read PASS (1 CSR access)", $time);
+      sum = '0;
+      for (int i=0; i<4; i++) sum += CSR_GPIO[i*8 +: 8] + rdat[i*8 +: 8];
+      reply = (rx_q.size() == 5) && !$isunknown(rdat) && (rx_q[4] == sum);
+      for (int i=0; i<4 && reply; i++) reply = (rx_q[i] == rdat[i*8 +: 8]);
+      if (csr_hits == 1 && reply)
+         $display("%t UART_SOP_TEST: CSR read PASS (1 CSR access, reply %h, checksum %h)",
+                  $time, rdat, sum);
       else
-         $display("%t UART_SOP_TEST: CSR read FAIL (%0d CSR accesses, want 1)", $time, csr_hits);
+         $display("%t UART_SOP_TEST: CSR read FAIL (%0d CSR accesses, want 1; %0d reply bytes, want 4 + checksum of %h)",
+                  $time, csr_hits, rx_q.size(), rdat);
    endtask: csr_read_once
 
+
+//- - - - - - - - - - - - - - - - - - -
+// The console for the VProc user code (CLI_MAILBOX; tb WG_E2E,
+// usercode/VUserMainWg.cpp), in the shared mem_model memory: the user code
+// writes a line's bytes after the length word at CLI_TX_ADDR, then the
+// length; this sends them and clears the length. What the firmware prints
+// goes to CLI_RX_ADDR: a byte count, then the bytes (a ring of CLI_RX_SIZE)
+   import "DPI-C" function void MemModelRead (input int address, output int data, input int be);
+   localparam int CLI_TX_ADDR = 32'h5001_0000;
+   localparam int CLI_RX_ADDR = 32'h5002_0000;
+   localparam int CLI_RX_SIZE = 65536;
+
+   task automatic cli_mailbox ();
+      int len, w;
+      forever begin
+         MemModelRead (CLI_TX_ADDR, len, 4'hF);
+         if (len > 0) begin
+            for (int i = 0; i < len; i++) begin
+               if (i % 4 == 0) MemModelRead (CLI_TX_ADDR + 4 + i, w, 4'hF);
+               send_char (.char(w[8*(i%4)+:8]));
+            end
+            MemModelWrite (CLI_TX_ADDR, 0, 4'hF);
+         end
+         else begin
+            #(BITIME_NS * 1ns);
+         end
+      end
+   endtask: cli_mailbox
+
+   int cli_rx_cnt = 0;
+   initial if (CLI_MAILBOX) MemModelWrite (CLI_RX_ADDR, 0, 4'hF);
+
+   task automatic cli_log (input byte char);
+      int a;
+      a = CLI_RX_ADDR + 4 + (cli_rx_cnt % CLI_RX_SIZE);
+      MemModelWrite (a & ~3, {24'b0, char} << (8 * (a % 4)), 1 << (a % 4));
+      cli_rx_cnt++;
+      MemModelWrite (CLI_RX_ADDR, cli_rx_cnt, 4'hF);
+   endtask: cli_log
 
 //--------------------------------------
 // Initial greeting
@@ -279,14 +348,14 @@ module bfm_uart #(
       uart_tx = 1'b1; // drive STOP bit
       #(BITIME_NS * 1ns);
 
+     if (CLI_MAILBOX) begin
+        MemModelWrite (ROUTES_DONE_ADDR, 1, 4'hF);
+        cli_mailbox ();  // the user code sets up the firmware itself
+     end
+
      //__for UART test
      send_string ("FPGA raja\r\n");
-`ifdef UART_BUS_STRESS
-`ifndef UART_BUS_STRESS_N
- `define UART_BUS_STRESS_N 16
-`endif
-     bus_stress (`UART_BUS_STRESS_N);  // #61 first: it needs no routes
-`endif
+     if (BUS_STRESS_N > 0) bus_stress (BUS_STRESS_N);  // #61 first: it needs no routes
      program_routes ();
      if (SOP_TEST) begin
         // after the routes: their last bus write left a CSR address (the routing
@@ -351,11 +420,13 @@ module bfm_uart #(
       end
 
      // ... and report transaction
-   `ifdef UART_BFM_DEBUG
+   if (debug) begin
       recv_byte_cnt++;
       $display("%t %m Char#%0d \t%0h (%s)", $time,
                recv_byte_cnt, recv_data, string'(recv_data));
-   `endif
+   end
+      rx_q.push_back (recv_data);  // for the session tests' replies
+      if (CLI_MAILBOX) cli_log (recv_data);
       // the console: one log line per received text line (CR dropped)
       if (recv_data == 8'h0A) begin
          $display("UART: %s", recv_line);
@@ -364,9 +435,9 @@ module bfm_uart #(
       else if (recv_data != 8'h0D) begin
          recv_line = {recv_line, string'(recv_data)};
       end
-   `ifdef UART_BFM_DEBUG
+   if (debug) begin
       recv_data = 'X;
-   `endif
+   end
    end: receiver
 
 endmodule: bfm_uart

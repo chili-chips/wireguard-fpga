@@ -37,7 +37,7 @@ TOP_DUMMY_F = output/top.DUMMY.filelist  # see its rule below
 # the make. A bench without one passes when its simulator ends without error.
 CHECK    = @! grep -q "RESULT: FAIL" output/sim.log
 
-.PHONY: all clean unpack compile sim wave wave-alt
+.PHONY: all clean unpack compile sim wave
 all: clean sim
 
 clean:
@@ -109,10 +109,6 @@ endif
 wave:
 	cd output; \
 	gtkwave --saveonexit --slider-zoom --logfile sim.log --dump wave.fst &
-
-wave-alt:
-	cd output; \
-	surfer.exe -s ../wave.surfer.ron wave.fst &
 
 # -----------------------------------------------------------------------------
 # Project:     WireGuard-FPGA

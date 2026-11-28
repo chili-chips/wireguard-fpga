@@ -3,19 +3,25 @@
 # SPDX-License-Identifier: BSD-3-Clause
 #
 # RTL lint gate: 3.build/hw_build.openXC7/run-lint.sh on top and the DPE block
-# tops (BLOCK_TOPS in sources.sh), chip and simulation
-# views with eduBOS5 (the default CPU), chip view with PicoRV32; phases tags,
-# verilator, yosys, reset (chip view only) and slang. The cdc phase needs
-# Vivado; the verible phase is gated in verible.yml. Job
-# pypeline-lint runs phases ghdl and ghdl-verilator on the Pypeline core.
-# Tools come from the OSS CAD Suite (Yosys with the yosys-slang plugin,
-# Verilator).
+# tops (BLOCK_TOPS in sources.sh), chip and simulation views with eduBOS5 (the
+# default CPU), chip view with PicoRV32; phases tags, verilator, yosys, reset,
+# ram and iob (chip view only) and slang. The cdc, check-timing and
+# methodology phases need Vivado; the verible phase is gated in verible.yml.
+# Job pypeline-lint runs phases ghdl and ghdl-verilator on the Pypeline core.
+# The tools match the project's own runs (3.build/README.md, Tool versions):
+# OSS CAD Suite 2026-11-26 for Yosys with the yosys-slang plugin and GHDL, and
+# Verilator built from master at VERILATOR_REV (cached), as its newer checks
+# are not in the suite yet.
 
 name: lint
 
 on:
   push:
   pull_request:
+
+env:
+  VERILATOR_REV: v5.054-420-g1b3f232f   # git describe; built from its hash
+  VERILATOR_SHA: 1b3f232f
 
 jobs:
   run-lint:
@@ -27,17 +33,42 @@ jobs:
         uses: YosysHQ/setup-oss-cad-suite@v4
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
+          version: '2026-11-26'
+
+      - name: Cache Verilator
+        id: verilator-cache
+        uses: actions/cache@v6
+        with:
+          path: ~/verilator
+          key: verilator-${{ runner.os }}-${{ env.VERILATOR_REV }}
+
+      - name: Build Verilator ${{ env.VERILATOR_REV }}
+        if: steps.verilator-cache.outputs.cache-hit != 'true'
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q autoconf flex bison help2man libfl-dev zlib1g-dev
+          git clone -q --filter=blob:none https://github.com/verilator/verilator.git "$RUNNER_TEMP/verilator-src"
+          cd "$RUNNER_TEMP/verilator-src"
+          git checkout -q "$VERILATOR_SHA"
+          autoconf
+          ./configure --prefix="$HOME/verilator"
+          make -j"$(nproc)"
+          make install
+
+      - name: Verilator first on PATH
+        run: echo "$HOME/verilator/bin" >> "$GITHUB_PATH"
 
       - name: Tool versions
         run: |
           yosys -V
           verilator --version
+          verilator --version | grep -q -- "$VERILATOR_REV"
 
       - name: run-lint (chip view)
         env:
           YOSYS_ARGS: -m slang
           LINT_WORK: ${{ runner.temp }}/lint/chip
-        run: bash 3.build/hw_build.openXC7/run-lint.sh tags verilator yosys reset slang
+        run: bash 3.build/hw_build.openXC7/run-lint.sh tags verilator yosys reset ram iob slang
 
       - name: run-lint (simulation view)
         if: always()
@@ -53,7 +84,7 @@ jobs:
           YOSYS_ARGS: -m slang
           LINT_WORK: ${{ runner.temp }}/lint/picorv32
           CPU: picorv32
-        run: bash 3.build/hw_build.openXC7/run-lint.sh tags verilator yosys reset slang
+        run: bash 3.build/hw_build.openXC7/run-lint.sh tags verilator yosys reset ram iob slang
 
       - name: Keep the lint reports
         if: always()
@@ -66,6 +97,10 @@ jobs:
   # --no_synth generates its VHDL without Vivado; run-lint.sh phases ghdl and
   # ghdl-verilator check it.
   pypeline-lint:
+    # after run-lint (pass or fail): on a cold cache, one job builds Verilator,
+    # this one restores it
+    needs: run-lint
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
@@ -74,6 +109,30 @@ jobs:
         uses: YosysHQ/setup-oss-cad-suite@v4
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
+          version: '2026-11-26'
+
+      - name: Cache Verilator
+        id: verilator-cache
+        uses: actions/cache@v6
+        with:
+          path: ~/verilator
+          key: verilator-${{ runner.os }}-${{ env.VERILATOR_REV }}
+
+      - name: Build Verilator ${{ env.VERILATOR_REV }}
+        if: steps.verilator-cache.outputs.cache-hit != 'true'
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q autoconf flex bison help2man libfl-dev zlib1g-dev
+          git clone -q --filter=blob:none https://github.com/verilator/verilator.git "$RUNNER_TEMP/verilator-src"
+          cd "$RUNNER_TEMP/verilator-src"
+          git checkout -q "$VERILATOR_SHA"
+          autoconf
+          ./configure --prefix="$HOME/verilator"
+          make -j"$(nproc)"
+          make install
+
+      - name: Verilator first on PATH
+        run: echo "$HOME/verilator/bin" >> "$GITHUB_PATH"
 
       - uses: actions/setup-python@v6
         id: py
@@ -97,6 +156,7 @@ jobs:
           ghdl --version | head -1
           yosys -V
           verilator --version
+          verilator --version | grep -q -- "$VERILATOR_REV"
 
       - name: run-lint (Pypeline VHDL)
         env:
